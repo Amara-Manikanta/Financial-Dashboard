@@ -119,8 +119,8 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                                     type="button"
                                     onClick={() => setType(t.id)}
                                     className={`flex items-center gap-2 p-3 rounded-xl border text-xs font-bold transition-all ${type === t.id
-                                            ? 'bg-blue-600/10 border-blue-500 text-blue-400'
-                                            : 'bg-white/5 border-white/5 text-gray-400 hover:border-white/10'
+                                        ? 'bg-blue-600/10 border-blue-500 text-blue-400'
+                                        : 'bg-white/5 border-white/5 text-gray-400 hover:border-white/10'
                                         }`}
                                 >
                                     {t.icon}
@@ -179,20 +179,30 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
 
                         {/* Type Specific Fields */}
                         {type === 'mutual_fund' && (
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="relative">
-                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Folio Number</label>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
                                     <div className="relative">
-                                        <input type="text" onChange={e => handleExtraChange('folioNo', e.target.value)} style={inputStyle} placeholder="12345/67" />
-                                        <FileText style={iconStyle} />
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Folio Number</label>
+                                        <div className="relative">
+                                            <input type="text" onChange={e => handleExtraChange('folioNo', e.target.value)} style={inputStyle} placeholder="12345/67" />
+                                            <FileText style={iconStyle} />
+                                        </div>
+                                    </div>
+                                    <div className="relative">
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">AMC</label>
+                                        <div className="relative">
+                                            <input type="text" onChange={e => handleExtraChange('amc', e.target.value)} style={inputStyle} placeholder="SBI, HDFC, Mirae" />
+                                            <Landmark style={iconStyle} />
+                                        </div>
                                     </div>
                                 </div>
                                 <div className="relative">
-                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">AMC</label>
+                                    <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Scheme Code (mfapi.in)</label>
                                     <div className="relative">
-                                        <input type="text" onChange={e => handleExtraChange('amc', e.target.value)} style={inputStyle} placeholder="SBI, HDFC, Mirae" />
-                                        <Landmark style={iconStyle} />
+                                        <input type="text" onChange={e => handleExtraChange('schemeCode', e.target.value)} style={inputStyle} placeholder="e.g. 120503" />
+                                        <TrendingUp style={iconStyle} />
                                     </div>
+                                    <p className="text-[9px] text-gray-500 mt-1">Found on mfapi.in (e.g., 120503 for Axis Bluechip)</p>
                                 </div>
                             </div>
                         )}

@@ -52,7 +52,7 @@ const SavingsAccountDetails = () => {
 
             daysTransactions.forEach(tx => {
                 const amount = Number(tx.amount);
-                if (tx.type === 'deposit') runningBalance += amount;
+                if (tx.type === 'deposit' || tx.type === 'monnies_redeemed') runningBalance += amount;
                 else if (tx.type === 'withdraw') runningBalance -= amount;
             });
 
@@ -92,7 +92,7 @@ const SavingsAccountDetails = () => {
             let finalAmount = 0;
             finalTransactions.forEach(t => {
                 const val = Number(t.amount) || 0;
-                if (t.type === 'deposit' || t.type === 'interest') finalAmount += val;
+                if (t.type === 'deposit' || t.type === 'interest' || t.type === 'monnies_redeemed') finalAmount += val;
                 else if (t.type === 'withdraw') finalAmount -= val;
             });
 
@@ -198,7 +198,7 @@ const SavingsAccountDetails = () => {
             let newAmount = 0;
             updatedTransactions.forEach(t => {
                 const val = Number(t.amount) || 0;
-                if (t.type === 'deposit' || t.type === 'interest') newAmount += val;
+                if (t.type === 'deposit' || t.type === 'interest' || t.type === 'monnies_redeemed') newAmount += val;
                 else if (t.type === 'withdraw') newAmount -= val;
             });
 
@@ -222,7 +222,7 @@ const SavingsAccountDetails = () => {
             let newAmount = 0;
             updatedTransactions.forEach(t => {
                 const val = Number(t.amount) || 0;
-                if (t.type === 'deposit' || t.type === 'interest') newAmount += val;
+                if (t.type === 'deposit' || t.type === 'interest' || t.type === 'monnies_redeemed') newAmount += val;
                 else if (t.type === 'withdraw') newAmount -= val;
             });
             updateItem('savings', {
@@ -241,12 +241,14 @@ const SavingsAccountDetails = () => {
     let totalDeposits = 0;
     let totalInterest = 0;
     let totalWithdrawals = 0;
+    let totalMonnies = 0;
 
     sortedTransactions.forEach(t => {
         const amt = Number(t.amount);
         if (t.type === 'deposit') totalDeposits += amt;
         else if (t.type === 'interest') totalInterest += amt;
         else if (t.type === 'withdraw') totalWithdrawals += amt;
+        else if (t.type === 'monnies_redeemed') totalMonnies += amt;
     });
 
     return (
@@ -300,30 +302,36 @@ const SavingsAccountDetails = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-                <div className="card bg-gradient-to-br from-blue-600/20 via-blue-600/5 to-transparent border-white/10 p-8 relative overflow-hidden group">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+                <div className="card bg-gradient-to-br from-blue-600/20 via-blue-600/5 to-transparent border-white/10 p-5 relative overflow-hidden group">
                     <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                        <TrendingUp size={120} />
+                        <TrendingUp size={100} />
                     </div>
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-3">Available Balance</p>
-                    <p className="text-4xl font-black text-white tracking-tighter">{formatCurrency(account.amount)}</p>
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Available Balance</p>
+                    <p className="text-3xl font-black text-white tracking-tighter">{formatCurrency(account.amount)}</p>
                 </div>
-                <div className="card bg-white/[0.02] border-white/5 p-8">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-3">Principal Deposits</p>
-                    <p className="text-2xl font-black text-gray-200">{formatCurrency(totalDeposits)}</p>
+                <div className="card bg-white/[0.02] border-white/5 p-5">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Principal Deposits</p>
+                    <p className="text-xl font-black text-gray-200">{formatCurrency(totalDeposits)}</p>
                 </div>
-                <div className="card bg-gradient-to-br from-emerald-500/10 to-transparent border-white/5 p-8">
-                    <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mb-3">Accrued Interest</p>
+                <div className="card bg-gradient-to-br from-purple-500/10 to-transparent border-white/5 p-5">
+                    <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest mb-1">Monnies Redeemed</p>
                     <div className="flex items-center gap-3">
-                        <p className="text-3xl font-black text-emerald-400 tracking-tight">{formatCurrency(totalInterest)}</p>
-                        <div className="p-1.5 bg-emerald-500/10 rounded-lg">
-                            <TrendingUp size={16} className="text-emerald-500" />
+                        <p className="text-xl font-black text-purple-400 tracking-tight">{formatCurrency(totalMonnies)}</p>
+                    </div>
+                </div>
+                <div className="card bg-gradient-to-br from-emerald-500/10 to-transparent border-white/5 p-5">
+                    <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Accrued Interest</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-2xl font-black text-emerald-400 tracking-tight">{formatCurrency(totalInterest)}</p>
+                        <div className="p-1 bg-emerald-500/10 rounded-lg">
+                            <TrendingUp size={14} className="text-emerald-500" />
                         </div>
                     </div>
                 </div>
-                <div className="card bg-white/[0.02] border-white/5 p-8">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-3">Total Withdrawals</p>
-                    <p className="text-2xl font-black text-red-400/80">{formatCurrency(totalWithdrawals)}</p>
+                <div className="card bg-white/[0.02] border-white/5 p-5">
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Total Withdrawals</p>
+                    <p className="text-xl font-black text-red-400/80">{formatCurrency(totalWithdrawals)}</p>
                 </div>
             </div>
 
@@ -392,10 +400,11 @@ const SavingsAccountDetails = () => {
                                     <td className="py-7 px-10 text-sm font-bold text-gray-400">{formatDate(tx.date)}</td>
                                     <td className="py-7 px-6">
                                         <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-[0.1em] border ${tx.type === 'deposit' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                                tx.type === 'withdraw' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                            tx.type === 'withdraw' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                tx.type === 'monnies_redeemed' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
                                                     'bg-blue-500/10 text-blue-400 border-blue-500/20'
                                             }`}>
-                                            {tx.type}
+                                            {tx.type === 'monnies_redeemed' ? 'Monnies' : tx.type}
                                         </span>
                                     </td>
                                     <td className="py-7 px-6 text-right font-black tracking-tighter text-base">

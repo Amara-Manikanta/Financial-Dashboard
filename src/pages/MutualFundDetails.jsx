@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import MutualFundTransactionModal from '../components/MutualFundTransactionModal';
 import MutualFundEditModal from '../components/MutualFundEditModal';
@@ -9,13 +9,15 @@ import MutualFundEditModal from '../components/MutualFundEditModal';
 const MutualFundDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { savings, formatCurrency, updateItem } = useFinance();
+    const { savings, formatCurrency, updateItem, refreshMutualFundNAV, calculateItemCurrentValue, calculateItemInvestedValue } = useFinance();
 
     // State for modals
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
 
     const [isFundEditModalOpen, setIsFundEditModalOpen] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [refreshMessage, setRefreshMessage] = useState({ type: '', text: '' });
 
     const fund = savings.find(s => s.id.toString() === id);
 
@@ -32,6 +34,20 @@ const MutualFundDetails = () => {
             </div>
         );
     }
+
+    const handleRefreshNav = async () => {
+        setIsRefreshing(true);
+        setRefreshMessage({ type: '', text: '' });
+        const result = await refreshMutualFundNAV(id);
+        setIsRefreshing(false);
+        if (result.success) {
+            setRefreshMessage({ type: 'success', text: `NAV updated to ${result.nav}!` });
+            setTimeout(() => setRefreshMessage({ type: '', text: '' }), 3000);
+        } else {
+            setRefreshMessage({ type: 'error', text: result.message || 'Failed to refresh NAV' });
+            setTimeout(() => setRefreshMessage({ type: '', text: '' }), 5000);
+        }
+    };
 
     const currentNav = fund.currentNav || 0;
 
@@ -69,45 +85,28 @@ const MutualFundDetails = () => {
 
     const handleDeleteTransaction = (txId) => {
         if (window.confirm('Delete this transaction?')) {
-            const updatedTransactions = fund.transactions.filter(t => t.id !== txId);
-
-            // Recalculate Total Amount
-            let totalUnits = 0;
-            updatedTransactions.forEach(t => {
-                const type = t.type || (t.remarks && t.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
-                if (type === 'buy' || type === 'sip') totalUnits += Number(t.units);
-                if (type === 'sell' || type === 'withdraw') totalUnits -= Number(t.units);
-            });
-            if (totalUnits < 0.0001) totalUnits = 0;
-            const newAmount = totalUnits * (fund.currentNav || 0);
-
-            updateItem('savings', { ...fund, transactions: updatedTransactions, amount: newAmount });
+            const updatedTransactions = fund.transactions.filter(t => t.id != txId);
+            const updatedFund = { ...fund, transactions: updatedTransactions };
+            updatedFund.amount = calculateItemCurrentValue(updatedFund);
+            updateItem('savings', updatedFund);
         }
     };
 
     const handleEditFundDetails = (updatedFund) => {
-        updateItem('savings', updatedFund);
+        const finalFund = { ...updatedFund };
+        finalFund.amount = calculateItemCurrentValue(finalFund);
+        updateItem('savings', finalFund);
         setIsFundEditModalOpen(false);
     };
 
-    // --- Calculation Logic (Unit-based Accounting) ---
-    /*
-        Rules:
-        1. Track total_units_held, total_cost_held, realised_profit
-        2. BUY: total_units_held += units, total_cost_held += amount
-        3. SELL: 
-            avg_cost = total_cost_held / total_units_held
-            cost_of_sold = units_sold * avg_cost
-            realised_profit += sell_amount - cost_of_sold
-            total_units_held -= units_sold
-            total_cost_held -= cost_of_sold
-        4. Unrealised = (current_nav * total_units_held) - total_cost_held
-        5. Total Profit = realised_profit + unrealised_profit
-    */
+    // --- Unit-based Accounting (Centralized Logic) ---
+    const currentTotalValue = calculateItemCurrentValue(fund);
+    const total_cost_held = calculateItemInvestedValue(fund);
+    const total_profit = currentTotalValue - total_cost_held;
 
-    let total_units_held = 0;
-    let total_cost_held = 0;
-    let total_realised_profit = 0;
+    // We still calculate transactionsWithCalcs for the table breakdown
+    let runningUnits = 0;
+    let runningCost = 0;
     let transactionsWithCalcs = [];
 
     if (fund.transactions) {
@@ -119,56 +118,42 @@ const MutualFundDetails = () => {
             const txUnits = Number(tx.units);
 
             if (isSell) {
-                // Rule 3: SELL logic
-                const average_cost_per_unit = total_units_held > 0 ? total_cost_held / total_units_held : 0;
+                const average_cost_per_unit = runningUnits > 0 ? runningCost / runningUnits : 0;
                 const cost_of_units_sold = txUnits * average_cost_per_unit;
-
                 const realized_for_tx = txAmount - cost_of_units_sold;
-                total_realised_profit += realized_for_tx;
 
-                total_units_held -= txUnits;
-                total_cost_held -= cost_of_units_sold;
+                runningUnits -= txUnits;
+                runningCost -= cost_of_units_sold;
 
                 return {
                     ...tx,
                     isSell: true,
-                    displayAmount: txAmount, // Value received
+                    displayAmount: txAmount,
                     displayUnits: -txUnits,
                     displayValue: txAmount,
                     displayPL: realized_for_tx,
                 };
             } else {
-                // Rule 2: BUY logic
-                total_units_held += txUnits;
-                total_cost_held += txAmount;
-
-                // For table display purposes only (Snapshot at that time if held)
+                runningUnits += txUnits;
+                runningCost += txAmount;
                 const currentVal = txUnits * currentNav;
-                const unrealized_for_start = currentVal - txAmount;
-
                 return {
                     ...tx,
                     isSell: false,
-                    displayAmount: txAmount, // Invested
+                    displayAmount: txAmount,
                     displayUnits: txUnits,
                     displayValue: currentVal,
-                    displayPL: unrealized_for_start,
+                    displayPL: currentVal - txAmount,
                 };
             }
         });
     }
 
-    // Prevent negative zeros
-    if (total_units_held < 0.0001) total_units_held = 0;
-    if (total_cost_held < 0.0001) total_cost_held = 0;
-
-    // Rule 4: Unrealised Profit
-    const currentTotalValue = total_units_held * currentNav;
-    const total_unrealised_profit = currentTotalValue - total_cost_held;
-
-    // Rule 5: Total Profit
-    const total_profit = total_realised_profit + total_unrealised_profit;
-    const avgNav = total_units_held > 0 ? (total_cost_held / total_units_held) : 0;
+    const total_units_held = runningUnits;
+    const avgNav = total_units_held > 0 ? (runningCost / total_units_held) : 0;
+    // For Realized/Unrealized splits:
+    const total_realised_profit = transactionsWithCalcs.filter(tx => tx.isSell).reduce((sum, tx) => sum + tx.displayPL, 0);
+    const total_unrealised_profit = total_profit - total_realised_profit;
 
     const isTotalProfit = total_profit >= 0;
 
@@ -195,14 +180,47 @@ const MutualFundDetails = () => {
                         </button>
                     </h2>
 
-                    <button
-                        onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/40"
-                    >
-                        <Plus size={20} />
-                        Add Transaction
-                    </button>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={handleRefreshNav}
+                            disabled={isRefreshing}
+                            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 ${isRefreshing ? 'bg-gray-700 cursor-not-allowed text-gray-400' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20'}`}
+                        >
+                            <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
+                            <span>{isRefreshing ? 'Refreshing...' : 'Refresh NAV'}</span>
+                        </button>
+
+                        <button
+                            onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
+                            className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/40"
+                        >
+                            <Plus size={20} />
+                            Add Transaction
+                        </button>
+                    </div>
                 </div>
+
+                {refreshMessage.text && (
+                    <div style={{
+                        position: 'fixed',
+                        top: '80px',
+                        right: '2rem',
+                        padding: '1rem 1.5rem',
+                        borderRadius: '12px',
+                        backgroundColor: refreshMessage.type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.75rem',
+                        zIndex: 100,
+                        backdropFilter: 'blur(8px)',
+                        boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+                        animation: 'slideIn 0.3s ease-out'
+                    }}>
+                        {refreshMessage.type === 'success' ? <TrendingUp size={20} /> : <X size={20} onClick={() => setRefreshMessage({ type: '', text: '' })} style={{ cursor: 'pointer' }} />}
+                        <span className="font-medium">{refreshMessage.text}</span>
+                    </div>
+                )}
 
                 <div style={{
                     display: 'grid',
@@ -261,7 +279,7 @@ const MutualFundDetails = () => {
                         <div className="flex justify-between items-start">
                             <div>
                                 <p className="text-secondary text-sm mb-1">Current NAV</p>
-                                <p className="font-mono font-bold text-lg">{currentNav.toFixed(2)}</p>
+                                <p className="font-mono font-bold text-lg">{currentNav.toFixed(4)}</p>
                             </div>
                             <Edit2 size={16} className="text-gray-500 group-hover:text-blue-400" />
                         </div>

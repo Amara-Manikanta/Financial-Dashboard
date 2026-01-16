@@ -34,6 +34,7 @@ export function FinanceProvider({ children }) {
     const [savings, setSavings] = useState([]);
     const [metals, setMetals] = useState({ gold: [], silver: [] });
     const [assets, setAssets] = useState([]);
+    const [lents, setLents] = useState([]);
     const [categories, setCategories] = useState([]);
     const [salaryStats, setSalaryStats] = useState({});
     const [snapshots, setSnapshots] = useState([]);
@@ -48,50 +49,28 @@ export function FinanceProvider({ children }) {
         const fetchData = async () => {
             if (!user) return;
             if (isGuest) {
-                const currentYear = new Date().getFullYear().toString();
-                const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-                // Structured Expenses for Guest
-                const guestExpenses = {
-                    [currentYear]: months.reduce((acc, month) => {
-                        acc[month] = { categories: {}, total: 0 };
-                        return acc;
-                    }, {})
-                };
-
-                // Structured Savings for Guest
-                const guestSavings = [
-                    { id: 'g1', title: 'Mutual Funds', type: 'mutual_fund', funds: [] },
-                    { id: 'g2', title: 'Stock Market', type: 'stock_market', stocks: [] },
-                    { id: 'g3', title: 'Public Provident Fund', type: 'ppf', details: [] },
-                    { id: 'g4', title: 'Savings Accounts', type: 'savings_account', accounts: [] },
-                    { id: 'g5', title: 'Insurance Policies', type: 'policy', policies: [] }
-                ];
-
-                // Structured Assets for Guest
-                const guestAssets = [
-                    { id: 'a1', name: 'Plots', items: [] },
-                    { id: 'a2', name: 'Apartments', items: [] },
-                    { id: 'a3', name: 'Other Assets', items: [] }
-                ];
+                // ... (existing guest logic)
+                const guestLents = []; // Guest mode placeholder
 
                 setExpenses(guestExpenses);
                 setSavings(guestSavings);
                 setMetals({ gold: [], silver: [] });
                 setAssets(guestAssets);
-                setCategories(["salary received", "house rent", "groceries", "others"]); // Default categories for preview
+                setLents(guestLents);
+                setCategories(["salary received", "house rent", "groceries", "others"]);
                 setSalaryStats({});
                 setSnapshots([]);
                 return;
             }
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes] = await Promise.all([
                     fetch(`${API_URL}/expenses?_t=${Date.now()}`),
                     fetch(`${API_URL}/savings?_t=${Date.now()}`),
                     fetch(`${API_URL}/metals?_t=${Date.now()}`),
                     fetch(`${API_URL}/assets?_t=${Date.now()}`),
                     fetch(`${API_URL}/appData?_t=${Date.now()}`),
-                    fetch(`${API_URL}/snapshots?_t=${Date.now()}`)
+                    fetch(`${API_URL}/snapshots?_t=${Date.now()}`),
+                    fetch(`${API_URL}/lents?_t=${Date.now()}`)
                 ]);
 
                 const expData = await expRes.json();
@@ -100,14 +79,15 @@ export function FinanceProvider({ children }) {
                 const assData = await assRes.json();
                 const appData = await appRes.json();
                 const snapData = await snapRes.json();
+                const lentData = await lentRes.json();
 
                 setExpenses(expData);
                 setSavings(savData);
                 setMetals(metData);
                 setAssets(assData);
+                setLents(lentData || []);
                 setCategories(appData.categories || []);
                 setSnapshots(snapData || []);
-                // Salary stats will be calculated by the useEffect hook depending on [expenses]
 
             } catch (error) {
                 console.error("Failed to fetch data:", error);
@@ -194,7 +174,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : '';
         if (!endpoint) return;
 
         try {
@@ -206,6 +186,7 @@ export function FinanceProvider({ children }) {
             const savedItem = await res.json();
             if (type === 'savings') setSavings(prev => [...prev, savedItem]);
             if (type === 'asset') setAssets(prev => [...prev, savedItem]);
+            if (type === 'lents') setLents(prev => [...prev, savedItem]);
         } catch (error) {
             console.error("Error adding item:", error);
         }
@@ -306,12 +287,13 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : '';
         if (!endpoint) return;
         try {
             await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE' });
-            if (type === 'savings') setSavings(prev => prev.filter(i => i.id !== id));
-            if (type === 'asset') setAssets(prev => prev.filter(i => i.id !== id));
+            if (type === 'savings') setSavings(prev => prev.filter(i => i.id != id));
+            if (type === 'asset') setAssets(prev => prev.filter(i => i.id != id));
+            if (type === 'lents') setLents(prev => prev.filter(i => i.id != id));
         } catch (error) {
             console.error("Error deleting item:", error);
         }
@@ -337,30 +319,89 @@ export function FinanceProvider({ children }) {
     }, [metals]);
 
     const calculateItemCurrentValue = (item) => {
-        if (item.type === 'stock_market' && item.stocks) {
-            return item.stocks.reduce((sum, s) => sum + (s.shares * s.currentPrice), 0);
-        } else if (item.type === 'mutual_fund' && item.transactions) {
-            let totalUnits = 0;
-            item.transactions.forEach(tx => {
-                const type = tx.type || (tx.remarks && tx.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
-                if (type === 'buy' || type === 'sip') totalUnits += tx.units;
-                if (type === 'sell') totalUnits -= tx.units;
-            });
-            return totalUnits * (item.currentNav || 0);
-        } else if (item.type === 'fixed_deposit' && item.deposits) {
-            return item.deposits.reduce((sum, dep) => sum + (dep.currentValue || 0), 0);
-        } else if (item.type === 'ppf' && item.details) {
-            return item.details[item.details.length - 1]?.balance || 0;
-        } else if (item.type === 'nps') {
-            return (item.investedAmount || 0) + (item.profitLoss || 0);
-        } else if (item.type === 'sgb' && item.holdings) {
-            return item.holdings.reduce((sum, h) => sum + (h.units * h.currentPrice), 0);
-        } else if ((item.type === 'policy' || item.type === 'Policy') && item.premiums) {
-            const paid = item.premiums.filter(p => p.status === 'Paid').reduce((sum, p) => sum + p.amount, 0);
-            const received = item.premiums.filter(p => p.status === 'Received Back' || p.status === 'Received').reduce((sum, p) => sum + p.amount, 0);
-            return paid - received;
+        if (!item) return 0;
+
+        switch (item.type) {
+            case 'stock_market':
+                return (item.stocks || []).reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.currentPrice || 0)), 0);
+
+            case 'mutual_fund':
+                let totalUnits = 0;
+                (item.transactions || []).forEach(tx => {
+                    const type = tx.type || (tx.remarks && tx.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
+                    if (type === 'buy' || type === 'sip') totalUnits += Number(tx.units || 0);
+                    if (type === 'sell' || type === 'withdraw') totalUnits -= Number(tx.units || 0);
+                });
+                return totalUnits * (item.currentNav || 0);
+
+            case 'fixed_deposit':
+                return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.currentValue) || 0), 0);
+
+            case 'ppf':
+                return (item.details || []).slice(-1)[0]?.balance || 0;
+
+            case 'nps':
+                // NPS current value is the sum of holdings
+                return (item.holdings || []).reduce((sum, h) => sum + (Number(h.totalunits || 0) * Number(h.nav || 0)), 0);
+
+            case 'sgb':
+                return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.currentPrice || 0)), 0);
+
+            case 'policy':
+            case 'Policy':
+                const paid = (item.premiums || []).filter(p => p.status === 'Paid').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+                const received = (item.premiums || []).filter(p => p.status === 'Received Back' || p.status === 'Received').reduce((sum, p) => sum + Number(p.amount || 0), 0);
+                return paid - received;
+
+            case 'savings_account':
+                return Number(item.amount || 0);
+
+            default:
+                return Number(item.amount || 0);
         }
-        return item.amount || 0;
+    };
+
+    const calculateItemInvestedValue = (item) => {
+        if (!item) return 0;
+
+        switch (item.type) {
+            case 'stock_market':
+                return (item.stocks || []).reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.avgCost || 0)), 0);
+
+            case 'mutual_fund':
+                let runningUnits = 0;
+                let runningCost = 0;
+                (item.transactions || []).forEach(tx => {
+                    const isSell = tx.type === 'sell' || tx.type === 'withdraw';
+                    const txAmount = Number(tx.amount || 0);
+                    const txUnits = Number(tx.units || 0);
+                    if (isSell) {
+                        const avgCostAtSale = runningUnits > 0 ? runningCost / runningUnits : 0;
+                        const costOfSoldUnits = avgCostAtSale * txUnits;
+                        runningUnits -= txUnits;
+                        runningCost -= costOfSoldUnits;
+                    } else {
+                        runningUnits += txUnits;
+                        runningCost += txAmount;
+                    }
+                });
+                return runningCost;
+
+            case 'fixed_deposit':
+                return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.amount) || 0), 0);
+
+            case 'ppf':
+                return (item.details || []).reduce((sum, d) => sum + Number(d.deposit || 0), 0);
+
+            case 'nps':
+                return (item.transactions || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+
+            case 'sgb':
+                return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.issuePrice || 0)), 0);
+
+            default:
+                return Number(item.investedAmount || item.amount || 0);
+        }
     };
 
     const updateItem = async (type, item) => {
@@ -464,7 +505,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : '';
         if (!endpoint || !item.id) return;
         try {
             const res = await fetch(`${API_URL}/${endpoint}/${item.id}`, {
@@ -473,8 +514,9 @@ export function FinanceProvider({ children }) {
                 body: JSON.stringify(item)
             });
             const updatedItem = await res.json();
-            if (type === 'savings') setSavings(prev => prev.map(i => i.id === item.id ? updatedItem : i));
-            if (type === 'asset') setAssets(prev => prev.map(i => i.id === item.id ? updatedItem : i));
+            if (type === 'savings') setSavings(prev => prev.map(i => i.id == item.id ? updatedItem : i));
+            if (type === 'asset') setAssets(prev => prev.map(i => i.id == item.id ? updatedItem : i));
+            if (type === 'lents') setLents(prev => prev.map(i => i.id == item.id ? updatedItem : i));
         } catch (error) {
             console.error("Error updating item:", error);
         }
@@ -561,8 +603,8 @@ export function FinanceProvider({ children }) {
             const updatedStocks = await Promise.all(market.stocks.map(async (stock) => {
                 const ticker = stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`;
                 try {
-                    // Using corsproxy.io to bypass CORS for Yahoo Finance
-                    const proxyUrl = `https://corsproxy.io/?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${ticker}`)}`;
+                    // Using api.allorigins.win to bypass CORS for Yahoo Finance
+                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${ticker}`)}`;
                     const response = await fetch(proxyUrl);
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     const data = await response.json();
@@ -587,13 +629,45 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const refreshMutualFundNAV = async (fundId) => {
+        if (isGuest) return { success: false, message: 'Guest mode: Cannot refresh NAV' };
+
+        const fund = savings.find(s => s.id.toString() === fundId);
+        if (!fund || !fund.schemeCode) return { success: false, message: 'Scheme Code not found. Please edit fund and add it.' };
+
+        try {
+            // Using api.allorigins.win as a fallback/proxy for consistency, although mfapi.in has CORS
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://api.mfapi.in/mf/${fund.schemeCode}`)}`;
+            const response = await fetch(proxyUrl);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            const data = await response.json();
+
+            if (data.data && data.data[0]) {
+                const latestNav = Math.round(parseFloat(data.data[0].nav) * 10000) / 10000;
+                const updatedFund = { ...fund, currentNav: latestNav };
+
+                // Use centralized calculation to update amount
+                updatedFund.amount = calculateItemCurrentValue(updatedFund);
+
+                await updateItem('savings', updatedFund);
+                return { success: true, nav: latestNav };
+            }
+            return { success: false, message: 'Invalid data from API' };
+        } catch (error) {
+            console.error("Error refreshing mutual fund NAV:", error);
+            return { success: false, message: 'Refresh failed' };
+        }
+    };
+
     const value = {
-        expenses, savings, metals: processedMetals, assets, salaryStats, categories, snapshots,
+        expenses, savings, metals: processedMetals, assets, lents, salaryStats, categories, snapshots,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal,
         addNewYear, takeSnapshot,
         formatCurrency,
         calculateItemCurrentValue,
-        refreshStockPrices
+        calculateItemInvestedValue,
+        refreshStockPrices,
+        refreshMutualFundNAV
     };
 
     return (

@@ -28,6 +28,8 @@ import EmergencyFundDetails from './pages/EmergencyFundDetails';
 import SavingsAccountDetails from './pages/SavingsAccountDetails';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
+import Lents from './pages/Lents';
+import LentDetails from './pages/LentDetails';
 
 const ProtectedRoute = () => {
     const { user } = useAuth();
@@ -64,6 +66,8 @@ function App() {
                                 <Route path="assets" element={<Assets />} />
                                 <Route path="assets/:id" element={<AssetCategoryDetails />} />
                                 <Route path="assets/:categoryId/:itemId" element={<AssetItemDetails />} />
+                                <Route path="lents" element={<Lents />} />
+                                <Route path="lents/:id" element={<LentDetails />} />
                                 <Route path="profile" element={<Profile />} />
                             </Route>
                         </Route>

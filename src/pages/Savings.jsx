@@ -5,7 +5,7 @@ import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText } 
 import SavingsItemModal from '../components/SavingsItemModal';
 
 const Savings = () => {
-    const { savings, formatCurrency, calculateItemCurrentValue, addItem } = useFinance();
+    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem } = useFinance();
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -124,49 +124,9 @@ const Savings = () => {
                                     {/* Profit/Loss Display */}
                                     {(isStockMarket || isMutualFund || isFixedDeposit || isPPF || isNPS || isSGB || isSavingsAccount) && (
                                         (() => {
-                                            let invested = 0;
-                                            let current = 0;
-                                            let totalInterest = 0;
-
-                                            if (isStockMarket && item.stocks) {
-                                                invested = item.stocks.reduce((sum, s) => sum + (s.shares * s.avgCost), 0);
-                                                current = item.stocks.reduce((sum, s) => sum + (s.shares * s.currentPrice), 0);
-                                            } else if (isMutualFund && item.transactions) {
-                                                let runningUnits = 0;
-                                                let runningCost = 0;
-                                                item.transactions.forEach(tx => {
-                                                    const isSell = tx.type === 'sell' || tx.type === 'withdraw';
-                                                    const txAmount = Number(tx.amount) || 0;
-                                                    const txUnits = Number(tx.units) || 0;
-                                                    if (isSell) {
-                                                        const avgCostAtSale = runningUnits > 0 ? runningCost / runningUnits : 0;
-                                                        const costOfSoldUnits = avgCostAtSale * txUnits;
-                                                        runningUnits -= txUnits;
-                                                        runningCost -= costOfSoldUnits;
-                                                    } else {
-                                                        runningUnits += txUnits;
-                                                        runningCost += txAmount;
-                                                    }
-                                                });
-                                                invested = runningCost;
-                                                current = runningUnits * (item.currentNav || 0);
-                                            } else if (isFixedDeposit && item.deposits) {
-                                                totalInterest = item.deposits.reduce((sum, dep) => sum + (dep.interestEarned || 0), 0);
-                                            } else if (isPPF && item.details) {
-                                                totalInterest = item.details.reduce((sum, det) => sum + (det.interestEarned || 0), 0);
-                                            } else if (isNPS) {
-                                                invested = item.investedAmount || 0;
-                                                current = (item.amount || 0);
-                                            } else if (isSGB && item.holdings) {
-                                                invested = item.holdings.reduce((sum, h) => sum + (h.units * h.issuePrice), 0);
-                                                current = item.holdings.reduce((sum, h) => sum + (h.units * h.currentPrice), 0);
-                                            } else if (isSavingsAccount && item.transactions) {
-                                                totalInterest = item.transactions
-                                                    .filter(t => t.type === 'interest')
-                                                    .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-                                            }
-
                                             if (isFixedDeposit || isPPF || isSavingsAccount) {
+                                                const invested = calculateItemInvestedValue(item);
+                                                const totalInterest = displayAmount - invested;
                                                 return (
                                                     <div className="flex items-center gap-2 mt-4 text-[10px] font-black uppercase tracking-widest text-emerald-400">
                                                         <TrendingUp size={14} />
@@ -175,7 +135,8 @@ const Savings = () => {
                                                 );
                                             }
 
-                                            const pl = current - invested;
+                                            const invested = calculateItemInvestedValue(item);
+                                            const pl = displayAmount - invested;
                                             const isProfit = pl >= 0;
                                             const plPercent = invested > 0 ? (pl / invested) * 100 : 0;
 

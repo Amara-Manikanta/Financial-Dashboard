@@ -169,6 +169,7 @@ const FixedDepositDetails = () => {
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Interest (Total)</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Accrued Value</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Maturity Value</th>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Remarks</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
                         </tr>
                     </thead>
@@ -203,6 +204,7 @@ const FixedDepositDetails = () => {
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)' }}>{formatCurrency(deposit.interestEarned)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.currentValue)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatCurrency(deposit.maturityAmount)}</td>
+                                        <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={deposit.remarks}>{deposit.remarks || '—'}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
                                             <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 {isMatured && (
@@ -235,7 +237,7 @@ const FixedDepositDetails = () => {
                             })}
                         {!fund.deposits?.length && (
                             <tr>
-                                <td colSpan="10" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                <td colSpan="11" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                     No fixed deposits found.
                                 </td>
                             </tr>

@@ -126,9 +126,10 @@ const NPSDetails = () => {
         return [...(nps.transactions || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
     }, [nps.transactions]);
 
-    const totalInvested = nps.investedAmount || 0;
-    const totalProfitLoss = nps.profitLoss || 0;
-    const totalCurrent = nps.amount || 0;
+    const { calculateItemCurrentValue, calculateItemInvestedValue } = useFinance();
+    const totalCurrent = calculateItemCurrentValue(nps);
+    const totalInvested = calculateItemInvestedValue(nps);
+    const totalProfitLoss = totalCurrent - totalInvested;
     const xirr = nps.xirr || 0;
     const isProfit = totalProfitLoss >= 0;
 

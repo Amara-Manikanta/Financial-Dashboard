@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Hash, FileText } from 'lucide-react';
+import { X, Hash, FileText, TrendingUp } from 'lucide-react';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -27,12 +27,14 @@ const MutualFundEditModal = ({ isOpen, onClose, onSave, fund }) => {
     const [title, setTitle] = useState('');
     const [currentNav, setCurrentNav] = useState('');
     const [folioNumber, setFolioNumber] = useState('');
+    const [schemeCode, setSchemeCode] = useState('');
 
     useEffect(() => {
         if (isOpen && fund) {
             setTitle(fund.title || '');
             setCurrentNav(fund.currentNav || '');
             setFolioNumber(fund.folioNumber || '');
+            setSchemeCode(fund.schemeCode || '');
         }
     }, [isOpen, fund]);
 
@@ -42,7 +44,8 @@ const MutualFundEditModal = ({ isOpen, onClose, onSave, fund }) => {
             ...fund,
             title,
             currentNav: parseFloat(currentNav),
-            folioNumber
+            folioNumber,
+            schemeCode
         });
         onClose();
     };
@@ -90,6 +93,15 @@ const MutualFundEditModal = ({ isOpen, onClose, onSave, fund }) => {
                             <input type="text" value={folioNumber} onChange={e => setFolioNumber(e.target.value)} style={inputStyle} />
                             <Hash style={iconStyle} />
                         </div>
+                    </div>
+
+                    <div className="relative">
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Scheme Code (mfapi.in)</label>
+                        <div className="relative">
+                            <input type="text" value={schemeCode} onChange={e => setSchemeCode(e.target.value)} style={inputStyle} placeholder="e.g. 120503" />
+                            <TrendingUp style={iconStyle} />
+                        </div>
+                        <p className="text-[10px] text-gray-500 mt-1">Found on mfapi.in (e.g., 120503 for Axis Bluechip)</p>
                     </div>
 
                     <div className="bg-gray-800 p-3 rounded-lg text-xs text-gray-400">

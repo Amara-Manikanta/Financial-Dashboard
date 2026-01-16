@@ -84,6 +84,7 @@ const SavingsAccountTransactionModal = ({ isOpen, onClose, onSave, initialData }
                             <select value={type} onChange={e => setType(e.target.value)} style={{ ...inputStyle, paddingLeft: '1rem', appearance: 'none' }}>
                                 <option value="deposit">Deposit</option>
                                 <option value="withdraw">Withdraw</option>
+                                <option value="monnies_redeemed">Monnies Redeemed</option>
                                 {/* Interest usually auto-calculated, but allow manual */}
                                 <option value="interest">Interest</option>
                             </select>

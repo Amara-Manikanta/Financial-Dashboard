@@ -41,14 +41,13 @@ const Dashboard = () => {
 
         const netWorth = totalSavings + totalMetals + totalAssets;
 
-        // Specifics for sub-cards
+        // Specifics for sub-cards - using centralized calculation logic
         const fd = savings.filter(s => s.type === 'fixed_deposit').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
         const stocks = savings.filter(s => s.type === 'stock_market').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
         const mf = savings.filter(s => s.type === 'mutual_fund').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
-        const ppf = savings.find(s => s.type === 'ppf')?.details?.slice(-1)[0]?.balance || 0;
-        const npsAccount = savings.find(s => s.type === 'nps');
-        const nps = npsAccount ? (npsAccount.investedAmount + npsAccount.profitLoss) : 0;
-        const sgb = savings.find(s => s.type === 'sgb')?.holdings?.reduce((sum, h) => sum + (h.units * h.currentPrice), 0) || 0;
+        const ppf = savings.filter(s => s.type === 'ppf').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
+        const nps = savings.filter(s => s.type === 'nps').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
+        const sgb = savings.filter(s => s.type === 'sgb').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
 
         return {
             netWorth,

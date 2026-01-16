@@ -1,0 +1,181 @@
+import React, { useState } from 'react';
+import { useFinance } from '../context/FinanceContext';
+import { Plus, ArrowUpRight, ArrowDownLeft, Search, Filter, Users } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import LentModal from '../components/LentModal';
+
+const LentCard = ({ item, navigate, formatCurrency }) => {
+    const isLent = item.type === 'lent';
+    const amount = item.amount || 0;
+
+    // Calculate pending amount (Principal - Repayments + Additional Loans)
+    // For now simplistic calculation:
+    const totalTransactions = (item.transactions || []).reduce((acc, tx) => {
+        // type: 'repayment' means money came back (if lent) or went out (if borrowed)
+        // type: 'additional' means more money lent/borrowed
+        if (tx.type === 'repayment') return acc - parseFloat(tx.amount);
+        if (tx.type === 'additional') return acc + parseFloat(tx.amount);
+        return acc;
+    }, 0);
+
+    const pendingAmount = amount + totalTransactions; // This simplistic logic might need refinement based on exact transaction types
+
+    return (
+        <div
+            onClick={() => navigate(`/lents/${item.id}`)}
+            className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all cursor-pointer group"
+        >
+            <div className="flex justify-between items-start mb-4">
+                <div className={`p-3 rounded-xl ${isLent ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                    {isLent ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
+                </div>
+                {item.isEmi && (
+                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-lg border border-blue-500/20">
+                        EMI
+                    </span>
+                )}
+            </div>
+
+            <h3 className="text-lg font-semibold text-white mb-1 group-hover:text-amber-400 transition-colors">
+                {item.name}
+            </h3>
+            <p className="text-gray-400 text-sm mb-4 line-clamp-1">{item.description || 'No description'}</p>
+
+            <div className="flex flex-col gap-1">
+                <span className="text-xs text-gray-500 uppercase tracking-wider">Pending Amount</span>
+                <span className={`text-2xl font-bold ${isLent ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {formatCurrency(pendingAmount)}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+const Lents = () => {
+    const { lents, formatCurrency } = useFinance();
+    const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const navigate = useNavigate();
+
+    const totalLent = lents
+        .filter(i => i.type === 'lent')
+        .reduce((sum, item) => {
+            // Calculate pending logic should be consistent
+            const pending = (item.amount || 0) + (item.transactions || []).reduce((acc, tx) => {
+                if (tx.type === 'repayment') return acc - parseFloat(tx.amount);
+                if (tx.type === 'additional') return acc + parseFloat(tx.amount);
+                return acc;
+            }, 0);
+            return sum + pending;
+        }, 0);
+
+    const totalBorrowed = lents
+        .filter(i => i.type === 'borrowed')
+        .reduce((sum, item) => {
+            const pending = (item.amount || 0) + (item.transactions || []).reduce((acc, tx) => {
+                if (tx.type === 'repayment') return acc - parseFloat(tx.amount);
+                if (tx.type === 'additional') return acc + parseFloat(tx.amount);
+                return acc;
+            }, 0);
+            return sum + pending;
+        }, 0);
+
+    const filteredLents = lents.filter(item =>
+        item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.description && item.description.toLowerCase().includes(searchTerm.toLowerCase()))
+    );
+
+    return (
+        <div className="space-y-8">
+            {/* Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
+                        Lents & Borrows
+                    </h1>
+                    <p className="text-gray-400 mt-1">Track your loans and debts</p>
+                </div>
+                <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl font-semibold text-white shadow-lg hover:shadow-emerald-500/20 hover:scale-[1.02] transition-all"
+                >
+                    <Plus size={20} />
+                    Add New
+                </button>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 relative overflow-hidden">
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-emerald-500/20 rounded-lg text-emerald-400">
+                                <ArrowUpRight size={24} />
+                            </div>
+                            <span className="text-emerald-200/60 font-medium">Wait to Receive</span>
+                        </div>
+                        <div className="text-4xl font-bold text-emerald-400 mt-2">
+                            {formatCurrency(totalLent)}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-6 rounded-2xl bg-gradient-to-br from-rose-500/10 to-pink-500/10 border border-rose-500/20 relative overflow-hidden">
+                    <div className="relative z-10">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-rose-500/20 rounded-lg text-rose-400">
+                                <ArrowDownLeft size={24} />
+                            </div>
+                            <span className="text-rose-200/60 font-medium">Need to Pay</span>
+                        </div>
+                        <div className="text-4xl font-bold text-rose-400 mt-2">
+                            {formatCurrency(totalBorrowed)}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Controls */}
+            <div className="flex gap-4">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Search people..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+                    />
+                </div>
+            </div>
+
+            {/* Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredLents.map(item => (
+                    <LentCard
+                        key={item.id}
+                        item={item}
+                        navigate={navigate}
+                        formatCurrency={formatCurrency}
+                    />
+                ))}
+            </div>
+
+            {filteredLents.length === 0 && (
+                <div className="text-center py-20 bg-white/5 rounded-2xl border border-white/10 border-dashed">
+                    <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Users size={32} className="text-gray-500" />
+                    </div>
+                    <p className="text-gray-400 text-lg">No records found</p>
+                    <p className="text-gray-600 text-sm mt-1">Add a new person to start tracking</p>
+                </div>
+            )}
+
+            {isAddModalOpen && (
+                <LentModal isOpen={true} onClose={() => setIsAddModalOpen(false)} />
+            )}
+        </div>
+    );
+};
+
+export default Lents;

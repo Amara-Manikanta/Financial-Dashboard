@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Building, Hash, Percent } from 'lucide-react';
+import { X, Calendar, Building, Hash, Percent, FileText } from 'lucide-react';
 import { toISODate } from '../utils/dateUtils';
 
 const inputStyle = {
@@ -32,7 +32,8 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
         endDate: '',
         originalAmount: '',
         interestEarned: '',
-        maturityAmount: ''
+        maturityAmount: '',
+        remarks: ''
     });
 
     useEffect(() => {
@@ -47,7 +48,8 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         originalAmount: initialData.maturityAmount || '',
                         interestRate: '',
                         interestEarned: '0',
-                        maturityAmount: ''
+                        maturityAmount: '',
+                        remarks: ''
                     });
                 } else {
                     setFormData({
@@ -58,7 +60,8 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         originalAmount: initialData.originalAmount || '',
                         interestRate: initialData.interestRate || '',
                         interestEarned: initialData.interestEarned || '',
-                        maturityAmount: initialData.maturityAmount || ''
+                        maturityAmount: initialData.maturityAmount || '',
+                        remarks: initialData.remarks || ''
                     });
                 }
             } else {
@@ -69,7 +72,8 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                     endDate: '',
                     originalAmount: '',
                     interestEarned: '0',
-                    maturityAmount: ''
+                    maturityAmount: '',
+                    remarks: ''
                 });
             }
         }
@@ -228,6 +232,14 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                                 <input type="number" step="0.01" name="maturityAmount" readOnly value={formData.maturityAmount} className="cursor-not-allowed" style={{ ...inputStyle, backgroundColor: '#1a1a1c' }} />
                                 <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Remarks (Optional)</label>
+                        <div className="relative">
+                            <input type="text" name="remarks" value={formData.remarks || ''} onChange={handleChange} style={inputStyle} placeholder="Add notes..." />
+                            <FileText style={iconStyle} />
                         </div>
                     </div>
 
