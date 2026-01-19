@@ -42,7 +42,7 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
         onAdd({
             ...initialData,
             name,
-            weightGm: parseFloat(weightGm),
+            weightGm: parseFloat(weightGm) || 0,
             purchasePrice: parseFloat(purchasePrice) || 0,
             purity: metalType === 'gold' ? parseInt(purity) : null,
             purchaseDate: purchaseDate.toISOString().split('T')[0],
@@ -115,7 +115,6 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                                     <input
                                         type="number"
                                         step="0.001"
-                                        required
                                         value={weightGm}
                                         onChange={(e) => setWeightGm(e.target.value)}
                                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"

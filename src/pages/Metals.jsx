@@ -5,7 +5,7 @@ import { Plus, Coins, ChevronRight } from 'lucide-react';
 import MetalModal from '../components/MetalModal';
 
 const Metals = () => {
-    const { metals, formatCurrency, addMetal } = useFinance();
+    const { metals, formatCurrency, addMetal, metalRates } = useFinance();
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalType, setModalType] = useState('gold');
@@ -54,21 +54,31 @@ const Metals = () => {
                     <h2 className="text-4xl font-black tracking-tight mb-2">Precious <span className="text-gray-500">Metals</span></h2>
                     <p className="text-secondary text-sm font-medium">Manage and track your physical gold and silver assets.</p>
                 </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => handleAddItem('gold')}
-                        className="flex items-center gap-2 bg-yellow-500 text-black font-black px-5 py-3 rounded-2xl hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/20 text-xs uppercase tracking-widest"
-                    >
-                        <Plus size={18} />
-                        <span>Add Gold</span>
-                    </button>
-                    <button
-                        onClick={() => handleAddItem('silver')}
-                        className="flex items-center gap-2 bg-slate-600 text-white font-black px-5 py-3 rounded-2xl hover:bg-slate-500 transition-all shadow-lg shadow-slate-500/20 text-xs uppercase tracking-widest border border-white/10"
-                    >
-                        <Plus size={18} />
-                        <span>Add Silver</span>
-                    </button>
+                <div className="flex gap-4 items-center">
+                    <div className="text-right hidden md:block">
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Gold Rate (24K)</p>
+                        <p className="text-yellow-400 font-black tracking-tight">{formatCurrency(metalRates?.gold || 0)}/g</p>
+                    </div>
+                    <div className="text-right hidden md:block mr-4">
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Silver Rate</p>
+                        <p className="text-slate-400 font-black tracking-tight">{formatCurrency(metalRates?.silver || 0)}/g</p>
+                    </div>
+                    <div className="flex gap-3">
+                        <button
+                            onClick={() => handleAddItem('gold')}
+                            className="flex items-center gap-2 bg-yellow-500 text-black font-black px-5 py-3 rounded-2xl hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/20 text-xs uppercase tracking-widest"
+                        >
+                            <Plus size={18} />
+                            <span>Add Gold</span>
+                        </button>
+                        <button
+                            onClick={() => handleAddItem('silver')}
+                            className="flex items-center gap-2 bg-slate-600 text-white font-black px-5 py-3 rounded-2xl hover:bg-slate-500 transition-all shadow-lg shadow-slate-500/20 text-xs uppercase tracking-widest border border-white/10"
+                        >
+                            <Plus size={18} />
+                            <span>Add Silver</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 

@@ -142,49 +142,57 @@ const MetalDetails = () => {
                     <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{filteredItems.length} Records Found</span>
                 </div>
 
-                <div className="overflow-x-auto custom-scrollbar">
+                <div className="overflow-x-auto custom-scrollbar border border-white/20 rounded-b-2xl">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
-                                <th className="py-5 px-8">Item Identity</th>
-                                <th className="py-5 px-6 text-right">Mass (Gm)</th>
-                                <th className="py-5 px-6 text-right">Acquisition</th>
-                                <th className="py-5 px-6 text-right">Current Value</th>
-                                <th className="py-5 px-8">Source/History</th>
+                            <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02] border-b border-white/20">
+                                <th className="py-5 px-6 w-16 text-center border-r border-white/20">No.</th>
+                                <th className="py-5 px-8 border-r border-white/20">Item Identity</th>
+                                {type === 'gold' && <th className="py-5 px-6 text-center border-r border-white/20">Carat</th>}
+                                <th className="py-5 px-6 text-right border-r border-white/20">Mass (Gm)</th>
+                                <th className="py-5 px-6 text-right border-r border-white/20">Acquisition</th>
+                                <th className="py-5 px-6 text-right border-r border-white/20">Current Value</th>
+                                <th className="py-5 px-8 border-r border-white/20">Source/History</th>
                                 <th className="py-5 px-8 text-center">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-white/20">
                             {filteredItems.map((item) => (
                                 <tr key={item.id} className="hover:bg-white/[0.03] transition-all group">
-                                    <td className="py-6 px-8">
+                                    <td className="py-6 px-6 text-center text-gray-500 font-bold text-xs border-r border-white/20">
+                                        ID:{type === 'gold' ? 'G' : 'S'}{(filteredItems.indexOf(item) + 1)}
+                                    </td>
+                                    <td className="py-6 px-8 border-r border-white/20">
                                         <div className="flex flex-col gap-1">
                                             <span className="text-white font-black text-base tracking-tight capitalize group-hover:text-amber-200 transition-colors">
                                                 {item.name}
                                             </span>
-                                            <div className="flex items-center gap-2">
-                                                {item.purity && (
-                                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full ${accentBg}/20 ${colorClass} uppercase tracking-tighter`}>
-                                                        {item.purity}{type === 'gold' ? 'K' : '%'} Pure
-                                                    </span>
-                                                )}
-                                                <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">ID: {item.id.toString().slice(-4)}</span>
-                                            </div>
                                         </div>
                                     </td>
-                                    <td className="py-6 px-6 text-right font-black text-lg text-gray-300 tracking-tighter">{item.weightGm}g</td>
-                                    <td className="py-6 px-6 text-right">
+                                    {type === 'gold' && (
+                                        <td className="py-6 px-6 text-center border-r border-white/20">
+                                            {item.purity ? (
+                                                <span className={`text-[10px] font-black px-3 py-1 rounded-lg ${accentBg}/20 ${colorClass} uppercase tracking-tighter shadow-sm border ${accentBorder}`}>
+                                                    {item.purity}K
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-600 text-[10px] font-medium">-</span>
+                                            )}
+                                        </td>
+                                    )}
+                                    <td className="py-6 px-6 text-right font-black text-lg text-gray-300 tracking-tighter border-r border-white/20">{item.weightGm}g</td>
+                                    <td className="py-6 px-6 text-right border-r border-white/20">
                                         <div className="flex flex-col items-end">
                                             <span className="text-gray-200 font-bold text-sm tracking-tight">{formatCurrency(item.purchasePrice)}</span>
                                             <span className="text-[10px] text-gray-600 font-black uppercase tracking-tight">{formatDate(item.purchaseDate)}</span>
                                         </div>
                                     </td>
-                                    <td className="py-6 px-6 text-right">
+                                    <td className="py-6 px-6 text-right border-r border-white/20">
                                         <div className="flex flex-col items-end">
                                             <span className={`text-base font-black ${colorClass} tracking-tight`}>{formatCurrency(item.currentValue)}</span>
                                         </div>
                                     </td>
-                                    <td className="py-6 px-8">
+                                    <td className="py-6 px-8 border-r border-white/20">
                                         <div className="flex flex-col gap-1.5">
                                             <div className="flex items-center gap-2 text-gray-400 group-hover:text-gray-300 transition-colors">
                                                 <MapPin size={12} className={colorClass} />

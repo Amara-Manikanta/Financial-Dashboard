@@ -89,6 +89,7 @@ const Layout = () => {
                         <NavItem to="/metals" icon={Coins} label="Gold & Silver" />
                         <NavItem to="/assets" icon={Car} label="Assets" />
                         <NavItem to="/lents" icon={Users} label="Lents" />
+                        <NavItem to="/budget-planning" icon={BarChart3} label="Budget" />
                     </nav>
 
                     {/* Right Side - Actions/Profile */}

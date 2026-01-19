@@ -13,14 +13,39 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
     const [dimensions, setDimensions] = useState('');
     const [remarks, setRemarks] = useState('');
 
+    const formatNumber = (num) => {
+        if (!num) return '';
+        const parts = num.toString().split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ','); // Standard commatization
+        // Using Indian numbering system might be preferred? 
+        // User asked for "comma separater like thousand separator", generally standard or Indian.
+        // Let's stick to standard locale string for ease or specific regex.
+        // Actually, locale string is best.
+        return Number(num).toLocaleString('en-IN');
+    };
+
+    // Better input formatter for "as you type"
+    const formatInput = (value) => {
+        if (!value) return '';
+        // Remove non-digits and leading zeros
+        const clean = value.replace(/,/g, '');
+        if (isNaN(clean)) return value; // Should handle edge cases
+        return Number(clean).toLocaleString('en-IN');
+    };
+
+    const parseInput = (value) => {
+        return value.replace(/,/g, '');
+    };
+
     const isRealEstate = categoryType === 'real_estate';
 
     useEffect(() => {
         if (isOpen && initialData) {
             setName(initialData.name || '');
             setPurchaseDate(initialData.purchaseDate ? new Date(initialData.purchaseDate) : null);
-            setPurchasePrice(initialData.purchasePrice || initialData.purchasedValue || '');
-            setCurrentValue(initialData.currentValue || '');
+            setPurchaseDate(initialData.purchaseDate ? new Date(initialData.purchaseDate) : null);
+            setPurchasePrice(initialData.purchasePrice || initialData.purchasedValue ? Number(initialData.purchasePrice || initialData.purchasedValue).toLocaleString('en-IN') : '');
+            setCurrentValue(initialData.currentValue ? Number(initialData.currentValue).toLocaleString('en-IN') : '');
             setPlace(initialData.place || '');
             setDimensions(initialData.dimensions || initialData.Dimensions || '');
             setRemarks(initialData.remarks || '');
@@ -44,8 +69,9 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             id: initialData?.id || Date.now().toString(),
             name,
             purchaseDate: purchaseDate ? purchaseDate.toISOString().split('T')[0] : '',
-            purchasePrice: parseFloat(purchasePrice) || 0,
-            currentValue: parseFloat(currentValue) || 0,
+            purchaseDate: purchaseDate ? purchaseDate.toISOString().split('T')[0] : '',
+            purchasePrice: parseFloat(parseInput(purchasePrice)) || 0,
+            currentValue: parseFloat(parseInput(currentValue)) || 0,
             place: isRealEstate ? place : null,
             dimensions: isRealEstate ? dimensions : null,
             remarks,
@@ -110,9 +136,19 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                                 <div className="relative">
                                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs">₹</span>
                                     <input
-                                        type="number"
+                                        type="text"
                                         value={purchasePrice}
-                                        onChange={(e) => setPurchasePrice(e.target.value)}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/[^0-9.]/g, '');
+                                            // Handle dot separately if needed, but for simple integers/thousands separator:
+                                            // Let's assume user accepts integers or standard float behavior with commas.
+                                            // Simplest is to strip commas, check regex, reformat.
+                                            // Removing non-digit chars first (except dot)
+                                            const clean = e.target.value.replace(/,/g, '');
+                                            if (!isNaN(clean)) {
+                                                setPurchasePrice(clean ? Number(clean).toLocaleString('en-IN') : '');
+                                            }
+                                        }}
                                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-blue-500/50 transition-all text-sm"
                                         placeholder="0"
                                     />
@@ -123,9 +159,14 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                                 <div className="relative">
                                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs">₹</span>
                                     <input
-                                        type="number"
+                                        type="text"
                                         value={currentValue}
-                                        onChange={(e) => setCurrentValue(e.target.value)}
+                                        onChange={(e) => {
+                                            const clean = e.target.value.replace(/,/g, '');
+                                            if (!isNaN(clean)) {
+                                                setCurrentValue(clean ? Number(clean).toLocaleString('en-IN') : '');
+                                            }
+                                        }}
                                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-blue-500/50 transition-all text-sm"
                                         placeholder="0"
                                     />

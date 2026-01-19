@@ -8,7 +8,7 @@ import LentTransactionModal from '../components/LentTransactionModal';
 const LentDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { lents, deleteItem, formatCurrency } = useFinance();
+    const { lents, deleteItem, updateItem, formatCurrency } = useFinance();
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
     const [editTransaction, setEditTransaction] = useState(null);
@@ -63,10 +63,17 @@ const LentDetails = () => {
     };
 
     const handleDeleteTransaction = async (transactionId) => {
+        if (!item || !item.transactions) return;
+
         if (window.confirm('Are you sure you want to delete this transaction?')) {
-            const updatedTransactions = item.transactions.filter(t => t.id !== transactionId);
-            const updatedItem = { ...item, transactions: updatedTransactions };
-            await updateItem('lents', updatedItem);
+            try {
+                const updatedTransactions = item.transactions.filter(t => t.id !== transactionId);
+                const updatedItem = { ...item, transactions: updatedTransactions };
+                await updateItem('lents', updatedItem);
+            } catch (error) {
+                console.error("Failed to delete transaction:", error);
+                alert("Failed to delete transaction. see console for details.");
+            }
         }
     };
 
@@ -219,8 +226,11 @@ const LentDetails = () => {
                                             <Edit2 size={16} />
                                         </button>
                                         <button
-                                            onClick={() => handleDeleteTransaction(tx.id)}
-                                            className="p-2 rounded-lg hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteTransaction(tx.id);
+                                            }}
+                                            className="p-2 rounded-lg hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 z-10"
                                             title="Delete Transaction"
                                         >
                                             <Trash2 size={16} />

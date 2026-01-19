@@ -38,6 +38,8 @@ export function FinanceProvider({ children }) {
     const [categories, setCategories] = useState([]);
     const [salaryStats, setSalaryStats] = useState({});
     const [snapshots, setSnapshots] = useState([]);
+    const [categoryBudgets, setCategoryBudgets] = useState({});
+    const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
 
     const { user, isGuest } = useAuth();
 
@@ -57,6 +59,8 @@ export function FinanceProvider({ children }) {
                 setMetals({ gold: [], silver: [] });
                 setAssets(guestAssets);
                 setLents(guestLents);
+                setBudgets([]); // Removed
+                setCategoryBudgets({});
                 setCategories(["salary received", "house rent", "groceries", "others"]);
                 setSalaryStats({});
                 setSnapshots([]);
@@ -86,6 +90,7 @@ export function FinanceProvider({ children }) {
                 setMetals(metData);
                 setAssets(assData);
                 setLents(lentData || []);
+                setCategoryBudgets(appData.categoryBudgets || {});
                 setCategories(appData.categories || []);
                 setSnapshots(snapData || []);
 
@@ -94,7 +99,25 @@ export function FinanceProvider({ children }) {
             }
         };
         fetchData();
+        fetchData();
+        fetchMetalRates();
     }, [user, isGuest]);
+
+    const fetchMetalRates = async () => {
+        try {
+            const res = await fetch('https://data-asg.goldprice.org/dbXRates/INR');
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+                const item = data.items[0];
+                // Prices are per Ounce (31.1035 g)
+                const goldPerGram = item.xauPrice / 31.1034768;
+                const silverPerGram = item.xagPrice / 31.1034768;
+                setMetalRates({ gold: goldPerGram, silver: silverPerGram });
+            }
+        } catch (error) {
+            console.error("Failed to fetch metal rates:", error);
+        }
+    };
 
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
@@ -114,6 +137,26 @@ export function FinanceProvider({ children }) {
             });
         } catch (error) {
             console.error("Failed to save expenses:", error);
+        }
+    };
+
+    const updateCategoryBudget = async (category, amount) => {
+        const updatedBudgets = { ...categoryBudgets, [category]: Number(amount) };
+        setCategoryBudgets(updatedBudgets);
+
+        try {
+            const payload = {
+                categories: categories,
+                categoryBudgets: updatedBudgets
+            };
+
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            console.error("Failed to update category budget:", error);
         }
     };
 
@@ -343,9 +386,9 @@ export function FinanceProvider({ children }) {
 
 
     const processedMetals = React.useMemo(() => {
-        const GOLD_RATE_24K = 7600;
-        const GOLD_RATE_22K = 7000;
-        const SILVER_RATE = 95;
+        const GOLD_RATE_24K = metalRates.gold || 7600;
+        const GOLD_RATE_22K = metalRates.gold ? metalRates.gold * (22 / 24) : 7000;
+        const SILVER_RATE = metalRates.silver || 95;
         return {
             gold: metals.gold.map(item => {
                 if (item.currentValue > 0) return item;
@@ -357,7 +400,7 @@ export function FinanceProvider({ children }) {
                 return { ...item, currentValue: item.weightGm * SILVER_RATE };
             })
         };
-    }, [metals]);
+    }, [metals, metalRates]);
 
     const calculateItemCurrentValue = (item) => {
         if (!item) return 0;
@@ -573,7 +616,7 @@ export function FinanceProvider({ children }) {
             const updatedItem = await res.json();
             if (type === 'savings') setSavings(prev => prev.map(i => i.id == item.id ? updatedItem : i));
             if (type === 'asset') setAssets(prev => prev.map(i => i.id == item.id ? updatedItem : i));
-            if (type === 'lents') setLents(prev => prev.map(i => i.id == item.id ? updatedItem : i));
+            if (type === 'lents') setLents(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
         } catch (error) {
             console.error("Error updating item:", error);
         }
@@ -717,14 +760,17 @@ export function FinanceProvider({ children }) {
     };
 
     const value = {
-        expenses, savings, metals: processedMetals, assets, lents, salaryStats, categories, snapshots,
+        expenses, savings, metals: processedMetals, assets, lents, salaryStats, categories, snapshots, categoryBudgets,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal,
-        addNewYear, takeSnapshot,
+        addNewYear, takeSnapshot, updateCategoryBudget,
         formatCurrency,
         calculateItemCurrentValue,
         calculateItemInvestedValue,
         refreshStockPrices,
-        refreshMutualFundNAV
+        refreshStockPrices,
+        refreshMutualFundNAV,
+        metalRates,
+        fetchMetalRates
     };
 
     return (

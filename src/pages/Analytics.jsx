@@ -140,7 +140,27 @@ const Analytics = () => {
 
     // Data for the second plot (Category Trend)
     const trendData = useMemo(() => {
-        if (!trendCategory || !trendYear) return [];
+        if (!trendCategory) return [];
+
+        if (trendYear === 'All') {
+            const groups = {};
+            flattenedExpenses.forEach(item => {
+                if (item.title === trendCategory) {
+                    const year = item.year;
+                    if (!groups[year]) {
+                        groups[year] = {
+                            name: year,
+                            amount: 0,
+                            sortKey: parseInt(year)
+                        };
+                    }
+                    groups[year].amount += item.amount;
+                }
+            });
+            return Object.values(groups).sort((a, b) => a.sortKey - b.sortKey);
+        }
+
+        if (!trendYear) return [];
 
         const groups = {};
         // Initialize all months with 0
@@ -343,6 +363,7 @@ const Analytics = () => {
                         className="bg-transparent text-white border border-white/10 rounded px-2 py-1 text-sm focus:outline-none focus:border-blue-500"
                         style={{ backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-sm)', padding: '0.25rem 0.5rem' }}
                     >
+                        <option value="All">All Years</option>
                         {availableYears.map(year => (
                             <option key={year} value={year}>{year}</option>
                         ))}
@@ -363,8 +384,8 @@ const Analytics = () => {
 
             <div className="card" style={{ height: '400px', padding: 'var(--spacing-lg)' }}>
                 <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold">{trendCategory} Trend in {trendYear}</h3>
-                    {trendData.every(d => d.amount === 0) && <p className="text-secondary italic">No spending in this category for {trendYear}</p>}
+                    <h3 className="text-xl font-bold">{trendCategory} Trend {trendYear === 'All' ? '(All Years)' : `in ${trendYear}`}</h3>
+                    {trendData.length === 0 && <p className="text-secondary italic">No spending in this category</p>}
                 </div>
 
                 <ResponsiveContainer width="100%" height="100%">

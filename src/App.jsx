@@ -30,6 +30,7 @@ import Login from './pages/Login';
 import Profile from './pages/Profile';
 import Lents from './pages/Lents';
 import LentDetails from './pages/LentDetails';
+import BudgetPlanning from './pages/BudgetPlanning';
 
 const ProtectedRoute = () => {
     const { user } = useAuth();
@@ -68,6 +69,7 @@ function App() {
                                 <Route path="assets/:categoryId/:itemId" element={<AssetItemDetails />} />
                                 <Route path="lents" element={<Lents />} />
                                 <Route path="lents/:id" element={<LentDetails />} />
+                                <Route path="budget-planning" element={<BudgetPlanning />} />
                                 <Route path="profile" element={<Profile />} />
                             </Route>
                         </Route>
