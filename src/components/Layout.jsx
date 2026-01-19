@@ -82,7 +82,7 @@ const Layout = () => {
                     </div>
 
                     {/* Navigation Items - Centered */}
-                    <nav className="flex-1 flex items-center justify-center gap-8">
+                    <nav className="flex-1 flex items-center justify-center space-x-8">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         <NavItem to="/expenses" icon={Wallet} label="Expenses" />
                         <NavItem to="/savings" icon={PiggyBank} label="Savings" />

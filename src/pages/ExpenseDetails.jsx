@@ -179,6 +179,10 @@ const ExpenseDetails = () => {
 
             activeTransactions.forEach(t => {
                 const cat = t.category || 'others';
+
+                // Skip income categories from expense calculation
+                if (['salary received', 'income'].includes(cat.toLowerCase())) return;
+
                 const amt = Number(t.amount) || 0;
                 // Logic: isCredited ? -amt : amt
                 const effective = t.isCredited ? -amt : amt;
@@ -207,6 +211,8 @@ const ExpenseDetails = () => {
 
         // Calculate totalNetExpenses using ONLY the deductible amounts
         const totalNetExpenses = items.reduce((sum, item) => sum + item.deductibleAmount, 0);
+        // Calculate totalGrossExpenses using ALL amounts (deductible + non-deductible)
+        const totalGrossExpenses = items.reduce((sum, item) => sum + item.amount, 0);
 
         // Direct lookup for salary to ensure reactivity
         // We check both the nested categories object and the root month object to handle different DB structures
@@ -288,6 +294,7 @@ const ExpenseDetails = () => {
             items,
             rawTransactions,
             totalExpenses: totalNetExpenses,
+            totalGrossExpenses, // Export gross expenses
             salary,
             balance,
             expenseCount: items.length,
@@ -333,7 +340,7 @@ const ExpenseDetails = () => {
             {/* Summaries */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                 <SummaryCard title="Monthly Salary" subtitle="Income Source" amount={formatCurrency(monthDetails.salary)} percentage="100%" color="#10B981" />
-                <SummaryCard title="Total Spends" subtitle={`${monthDetails.expenseCount} Categories`} amount={formatCurrency(monthDetails.totalExpenses)} percentage={`-${monthDetails.expensePercentage}%`} color="#EF4444" />
+                <SummaryCard title="Total Spends" subtitle={`${monthDetails.expenseCount} Categories`} amount={formatCurrency(monthDetails.totalGrossExpenses)} percentage={`-${monthDetails.expensePercentage}%`} color="#EF4444" />
                 <SummaryCard title="Net Savings" subtitle="Current Balance" amount={formatCurrency(monthDetails.balance)} percentage={`${monthDetails.balancePercentage}%`} color="#3B82F6" />
             </div>
 

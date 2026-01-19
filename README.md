@@ -77,7 +77,10 @@ Manage your account security and update your credentials anytime.
    npm run server
    ```
 
+   ```
+
 3. **Run the Frontend Application**:
+   (Open a new terminal window/tab)
    ```bash
    npm run dev
    ```

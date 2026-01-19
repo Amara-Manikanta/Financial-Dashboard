@@ -24,19 +24,43 @@ const Analytics = () => {
             if (typeof months !== 'object') return;
             Object.entries(months).forEach(([month, data]) => {
                 if (!data) return;
-                const categories = data.categories || data;
-                if (typeof categories !== 'object' || Array.isArray(categories)) return;
 
-                Object.entries(categories).forEach(([title, amount]) => {
-                    if (title !== 'salary received' && title !== 'income' && title !== 'transactions') {
-                        flat.push({
-                            title,
-                            amount: Number(amount) || 0,
-                            date: new Date(`${month} 1, ${year}`),
-                            year,
-                            month
+                // Aggregation bucket for this month
+                const monthlyCategories = {};
+                const transactions = data.transactions || [];
+
+                if (transactions.length > 0) {
+                    // Aggregate from transactions (Includes Tax/Gross expenses)
+                    transactions.forEach(t => {
+                        const cat = t.category || 'others';
+                        if (['salary received', 'income'].includes(cat.toLowerCase())) return;
+
+                        const amt = Number(t.amount) || 0;
+                        const effective = t.isCredited ? -amt : amt; // Expense is positive
+
+                        monthlyCategories[cat] = (monthlyCategories[cat] || 0) + effective;
+                    });
+                } else {
+                    // Fallback to categories map
+                    const categories = data.categories || data;
+                    if (typeof categories === 'object' && !Array.isArray(categories)) {
+                        Object.entries(categories).forEach(([title, amount]) => {
+                            if (title !== 'salary received' && title !== 'income' && title !== 'transactions') {
+                                monthlyCategories[title] = Number(amount) || 0;
+                            }
                         });
                     }
+                }
+
+                // Push to flat array
+                Object.entries(monthlyCategories).forEach(([title, amount]) => {
+                    flat.push({
+                        title,
+                        amount,
+                        date: new Date(`${month} 1, ${year}`),
+                        year,
+                        month
+                    });
                 });
             });
         });

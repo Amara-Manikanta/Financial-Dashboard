@@ -16,6 +16,7 @@ const SavingsAccountDetails = () => {
 
     const [selectedYear, setSelectedYear] = useState('All');
     const [selectedMonth, setSelectedMonth] = useState('All');
+    const [selectedType, setSelectedType] = useState('All');
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
     const [isEditAccountModalOpen, setIsEditAccountModalOpen] = useState(false);
@@ -126,6 +127,10 @@ const SavingsAccountDetails = () => {
                 const month = new Date(t.date).getMonth() + 1;
                 return month === parseInt(selectedMonth);
             });
+        }
+
+        if (selectedType !== 'All') {
+            filtered = filtered.filter(t => (t.type || '').toLowerCase() === selectedType.toLowerCase());
         }
 
         return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -379,6 +384,17 @@ const SavingsAccountDetails = () => {
                             className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-gray-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer"
                         >
                             {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                        </select>
+                        <select
+                            value={selectedType}
+                            onChange={(e) => setSelectedType(e.target.value)}
+                            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-gray-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer"
+                        >
+                            <option value="All">All Types</option>
+                            <option value="deposit">Deposits</option>
+                            <option value="withdraw">Withdrawals</option>
+                            <option value="interest">Interest</option>
+                            <option value="monnies_redeemed">Monnies</option>
                         </select>
                     </div>
                 </div>

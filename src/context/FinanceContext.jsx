@@ -140,6 +140,9 @@ export function FinanceProvider({ children }) {
                 });
             }
 
+            const isIncomeCategory = ['salary received', 'income'].includes(category);
+
+
             const newExpenses = { ...expenses };
             if (!newExpenses[year]) newExpenses[year] = {};
             if (!newExpenses[year][month]) newExpenses[year][month] = { categories: {}, transactions: [] };
@@ -150,7 +153,13 @@ export function FinanceProvider({ children }) {
             // Sum up into category (case-insensitive)
             const targetKey = Object.keys(target).find(k => k.toLowerCase() === category.toLowerCase());
             const finalKey = targetKey || category;
-            const effectiveAmount = item.isCredited ? -amount : amount;
+
+            let effectiveAmount = 0;
+            if (isIncomeCategory) {
+                effectiveAmount = item.isCredited ? amount : -amount;
+            } else {
+                effectiveAmount = item.isCredited ? -amount : amount;
+            }
 
             if (item.deductFromSalary !== false) {
                 target[finalKey] = Math.max(0, (target[finalKey] || 0) + effectiveAmount);
@@ -256,8 +265,40 @@ export function FinanceProvider({ children }) {
                             const target = monthData.categories || monthData;
                             const catKey = Object.keys(target).find(k => k.toLowerCase() === tx.category.toLowerCase());
                             if (catKey && tx.deductFromSalary !== false) {
-                                const effectiveAmount = tx.isCredited ? -tx.amount : tx.amount;
-                                target[catKey] = Math.max(0, (target[catKey] || 0) - effectiveAmount);
+                                const isIncome = ['salary received', 'income'].includes(catKey.toLowerCase());
+                                let effectiveAmount = 0;
+                                if (isIncome) {
+                                    // removing a credit reduces total
+                                    effectiveAmount = tx.isCredited ? -tx.amount : tx.amount;
+                                } else {
+                                    // removing a debit reduces total (which means adding back the credited amount? no wait)
+                                    // In expenses: 
+                                    // Add: debit (+amount), credit (-amount)
+                                    // Delete: debit (-amount), credit (+amount)
+                                    effectiveAmount = tx.isCredited ? tx.amount : -tx.amount;
+                                }
+                                // We want to SUBTRACT the original effect.
+                                // Original effect for expense: Credit(-), Debit(+)
+                                // So to remove: Credit(+), Debit(-)
+
+                                // Original effect for income: Credit(+), Debit(-)
+                                // So to remove: Credit(-), Debit(+)
+
+                                // The code below was:
+                                // const effectiveAmount = tx.isCredited ? -tx.amount : tx.amount;
+                                // target[catKey] = Math.max(0, (target[catKey] || 0) - effectiveAmount);
+
+                                // If I use that same logic:
+                                // Income Credit: eff = +amount.  Target - (+amount) = Correct.
+                                // Income Debit: eff = -amount. Target - (-amount) = Correct.
+
+                                // So I just need to define effectiveAmount correctly as per the Add logic.
+
+                                const val = isIncome
+                                    ? (tx.isCredited ? tx.amount : -tx.amount)
+                                    : (tx.isCredited ? -tx.amount : tx.amount);
+
+                                target[catKey] = Math.max(0, (target[catKey] || 0) - val);
                             }
                             monthData.transactions.splice(txIndex, 1);
                             found = true;
@@ -354,7 +395,13 @@ export function FinanceProvider({ children }) {
                 return paid - received;
 
             case 'savings_account':
-                return Number(item.amount || 0);
+                return (item.transactions || []).reduce((sum, t) => {
+                    const val = Number(t.amount) || 0;
+                    const type = (t.type || '').toLowerCase();
+                    if (type === 'deposit' || type === 'monnies_redeemed') return sum + val;
+                    if (type === 'withdraw') return sum - val;
+                    return sum;
+                }, 0);
 
             default:
                 return Number(item.amount || 0);
@@ -438,7 +485,11 @@ export function FinanceProvider({ children }) {
                     // Subtract old amount from old category totals
                     const oldKey = Object.keys(oldTarget).find(k => k.toLowerCase() === oldTx.category?.toLowerCase());
                     if (oldKey && oldTx.deductFromSalary !== false) {
-                        const oldEffective = oldTx.isCredited ? -oldTx.amount : oldTx.amount;
+                        const isIncome = ['salary received', 'income'].includes(oldKey.toLowerCase());
+                        const oldEffective = isIncome
+                            ? (oldTx.isCredited ? oldTx.amount : -oldTx.amount)
+                            : (oldTx.isCredited ? -oldTx.amount : oldTx.amount);
+
                         oldTarget[oldKey] = Math.max(0, (oldTarget[oldKey] || 0) - oldEffective);
                     }
 
@@ -456,7 +507,10 @@ export function FinanceProvider({ children }) {
 
                         // Add to new category totals
                         const newKey = Object.keys(newTarget).find(k => k.toLowerCase() === newCategory.toLowerCase()) || newCategory;
-                        const newEffective = item.isCredited ? -newAmount : newAmount;
+                        const isIncome = ['salary received', 'income'].includes(newKey.toLowerCase());
+                        const newEffective = isIncome
+                            ? (item.isCredited ? newAmount : -newAmount)
+                            : (item.isCredited ? -newAmount : newAmount);
 
                         if (item.deductFromSalary !== false) {
                             newTarget[newKey] = Math.max(0, (newTarget[newKey] || 0) + newEffective);
@@ -469,7 +523,10 @@ export function FinanceProvider({ children }) {
                     } else {
                         // Same month/year: Update in place
                         const newKey = Object.keys(oldTarget).find(k => k.toLowerCase() === newCategory.toLowerCase()) || newCategory;
-                        const newEffective = item.isCredited ? -newAmount : newAmount;
+                        const isIncome = ['salary received', 'income'].includes(newKey.toLowerCase());
+                        const newEffective = isIncome
+                            ? (item.isCredited ? newAmount : -newAmount)
+                            : (item.isCredited ? -newAmount : newAmount);
 
                         if (item.deductFromSalary !== false) {
                             oldTarget[newKey] = Math.max(0, (oldTarget[newKey] || 0) + newEffective);
