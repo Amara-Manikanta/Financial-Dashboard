@@ -4,6 +4,7 @@ import { X, Calendar, Calculator, CreditCard, Wallet, Tag, FileText, ChevronDown
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useFinance } from '../context/FinanceContext';
+import CurrencyInput from './CurrencyInput';
 
 const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
     // State initialization
@@ -121,8 +122,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Amount</label>
                                 <div className="relative group">
                                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-lg">₹</span>
-                                    <input
-                                        type="number"
+                                    <CurrencyInput
                                         required
                                         value={amount}
                                         onChange={(e) => setAmount(e.target.value)}

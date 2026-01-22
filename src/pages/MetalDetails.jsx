@@ -1,18 +1,23 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, Coins, Calendar, Tag, Plus, Edit2, Trash2, MapPin, Info } from 'lucide-react';
+import { ArrowLeft, Coins, Plus, Edit2, Trash2, MapPin, Settings, X, RefreshCw } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import MetalModal from '../components/MetalModal';
 
 const MetalDetails = () => {
     const { type } = useParams(); // 'gold' or 'silver'
     const navigate = useNavigate();
-    const { metals, formatCurrency, addMetal, updateMetal, deleteMetal } = useFinance();
+    const { metals, formatCurrency, addMetal, updateMetal, deleteMetal, metalRates, manualMetalRates, updateManualRates } = useFinance();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
+    const [isRateModalOpen, setIsRateModalOpen] = useState(false);
+
+    // Rate state
+    const [goldRate, setGoldRate] = useState('');
+    const [silverRate, setSilverRate] = useState('');
 
     const metalItems = metals[type] || [];
 
@@ -35,6 +40,14 @@ const MetalDetails = () => {
     const totalCurrentValue = metalItems.reduce((sum, item) => sum + item.currentValue, 0);
     const totalInvested = metalItems.reduce((sum, item) => sum + item.purchasePrice, 0);
 
+    // Determine active rate
+    // Note: manualMetalRates might be undefined if not yet loaded, handle safely
+    const isManualRateActive = (type === 'gold' && Number(manualMetalRates?.gold) > 0) || (type === 'silver' && Number(manualMetalRates?.silver) > 0);
+
+    const currentRate = type === 'gold'
+        ? (isManualRateActive ? Number(manualMetalRates?.gold) : (metalRates.gold || 0))
+        : (isManualRateActive ? Number(manualMetalRates?.silver) : (metalRates.silver || 0));
+
     const handleEdit = (item) => {
         setEditingItem(item);
         setIsModalOpen(true);
@@ -55,6 +68,22 @@ const MetalDetails = () => {
         setEditingItem(null);
     };
 
+    // Rate Modal Handlers
+    const openRateModal = () => {
+        setGoldRate(manualMetalRates?.gold || '');
+        setSilverRate(manualMetalRates?.silver || '');
+        setIsRateModalOpen(true);
+    };
+
+    const handleRateSubmit = (e) => {
+        e.preventDefault();
+        updateManualRates({
+            gold: parseFloat(goldRate) || 0,
+            silver: parseFloat(silverRate) || 0
+        });
+        setIsRateModalOpen(false);
+    };
+
     return (
         <div className="animate-fade-in pb-12">
             {/* Header Section */}
@@ -72,10 +101,34 @@ const MetalDetails = () => {
                             <Coins className={colorClass} size={32} />
                         </div>
                         <div>
-                            <h2 className="text-4xl font-black tracking-tight text-white leading-tight">
-                                {formattedType} <span className="text-gray-500">Portfolio</span>
-                            </h2>
-                            <p className="text-secondary text-sm font-medium mt-1">Detailed inventory of your precious metal holdings</p>
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-4xl font-black tracking-tight text-white leading-tight">
+                                    {formattedType} <span className="text-gray-500">Portfolio</span>
+                                </h2>
+                                <button
+                                    onClick={openRateModal}
+                                    className={`p-2 rounded-full transition-all ${isManualRateActive ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                    title="Set Manual Rates"
+                                >
+                                    <Settings size={20} />
+                                </button>
+                            </div>
+                            <div
+                                onClick={openRateModal}
+                                className="flex items-center gap-2 mt-2 text-xs font-bold uppercase tracking-wider text-gray-500 cursor-pointer hover:text-white transition-colors"
+                                title="Click to edit rate"
+                            >
+                                {isManualRateActive ? (
+                                    <span className="text-yellow-500 flex items-center gap-1">
+                                        <Edit2 size={12} /> Manual Rate:
+                                    </span>
+                                ) : (
+                                    <span className="text-emerald-500 flex items-center gap-1">
+                                        <RefreshCw size={12} /> Live Rate:
+                                    </span>
+                                )}
+                                <span className="underline decoration-dotted underline-offset-4 decoration-gray-600">{formatCurrency(currentRate)}/g</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -106,7 +159,8 @@ const MetalDetails = () => {
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
                 <div className="card group relative overflow-hidden border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent">
                     <div className="relative z-10 p-1">
                         <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Total Accumulation</p>
@@ -135,102 +189,94 @@ const MetalDetails = () => {
                 </div>
             </div>
 
-            {/* Table View Component */}
-            <div className="card border border-white/5 p-0 overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Inventory Items</h3>
-                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{filteredItems.length} Records Found</span>
-                </div>
+            {/* Grid View Component */}
+            {/* Grid View Component */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-10">
+                {filteredItems.map((item) => (
+                    <div
+                        key={item.id}
+                        onClick={() => navigate(`/metals/${type}/${item.id}`)}
+                        className="group relative bg-[#1c1c20] rounded-[32px] overflow-hidden border border-white/20 shadow-xl hover:shadow-2xl hover:shadow-black/50 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                    >
+                        {/* Image Section */}
+                        <div className="relative h-64 w-full overflow-hidden bg-black/20">
+                            {item.image ? (
+                                <img
+                                    src={item.image}
+                                    alt={item.name}
+                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center bg-white/5">
+                                    <Coins size={48} className={`opacity-20 ${type === 'gold' ? 'text-yellow-500' : 'text-slate-400'}`} />
+                                </div>
+                            )}
 
-                <div className="overflow-x-auto custom-scrollbar border border-white/20 rounded-b-2xl">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02] border-b border-white/20">
-                                <th className="py-5 px-6 w-16 text-center border-r border-white/20">No.</th>
-                                <th className="py-5 px-8 border-r border-white/20">Item Identity</th>
-                                {type === 'gold' && <th className="py-5 px-6 text-center border-r border-white/20">Carat</th>}
-                                <th className="py-5 px-6 text-right border-r border-white/20">Mass (Gm)</th>
-                                <th className="py-5 px-6 text-right border-r border-white/20">Acquisition</th>
-                                <th className="py-5 px-6 text-right border-r border-white/20">Current Value</th>
-                                <th className="py-5 px-8 border-r border-white/20">Source/History</th>
-                                <th className="py-5 px-8 text-center">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/20">
-                            {filteredItems.map((item) => (
-                                <tr key={item.id} className="hover:bg-white/[0.03] transition-all group">
-                                    <td className="py-6 px-6 text-center text-gray-500 font-bold text-xs border-r border-white/20">
-                                        ID:{type === 'gold' ? 'G' : 'S'}{(filteredItems.indexOf(item) + 1)}
-                                    </td>
-                                    <td className="py-6 px-8 border-r border-white/20">
-                                        <div className="flex flex-col gap-1">
-                                            <span className="text-white font-black text-base tracking-tight capitalize group-hover:text-amber-200 transition-colors">
-                                                {item.name}
-                                            </span>
-                                        </div>
-                                    </td>
-                                    {type === 'gold' && (
-                                        <td className="py-6 px-6 text-center border-r border-white/20">
-                                            {item.purity ? (
-                                                <span className={`text-[10px] font-black px-3 py-1 rounded-lg ${accentBg}/20 ${colorClass} uppercase tracking-tighter shadow-sm border ${accentBorder}`}>
-                                                    {item.purity}K
-                                                </span>
-                                            ) : (
-                                                <span className="text-gray-600 text-[10px] font-medium">-</span>
-                                            )}
-                                        </td>
-                                    )}
-                                    <td className="py-6 px-6 text-right font-black text-lg text-gray-300 tracking-tighter border-r border-white/20">{item.weightGm}g</td>
-                                    <td className="py-6 px-6 text-right border-r border-white/20">
-                                        <div className="flex flex-col items-end">
-                                            <span className="text-gray-200 font-bold text-sm tracking-tight">{formatCurrency(item.purchasePrice)}</span>
-                                            <span className="text-[10px] text-gray-600 font-black uppercase tracking-tight">{formatDate(item.purchaseDate)}</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-6 px-6 text-right border-r border-white/20">
-                                        <div className="flex flex-col items-end">
-                                            <span className={`text-base font-black ${colorClass} tracking-tight`}>{formatCurrency(item.currentValue)}</span>
-                                        </div>
-                                    </td>
-                                    <td className="py-6 px-8 border-r border-white/20">
-                                        <div className="flex flex-col gap-1.5">
-                                            <div className="flex items-center gap-2 text-gray-400 group-hover:text-gray-300 transition-colors">
-                                                <MapPin size={12} className={colorClass} />
-                                                <span className="text-xs font-bold">{item.place || 'Official Reserve'}</span>
-                                            </div>
-                                            {item.remarks && (
-                                                <div className="flex items-start gap-2 text-gray-600">
-                                                    <Info size={12} className="shrink-0 mt-0.5" />
-                                                    <span className="text-[10px] leading-relaxed italic line-clamp-2 max-w-[200px]">{item.remarks}</span>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </td>
-                                    <td className="py-6 px-8">
-                                        <div className="flex items-center justify-center gap-3">
-                                            <button
-                                                onClick={() => handleEdit(item)}
-                                                className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-110 active:scale-90"
-                                                title="Edit Entry"
-                                            >
-                                                <Edit2 size={16} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDelete(item.id)}
-                                                className="p-2.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all transform hover:scale-110 active:scale-90"
-                                                title="Delete Entry"
-                                            >
-                                                <Trash2 size={16} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
+                            <div className="absolute inset-0 bg-gradient-to-t from-[#1c1c20] via-[#1c1c20]/40 to-transparent opacity-80" />
 
-                {(filteredItems.length === 0 && metalItems.length > 0) && (
+                            {/* Buttons moved to content section */}
+
+                            {type === 'gold' && item.purity && (
+                                <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-xl backdrop-blur-md border ${accentBorder} ${accentBg}/20 shadow-lg`}>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>
+                                        {item.purity}K
+                                    </span>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Content Section */}
+                        <div className="relative p-6 -mt-12 space-y-4">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-xl font-black text-white tracking-tight leading-tight mb-1">{item.name}</h3>
+                                    <div className="flex items-center gap-1.5 text-gray-400">
+                                        <MapPin size={12} className={colorClass} />
+                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{item.place || 'Unknown Place'}</span>
+                                    </div>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
+                                        className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95 border border-white/5"
+                                        title="Edit Item"
+                                    >
+                                        <Edit2 size={18} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                                        className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all active:scale-95 border border-white/5"
+                                        title="Delete Item"
+                                    >
+                                        <Trash2 size={18} />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+                                <div>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Weight</p>
+                                    <p className="text-lg font-black text-gray-300">{item.weightGm}g</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Value</p>
+                                    <p className={`text-lg font-black ${colorClass}`}>{formatCurrency(item.currentValue)}</p>
+                                </div>
+                            </div>
+
+                            <div className="flex justify-between items-center pt-2">
+                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{formatDate(item.purchaseDate)}</span>
+                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                                    ID: {type === 'gold' ? 'G' : 'S'}{(filteredItems.indexOf(item) + 1)}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {
+                (filteredItems.length === 0 && metalItems.length > 0) && (
                     <div className="text-center py-24 bg-white/[0.02]">
                         <div className="inline-flex p-6 rounded-full bg-white/5 mb-6">
                             <Plus size={40} className="text-gray-700 rotate-45" />
@@ -244,9 +290,11 @@ const MetalDetails = () => {
                             Clear Search Filter
                         </button>
                     </div>
-                )}
+                )
+            }
 
-                {metalItems.length === 0 && (
+            {
+                metalItems.length === 0 && (
                     <div className="text-center py-24 bg-white/[0.02]">
                         <div className="inline-flex p-6 rounded-full bg-white/5 mb-6">
                             <Coins size={40} className="text-gray-700" />
@@ -260,8 +308,8 @@ const MetalDetails = () => {
                             + Add New Entry
                         </button>
                     </div>
-                )}
-            </div>
+                )
+            }
 
             <MetalModal
                 isOpen={isModalOpen}
@@ -270,7 +318,75 @@ const MetalDetails = () => {
                 initialData={editingItem}
                 metalType={type}
             />
-        </div>
+
+            {/* Manual Rate Modal */}
+            {/* Manual Rate Modal */}
+            {isRateModalOpen && (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+                    onClick={() => setIsRateModalOpen(false)}
+                >
+                    <div
+                        className="bg-[#1c1c20] w-full max-w-md rounded-[32px] border border-white/10 shadow-2xl p-8 relative"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <button
+                            onClick={() => setIsRateModalOpen(false)}
+                            className="absolute top-6 right-6 text-gray-500 hover:text-white transition-colors"
+                        >
+                            <X size={24} />
+                        </button>
+
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-3 bg-yellow-500/10 rounded-xl text-yellow-500">
+                                <Settings size={24} />
+                            </div>
+                            <h2 className="text-2xl font-black text-white">Set Manual Rates</h2>
+                        </div>
+                        <p className="text-gray-400 text-sm mb-6 ml-1">Enter today's market rates (per gram). Set to 0 to use live API rates.</p>
+
+                        <form onSubmit={handleRateSubmit} className="space-y-6">
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Gold Rate (24K / gram)</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold pointer-events-none">₹</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={goldRate}
+                                        onChange={(e) => setGoldRate(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white font-bold focus:outline-none focus:border-yellow-500/50 transition-colors"
+                                        placeholder="e.g. 7800"
+                                    />
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Silver Rate (per gram)</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold pointer-events-none">₹</span>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        value={silverRate}
+                                        onChange={(e) => setSilverRate(e.target.value)}
+                                        className="w-full bg-black/40 border border-white/10 rounded-2xl py-4 pl-10 pr-4 text-white font-bold focus:outline-none focus:border-slate-500/50 transition-colors"
+                                        placeholder="e.g. 95"
+                                    />
+                                </div>
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full py-4 bg-white text-black rounded-2xl font-bold hover:bg-gray-200 transition-all transform active:scale-95"
+                            >
+                                Save Rates
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+        </div >
     );
 };
 

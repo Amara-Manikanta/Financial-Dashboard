@@ -156,8 +156,8 @@ const FixedDepositDetails = () => {
             </div>
 
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Account No</th>
@@ -167,6 +167,7 @@ const FixedDepositDetails = () => {
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>End Date</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Principal</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Interest (Total)</th>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>TDS</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Accrued Value</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Maturity Value</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Remarks</th>
@@ -182,10 +183,13 @@ const FixedDepositDetails = () => {
                                 const isMatured = today >= maturityDate;
                                 const isNearingMaturity = !isMatured && (maturityDate - today) / (1000 * 60 * 60 * 24 * 30.44) <= 2;
                                 return (
-                                    <tr key={deposit.id} style={{
-                                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                                        backgroundColor: isMatured ? 'rgba(16, 185, 129, 0.03)' : (isNearingMaturity ? 'rgba(234, 179, 8, 0.03)' : 'transparent')
-                                    }} className="hover:bg-white/5 transition-colors group text-sm">
+                                    <tr key={deposit.id}
+                                        onClick={() => navigate(`/savings/fixed-deposit/${id}/deposit/${deposit.id}`)}
+                                        style={{
+                                            borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                            cursor: 'pointer',
+                                            backgroundColor: isMatured ? 'rgba(16, 185, 129, 0.03)' : (isNearingMaturity ? 'rgba(234, 179, 8, 0.03)' : 'transparent')
+                                        }} className="hover:bg-white/5 transition-colors group text-sm">
                                         <td style={{ padding: 'var(--spacing-md)', fontFamily: 'monospace', color: 'var(--text-primary)' }}>
                                             <div className="flex flex-col">
                                                 <span>{deposit.accountNo}</span>
@@ -202,14 +206,15 @@ const FixedDepositDetails = () => {
                                         <td style={{ padding: 'var(--spacing-md)', fontWeight: (isNearingMaturity || isMatured) ? 'bold' : 'normal', color: isMatured ? '#10b981' : (isNearingMaturity ? '#fbbf24' : 'inherit') }}>{formatDate(deposit.endDate)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.originalAmount)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)' }}>{formatCurrency(deposit.interestEarned)}</td>
+                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-accent)' }}>{deposit.tds ? formatCurrency(deposit.tds) : '-'}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.currentValue)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatCurrency(deposit.maturityAmount)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={deposit.remarks}>{deposit.remarks || '—'}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
-                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-center gap-2">
                                                 {isMatured && (
                                                     <button
-                                                        onClick={() => handleRenewDeposit(deposit)}
+                                                        onClick={(e) => { e.stopPropagation(); handleRenewDeposit(deposit); }}
                                                         className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors"
                                                         title="Renew Deposit"
                                                     >
@@ -217,15 +222,15 @@ const FixedDepositDetails = () => {
                                                     </button>
                                                 )}
                                                 <button
-                                                    onClick={() => { setEditingDeposit(deposit); setIsRenewal(false); setIsModalOpen(true); }}
-                                                    className="p-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                                    onClick={(e) => { e.stopPropagation(); setEditingDeposit(deposit); setIsRenewal(false); setIsModalOpen(true); }}
+                                                    className="p-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
                                                     title="Edit"
                                                 >
                                                     <Edit2 size={14} />
                                                 </button>
                                                 <button
-                                                    onClick={() => handleDeleteDeposit(deposit.id)}
-                                                    className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                    onClick={(e) => { e.stopPropagation(); handleDeleteDeposit(deposit.id); }}
+                                                    className="p-1.5 rounded bg-red-600 text-white hover:bg-red-700 transition-colors shadow-sm"
                                                     title="Delete"
                                                 >
                                                     <Trash2 size={14} />
@@ -237,7 +242,7 @@ const FixedDepositDetails = () => {
                             })}
                         {!fund.deposits?.length && (
                             <tr>
-                                <td colSpan="11" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                <td colSpan="12" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
                                     No fixed deposits found.
                                 </td>
                             </tr>

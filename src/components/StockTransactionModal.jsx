@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, TrendingUp, Hash, FileText, Calendar } from 'lucide-react';
+import CurrencyInput from './CurrencyInput';
 
 const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [] }) => {
     const [name, setName] = useState('');
@@ -55,7 +56,6 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             shares: parseFloat(shares),
             avgCost: parseFloat(avgCost),
             currentPrice: parseFloat(currentPrice),
-
             remarks,
             customValues,
             dividends: Object.entries(dividends).reduce((acc, [k, v]) => ({ ...acc, [k]: parseFloat(v) }), {})
@@ -151,10 +151,12 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Average Cost</label>
                                 <div className="relative">
-                                    <input
-                                        type="number" required value={avgCost} onChange={(e) => setAvgCost(e.target.value)}
-                                        className="w-full px-4 py-3 pl-10 focus:outline-none focus:border-blue-500 transition-colors"
-                                        style={inputStyle} placeholder="0.00"
+                                    <CurrencyInput
+                                        required
+                                        value={avgCost}
+                                        onChange={(e) => setAvgCost(e.target.value)}
+                                        style={inputStyle}
+                                        placeholder="0.00"
                                     />
                                     <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                                 </div>
@@ -162,10 +164,12 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Current Price</label>
                                 <div className="relative">
-                                    <input
-                                        type="number" required value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)}
-                                        className="w-full px-4 py-3 pl-10 focus:outline-none focus:border-blue-500 transition-colors"
-                                        style={inputStyle} placeholder="0.00"
+                                    <CurrencyInput
+                                        required
+                                        value={currentPrice}
+                                        onChange={(e) => setCurrentPrice(e.target.value)}
+                                        style={inputStyle}
+                                        placeholder="0.00"
                                     />
                                     <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                                 </div>
@@ -214,8 +218,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                 {Object.keys(dividends).sort((a, b) => b - a).map(year => (
                                     <div key={year}>
                                         <label className="block text-[10px] text-gray-500 mb-1">{year}</label>
-                                        <input
-                                            type="number"
+                                        <CurrencyInput
                                             value={dividends[year]}
                                             onChange={(e) => setDividends(prev => ({ ...prev, [year]: e.target.value }))}
                                             className="w-full px-3 py-2 rounded-lg bg-[#27272a] border border-[#3f3f46] text-white text-sm focus:border-blue-500 focus:outline-none"

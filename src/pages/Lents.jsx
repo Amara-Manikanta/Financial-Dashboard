@@ -138,13 +138,15 @@ const Lents = () => {
             {/* Controls */}
             <div className="flex gap-4">
                 <div className="relative flex-1">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none z-10">
+                        <Search className="text-gray-500" size={18} />
+                    </div>
                     <input
                         type="text"
                         placeholder="Search people..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
+                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500/50 transition-colors"
                     />
                 </div>
             </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, FileText } from 'lucide-react';
+import { toISODate } from '../utils/dateUtils';
 import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
@@ -24,33 +25,42 @@ const iconStyle = {
     height: '18px'
 };
 
-const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
-    const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-    const [amount, setAmount] = useState('');
-    const [remarks, setRemarks] = useState('');
+const InterestTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
+    const [formData, setFormData] = useState({
+        date: '',
+        amount: '',
+        remarks: ''
+    });
 
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                setDate(initialData.date);
-                setAmount(initialData.amount || '');
-                setRemarks(initialData.remarks || '');
+                setFormData({
+                    date: toISODate(initialData.date) || '',
+                    amount: initialData.amount || '',
+                    remarks: initialData.remarks || ''
+                });
             } else {
-                setDate(new Date().toISOString().split('T')[0]);
-                setAmount('');
-                setRemarks('');
+                setFormData({
+                    date: toISODate(new Date()) || '',
+                    amount: '',
+                    remarks: ''
+                });
             }
         }
     }, [isOpen, initialData]);
+
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData(prev => ({ ...prev, [name]: value }));
+    };
 
     const handleSubmit = (e) => {
         e.preventDefault();
         onSave({
             id: initialData?.id || Date.now(),
-            date,
-            amount: parseFloat(amount || 0),
-            remarks,
-            type: 'contribution' // NPS transactions are usually contributions
+            ...formData,
+            amount: parseFloat(formData.amount)
         });
         onClose();
     };
@@ -71,7 +81,9 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
             }} onClick={e => e.stopPropagation()}>
 
                 <div className="flex items-center justify-between p-4 border-b border-gray-800">
-                    <h3 className="text-lg font-bold text-white">{initialData ? 'Edit NPS Contribution' : 'Add NPS Contribution'}</h3>
+                    <h3 className="text-lg font-bold text-white">
+                        {initialData ? 'Edit Interest' : 'Add Interest'}
+                    </h3>
                     <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
                 </div>
 
@@ -79,7 +91,7 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                     <div className="relative">
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Date</label>
                         <div className="relative">
-                            <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+                            <input type="date" name="date" required value={formData.date} onChange={handleChange} style={inputStyle} />
                             <Calendar style={iconStyle} />
                         </div>
                     </div>
@@ -87,25 +99,20 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                     <div className="relative">
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Amount</label>
                         <div className="relative">
-                            <CurrencyInput required value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
+                            <CurrencyInput name="amount" required value={formData.amount} onChange={handleChange} style={inputStyle} placeholder="0.00" />
                             <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                         </div>
                     </div>
 
                     <div className="relative">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Remarks</label>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Remarks (Optional)</label>
                         <div className="relative">
-                            <textarea
-                                value={remarks}
-                                onChange={e => setRemarks(e.target.value)}
-                                style={{ ...inputStyle, paddingLeft: '2.5rem', minHeight: '80px', resize: 'none' }}
-                                placeholder="Yearly contribution, Bonus, etc."
-                            />
-                            <FileText style={{ ...iconStyle, top: '20px', transform: 'none' }} />
+                            <input type="text" name="remarks" value={formData.remarks || ''} onChange={handleChange} style={inputStyle} placeholder="Add notes..." />
+                            <FileText style={iconStyle} />
                         </div>
                     </div>
 
-                    <button type="submit" className="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-colors mt-2">
+                    <button type="submit" className="w-full py-3 rounded-xl bg-blue-600 text-white font-black uppercase tracking-widest text-xs hover:bg-blue-700 transition-colors mt-2 active:scale-95 shadow-xl shadow-blue-900/40">
                         Save Transaction
                     </button>
                 </form>
@@ -115,4 +122,4 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
     );
 };
 
-export default NPSTransactionModal;
+export default InterestTransactionModal;

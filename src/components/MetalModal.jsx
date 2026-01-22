@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Tag, FileText, Weight, MapPin, Edit2, Coins } from 'lucide-react';
+import { X, Calendar, Tag, FileText, Weight, MapPin, Edit2, Coins, Image } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import CurrencyInput from './CurrencyInput';
 
 const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'gold' }) => {
     // State initialization
@@ -13,6 +14,7 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
     const [purchaseDate, setPurchaseDate] = useState(new Date());
     const [place, setPlace] = useState('');
     const [remarks, setRemarks] = useState('');
+    const [image, setImage] = useState('');
 
     // Sync state with initialData
     useEffect(() => {
@@ -21,9 +23,14 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             setWeightGm(initialData.weightGm || '');
             setPurchasePrice(initialData.purchasePrice || '');
             setPurity(initialData.purity || (metalType === 'gold' ? 24 : ''));
-            setPurchaseDate(initialData.purchaseDate ? new Date(initialData.purchaseDate) : new Date());
+
+            // Safely parse date: handle empty string or invalid dates
+            const parsedDate = initialData.purchaseDate ? new Date(initialData.purchaseDate) : new Date();
+            setPurchaseDate(!isNaN(parsedDate.getTime()) ? parsedDate : new Date());
+
             setPlace(initialData.place || '');
             setRemarks(initialData.remarks || '');
+            setImage(initialData.image || '');
         } else if (isOpen && !initialData) {
             setName('');
             setWeightGm('');
@@ -32,24 +39,70 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             setPurchaseDate(new Date());
             setPlace('');
             setRemarks('');
+            setImage('');
         }
     }, [initialData, isOpen, metalType]);
 
     if (!isOpen) return null;
 
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const img = new Image();
+                img.src = reader.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+
+                    // Resize logic
+                    const MAX_WIDTH = 800;
+                    const MAX_HEIGHT = 600;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    setImage(compressedBase64);
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+        e.target.value = '';
+    };
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        onAdd({
+        const dataToSubmit = {
             ...initialData,
             name,
             weightGm: parseFloat(weightGm) || 0,
             purchasePrice: parseFloat(purchasePrice) || 0,
-            purity: metalType === 'gold' ? parseInt(purity) : null,
-            purchaseDate: purchaseDate.toISOString().split('T')[0],
+            // Preserve existing purity for non-gold items if not editable
+            purity: metalType === 'gold' ? parseInt(purity) : (initialData?.purity || null),
+            purchaseDate: (purchaseDate && !isNaN(purchaseDate.getTime())) ? purchaseDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             place,
             remarks,
+            image,
             currentValue: initialData?.currentValue || 0
-        });
+        };
+        onAdd(dataToSubmit);
         onClose();
     };
 
@@ -143,8 +196,7 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                                 <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Purchase Price</label>
                                 <div className="relative">
                                     <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs">₹</span>
-                                    <input
-                                        type="number"
+                                    <CurrencyInput
                                         value={purchasePrice}
                                         onChange={(e) => setPurchasePrice(e.target.value)}
                                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
@@ -177,6 +229,37 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
                                     placeholder="Jeweller name, City..."
                                 />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Photo</label>
+                            <div className="relative">
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleImageChange}
+                                    className="hidden"
+                                    id="metal-image-upload"
+                                />
+                                <label
+                                    htmlFor="metal-image-upload"
+                                    className="flex items-center justify-center w-full p-4 border border-dashed border-white/20 rounded-2xl hover:border-white/40 hover:bg-white/5 transition-all cursor-pointer"
+                                >
+                                    {image ? (
+                                        <div className="relative w-full h-32">
+                                            <img src={image} alt="Preview" className="w-full h-full object-cover rounded-xl" />
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-xl">
+                                                <span className="text-white text-xs font-bold">Change Photo</span>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col items-center gap-2 text-gray-500">
+                                            <Image size={24} />
+                                            <span className="text-xs font-bold">Upload Photo</span>
+                                        </div>
+                                    )}
+                                </label>
                             </div>
                         </div>
 

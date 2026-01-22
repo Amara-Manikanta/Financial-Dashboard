@@ -19,6 +19,7 @@ import FixedDepositDetails from './pages/FixedDepositDetails';
 import PolicyDetails from './pages/PolicyDetails';
 import StockMarketDetails from './pages/StockMarketDetails';
 import MetalDetails from './pages/MetalDetails';
+import MetalItemDetails from './pages/MetalItemDetails';
 import PPFDetails from './pages/PPFDetails';
 import NPSDetails from './pages/NPSDetails';
 import GoldBondDetails from './pages/GoldBondDetails';
@@ -26,6 +27,7 @@ import AssetItemDetails from './pages/AssetItemDetails';
 import StockDetails from './pages/StockDetails';
 import EmergencyFundDetails from './pages/EmergencyFundDetails';
 import SavingsAccountDetails from './pages/SavingsAccountDetails';
+import SingleDepositDetails from './pages/SingleDepositDetails';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import Lents from './pages/Lents';
@@ -54,6 +56,7 @@ function App() {
                                 <Route path="savings" element={<Savings />} />
                                 <Route path="savings/mutual-fund/:id" element={<MutualFundDetails />} />
                                 <Route path="savings/fixed-deposit/:id" element={<FixedDepositDetails />} />
+                                <Route path="savings/fixed-deposit/:id/deposit/:depositId" element={<SingleDepositDetails />} />
                                 <Route path="savings/policy/:id" element={<PolicyDetails />} />
                                 <Route path="savings/stock-market/:id" element={<StockMarketDetails />} />
                                 <Route path="savings/stock-market/:id/stock/:stockId" element={<StockDetails />} />
@@ -64,6 +67,7 @@ function App() {
                                 <Route path="savings/savings-account/:id" element={<SavingsAccountDetails />} />
                                 <Route path="metals" element={<Metals />} />
                                 <Route path="metals/:type" element={<MetalDetails />} />
+                                <Route path="metals/:type/:itemId" element={<MetalItemDetails />} />
                                 <Route path="assets" element={<Assets />} />
                                 <Route path="assets/:id" element={<AssetCategoryDetails />} />
                                 <Route path="assets/:categoryId/:itemId" element={<AssetItemDetails />} />

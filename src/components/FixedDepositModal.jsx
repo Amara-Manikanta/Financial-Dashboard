@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Building, Hash, Percent, FileText } from 'lucide-react';
 import { toISODate } from '../utils/dateUtils';
+import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -33,7 +34,9 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
         originalAmount: '',
         interestEarned: '',
         maturityAmount: '',
-        remarks: ''
+        maturityAmount: '',
+        remarks: '',
+        tds: ''
     });
 
     useEffect(() => {
@@ -49,7 +52,9 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         interestRate: '',
                         interestEarned: '0',
                         maturityAmount: '',
-                        remarks: ''
+                        maturityAmount: '',
+                        remarks: '',
+                        tds: ''
                     });
                 } else {
                     setFormData({
@@ -61,7 +66,9 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         interestRate: initialData.interestRate || '',
                         interestEarned: initialData.interestEarned || '',
                         maturityAmount: initialData.maturityAmount || '',
-                        remarks: initialData.remarks || ''
+                        maturityAmount: initialData.maturityAmount || '',
+                        remarks: initialData.remarks || '',
+                        tds: initialData.tds || ''
                     });
                 }
             } else {
@@ -73,7 +80,9 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                     originalAmount: '',
                     interestEarned: '0',
                     maturityAmount: '',
-                    remarks: ''
+                    maturityAmount: '',
+                    remarks: '',
+                    tds: ''
                 });
             }
         }
@@ -131,6 +140,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
             interestRate: parseFloat(formData.interestRate),
             interestEarned: parseFloat(formData.interestEarned),
             maturityAmount: parseFloat(formData.maturityAmount),
+            tds: parseFloat(formData.tds || 0),
             currentValue: parseFloat(formData.originalAmount) + accrued // Current value based on accrual
         });
         onClose();
@@ -205,7 +215,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         <div className="relative">
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Principal Amount</label>
                             <div className="relative">
-                                <input type="number" step="0.01" name="originalAmount" required value={formData.originalAmount} onChange={handleChange} style={inputStyle} placeholder="0.00" />
+                                <CurrencyInput name="originalAmount" required value={formData.originalAmount} onChange={handleChange} style={inputStyle} placeholder="0.00" />
                                 <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
                         </div>
@@ -214,6 +224,16 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                             <div className="relative">
                                 <input type="number" step="0.01" name="interestRate" required value={formData.interestRate || ''} onChange={handleChange} style={inputStyle} placeholder="0.00" />
                                 <Percent style={iconStyle} />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="relative">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">TDS Amount</label>
+                            <div className="relative">
+                                <CurrencyInput name="tds" value={formData.tds || ''} onChange={handleChange} style={inputStyle} placeholder="0.00" />
+                                <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
                         </div>
                     </div>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Hash, FileText, PieChart } from 'lucide-react';
+import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -89,7 +90,7 @@ const NPSModal = ({ isOpen, onClose, onSave, initialData }) => {
                     <div className="relative">
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Invested Amount</label>
                         <div className="relative">
-                            <input type="number" step="0.01" required value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
+                            <CurrencyInput name="amount" required value={amount} onChange={(e) => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
                             <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                         </div>
                     </div>
@@ -111,12 +112,13 @@ const NPSModal = ({ isOpen, onClose, onSave, initialData }) => {
                         </div>
                     </div>
 
+
                     <button type="submit" className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors mt-2">
                         Save Holding
                     </button>
                 </form>
-            </div>
-        </div>,
+            </div >
+        </div >,
         document.body
     );
 };

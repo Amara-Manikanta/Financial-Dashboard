@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Hash, FileText } from 'lucide-react';
+import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -114,14 +115,14 @@ const SGBTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                         <div className="relative">
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Issue Price</label>
                             <div className="relative">
-                                <input type="number" step="0.01" required value={issuePrice} onChange={e => setIssuePrice(e.target.value)} style={inputStyle} placeholder="0.00" />
+                                <CurrencyInput required value={issuePrice} onChange={(e) => setIssuePrice(e.target.value)} style={inputStyle} placeholder="0.00" />
                                 <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
                         </div>
                         <div className="relative">
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Current Price</label>
                             <div className="relative">
-                                <input type="number" step="0.01" required value={currentPrice} onChange={e => setCurrentPrice(e.target.value)} style={inputStyle} placeholder="0.00" />
+                                <CurrencyInput required value={currentPrice} onChange={(e) => setCurrentPrice(e.target.value)} style={inputStyle} placeholder="0.00" />
                                 <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
                         </div>

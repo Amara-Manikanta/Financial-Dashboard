@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Calendar, IndianRupee, FileText, ArrowRightLeft } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import CurrencyInput from './CurrencyInput';
 
 const LentTransactionModal = ({ isOpen, onClose, person, editTransaction = null }) => {
     const { updateItem } = useFinance();
@@ -80,8 +81,8 @@ const LentTransactionModal = ({ isOpen, onClose, person, editTransaction = null 
                             type="button"
                             onClick={() => setFormData({ ...formData, type: 'repayment' })}
                             className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.type === 'repayment'
-                                    ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
-                                    : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'
+                                ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400'
+                                : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'
                                 }`}
                         >
                             <span className="text-sm font-semibold">
@@ -92,8 +93,8 @@ const LentTransactionModal = ({ isOpen, onClose, person, editTransaction = null 
                             type="button"
                             onClick={() => setFormData({ ...formData, type: 'additional' })}
                             className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${formData.type === 'additional'
-                                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
-                                    : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'
+                                ? 'bg-amber-500/20 border-amber-500/50 text-amber-400'
+                                : 'bg-black/40 border-white/10 text-gray-400 hover:bg-white/5'
                                 }`}
                         >
                             <span className="text-sm font-semibold">
@@ -107,11 +108,8 @@ const LentTransactionModal = ({ isOpen, onClose, person, editTransaction = null 
                         <label className="text-xs font-medium text-gray-300 uppercase">Amount</label>
                         <div className="relative">
                             <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                            <input
-                                type="number"
+                            <CurrencyInput
                                 required
-                                min="0"
-                                step="0.01"
                                 value={formData.amount}
                                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                 style={{ backgroundColor: '#27272a', color: '#ffffff' }}

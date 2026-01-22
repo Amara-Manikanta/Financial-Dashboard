@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, FileText, Layout, CreditCard, Shield, TrendingUp, Landmark } from 'lucide-react';
+import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -150,9 +151,7 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                             <div className="relative">
                                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Initial Amount</label>
                                 <div className="relative">
-                                    <input
-                                        type="number"
-                                        step="0.01"
+                                    <CurrencyInput
                                         required
                                         value={amount}
                                         onChange={e => setAmount(e.target.value)}

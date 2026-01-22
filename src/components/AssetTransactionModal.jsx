@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
+import CurrencyInput from './CurrencyInput';
 
 const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [formData, setFormData] = useState({
@@ -80,8 +81,7 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                         <label className="block text-sm font-medium text-gray-400 mb-1">Amount</label>
                         <div className="relative">
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
-                            <input
-                                type="number"
+                            <CurrencyInput
                                 name="amount"
                                 value={formData.amount}
                                 onChange={handleChange}

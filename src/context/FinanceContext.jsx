@@ -40,6 +40,7 @@ export function FinanceProvider({ children }) {
     const [snapshots, setSnapshots] = useState([]);
     const [categoryBudgets, setCategoryBudgets] = useState({});
     const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
+    const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
 
     const { user, isGuest } = useAuth();
 
@@ -92,6 +93,7 @@ export function FinanceProvider({ children }) {
                 setLents(lentData || []);
                 setCategoryBudgets(appData.categoryBudgets || {});
                 setCategories(appData.categories || []);
+                setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
                 setSnapshots(snapData || []);
 
             } catch (error) {
@@ -116,6 +118,28 @@ export function FinanceProvider({ children }) {
             }
         } catch (error) {
             console.error("Failed to fetch metal rates:", error);
+        }
+    };
+
+    const updateManualRates = async (rates) => {
+        setManualMetalRates(rates);
+        try {
+            // Fetch current appData to merge correctly
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+
+            const updatedAppData = {
+                ...currentAppData,
+                manualMetalRates: rates
+            };
+
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedAppData)
+            });
+        } catch (error) {
+            console.error("Failed to save manual rates:", error);
         }
     };
 
@@ -145,8 +169,12 @@ export function FinanceProvider({ children }) {
         setCategoryBudgets(updatedBudgets);
 
         try {
+            // Fetch current appData first (safer approach)
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+
             const payload = {
-                categories: categories,
+                ...currentAppData,
                 categoryBudgets: updatedBudgets
             };
 
@@ -176,10 +204,15 @@ export function FinanceProvider({ children }) {
             if (category && !categories.some(c => c.toLowerCase() === category)) {
                 const newCategories = [...categories, category];
                 setCategories(newCategories);
+
+                // Safe updated of appData
+                const res = await fetch(`${API_URL}/appData`);
+                const currentAppData = await res.json();
+
                 fetch(`${API_URL}/appData`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ categories: newCategories })
+                    body: JSON.stringify({ ...currentAppData, categories: newCategories })
                 });
             }
 
@@ -386,9 +419,18 @@ export function FinanceProvider({ children }) {
 
 
     const processedMetals = React.useMemo(() => {
-        const GOLD_RATE_24K = metalRates.gold || 7600;
-        const GOLD_RATE_22K = metalRates.gold ? metalRates.gold * (22 / 24) : 7000;
-        const SILVER_RATE = metalRates.silver || 95;
+        // Prefer manual rates if set (> 0), else fallback to API
+        const manualGold = Number(manualMetalRates?.gold);
+        const manualSilver = Number(manualMetalRates?.silver);
+
+        const GOLD_RATE_24K = manualGold > 0 ? manualGold : (metalRates.gold || 7600);
+        // If API is used, it calculates 22k from 24K. If manual is used, we assume manual is 24K standard?
+        // Let's assume manual rate entered is for standard 24K. 22K is derived.
+        // OR we can ask user for both. For now, derived is safer simple UX.
+        const GOLD_RATE_22K = GOLD_RATE_24K * (22 / 24);
+
+        const SILVER_RATE = manualSilver > 0 ? manualSilver : (metalRates.silver || 95);
+
         return {
             gold: metals.gold.map(item => {
                 if (item.currentValue > 0) return item;
@@ -400,7 +442,7 @@ export function FinanceProvider({ children }) {
                 return { ...item, currentValue: item.weightGm * SILVER_RATE };
             })
         };
-    }, [metals, metalRates]);
+    }, [metals, metalRates, manualMetalRates]);
 
     const calculateItemCurrentValue = (item) => {
         if (!item) return 0;
@@ -478,7 +520,7 @@ export function FinanceProvider({ children }) {
                 return runningCost;
 
             case 'fixed_deposit':
-                return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.amount) || 0), 0);
+                return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.originalAmount) || 0), 0);
 
             case 'ppf':
                 return (item.details || []).reduce((sum, d) => sum + Number(d.deposit || 0), 0);
@@ -769,8 +811,12 @@ export function FinanceProvider({ children }) {
         refreshStockPrices,
         refreshStockPrices,
         refreshMutualFundNAV,
+        refreshStockPrices,
+        refreshMutualFundNAV,
         metalRates,
-        fetchMetalRates
+        fetchMetalRates,
+        manualMetalRates,
+        updateManualRates
     };
 
     return (

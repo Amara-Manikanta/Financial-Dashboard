@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
+
 import { X, IndianRupee, User, FileText } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import CurrencyInput from './CurrencyInput';
 
 const LentModal = ({ isOpen, onClose, editItem = null }) => {
     const { addItem, updateItem } = useFinance();
@@ -106,11 +108,8 @@ const LentModal = ({ isOpen, onClose, editItem = null }) => {
                         <label className="text-xs font-medium text-gray-300 uppercase">Principal Amount</label>
                         <div className="relative">
                             <IndianRupee className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
-                            <input
-                                type="number"
+                            <CurrencyInput
                                 required
-                                min="0"
-                                step="0.01"
                                 value={formData.amount}
                                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                                 style={{ backgroundColor: '#27272a', color: '#ffffff' }}

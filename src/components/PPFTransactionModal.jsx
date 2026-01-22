@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, FileText } from 'lucide-react';
+import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -139,7 +140,7 @@ const PPFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                         <div className="relative">
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Amount</label>
                             <div className="relative">
-                                <input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
+                                <CurrencyInput value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
                                 <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
                         </div>
@@ -149,7 +150,7 @@ const PPFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                         <div className="relative">
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Interest Earned</label>
                             <div className="relative">
-                                <input type="number" step="0.01" value={interestEarned} onChange={e => setInterestEarned(e.target.value)} style={inputStyle} placeholder="0.00" />
+                                <CurrencyInput value={interestEarned} onChange={e => setInterestEarned(e.target.value)} style={inputStyle} placeholder="0.00" />
                                 <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
                         </div>
