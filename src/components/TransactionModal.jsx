@@ -18,9 +18,13 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
     const [isCustomCategory, setIsCustomCategory] = useState(false);
     const [isCredited, setIsCredited] = useState(false);
 
-    const { categories } = useFinance();
+    const { categories, creditCards } = useFinance();
 
-    const creditCards = ["Scapia", "Amazon", "Icici Rupay", "ICICI HP card"];
+    // Use cards from context if available, otherwise fallback (or merge)
+    // Actually, let's prioritize context cards.
+    const availableCreditCards = creditCards && creditCards.length > 0
+        ? creditCards.map(c => c.name)
+        : ["Scapia", "Amazon", "Icici Rupay", "ICICI HP card"];
 
     // Sync state with initialData
     useEffect(() => {
@@ -263,7 +267,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                                             className="w-full bg-transparent border-none text-white font-bold appearance-none focus:outline-none text-xs pl-8 pr-8"
                                         >
                                             <option value="" disabled className="bg-[#0c0c0e]">Select Card</option>
-                                            {creditCards.map(card => <option key={card} value={card} className="bg-[#0c0c0e]">{card}</option>)}
+                                            {availableCreditCards.map(card => <option key={card} value={card} className="bg-[#0c0c0e]">{card}</option>)}
                                         </select>
                                         <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-400" />
                                     </div>

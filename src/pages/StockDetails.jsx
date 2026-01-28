@@ -24,8 +24,22 @@ const StockDetails = () => {
 
     const transactions = stock.transactions || [];
 
+    // Synthetic Initial Transaction for Legacy Data
+    // If no transactions exist but we have shares, show an "Initial Balance" entry
+    const effectiveTransactions = [...transactions];
+    if (effectiveTransactions.length === 0 && stock.shares > 0) {
+        effectiveTransactions.push({
+            id: 'synthetic-initial',
+            date: '2020-01-01', // Fallback date
+            type: 'buy',
+            quantity: Number(stock.shares),
+            price: Number(stock.avgCost),
+            remarks: 'Initial Balance (Legacy Data)'
+        });
+    }
+
     // Sorting transactions by date descending
-    const sortedTransactions = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sortedTransactions = [...effectiveTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const recalculateStockMetrics = (txList) => {
         let currentShares = 0;
@@ -252,7 +266,10 @@ const StockDetails = () => {
                         ) : (
                             sortedTransactions.map(tx => (
                                 <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <td className="p-4 text-gray-300">{new Date(tx.date).toLocaleDateString()}</td>
+                                    <td className="p-4 text-gray-300">
+                                        {new Date(tx.date).toLocaleDateString()}
+                                        {tx.id === 'synthetic-initial' && <span className="ml-2 text-xs text-yellow-500">(Auto-generated)</span>}
+                                    </td>
                                     <td className="p-4">
                                         <span className={`px-2 py-1 rounded text-xs font-bold ${['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? 'bg-green-500/20 text-green-400' :
                                             ['sell', 'buyback'].includes(tx.type) ? 'bg-red-500/20 text-red-400' :
@@ -291,8 +308,22 @@ const StockDetails = () => {
                                     </td>
                                     <td className="p-4 text-center">
                                         <div className="flex justify-center gap-2">
-                                            <button onClick={() => { setEditingTx(tx); setIsModalOpen(true); }} className="p-1.5 rounded hover:bg-white/10 text-blue-400"><Edit2 size={16} /></button>
-                                            <button onClick={() => handleDeleteTransaction(tx.id)} className="p-1.5 rounded hover:bg-white/10 text-red-400"><Trash2 size={16} /></button>
+                                            <button onClick={() => {
+                                                // If editing synthetic, we treat it as adding a new one filled with data
+                                                if (tx.id === 'synthetic-initial') {
+                                                    setEditingTx({ ...tx, id: undefined, date: new Date().toISOString().split('T')[0] });
+                                                } else {
+                                                    setEditingTx(tx);
+                                                }
+                                                setIsModalOpen(true);
+                                            }} className="p-1.5 rounded hover:bg-white/10 text-blue-400">
+                                                <Edit2 size={16} />
+                                            </button>
+                                            {tx.id !== 'synthetic-initial' && (
+                                                <button onClick={() => handleDeleteTransaction(tx.id)} className="p-1.5 rounded hover:bg-white/10 text-red-400">
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>

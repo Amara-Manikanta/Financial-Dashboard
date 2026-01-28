@@ -27,17 +27,24 @@ import AssetItemDetails from './pages/AssetItemDetails';
 import StockDetails from './pages/StockDetails';
 import EmergencyFundDetails from './pages/EmergencyFundDetails';
 import SavingsAccountDetails from './pages/SavingsAccountDetails';
+import RecurringDepositDetails from './pages/RecurringDepositDetails';
+import SingleRecurringDepositDetails from './pages/SingleRecurringDepositDetails';
 import SingleDepositDetails from './pages/SingleDepositDetails';
 import Login from './pages/Login';
 import Profile from './pages/Profile';
 import Lents from './pages/Lents';
 import LentDetails from './pages/LentDetails';
+import Loans from './pages/Loans';
 import BudgetPlanning from './pages/BudgetPlanning';
+import CreditCardDetails from './pages/CreditCardDetails';
+import SingleCreditCardDetails from './pages/SingleCreditCardDetails';
 
-const ProtectedRoute = () => {
-    const { user } = useAuth();
-    if (!user) return <Navigate to="/login" replace />;
-    return <Outlet />;
+const ProtectedRoute = ({ children }) => {
+    const { user, loading } = useAuth();
+    if (loading) return <div className="min-h-screen flex items-center justify-center text-white">Loading...</div>;
+    // Allow guest access (user with username 'guest')
+    if (!user) return <Navigate to="/login" />;
+    return children;
 };
 
 function App() {
@@ -45,10 +52,15 @@ function App() {
         <AuthProvider>
             <FinanceProvider>
                 <Router>
-                    <Routes>
-                        <Route path="/login" element={<Login />} />
-                        <Route element={<ProtectedRoute />}>
-                            <Route path="/" element={<Layout />}>
+                    <div style={{
+                        minHeight: '100vh',
+                        background: '#09090b',
+                        color: '#fff',
+                        fontFamily: '"Plus Jakarta Sans", sans-serif'
+                    }}>
+                        <Routes>
+                            <Route path="/login" element={<Login />} />
+                            <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                                 <Route index element={<Dashboard />} />
                                 <Route path="expenses" element={<Expenses />} />
                                 <Route path="expenses/:year/:month" element={<ExpenseDetails />} />
@@ -65,6 +77,8 @@ function App() {
                                 <Route path="savings/sgb/:id" element={<GoldBondDetails />} />
                                 <Route path="savings/emergency-fund/:id" element={<EmergencyFundDetails />} />
                                 <Route path="savings/savings-account/:id" element={<SavingsAccountDetails />} />
+                                <Route path="savings/recurring-deposit/:id" element={<RecurringDepositDetails />} />
+                                <Route path="savings/recurring-deposit/:id/rd/:rdId" element={<SingleRecurringDepositDetails />} />
                                 <Route path="metals" element={<Metals />} />
                                 <Route path="metals/:type" element={<MetalDetails />} />
                                 <Route path="metals/:type/:itemId" element={<MetalItemDetails />} />
@@ -73,11 +87,15 @@ function App() {
                                 <Route path="assets/:categoryId/:itemId" element={<AssetItemDetails />} />
                                 <Route path="lents" element={<Lents />} />
                                 <Route path="lents/:id" element={<LentDetails />} />
+                                <Route path="loans" element={<Loans />} />
+                                <Route path="loans/:id" element={<LentDetails />} />
                                 <Route path="budget-planning" element={<BudgetPlanning />} />
                                 <Route path="profile" element={<Profile />} />
+                                <Route path="credit-cards" element={<CreditCardDetails />} />
+                                <Route path="credit-cards/:id" element={<SingleCreditCardDetails />} />
                             </Route>
-                        </Route>
-                    </Routes>
+                        </Routes>
+                    </div>
                 </Router>
             </FinanceProvider>
         </AuthProvider>

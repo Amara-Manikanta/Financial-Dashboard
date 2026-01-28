@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Plus, Trash2, Edit2, Settings } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Plus, Trash2, Edit2, Settings, RefreshCcw } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import SavingsAccountTransactionModal from '../components/SavingsAccountTransactionModal';
 import SavingsAccountEditModal from '../components/SavingsAccountEditModal';
+import RecurringDepositModal from '../components/RecurringDepositModal';
 
 const SavingsAccountDetails = () => {
     const { id } = useParams();
@@ -20,6 +21,10 @@ const SavingsAccountDetails = () => {
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
     const [isEditAccountModalOpen, setIsEditAccountModalOpen] = useState(false);
+
+    // RD Modal State
+    const [isRDModalOpen, setIsRDModalOpen] = useState(false);
+    const [editingRD, setEditingRD] = useState(null);
 
     const account = savings.find(s => s.id.toString() === id);
 
@@ -242,6 +247,37 @@ const SavingsAccountDetails = () => {
         updateItem('savings', updatedAccount);
     };
 
+    const handleSaveRD = (rdData) => {
+        let updatedRDs = [...(account.recurringDeposits || [])];
+
+        // Check if editing existing
+        const existingIndex = updatedRDs.findIndex(r => r.id === rdData.id);
+
+        if (existingIndex >= 0) {
+            updatedRDs[existingIndex] = rdData;
+        } else {
+            updatedRDs.push(rdData);
+        }
+
+        updateItem('savings', {
+            ...account,
+            recurringDeposits: updatedRDs
+        });
+
+        setIsRDModalOpen(false);
+        setEditingRD(null);
+    };
+
+    const handleDeleteRD = (id) => {
+        if (window.confirm('Delete this Recurring Deposit?')) {
+            const updatedRDs = (account.recurringDeposits || []).filter(r => r.id !== id);
+            updateItem('savings', {
+                ...account,
+                recurringDeposits: updatedRDs
+            });
+        }
+    };
+
     // Calculate stats details...
     let totalDeposits = 0;
     let totalInterest = 0;
@@ -365,6 +401,75 @@ const SavingsAccountDetails = () => {
                 </div>
             </div>
 
+            {/* Recurring Deposits Section */}
+            <div className="mb-12">
+                <div className="flex items-center justify-between mb-6 px-1">
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
+                        <RefreshCcw size={14} />
+                        Recurring Deposits (RDs)
+                    </h3>
+                    <button
+                        onClick={() => { setEditingRD(null); setIsRDModalOpen(true); }}
+                        className="text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
+                    >
+                        + Add RD
+                    </button>
+                </div>
+
+                {(account.recurringDeposits || []).length === 0 ? (
+                    <div className="text-center py-8 bg-white/[0.02] border border-dashed border-white/5 rounded-2xl">
+                        <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">No active recurring deposits</p>
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {(account.recurringDeposits || []).map(rd => (
+                            <div key={rd.id} className="card bg-white/[0.02] border-white/5 p-5 group relative overflow-hidden">
+                                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-all">
+                                    <RefreshCcw size={48} />
+                                </div>
+                                <div className="relative z-10">
+                                    <div className="flex justify-between items-start mb-4">
+                                        <div>
+                                            <h4 className="font-bold text-white text-lg">{rd.name}</h4>
+                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rd.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
+                                                {rd.status}
+                                            </span>
+                                        </div>
+                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button onClick={() => { setEditingRD(rd); setIsRDModalOpen(true); }} className="p-1.5 bg-blue-500/10 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition-colors">
+                                                <Edit2 size={12} />
+                                            </button>
+                                            <button onClick={() => handleDeleteRD(rd.id)} className="p-1.5 bg-red-500/10 text-red-400 rounded hover:bg-red-500 hover:text-white transition-colors">
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Installment</span>
+                                            <span className="text-white font-bold">{formatCurrency(rd.installmentAmount)}/mo</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Interest Rate</span>
+                                            <span className="text-emerald-400 font-bold">{rd.interestRate}%</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs">
+                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Dates</span>
+                                            <span className="text-gray-400 font-medium">{formatDate(rd.startDate)} - {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-white/5">
+                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Maturity Value</span>
+                                            <span className="text-purple-400 font-black tracking-tight text-sm">{formatCurrency(rd.maturityAmount)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
             {/* Transactions Section */}
             <div className="card border-white/5 p-0 overflow-hidden shadow-2xl bg-white/[0.01]">
                 <div className="p-8 border-b border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
@@ -477,6 +582,13 @@ const SavingsAccountDetails = () => {
                 onClose={() => setIsEditAccountModalOpen(false)}
                 onSave={handleEditAccount}
                 account={account}
+            />
+
+            <RecurringDepositModal
+                isOpen={isRDModalOpen}
+                onClose={() => setIsRDModalOpen(false)}
+                onSave={handleSaveRD}
+                initialData={editingRD}
             />
         </div>
     );

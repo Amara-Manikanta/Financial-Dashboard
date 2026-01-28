@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, FileText, Layout, CreditCard, Shield, TrendingUp, Landmark } from 'lucide-react';
+import { X, Calendar, FileText, Layout, CreditCard, Shield, TrendingUp, Landmark, RefreshCcw } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
@@ -37,6 +37,7 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
         { id: 'mutual_fund', label: 'Mutual Fund', icon: <TrendingUp size={16} /> },
         { id: 'policy', label: 'Insurance Policy', icon: <Shield size={16} /> },
         { id: 'fixed_deposit', label: 'Fixed Deposit', icon: <Landmark size={16} /> },
+        { id: 'recurring_deposit', label: 'Recurring Deposit', icon: <RefreshCcw size={16} /> },
         { id: 'savings_account', label: 'Savings Account', icon: <CreditCard size={16} /> },
         { id: 'nps', label: 'NPS Account', icon: <Layout size={16} /> },
         { id: 'ppf', label: 'PPF Account', icon: <Landmark size={16} /> }
@@ -65,6 +66,9 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
             newItem.investedAmount = parseFloat(amount || 0);
         } else if (type === 'ppf') {
             newItem.details = [];
+        } else if (type === 'recurring_deposit') {
+            newItem.recurringDeposits = [];
+            newItem.amount = 0; // RD containers start with 0 val usually as they sum up children
         } else if (type === 'savings_account') {
             newItem.transactions = [];
             newItem.interestRate = 5.4;

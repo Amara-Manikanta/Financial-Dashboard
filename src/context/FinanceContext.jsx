@@ -36,6 +36,7 @@ export function FinanceProvider({ children }) {
     const [assets, setAssets] = useState([]);
     const [lents, setLents] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [creditCards, setCreditCards] = useState([]);
     const [salaryStats, setSalaryStats] = useState({});
     const [snapshots, setSnapshots] = useState([]);
     const [categoryBudgets, setCategoryBudgets] = useState({});
@@ -54,12 +55,14 @@ export function FinanceProvider({ children }) {
             if (isGuest) {
                 // ... (existing guest logic)
                 const guestLents = []; // Guest mode placeholder
+                const guestCreditCards = []; // Guest mode placeholder
 
                 setExpenses(guestExpenses);
                 setSavings(guestSavings);
                 setMetals({ gold: [], silver: [] });
                 setAssets(guestAssets);
                 setLents(guestLents);
+                setCreditCards(guestCreditCards);
                 setBudgets([]); // Removed
                 setCategoryBudgets({});
                 setCategories(["salary received", "house rent", "groceries", "others"]);
@@ -68,14 +71,15 @@ export function FinanceProvider({ children }) {
                 return;
             }
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes] = await Promise.all([
                     fetch(`${API_URL}/expenses?_t=${Date.now()}`),
                     fetch(`${API_URL}/savings?_t=${Date.now()}`),
                     fetch(`${API_URL}/metals?_t=${Date.now()}`),
                     fetch(`${API_URL}/assets?_t=${Date.now()}`),
                     fetch(`${API_URL}/appData?_t=${Date.now()}`),
                     fetch(`${API_URL}/snapshots?_t=${Date.now()}`),
-                    fetch(`${API_URL}/lents?_t=${Date.now()}`)
+                    fetch(`${API_URL}/lents?_t=${Date.now()}`),
+                    fetch(`${API_URL}/creditCards?_t=${Date.now()}`)
                 ]);
 
                 const expData = await expRes.json();
@@ -85,12 +89,14 @@ export function FinanceProvider({ children }) {
                 const appData = await appRes.json();
                 const snapData = await snapRes.json();
                 const lentData = await lentRes.json();
+                const ccData = await ccRes.json();
 
                 setExpenses(expData);
                 setSavings(savData);
                 setMetals(metData);
                 setAssets(assData);
                 setLents(lentData || []);
+                setCreditCards(ccData || []);
                 setCategoryBudgets(appData.categoryBudgets || {});
                 setCategories(appData.categories || []);
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
@@ -192,7 +198,7 @@ export function FinanceProvider({ children }) {
         if (type === 'expense') {
             const dateObj = new Date(item.date);
             // Scapia billing cycle adjustment: 25th onwards counts as next month
-            if (item.paymentMode === 'credit_card' && item.creditCardName === 'Scapia' && dateObj.getDate() > 24) {
+            if (item.paymentMode === 'credit_card' && item.creditCardName && item.creditCardName.includes('Scapia') && dateObj.getDate() > 24) {
                 dateObj.setMonth(dateObj.getMonth() + 1);
             }
             const year = dateObj.getFullYear().toString();
@@ -259,7 +265,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : '';
         if (!endpoint) return;
 
         try {
@@ -272,6 +278,7 @@ export function FinanceProvider({ children }) {
             if (type === 'savings') setSavings(prev => [...prev, savedItem]);
             if (type === 'asset') setAssets(prev => [...prev, savedItem]);
             if (type === 'lents') setLents(prev => [...prev, savedItem]);
+            if (type === 'creditCards') setCreditCards(prev => [...prev, savedItem]);
         } catch (error) {
             console.error("Error adding item:", error);
         }
@@ -404,13 +411,14 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : '';
         if (!endpoint) return;
         try {
             await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE' });
             if (type === 'savings') setSavings(prev => prev.filter(i => i.id != id));
             if (type === 'asset') setAssets(prev => prev.filter(i => i.id != id));
             if (type === 'lents') setLents(prev => prev.filter(i => i.id != id));
+            if (type === 'creditCards') setCreditCards(prev => prev.filter(i => i.id != id));
         } catch (error) {
             console.error("Error deleting item:", error);
         }
@@ -541,7 +549,7 @@ export function FinanceProvider({ children }) {
             const newExpenses = { ...expenses };
             const dateObj = new Date(item.date);
             // Scapia billing cycle adjustment: 25th onwards counts as next month
-            if (item.paymentMode === 'credit_card' && item.creditCardName === 'Scapia' && dateObj.getDate() > 24) {
+            if (item.paymentMode === 'credit_card' && item.creditCardName && item.creditCardName.includes('Scapia') && dateObj.getDate() > 24) {
                 dateObj.setMonth(dateObj.getMonth() + 1);
             }
             const newYear = dateObj.getFullYear().toString();
@@ -647,7 +655,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : '';
         if (!endpoint || !item.id) return;
         try {
             const res = await fetch(`${API_URL}/${endpoint}/${item.id}`, {
@@ -659,6 +667,7 @@ export function FinanceProvider({ children }) {
             if (type === 'savings') setSavings(prev => prev.map(i => i.id == item.id ? updatedItem : i));
             if (type === 'asset') setAssets(prev => prev.map(i => i.id == item.id ? updatedItem : i));
             if (type === 'lents') setLents(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'creditCards') setCreditCards(prev => prev.map(i => i.id == item.id ? updatedItem : i));
         } catch (error) {
             console.error("Error updating item:", error);
         }
@@ -802,15 +811,12 @@ export function FinanceProvider({ children }) {
     };
 
     const value = {
-        expenses, savings, metals: processedMetals, assets, lents, salaryStats, categories, snapshots, categoryBudgets,
+        expenses, savings, metals: processedMetals, assets, creditCards, lents, salaryStats, categories, snapshots, categoryBudgets,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal,
         addNewYear, takeSnapshot, updateCategoryBudget,
         formatCurrency,
         calculateItemCurrentValue,
         calculateItemInvestedValue,
-        refreshStockPrices,
-        refreshStockPrices,
-        refreshMutualFundNAV,
         refreshStockPrices,
         refreshMutualFundNAV,
         metalRates,

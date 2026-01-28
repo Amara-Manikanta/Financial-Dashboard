@@ -92,9 +92,25 @@ const StockMarketDetails = () => {
 
         if (existingStockIndex >= 0) {
             updatedStocks = [...stocks];
-            updatedStocks[existingStockIndex] = stockData;
+            // Preserve existing transactions when editing
+            updatedStocks[existingStockIndex] = {
+                ...stockData,
+                transactions: stocks[existingStockIndex].transactions || []
+            };
         } else {
-            updatedStocks = [...stocks, stockData];
+            // New stock: Create initial transaction if shares > 0
+            let initialTransactions = [];
+            if (stockData.shares > 0) {
+                initialTransactions.push({
+                    id: Date.now().toString(),
+                    date: new Date().toISOString().split('T')[0],
+                    type: 'buy',
+                    quantity: Number(stockData.shares),
+                    price: Number(stockData.avgCost),
+                    remarks: 'Initial Balance'
+                });
+            }
+            updatedStocks = [...stocks, { ...stockData, transactions: initialTransactions }];
         }
 
         const updatedMarket = { ...market, stocks: updatedStocks };

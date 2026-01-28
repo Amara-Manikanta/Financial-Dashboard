@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw } from 'lucide-react';
 import SavingsItemModal from '../components/SavingsItemModal';
 
 const Savings = () => {
@@ -13,6 +13,7 @@ const Savings = () => {
         switch (type) {
             case 'savings_account': return <Landmark size={64} />;
             case 'fixed_deposit': return <Landmark size={64} />;
+            case 'recurring_deposit': return <RefreshCcw size={64} />;
             case 'Policy': return <Shield size={64} />;
             case 'stock_market':
             case 'mutual_fund': return <TrendingUp size={64} />;
@@ -28,6 +29,7 @@ const Savings = () => {
                 return { bg: 'bg-purple-500/20', text: 'text-purple-400', bar: 'bg-purple-500' };
             case 'savings_account':
             case 'fixed_deposit':
+            case 'recurring_deposit':
                 return { bg: 'bg-blue-500/20', text: 'text-blue-400', bar: 'bg-blue-500' };
             case 'Policy':
             case 'policy':
@@ -75,6 +77,7 @@ const Savings = () => {
                     const isMutualFund = item.type === 'mutual_fund';
                     const isFixedDeposit = item.type === 'fixed_deposit';
                     const isSavingsAccount = item.type === 'savings_account';
+                    const isRecurringDeposit = item.type === 'recurring_deposit';
                     const isPolicy = item.type === 'policy' || item.type === 'Policy';
                     const isPPF = item.type === 'ppf';
                     const isNPS = item.type === 'nps';
@@ -84,7 +87,7 @@ const Savings = () => {
                     const style = getStyle(item.type);
 
                     const displayAmount = calculateItemCurrentValue(item);
-                    const showProgress = item.goal > 0 && !isStockMarket && !isPolicy && !isFixedDeposit && !isLiquid && !isPPF && !isNPS && !isSGB && !isSavingsAccount;
+                    const showProgress = item.goal > 0 && !isStockMarket && !isPolicy && !isFixedDeposit && !isLiquid && !isPPF && !isNPS && !isSGB && !isSavingsAccount && !isRecurringDeposit;
 
                     const handleClick = () => {
                         if (isMutualFund) { navigate(`/savings/mutual-fund/${item.id}`); }
@@ -96,6 +99,7 @@ const Savings = () => {
                         else if (isSGB) { navigate(`/savings/sgb/${item.id}`); }
                         else if (isLiquid) { navigate(`/savings/emergency-fund/${item.id}`); }
                         else if (isSavingsAccount) { navigate(`/savings/savings-account/${item.id}`); }
+                        else if (isRecurringDeposit) { navigate(`/savings/recurring-deposit/${item.id}`); }
                     };
 
                     return (
@@ -122,9 +126,9 @@ const Savings = () => {
                                     <p className="text-4xl font-black text-white tracking-tighter">{formatCurrency(displayAmount)}</p>
 
                                     {/* Profit/Loss Display */}
-                                    {(isStockMarket || isMutualFund || isFixedDeposit || isPPF || isNPS || isSGB || isSavingsAccount) && (
+                                    {(isStockMarket || isMutualFund || isFixedDeposit || isPPF || isNPS || isSGB || isSavingsAccount || isRecurringDeposit) && (
                                         (() => {
-                                            if (isFixedDeposit || isPPF || isSavingsAccount) {
+                                            if (isFixedDeposit || isRecurringDeposit || isPPF || isSavingsAccount) {
                                                 const invested = calculateItemInvestedValue(item);
                                                 const totalInterest = displayAmount - invested;
                                                 return (

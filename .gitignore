@@ -44,3 +44,13 @@ update_db_structure.py
 *.njsproj
 *.sln
 *.sw?
+
+# Backups
+backups/
+
+# Local Scripts & Commands
+LaunchFinanceApp.command
+add_credit_cards_key.cjs
+update_db_lents.cjs
+test_lents_backend.js
+verify_persistence.js
