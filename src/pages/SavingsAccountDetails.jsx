@@ -44,17 +44,26 @@ const SavingsAccountDetails = () => {
         let currentDate = new Date(transactions[0].date);
         currentDate.setHours(0, 0, 0, 0);
         const endDate = new Date();
+        endDate.setDate(endDate.getDate() - 1);
         endDate.setHours(0, 0, 0, 0);
 
         let runningBalance = 0;
         let madeChanges = false;
         const existingTxs = [...transactions];
+        // Create a map of existing interest transactions for quick lookup/update
+        const interestMap = new Map();
+        existingTxs.forEach(t => {
+            if (t.type === 'interest') interestMap.set(t.date, t);
+        });
+
+        const finalTxs = existingTxs.filter(t => t.type !== 'interest'); // Start with non-interest txs
+        const updatedInterestTxs = [];
 
         while (currentDate <= endDate) {
             const dateStr = currentDate.toISOString().split('T')[0];
 
             // 1. Process all NON-INTEREST transactions for this day
-            const daysTransactions = existingTxs.filter(t => t.date === dateStr && t.type !== 'interest');
+            const daysTransactions = finalTxs.filter(t => t.date === dateStr);
 
             daysTransactions.forEach(tx => {
                 const amount = Number(tx.amount);
@@ -62,41 +71,53 @@ const SavingsAccountDetails = () => {
                 else if (tx.type === 'withdraw') runningBalance -= amount;
             });
 
-            // 2. Check if Interest exists for this day
-            const interestTx = existingTxs.find(t => t.date === dateStr && t.type === 'interest');
-
-            if (interestTx) {
-                runningBalance += Number(interestTx.amount);
-            } else {
-                if (runningBalance > 0) {
-                    const dailyInterest = runningBalance * ratePerDay;
-                    // Only add if interest > 0.005 to avoid spamming 0.00
-                    if (dailyInterest > 0.005) {
-                        const newTx = {
-                            id: Date.now() + Math.random(),
-                            date: dateStr,
-                            type: 'interest',
-                            amount: Number(dailyInterest.toFixed(2)),
-                            remarks: 'Auto Daily Interest'
-                        };
-                        newTransactions.push(newTx);
-                        existingTxs.push(newTx);
-                        runningBalance += newTx.amount;
-                        madeChanges = true;
-                    }
-                }
+            // 2. Calculate Expected Interest
+            let dailyInterest = 0;
+            if (runningBalance > 0) {
+                dailyInterest = Number((runningBalance * ratePerDay).toFixed(2));
             }
+
+            // 3. Handle Interest Transaction
+            const existingInterest = interestMap.get(dateStr);
+
+            if (existingInterest) {
+                // If interest exists, check if we need to update it
+                if (Math.abs(existingInterest.amount - dailyInterest) > 0.005 && dailyInterest > 0) {
+                    // Update existing
+                    const updated = { ...existingInterest, amount: dailyInterest };
+                    updatedInterestTxs.push(updated);
+                    runningBalance += dailyInterest;
+                    madeChanges = true;
+                } else {
+                    // Keep existing (or delete if 0? keeping simple for now)
+                    updatedInterestTxs.push(existingInterest);
+                    runningBalance += existingInterest.amount;
+                }
+            } else if (dailyInterest > 0.005) {
+                // Create new
+                const newTx = {
+                    id: Date.now() + Math.random(),
+                    date: dateStr,
+                    type: 'interest',
+                    amount: dailyInterest,
+                    remarks: 'Auto Daily Interest'
+                };
+                updatedInterestTxs.push(newTx);
+                runningBalance += dailyInterest;
+                madeChanges = true;
+            }
+
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        if (madeChanges && newTransactions.length > 0) {
-            console.log("Adding ", newTransactions.length, " interest transactions.");
-            const finalTransactions = [...(account.transactions || []), ...newTransactions];
-            finalTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+        if (madeChanges) {
+            console.log("Recalculated interest. Changes detected.");
+            const allTransactions = [...finalTxs, ...updatedInterestTxs];
+            allTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-            // Recalc final amount to be safe
+            // Recalc final amount
             let finalAmount = 0;
-            finalTransactions.forEach(t => {
+            allTransactions.forEach(t => {
                 const val = Number(t.amount) || 0;
                 if (t.type === 'deposit' || t.type === 'interest' || t.type === 'monnies_redeemed') finalAmount += val;
                 else if (t.type === 'withdraw') finalAmount -= val;
@@ -104,7 +125,7 @@ const SavingsAccountDetails = () => {
 
             updateItem('savings', {
                 ...account,
-                transactions: finalTransactions,
+                transactions: allTransactions,
                 amount: finalAmount
             });
         }
@@ -343,7 +364,7 @@ const SavingsAccountDetails = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8 max-w-7xl">
                 <div className="card bg-gradient-to-br from-blue-600/20 via-blue-600/5 to-transparent border-white/10 p-5 relative overflow-hidden group">
                     <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
                         <TrendingUp size={100} />
@@ -351,10 +372,12 @@ const SavingsAccountDetails = () => {
                     <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Available Balance</p>
                     <p className="text-3xl font-black text-white tracking-tighter">{formatCurrency(account.amount)}</p>
                 </div>
-                <div className="card bg-white/[0.02] border-white/5 p-5">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Principal Deposits</p>
-                    <p className="text-xl font-black text-gray-200">{formatCurrency(totalDeposits)}</p>
-                </div>
+                {account.title !== 'Slice Account' && (
+                    <div className="card bg-white/[0.02] border-white/5 p-5">
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Principal Deposits</p>
+                        <p className="text-xl font-black text-gray-200">{formatCurrency(totalDeposits)}</p>
+                    </div>
+                )}
                 <div className="card bg-gradient-to-br from-purple-500/10 to-transparent border-white/5 p-5">
                     <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest mb-1">Monnies Redeemed</p>
                     <div className="flex items-center gap-3">
@@ -401,74 +424,76 @@ const SavingsAccountDetails = () => {
                 </div>
             </div>
 
-            {/* Recurring Deposits Section */}
-            <div className="mb-12">
-                <div className="flex items-center justify-between mb-6 px-1">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
-                        <RefreshCcw size={14} />
-                        Recurring Deposits (RDs)
-                    </h3>
-                    <button
-                        onClick={() => { setEditingRD(null); setIsRDModalOpen(true); }}
-                        className="text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
-                    >
-                        + Add RD
-                    </button>
+            {/* Recurring Deposits Section - Hidden for Slice Account */}
+            {account.title !== 'Slice Account' && (
+                <div className="mb-12">
+                    <div className="flex items-center justify-between mb-6 px-1">
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
+                            <RefreshCcw size={14} />
+                            Recurring Deposits (RDs)
+                        </h3>
+                        <button
+                            onClick={() => { setEditingRD(null); setIsRDModalOpen(true); }}
+                            className="text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
+                        >
+                            + Add RD
+                        </button>
+                    </div>
+
+                    {(account.recurringDeposits || []).length === 0 ? (
+                        <div className="text-center py-8 bg-white/[0.02] border border-dashed border-white/5 rounded-2xl">
+                            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">No active recurring deposits</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {(account.recurringDeposits || []).map(rd => (
+                                <div key={rd.id} className="card bg-white/[0.02] border-white/5 p-5 group relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-all">
+                                        <RefreshCcw size={48} />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h4 className="font-bold text-white text-lg">{rd.name}</h4>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rd.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
+                                                    {rd.status}
+                                                </span>
+                                            </div>
+                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={() => { setEditingRD(rd); setIsRDModalOpen(true); }} className="p-1.5 bg-blue-500/10 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition-colors">
+                                                    <Edit2 size={12} />
+                                                </button>
+                                                <button onClick={() => handleDeleteRD(rd.id)} className="p-1.5 bg-red-500/10 text-red-400 rounded hover:bg-red-500 hover:text-white transition-colors">
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Installment</span>
+                                                <span className="text-white font-bold">{formatCurrency(rd.installmentAmount)}/mo</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Interest Rate</span>
+                                                <span className="text-emerald-400 font-bold">{rd.interestRate}%</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Dates</span>
+                                                <span className="text-gray-400 font-medium">{formatDate(rd.startDate)} - {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-white/5">
+                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Maturity Value</span>
+                                                <span className="text-purple-400 font-black tracking-tight text-sm">{formatCurrency(rd.maturityAmount)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
-
-                {(account.recurringDeposits || []).length === 0 ? (
-                    <div className="text-center py-8 bg-white/[0.02] border border-dashed border-white/5 rounded-2xl">
-                        <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">No active recurring deposits</p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {(account.recurringDeposits || []).map(rd => (
-                            <div key={rd.id} className="card bg-white/[0.02] border-white/5 p-5 group relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-all">
-                                    <RefreshCcw size={48} />
-                                </div>
-                                <div className="relative z-10">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div>
-                                            <h4 className="font-bold text-white text-lg">{rd.name}</h4>
-                                            <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rd.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
-                                                {rd.status}
-                                            </span>
-                                        </div>
-                                        <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => { setEditingRD(rd); setIsRDModalOpen(true); }} className="p-1.5 bg-blue-500/10 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition-colors">
-                                                <Edit2 size={12} />
-                                            </button>
-                                            <button onClick={() => handleDeleteRD(rd.id)} className="p-1.5 bg-red-500/10 text-red-400 rounded hover:bg-red-500 hover:text-white transition-colors">
-                                                <Trash2 size={12} />
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Installment</span>
-                                            <span className="text-white font-bold">{formatCurrency(rd.installmentAmount)}/mo</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Interest Rate</span>
-                                            <span className="text-emerald-400 font-bold">{rd.interestRate}%</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-xs">
-                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Dates</span>
-                                            <span className="text-gray-400 font-medium">{formatDate(rd.startDate)} - {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-white/5">
-                                            <span className="text-gray-500 font-bold uppercase tracking-wider">Maturity Value</span>
-                                            <span className="text-purple-400 font-black tracking-tight text-sm">{formatCurrency(rd.maturityAmount)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                )}
-            </div>
+            )}
 
             {/* Transactions Section */}
             <div className="card border-white/5 p-0 overflow-hidden shadow-2xl bg-white/[0.01]">

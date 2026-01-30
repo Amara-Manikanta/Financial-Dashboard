@@ -37,13 +37,65 @@ const proxy = http.createServer((req, res) => {
                 fs.copyFileSync(DB_FILE, backupFile);
                 console.log(`[SafetyGuard] 🛡️  Backup created: ${path.basename(backupFile)}`);
 
-                // Rotation: Keep last 50 backups
+                // Rotation: Cleanup old backups
                 const files = fs.readdirSync(BACKUP_DIR)
                     .filter(f => f.startsWith('db-backup-'))
-                    .sort();
+                    .sort(); // Oldest first (default string sort works for ISO timestamps)
 
-                if (files.length > 50) {
-                    const toDelete = files.slice(0, files.length - 50);
+                const RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+                const now = Date.now();
+                let remainingFiles = [];
+
+                files.forEach(f => {
+                    // Extract timestamp from filename: db-backup-2023-10-27T10-00-00-000Z.json
+                    // Format: db-backup-YYYY-MM-DDTHH-mm-ss-sssZ.json
+                    const match = f.match(/db-backup-(.+)\.json/);
+                    if (match) {
+                        try {
+                            // Convert filename timestamp back to valid ISO string (replace - with : where needed)
+                            // Actually, simpler: construct date from parts or use consistent format
+                            // Our format: 2023-10-27T10-00-00-000Z with - replacing :.
+                            // Reverting to standard ISO for parsing
+                            const isoStr = match[1].replace(/-/g, (m, offset) => {
+                                // Replace dashes with colons only in the time part?
+                                // Actually, simpler approach: The filename sorts correctly.
+                                // We need accurate time parsing.
+                                // Current format: YYYY-MM-DDTHH-mm-ss-sssZ
+                                // Standard ISO: YYYY-MM-DDTHH:mm:ss.sssZ
+                                // Let's try to parse carefully.
+                                const parts = match[1].split('T');
+                                if (parts.length === 2) {
+                                    const datePart = parts[0];
+                                    const timePart = parts[1].replace(/-/g, ':').replace('Z', '');
+                                    // The milliseconds part might be tricky if it has dashes.
+                                    // Let's assume standard stats.mtime is easier!
+                                    return m;
+                                }
+                                return m;
+                            });
+
+                            // BETTER APPROACH: Use file metadata (mtime)
+                            const filePath = path.join(BACKUP_DIR, f);
+                            const stats = fs.statSync(filePath);
+
+                            if (now - stats.mtimeMs > RETENTION_MS) {
+                                fs.unlinkSync(filePath);
+                                console.log(`[SafetyGuard] 🧹 Deleted old backup: ${f}`);
+                            } else {
+                                remainingFiles.push(f);
+                            }
+                        } catch (e) {
+                            // If stat fails or anything else, keep the file to be safe
+                            remainingFiles.push(f);
+                        }
+                    } else {
+                        remainingFiles.push(f);
+                    }
+                });
+
+                // Secondary Safety: Keep max 10 recent files
+                if (remainingFiles.length > 10) {
+                    const toDelete = remainingFiles.slice(0, remainingFiles.length - 10);
                     toDelete.forEach(f => {
                         fs.unlinkSync(path.join(BACKUP_DIR, f));
                     });

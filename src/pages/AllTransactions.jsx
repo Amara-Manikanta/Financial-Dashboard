@@ -120,9 +120,9 @@ const AllTransactions = () => {
                             onChange={(e) => setTypeFilter(e.target.value)}
                             className="appearance-none bg-[#0c0c0e] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 cursor-pointer min-w-[120px]"
                         >
-                            <option value="all" className="bg-[#0c0c0e]">All Types</option>
-                            <option value="credit" className="bg-[#0c0c0e]">Credit (Income)</option>
-                            <option value="debit" className="bg-[#0c0c0e]">Debit (Expense)</option>
+                            <option value="all" className="bg-[#0c0c0e] text-white">All Types</option>
+                            <option value="credit" className="bg-[#0c0c0e] text-white">Credit (Income)</option>
+                            <option value="debit" className="bg-[#0c0c0e] text-white">Debit (Expense)</option>
                         </select>
                         <ArrowDownCircle size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                     </div>
@@ -133,8 +133,8 @@ const AllTransactions = () => {
                             onChange={(e) => setYearFilter(e.target.value)}
                             className="appearance-none bg-[#0c0c0e] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 cursor-pointer min-w-[100px]"
                         >
-                            <option value="all" className="bg-[#0c0c0e]">All Years</option>
-                            {years.map(y => <option key={y} value={y} className="bg-[#0c0c0e]">{y}</option>)}
+                            <option value="all" className="bg-[#0c0c0e] text-white">All Years</option>
+                            {years.map(y => <option key={y} value={y} className="bg-[#0c0c0e] text-white">{y}</option>)}
                         </select>
                         <Calendar size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                     </div>
@@ -145,8 +145,8 @@ const AllTransactions = () => {
                             onChange={(e) => setMonthFilter(e.target.value)}
                             className="appearance-none bg-[#0c0c0e] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 cursor-pointer min-w-[120px]"
                         >
-                            <option value="all" className="bg-[#0c0c0e]">All Months</option>
-                            {months.map(m => <option key={m} value={m} className="bg-[#0c0c0e]">{m}</option>)}
+                            <option value="all" className="bg-[#0c0c0e] text-white">All Months</option>
+                            {months.map(m => <option key={m} value={m} className="bg-[#0c0c0e] text-white">{m}</option>)}
                         </select>
                         <Filter size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                     </div>
