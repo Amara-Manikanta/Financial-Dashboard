@@ -56,6 +56,13 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
         }
     }, [initialData, isOpen]);
 
+    // Auto-set credit mode for salary/income
+    useEffect(() => {
+        if (category && (category.toLowerCase() === 'salary received' || category.toLowerCase() === 'income')) {
+            setIsCredited(true);
+        }
+    }, [category]);
+
     useEffect(() => {
         if (!isOpen) return;
         const handleEsc = (e) => {

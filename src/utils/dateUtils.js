@@ -59,3 +59,17 @@ export const toISODate = (dateString) => {
 
     return date.toISOString().split('T')[0];
 };
+
+export const getLastWorkingDayOfMonth = (year, monthIndex) => {
+    // monthIndex is 0-based (0 = Jan, 11 = Dec)
+    const lastDay = new Date(year, monthIndex + 1, 0); // Last day of the month
+    const dayOfWeek = lastDay.getDay(); // 0 = Sunday, 6 = Saturday
+
+    if (dayOfWeek === 0) { // Sunday
+        lastDay.setDate(lastDay.getDate() - 2);
+    } else if (dayOfWeek === 6) { // Saturday
+        lastDay.setDate(lastDay.getDate() - 1);
+    }
+    // Else it is Mon-Fri
+    return lastDay.getDate();
+};

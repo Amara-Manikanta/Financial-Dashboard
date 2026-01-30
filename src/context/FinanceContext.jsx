@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { useAuth } from './AuthContext';
+import { getLastWorkingDayOfMonth } from '../utils/dateUtils';
 
 
 const FinanceContext = createContext();
@@ -199,7 +200,15 @@ export function FinanceProvider({ children }) {
             const dateObj = new Date(item.date);
             // Scapia billing cycle adjustment: 25th onwards counts as next month
             if (item.paymentMode === 'credit_card' && item.creditCardName && item.creditCardName.includes('Scapia') && dateObj.getDate() > 24) {
-                dateObj.setMonth(dateObj.getMonth() + 1);
+                dateObj.setMonth(dateObj.getMonth() + 1, 1);
+            } else {
+                // Month-End Cutoff Rule: Last Working Day onwards counts as next month
+                const curYear = dateObj.getFullYear();
+                const curMonth = dateObj.getMonth();
+                const lastWorkingDay = getLastWorkingDayOfMonth(curYear, curMonth);
+                if (dateObj.getDate() >= lastWorkingDay) {
+                    dateObj.setMonth(dateObj.getMonth() + 1, 1);
+                }
             }
             const year = dateObj.getFullYear().toString();
             const month = dateObj.toLocaleString('default', { month: 'long' });
@@ -550,7 +559,15 @@ export function FinanceProvider({ children }) {
             const dateObj = new Date(item.date);
             // Scapia billing cycle adjustment: 25th onwards counts as next month
             if (item.paymentMode === 'credit_card' && item.creditCardName && item.creditCardName.includes('Scapia') && dateObj.getDate() > 24) {
-                dateObj.setMonth(dateObj.getMonth() + 1);
+                dateObj.setMonth(dateObj.getMonth() + 1, 1);
+            } else {
+                // Month-End Cutoff Rule: Last Working Day onwards counts as next month
+                const curYear = dateObj.getFullYear();
+                const curMonth = dateObj.getMonth();
+                const lastWorkingDay = getLastWorkingDayOfMonth(curYear, curMonth);
+                if (dateObj.getDate() >= lastWorkingDay) {
+                    dateObj.setMonth(dateObj.getMonth() + 1, 1);
+                }
             }
             const newYear = dateObj.getFullYear().toString();
             const newMonth = dateObj.toLocaleString('default', { month: 'long' });

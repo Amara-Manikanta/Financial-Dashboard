@@ -35,9 +35,9 @@ import Profile from './pages/Profile';
 import Lents from './pages/Lents';
 import LentDetails from './pages/LentDetails';
 import Loans from './pages/Loans';
-import BudgetPlanning from './pages/BudgetPlanning';
 import CreditCardDetails from './pages/CreditCardDetails';
 import SingleCreditCardDetails from './pages/SingleCreditCardDetails';
+import AllTransactions from './pages/AllTransactions';
 
 const ProtectedRoute = ({ children }) => {
     const { user, loading } = useAuth();
@@ -89,10 +89,10 @@ function App() {
                                 <Route path="lents/:id" element={<LentDetails />} />
                                 <Route path="loans" element={<Loans />} />
                                 <Route path="loans/:id" element={<LentDetails />} />
-                                <Route path="budget-planning" element={<BudgetPlanning />} />
                                 <Route path="profile" element={<Profile />} />
                                 <Route path="credit-cards" element={<CreditCardDetails />} />
                                 <Route path="credit-cards/:id" element={<SingleCreditCardDetails />} />
+                                <Route path="all-transactions" element={<AllTransactions />} />
                             </Route>
                         </Routes>
                     </div>
