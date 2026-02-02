@@ -28,6 +28,14 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
+# Check for existing process on port 3000 and kill it
+PORT_PID=$(lsof -ti :3000)
+if [ -n "$PORT_PID" ]; then
+    echo "Port 3000 is in use by PID $PORT_PID. Killing it..."
+    kill -9 $PORT_PID
+    echo "Previous instance cleaned up."
+fi
+
 # Start the backend server in the background
 echo "Step 1/3: Starting backend server..."
 npm run server &

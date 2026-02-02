@@ -12,8 +12,7 @@ const SavingsAccountDetails = () => {
     const navigate = useNavigate();
     const { savings, formatCurrency, updateItem } = useFinance();
 
-    // Flag to ensure we don't loop infinitely
-    const processedInterestRef = React.useRef(false);
+    // Flag to ensure we don't loop infinitely - REMOVED strictly converging logic used instead
 
     const [selectedYear, setSelectedYear] = useState('All');
     const [selectedMonth, setSelectedMonth] = useState('All');
@@ -44,7 +43,6 @@ const SavingsAccountDetails = () => {
         let currentDate = new Date(transactions[0].date);
         currentDate.setHours(0, 0, 0, 0);
         const endDate = new Date();
-        endDate.setDate(endDate.getDate() - 1);
         endDate.setHours(0, 0, 0, 0);
 
         let runningBalance = 0;
@@ -60,7 +58,11 @@ const SavingsAccountDetails = () => {
         const updatedInterestTxs = [];
 
         while (currentDate <= endDate) {
-            const dateStr = currentDate.toISOString().split('T')[0];
+            // Use local date parts to avoid UTC timezone shift issues (e.g. 5:30 AM becoming prev day)
+            const year = currentDate.getFullYear();
+            const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+            const day = String(currentDate.getDate()).padStart(2, '0');
+            const dateStr = `${year}-${month}-${day}`;
 
             // 1. Process all NON-INTEREST transactions for this day
             const daysTransactions = finalTxs.filter(t => t.date === dateStr);
@@ -82,14 +84,18 @@ const SavingsAccountDetails = () => {
 
             if (existingInterest) {
                 // If interest exists, check if we need to update it
-                if (Math.abs(existingInterest.amount - dailyInterest) > 0.005 && dailyInterest > 0) {
-                    // Update existing
+                if (existingInterest.isManual) {
+                    // Respect manual edits - do not overwrite
+                    updatedInterestTxs.push(existingInterest);
+                    runningBalance += existingInterest.amount;
+                } else if (Math.abs(existingInterest.amount - dailyInterest) > 0.005 && dailyInterest > 0) {
+                    // Update existing (only if not manual)
                     const updated = { ...existingInterest, amount: dailyInterest };
                     updatedInterestTxs.push(updated);
                     runningBalance += dailyInterest;
                     madeChanges = true;
                 } else {
-                    // Keep existing (or delete if 0? keeping simple for now)
+                    // Keep existing
                     updatedInterestTxs.push(existingInterest);
                     runningBalance += existingInterest.amount;
                 }
@@ -132,9 +138,8 @@ const SavingsAccountDetails = () => {
     };
 
     useEffect(() => {
-        if (!processedInterestRef.current && account) {
+        if (account) {
             syncInterest();
-            processedInterestRef.current = true;
         }
     }, [account]);
 
@@ -248,8 +253,22 @@ const SavingsAccountDetails = () => {
     };
 
     const handleDeleteTransaction = (txId) => {
+        const txToDelete = account.transactions.find(t => t.id === txId);
+        if (!txToDelete) return;
+
         if (window.confirm("Delete transaction?")) {
-            const updatedTransactions = account.transactions.filter(t => t.id !== txId);
+            let updatedTransactions;
+
+            if (txToDelete.type === 'interest') {
+                // Soft delete for interest: Set to 0 and mark manual to prevent regeneration
+                updatedTransactions = account.transactions.map(t =>
+                    t.id === txId ? { ...t, amount: 0, isManual: true } : t
+                );
+            } else {
+                // Hard delete for others
+                updatedTransactions = account.transactions.filter(t => t.id !== txId);
+            }
+
             let newAmount = 0;
             updatedTransactions.forEach(t => {
                 const val = Number(t.amount) || 0;
@@ -305,6 +324,14 @@ const SavingsAccountDetails = () => {
     let totalWithdrawals = 0;
     let totalMonnies = 0;
 
+    // Calculate Lifetime Stats specifically for Cards
+    let lifetimeInterest = 0;
+    if (account && account.transactions) {
+        account.transactions.forEach(t => {
+            if (t.type === 'interest') lifetimeInterest += Number(t.amount);
+        });
+    }
+
     sortedTransactions.forEach(t => {
         const amt = Number(t.amount);
         if (t.type === 'deposit') totalDeposits += amt;
@@ -348,7 +375,7 @@ const SavingsAccountDetails = () => {
                 </div>
                 <div className="flex items-center gap-4 w-full lg:w-auto">
                     <button
-                        onClick={() => { processedInterestRef.current = false; syncInterest(); }}
+                        onClick={() => { syncInterest(); }}
                         className="flex-1 lg:flex-none bg-white/5 hover:bg-white/10 text-white font-black py-4 px-8 rounded-2xl flex items-center justify-center gap-3 transition-all border border-white/10 active:scale-95 text-xs uppercase tracking-widest"
                     >
                         <TrendingUp size={18} className="text-purple-400" />
@@ -387,7 +414,7 @@ const SavingsAccountDetails = () => {
                 <div className="card bg-gradient-to-br from-emerald-500/10 to-transparent border-white/5 p-5">
                     <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Accrued Interest</p>
                     <div className="flex items-center gap-2">
-                        <p className="text-2xl font-black text-emerald-400 tracking-tight">{formatCurrency(totalInterest)}</p>
+                        <p className="text-2xl font-black text-emerald-400 tracking-tight">{formatCurrency(lifetimeInterest)}</p>
                         <div className="p-1 bg-emerald-500/10 rounded-lg">
                             <TrendingUp size={14} className="text-emerald-500" />
                         </div>

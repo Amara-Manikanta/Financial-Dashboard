@@ -9,6 +9,9 @@ if (!account) {
 }
 
 console.log("Account Interest Rate in DB:", account.interestRate);
+console.log("Account ID:", account.id);
+console.log("Transactions Count:", (account.transactions || []).length);
+console.log("Account Amount in DB:", account.amount);
 
 // Simulation Function
 function calculateInterest(acc, rateOverride) {
@@ -35,10 +38,15 @@ function calculateInterest(acc, rateOverride) {
         if (t.type === 'interest') existingInterestTotal += Number(t.amount);
     });
     console.log(`Existing Interest in DB: ${existingInterestTotal.toFixed(2)}`);
+    const lastInterest = existingTxs.filter(t => t.type === 'interest').pop();
+    if (lastInterest) console.log("Last Interest Date:", lastInterest.date);
 
     // Re-run simulation
     while (currentDate <= endDate) {
-        const dateStr = currentDate.toISOString().split('T')[0];
+        const year = currentDate.getFullYear();
+        const month = String(currentDate.getMonth() + 1).padStart(2, '0');
+        const day = String(currentDate.getDate()).padStart(2, '0');
+        const dateStr = `${year}-${month}-${day}`;
 
         // Process non-interest txs
         const daysTransactions = existingTxs.filter(t => t.date === dateStr && t.type !== 'interest');

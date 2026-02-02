@@ -53,7 +53,8 @@ const SavingsAccountTransactionModal = ({ isOpen, onClose, onSave, initialData }
             date,
             type,
             amount: parseFloat(amount),
-            remarks
+            remarks,
+            isManual: true
         });
         onClose();
     };
