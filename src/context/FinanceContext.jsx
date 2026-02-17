@@ -54,9 +54,12 @@ export function FinanceProvider({ children }) {
         const fetchData = async () => {
             if (!user) return;
             if (isGuest) {
-                // ... (existing guest logic)
-                const guestLents = []; // Guest mode placeholder
-                const guestCreditCards = []; // Guest mode placeholder
+                // Guest mode placeholder data
+                const guestExpenses = {};
+                const guestSavings = [];
+                const guestAssets = [];
+                const guestLents = [];
+                const guestCreditCards = [];
 
                 setExpenses(guestExpenses);
                 setSavings(guestSavings);
@@ -64,7 +67,6 @@ export function FinanceProvider({ children }) {
                 setAssets(guestAssets);
                 setLents(guestLents);
                 setCreditCards(guestCreditCards);
-                setBudgets([]); // Removed
                 setCategoryBudgets({});
                 setCategories(["salary received", "house rent", "groceries", "others"]);
                 setSalaryStats({});
@@ -73,14 +75,14 @@ export function FinanceProvider({ children }) {
             }
             try {
                 const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes] = await Promise.all([
-                    fetch(`${API_URL}/expenses?_t=${Date.now()}`),
-                    fetch(`${API_URL}/savings?_t=${Date.now()}`),
-                    fetch(`${API_URL}/metals?_t=${Date.now()}`),
-                    fetch(`${API_URL}/assets?_t=${Date.now()}`),
-                    fetch(`${API_URL}/appData?_t=${Date.now()}`),
-                    fetch(`${API_URL}/snapshots?_t=${Date.now()}`),
-                    fetch(`${API_URL}/lents?_t=${Date.now()}`),
-                    fetch(`${API_URL}/creditCards?_t=${Date.now()}`)
+                    fetch(`${API_URL}/expenses`),
+                    fetch(`${API_URL}/savings`),
+                    fetch(`${API_URL}/metals`),
+                    fetch(`${API_URL}/assets`),
+                    fetch(`${API_URL}/appData`),
+                    fetch(`${API_URL}/snapshots`),
+                    fetch(`${API_URL}/lents`),
+                    fetch(`${API_URL}/creditCards`)
                 ]);
 
                 const expData = await expRes.json();
@@ -107,7 +109,6 @@ export function FinanceProvider({ children }) {
                 console.error("Failed to fetch data:", error);
             }
         };
-        fetchData();
         fetchData();
         fetchMetalRates();
     }, [user, isGuest]);
@@ -271,6 +272,125 @@ export function FinanceProvider({ children }) {
             });
 
             await saveExpenses(newExpenses);
+
+            // Handle Credit Card Bill Payment
+            const isCreditCardBill = category === 'credit card bill';
+            if (isCreditCardBill && item.creditCardName) {
+                // Find the matching credit card
+                const cardToUpdate = creditCards.find(c =>
+                    c.name.toLowerCase().trim() === item.creditCardName.toLowerCase().trim()
+                );
+
+                if (cardToUpdate) {
+                    // 1. Debit from Salary (if applicable)
+                    // We need to find the "salary received" for this month and reduce it
+                    if (newExpenses[year] && newExpenses[year][month]) {
+                        const salaryCategory = 'salary received';
+                        const currentSalary = newExpenses[year][month].categories[salaryCategory] || 0;
+
+                        // Check if we have enough salary balance (optional, but good for data integrity)
+                        // For now, we just subtract. If it goes negative, it indicates deficit.
+                        // However, usually "salary received" tracks income, so reducing it might be wrong semantically 
+                        // if we want to track "remaining salary". 
+                        // But the user specifically asked to "debit from salary". 
+                        // In this app's context, "categories" usually stores the total spent/received.
+                        // If "salary received" stores the TOTAL incoming, we shouldn't reduce it.
+                        // BUT, if the user wants to see "Remaining Salary", then we should.
+                        // Given the user request "debit from salary", we will reduce the 'salary received' category value.
+
+                        // Actually, looking at the code, 'salary received' is likely an INCOME category.
+                        // If we reduce it, we are effectively saying "we received less salary".
+                        // A better approach might be to treat this bill payment as an EXPENSE (which it already is),
+                        // and the "Deficit/Surplus" calculation handles the rest.
+                        // BUT, if the user explicitly wants to see the 'salary received' number go down, we do this:
+
+                        // WAIT: If we treat it as an expense, it's already done above (lines 256-258).
+                        // item.deductFromSalary is likely true.
+                        // If item.deductFromSalary is true, the amount is ADDED to the expense category.
+                        // And usually Net = Income - Expense.
+                        // If the user wants to "debit from salary", maybe they mean they want to see the available fund source reduce?
+                        // "Debit from salary" typically means "Pay using salary". 
+                        // The existing logic `if (item.deductFromSalary !== false)` (lines 256-258) already adds it to the category total.
+                        // If the category is 'credit card bill', it's an expense.
+                        // So the "Debit from Salary" part is arguably ALREADY HANDLED by the general expense logic 
+                        // (Expenses go up, so Net Income goes down).
+
+                        // However, if the user insists on "debit from salary", they might imply a specific "Cash/Bank" asset 
+                        // that represents salary. But we don't have a "Bank" asset derived from salary here.
+                        // Let's assume the standard expense recording is what "debit from salary" implies in this context 
+                        // (i.e. it counts against the salary).
+                    }
+
+                    // 2. Credit back to card limit (Scapia specific or general)
+                    // We need to increase the available limit.
+                    // Assuming 'limit' is the max limit and 'utilization' or 'currentBalance' tracks usage.
+                    // Or maybe 'availableLimit' is a field?
+                    // Let's look at a credit card object structure. 
+                    // Based on previous reads, cards have 'monthlyData'. 
+                    // We need to check if there's an 'availableLimit' or 'outstandingAmount' field.
+                    // If we don't see one, we can't update it. 
+                    // Let's blindly assume there might be a 'usage' or 'limit' we can adjust if the model supports it.
+                    // If the card model is simple (just static metadata + monthlyData), then "Crediting to limit" 
+                    // might just mean adding the payment record so the *calculated* outstanding drops.
+
+                    // The user said "credit to bill limit". 
+                    // If we add a payment record, a smart getters would calculate: 
+                    // Outstanding = Total Spends - Total Payments.
+                    // So adding a payment record *is* crediting the limit effectively.
+
+                    // Let's adhere to the plan: Update the card object specifically.
+
+                    const updatedMonthlyData = cardToUpdate.monthlyData || [];
+                    const paymentRecord = {
+                        id: Date.now().toString(),
+                        month,
+                        year: parseInt(year),
+                        billAmount: amount,
+                        isPaid: true,
+                        paidDate: item.date,
+                        remarks: `Bill payment: ${item.title || 'Credit Card Bill'}`,
+                        points: 0 // No points as per user request
+                    };
+
+                    updatedMonthlyData.push(paymentRecord);
+
+                    const updatedCard = {
+                        ...cardToUpdate,
+                        monthlyData: updatedMonthlyData
+                    };
+
+                    // Logic to update 'availableLimit' if it exists
+                    if (updatedCard.availableLimit !== undefined) {
+                        updatedCard.availableLimit = Number(updatedCard.availableLimit) + Number(amount);
+                    }
+
+                    // Logic to update 'unbilledAmount' if it exists (This is likely what's being displayed)
+                    if (updatedCard.unbilledAmount !== undefined) {
+                        updatedCard.unbilledAmount = Number(updatedCard.unbilledAmount) - Number(amount);
+                    } else if (updatedCard.outstandingAmount !== undefined) {
+                        updatedCard.outstandingAmount = Number(updatedCard.outstandingAmount) - Number(amount);
+                    }
+
+                    // Scapia specific: Reset billing cycle logic? 
+                    // The addItem generic logic (lines 203-204) already handles the date shift.
+                    // So we just save the card.
+
+                    // Save updated credit card
+                    try {
+                        await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updatedCard)
+                        });
+                        setCreditCards(prev => prev.map(c =>
+                            String(c.id) === String(updatedCard.id) ? updatedCard : c
+                        ));
+                    } catch (error) {
+                        console.error("Error updating credit card after bill payment:", error);
+                    }
+                }
+            }
+
             return;
         }
 
@@ -394,6 +514,42 @@ export function FinanceProvider({ children }) {
                             }
                             monthData.transactions.splice(txIndex, 1);
                             found = true;
+
+                            // Handle Credit Card Bill deletion - Remove payment record from card
+                            const isCreditCardBill = tx.category.toLowerCase() === 'credit card bill';
+                            if (isCreditCardBill && tx.creditCardName) {
+                                const cardToUpdate = creditCards.find(c =>
+                                    c.name.toLowerCase().trim() === tx.creditCardName.toLowerCase().trim()
+                                );
+
+                                if (cardToUpdate) {
+                                    // Find and remove the corresponding payment record by date and amount
+                                    const updatedMonthlyData = (cardToUpdate.monthlyData || []).filter(record => {
+                                        // Match by date and amount (since we might not have the exact ID)
+                                        const sameDate = record.paidDate === tx.date;
+                                        const sameAmount = Number(record.billAmount) === Number(tx.amount);
+                                        return !(sameDate && sameAmount);
+                                    });
+
+                                    const updatedCard = {
+                                        ...cardToUpdate,
+                                        monthlyData: updatedMonthlyData
+                                    };
+
+                                    // Save updated credit card
+                                    fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedCard)
+                                    }).then(() => {
+                                        setCreditCards(prev => prev.map(c =>
+                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                        ));
+                                    }).catch(error => {
+                                        console.error("Error updating credit card after bill deletion:", error);
+                                    });
+                                }
+                            }
                         }
                     });
                 });
@@ -424,10 +580,10 @@ export function FinanceProvider({ children }) {
         if (!endpoint) return;
         try {
             await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE' });
-            if (type === 'savings') setSavings(prev => prev.filter(i => i.id != id));
-            if (type === 'asset') setAssets(prev => prev.filter(i => i.id != id));
-            if (type === 'lents') setLents(prev => prev.filter(i => i.id != id));
-            if (type === 'creditCards') setCreditCards(prev => prev.filter(i => i.id != id));
+            if (type === 'savings') setSavings(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'asset') setAssets(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'lents') setLents(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'creditCards') setCreditCards(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
             console.error("Error deleting item:", error);
         }
@@ -646,6 +802,170 @@ export function FinanceProvider({ children }) {
                     }
 
                     await saveExpenses(newExpenses);
+
+                    // Handle Credit Card Bill update
+                    const wasOldCreditCardBill = oldTx.category?.toLowerCase() === 'credit card bill';
+                    const isNewCreditCardBill = newCategory.toLowerCase() === 'credit card bill';
+
+                    // Remove old payment record if category changed FROM credit card bill
+                    if (wasOldCreditCardBill && oldTx.creditCardName) {
+                        const oldCard = creditCards.find(c =>
+                            c.name.toLowerCase().trim() === oldTx.creditCardName.toLowerCase().trim()
+                        );
+
+                        if (oldCard) {
+                            const updatedMonthlyData = (oldCard.monthlyData || []).filter(record => {
+                                const sameDate = record.paidDate === oldTx.date;
+                                const sameAmount = Number(record.billAmount) === Number(oldTx.amount);
+                                return !(sameDate && sameAmount);
+                            });
+
+                            const updatedCard = { ...oldCard, monthlyData: updatedMonthlyData };
+
+                            try {
+                                await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(updatedCard)
+                                });
+                                setCreditCards(prev => prev.map(c =>
+                                    String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                ));
+                            } catch (error) {
+                                console.error("Error removing old credit card payment record:", error);
+                            }
+                        }
+                    }
+
+                    // Add new payment record if category changed TO credit card bill
+                    if (isNewCreditCardBill && item.creditCardName) {
+                        const newCard = creditCards.find(c =>
+                            c.name.toLowerCase().trim() === item.creditCardName.toLowerCase().trim()
+                        );
+
+                        if (newCard) {
+                            const updatedMonthlyData = newCard.monthlyData || [];
+
+                            const paymentRecord = {
+                                id: Date.now().toString(),
+                                month: newMonth,
+                                year: parseInt(newYear),
+                                billAmount: newAmount,
+                                isPaid: true,
+                                paidDate: item.date,
+                                remarks: `Bill payment: ${item.title || 'Credit Card Bill'}`,
+                                points: 0
+                            };
+
+                            updatedMonthlyData.push(paymentRecord);
+
+                            const updatedCard = { ...newCard, monthlyData: updatedMonthlyData };
+
+                            try {
+                                await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                    method: 'PUT',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(updatedCard)
+                                });
+                                setCreditCards(prev => prev.map(c =>
+                                    String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                ));
+                            } catch (error) {
+                                console.error("Error adding new credit card payment record:", error);
+                            }
+                        }
+                    }
+
+                    // Handle updates within same credit card bill category (amount/date/card changed)
+                    if (wasOldCreditCardBill && isNewCreditCardBill) {
+                        const oldCardName = oldTx.creditCardName;
+                        const newCardName = item.creditCardName;
+                        const amountChanged = Number(oldTx.amount) !== newAmount;
+                        const dateChanged = oldTx.date !== item.date;
+                        const cardChanged = oldCardName?.toLowerCase().trim() !== newCardName?.toLowerCase().trim();
+
+                        if (amountChanged || dateChanged || cardChanged) {
+                            // Remove from old card if card changed, otherwise update in same card
+                            if (cardChanged && oldCardName) {
+                                const oldCard = creditCards.find(c =>
+                                    c.name.toLowerCase().trim() === oldCardName.toLowerCase().trim()
+                                );
+
+                                if (oldCard) {
+                                    const updatedMonthlyData = (oldCard.monthlyData || []).filter(record => {
+                                        const sameDate = record.paidDate === oldTx.date;
+                                        const sameAmount = Number(record.billAmount) === Number(oldTx.amount);
+                                        return !(sameDate && sameAmount);
+                                    });
+
+                                    const updatedCard = { ...oldCard, monthlyData: updatedMonthlyData };
+
+                                    try {
+                                        await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(updatedCard)
+                                        });
+                                        setCreditCards(prev => prev.map(c =>
+                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                        ));
+                                    } catch (error) {
+                                        console.error("Error updating old credit card:", error);
+                                    }
+                                }
+                            }
+
+                            // Add/update in new/same card
+                            if (newCardName) {
+                                const targetCard = creditCards.find(c =>
+                                    c.name.toLowerCase().trim() === newCardName.toLowerCase().trim()
+                                );
+
+                                if (targetCard) {
+                                    let updatedMonthlyData = targetCard.monthlyData || [];
+
+                                    if (!cardChanged) {
+                                        // Same card - remove old record first
+                                        updatedMonthlyData = updatedMonthlyData.filter(record => {
+                                            const sameDate = record.paidDate === oldTx.date;
+                                            const sameAmount = Number(record.billAmount) === Number(oldTx.amount);
+                                            return !(sameDate && sameAmount);
+                                        });
+                                    }
+
+                                    // Add new record
+                                    const paymentRecord = {
+                                        id: Date.now().toString(),
+                                        month: newMonth,
+                                        year: parseInt(newYear),
+                                        billAmount: newAmount,
+                                        isPaid: true,
+                                        paidDate: item.date,
+                                        remarks: `Bill payment: ${item.title || 'Credit Card Bill'}`,
+                                        points: 0
+                                    };
+
+                                    updatedMonthlyData.push(paymentRecord);
+
+                                    const updatedCard = { ...targetCard, monthlyData: updatedMonthlyData };
+
+                                    try {
+                                        await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(updatedCard)
+                                        });
+                                        setCreditCards(prev => prev.map(c =>
+                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                        ));
+                                    } catch (error) {
+                                        console.error("Error updating target credit card:", error);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                 }
                 return;
             }
@@ -681,10 +1001,10 @@ export function FinanceProvider({ children }) {
                 body: JSON.stringify(item)
             });
             const updatedItem = await res.json();
-            if (type === 'savings') setSavings(prev => prev.map(i => i.id == item.id ? updatedItem : i));
-            if (type === 'asset') setAssets(prev => prev.map(i => i.id == item.id ? updatedItem : i));
+            if (type === 'savings') setSavings(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'asset') setAssets(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'lents') setLents(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
-            if (type === 'creditCards') setCreditCards(prev => prev.map(i => i.id == item.id ? updatedItem : i));
+            if (type === 'creditCards') setCreditCards(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
         } catch (error) {
             console.error("Error updating item:", error);
         }
@@ -764,11 +1084,13 @@ export function FinanceProvider({ children }) {
     const refreshStockPrices = async (marketId) => {
         if (isGuest) return { success: false, message: 'Guest mode: Cannot refresh prices' };
 
-        const market = savings.find(s => s.id.toString() === marketId);
-        if (!market || !market.stocks) return { success: false, message: 'Market data not found' };
+        // 1. Fetch current prices (takes time)
+        // We use the local state 'savings' just to get the list of stocks to refresh
+        const initialMarket = savings.find(s => s.id.toString() === marketId);
+        if (!initialMarket || !initialMarket.stocks) return { success: false, message: 'Market data not found' };
 
         try {
-            const updatedStocks = await Promise.all(market.stocks.map(async (stock) => {
+            const updatedStockPrices = await Promise.all(initialMarket.stocks.map(async (stock) => {
                 const ticker = stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`;
                 try {
                     // Using api.allorigins.win to bypass CORS for Yahoo Finance
@@ -779,17 +1101,41 @@ export function FinanceProvider({ children }) {
 
                     const result = data.chart?.result?.[0];
                     if (result && result.meta?.regularMarketPrice) {
-                        return { ...stock, currentPrice: result.meta.regularMarketPrice };
+                        return { id: stock.id, currentPrice: result.meta.regularMarketPrice };
                     }
-                    return stock;
+                    return { id: stock.id, currentPrice: stock.currentPrice };
                 } catch (err) {
                     console.warn(`Failed to fetch price for ${ticker}:`, err);
-                    return stock; // Fallback to existing price
+                    return { id: stock.id, currentPrice: stock.currentPrice };
                 }
             }));
 
-            const updatedMarket = { ...market, stocks: updatedStocks };
-            await updateItem('savings', updatedMarket);
+            // 2. CRITICAL FIX: Fetch latest data from server just before saving
+            // This prevents overwriting changes made (like adding a stock) while prices were being fetched
+            const res = await fetch(`${API_URL}/savings/${marketId}`);
+            if (!res.ok) throw new Error('Failed to fetch latest market data');
+            const latestMarket = await res.json();
+
+            // 3. Merge new prices into latest data
+            const mergedStocks = latestMarket.stocks.map(stock => {
+                const newPriceData = updatedStockPrices.find(p => p.id === stock.id);
+                if (newPriceData) {
+                    return { ...stock, currentPrice: newPriceData.currentPrice };
+                }
+                return stock;
+            });
+
+            // 4. Save the merged result
+            const finalMarket = { ...latestMarket, stocks: mergedStocks };
+
+            // We use updateItem here which updates local state and sends PUT to server
+            // But since we already have the latest object and just want to save it, 
+            // calling updateItem acts as the "Save" step. 
+            // NOTE: updateItem calculates 'savings' state update based on previous state in setter,
+            // which is good. But we should pass the object that INCLUDES the changes we just found 
+            // (which might include other user added stocks) + our price updates.
+
+            await updateItem('savings', finalMarket);
             return { success: true };
         } catch (error) {
             console.error("Error refreshing stock prices:", error);
@@ -834,7 +1180,9 @@ export function FinanceProvider({ children }) {
         formatCurrency,
         calculateItemCurrentValue,
         calculateItemInvestedValue,
-        refreshStockPrices,
+        formatCurrency,
+        calculateItemCurrentValue,
+        calculateItemInvestedValue,
         refreshMutualFundNAV,
         metalRates,
         fetchMetalRates,

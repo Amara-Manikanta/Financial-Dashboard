@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw } from 'lucide-react';
 import StockTransactionModal from '../components/StockTransactionModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const StockMarketDetails = () => {
     const { id } = useParams();
@@ -18,6 +19,8 @@ const StockMarketDetails = () => {
     const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
     const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
     const [newColumnName, setNewColumnName] = useState('');
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [stockToDelete, setStockToDelete] = useState(null);
 
     const market = savings.find(s => s.id.toString() === id);
 
@@ -38,40 +41,36 @@ const StockMarketDetails = () => {
     const stocks = market.stocks || [];
     const customColumns = market.customColumns || [];
 
-    // Filter stocks based on search term
+    // Filter and Separating Stocks
     const filteredStocks = stocks.filter(stock =>
         stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         stock.ticker.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    const activeStocks = filteredStocks.filter(stock => stock.shares > 0);
+    const archivedStocks = filteredStocks.filter(stock => stock.shares === 0);
+
     // Calculate aggregate stats
     let totalInvested = 0;
     let currentTotalValue = 0;
-    let totalDividends = 0;
 
     const currentYear = new Date().getFullYear();
-    const dividendYears = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
 
-    const stockRows = filteredStocks.map(stock => {
+    const stockRows = activeStocks.map(stock => {
         const investedValue = stock.shares * stock.avgCost;
         const currentValue = stock.shares * stock.currentPrice;
         const unrealisedPL = currentValue - investedValue;
         const unrealisedPercent = investedValue > 0 ? (unrealisedPL / investedValue) * 100 : 0;
 
-        // Sum dividends
-        const dividendsEarned = Object.values(stock.dividends || {}).reduce((sum, val) => sum + val, 0);
-
         totalInvested += investedValue;
         currentTotalValue += currentValue;
-        totalDividends += dividendsEarned;
 
         return {
             ...stock,
             investedValue,
             currentValue,
             unrealisedPL,
-            unrealisedPercent,
-            dividendsEarned
+            unrealisedPercent
         };
     });
 
@@ -100,6 +99,13 @@ const StockMarketDetails = () => {
         } else {
             // New stock: Create initial transaction if shares > 0
             let initialTransactions = [];
+            // Preserve manual fields for archived stocks
+            const stockToSave = {
+                ...stockData,
+                manualInvestedAmount: stockData.manualInvestedAmount,
+                realisedPL: stockData.realisedPL
+            };
+
             if (stockData.shares > 0) {
                 initialTransactions.push({
                     id: Date.now().toString(),
@@ -110,7 +116,7 @@ const StockMarketDetails = () => {
                     remarks: 'Initial Balance'
                 });
             }
-            updatedStocks = [...stocks, { ...stockData, transactions: initialTransactions }];
+            updatedStocks = [...stocks, { ...stockToSave, transactions: initialTransactions }];
         }
 
         const updatedMarket = { ...market, stocks: updatedStocks };
@@ -120,11 +126,16 @@ const StockMarketDetails = () => {
     };
 
     const handleDeleteStock = async (stockId) => {
-        if (window.confirm('Are you sure you want to delete this stock?')) {
-            const updatedStocks = stocks.filter(s => s.id !== stockId);
-            const updatedMarket = { ...market, stocks: updatedStocks };
-            await updateItem('savings', updatedMarket);
-        }
+        setStockToDelete(stockId);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDeleteStock = async () => {
+        if (!stockToDelete) return;
+        const updatedStocks = stocks.filter(s => String(s.id) !== String(stockToDelete));
+        const updatedMarket = { ...market, stocks: updatedStocks };
+        await updateItem('savings', updatedMarket);
+        setStockToDelete(null);
     };
 
     const handleAddColumn = async (e) => {
@@ -157,19 +168,6 @@ const StockMarketDetails = () => {
             const newColumns = customColumns.filter((_, i) => i !== index);
             const updatedMarket = { ...market, customColumns: newColumns };
             await updateItem('savings', updatedMarket);
-        }
-    };
-    const handleRefreshPrices = async () => {
-        setIsRefreshing(true);
-        setRefreshMessage({ type: '', text: '' });
-        const result = await refreshStockPrices(id);
-        setIsRefreshing(false);
-        if (result.success) {
-            setRefreshMessage({ type: 'success', text: 'Prices updated successfully!' });
-            setTimeout(() => setRefreshMessage({ type: '', text: '' }), 3000);
-        } else {
-            setRefreshMessage({ type: 'error', text: result.message || 'Failed to refresh prices' });
-            setTimeout(() => setRefreshMessage({ type: '', text: '' }), 5000);
         }
     };
 
@@ -236,15 +234,6 @@ const StockMarketDetails = () => {
                     </button>
 
                     <button
-                        onClick={handleRefreshPrices}
-                        disabled={isRefreshing}
-                        className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${isRefreshing ? 'bg-gray-700 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-lg shadow-emerald-500/20'}`}
-                    >
-                        <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
-                        <span>{isRefreshing ? 'Refreshing...' : 'Refresh Prices'}</span>
-                    </button>
-
-                    <button
                         onClick={() => {
                             setEditingStock(null);
                             setIsModalOpen(true);
@@ -256,28 +245,6 @@ const StockMarketDetails = () => {
                     </button>
                 </div>
             </div>
-
-            {refreshMessage.text && (
-                <div style={{
-                    position: 'fixed',
-                    top: '80px',
-                    right: '2rem',
-                    padding: '1rem 1.5rem',
-                    borderRadius: '12px',
-                    backgroundColor: refreshMessage.type === 'success' ? 'rgba(16, 185, 129, 0.9)' : 'rgba(239, 68, 68, 0.9)',
-                    color: 'white',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.75rem',
-                    zIndex: 100,
-                    backdropFilter: 'blur(8px)',
-                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
-                    animation: 'slideIn 0.3s ease-out'
-                }}>
-                    {refreshMessage.type === 'success' ? <TrendingUp size={20} /> : <X size={20} onClick={() => setRefreshMessage({ type: '', text: '' })} style={{ cursor: 'pointer' }} />}
-                    <span className="font-medium">{refreshMessage.text}</span>
-                </div>
-            )}
 
             <div style={{
                 display: 'grid',
@@ -300,12 +267,6 @@ const StockMarketDetails = () => {
                         {formatCurrency(Math.abs(totalProfitLoss))}
                     </div>
                 </div>
-                <div className="card">
-                    <p className="text-white text-sm mb-1">Total Dividends Recd</p>
-                    <div className="font-bold text-lg flex items-center gap-2 text-success">
-                        {formatCurrency(totalDividends)}
-                    </div>
-                </div>
             </div>
 
 
@@ -322,14 +283,6 @@ const StockMarketDetails = () => {
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Current Value</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Unrealised P/L</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Unrealised %</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Dividends Earned</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'white' }}>Remarks</th>
-                            {/* Dividend Years */}
-                            {dividendYears.map((year, idx) => (
-                                <th key={year} style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>
-                                    {year === currentYear.toString() ? year : `Div ${year}`}
-                                </th>
-                            ))}
 
                             {/* Custom Columns Headers */}
                             {customColumns.map((col, idx) => (
@@ -362,14 +315,6 @@ const StockMarketDetails = () => {
                                     <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: isProfit ? 'var(--color-success)' : 'var(--color-danger)' }}>
                                         {stock.unrealisedPercent.toFixed(2)}%
                                     </td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)' }}>{formatCurrency(stock.dividendsEarned)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>{stock.remarks}</td>
-
-                                    {dividendYears.map(year => (
-                                        <td key={year} style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>
-                                            {formatCurrency(stock.dividends?.[year] || 0)}
-                                        </td>
-                                    ))}
 
                                     {/* Custom Columns Cells */}
                                     {customColumns.map((col, idx) => (
@@ -381,7 +326,8 @@ const StockMarketDetails = () => {
                                     <td style={{ padding: 'var(--spacing-md)', textAlign: 'center', position: 'sticky', right: 0, backgroundColor: '#1e1e1e', boxShadow: '-5px 0 10px rgba(0,0,0,0.1)' }}>
                                         <div className="flex items-center justify-center gap-2">
                                             <button
-                                                onClick={() => {
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     setEditingStock(stock);
                                                     setIsModalOpen(true);
                                                 }}
@@ -391,7 +337,10 @@ const StockMarketDetails = () => {
                                                 <Edit2 size={16} />
                                             </button>
                                             <button
-                                                onClick={() => handleDeleteStock(stock.id)}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteStock(stock.id);
+                                                }}
                                                 className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
                                                 title="Delete"
                                             >
@@ -413,7 +362,161 @@ const StockMarketDetails = () => {
                 </table>
             </div>
 
-            <StockTransactionModal
+            {/* Archived Stocks Table */}
+            {archivedStocks.length > 0 && (() => {
+                // Calculate Archived Totals
+                const archivedTotals = archivedStocks.reduce((totals, stock) => {
+                    const transactions = stock.transactions || [];
+                    let invested = 0;
+                    let pl = 0;
+
+                    if (transactions.length > 0) {
+                        const totalBuyValue = transactions.reduce((sum, tx) => {
+                            if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+                                return sum + (Number(tx.quantity) * Number(tx.price));
+                            }
+                            return sum;
+                        }, 0);
+
+                        const totalSellValue = transactions.reduce((sum, tx) => {
+                            if (['sell', 'buyback'].includes(tx.type)) {
+                                return sum + (Number(tx.quantity) * Number(tx.price));
+                            }
+                            return sum;
+                        }, 0);
+
+                        invested = totalBuyValue;
+                        pl = totalSellValue - totalBuyValue;
+                    } else {
+                        invested = stock.manualInvestedAmount || 0;
+                        pl = stock.realisedPL || 0;
+                    }
+
+                    return {
+                        invested: totals.invested + invested,
+                        pl: totals.pl + pl
+                    };
+                }, { invested: 0, pl: 0 });
+
+                return (
+                    <div className="mt-12 mb-6">
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-gray-400 flex items-center gap-2">
+                                <TrendingDown className="text-gray-500" size={24} />
+                                Archived / Sold Stocks
+                            </h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                            <div className="card p-4 bg-[#1e1e1e] border border-white/5">
+                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Total Capital Deployed</p>
+                                <p className="text-2xl font-bold text-white">{formatCurrency(archivedTotals.invested)}</p>
+                            </div>
+                            <div className="card p-4 bg-[#1e1e1e] border border-white/5">
+                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Total P/L Booked</p>
+                                <div className={`text-2xl font-bold flex items-center gap-2 ${archivedTotals.pl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                    {archivedTotals.pl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
+                                    {formatCurrency(Math.abs(archivedTotals.pl))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="card" style={{ padding: 0, overflow: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'gray' }}>Company Name</th>
+                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'gray' }}>Ticker</th>
+                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'gray' }}>Invested Value</th>
+                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'gray' }}>Profit/Loss Booked</th>
+                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'gray', position: 'sticky', right: 0, backgroundColor: '#1e1e1e', zIndex: 10 }}>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {archivedStocks.map((stock) => {
+                                        // Calculate metrics from transactions if available
+                                        const transactions = stock.transactions || [];
+                                        let calculatedInvested = 0;
+                                        let calculatedPL = 0;
+                                        let hasTransactions = transactions.length > 0;
+
+                                        if (hasTransactions) {
+                                            const totalBuyValue = transactions.reduce((sum, tx) => {
+                                                if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+                                                    return sum + (Number(tx.quantity) * Number(tx.price));
+                                                }
+                                                return sum;
+                                            }, 0);
+
+                                            const totalSellValue = transactions.reduce((sum, tx) => {
+                                                if (['sell', 'buyback'].includes(tx.type)) {
+                                                    return sum + (Number(tx.quantity) * Number(tx.price));
+                                                }
+                                                return sum;
+                                            }, 0);
+
+                                            calculatedInvested = totalBuyValue;
+                                            // For fully sold stocks, P/L is Sell Value - Buy Value
+                                            calculatedPL = totalSellValue - totalBuyValue;
+                                        }
+
+                                        // Use calculated values if transactions exist, else fallback to manual
+                                        const finalInvested = hasTransactions ? calculatedInvested : (stock.manualInvestedAmount || 0);
+                                        const finalPL = hasTransactions ? calculatedPL : (stock.realisedPL || 0);
+                                        const isProfit = finalPL >= 0;
+
+                                        return (
+                                            <tr key={stock.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', opacity: 0.7 }}>
+                                                <td
+                                                    style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}
+                                                    onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
+                                                >
+                                                    {stock.name}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-md)', fontFamily: 'monospace', color: 'gray' }}>{stock.ticker}</td>
+                                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'gray' }}>
+                                                    {formatCurrency(finalInvested)}
+                                                    {hasTransactions && <span className="ml-1 text-[10px] text-blue-400" title="Calculated from transactions">(Auto)</span>}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: isProfit ? 'var(--color-success)' : 'var(--color-danger)' }}>
+                                                    {formatCurrency(finalPL)}
+                                                </td>
+                                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'center', position: 'sticky', right: 0, backgroundColor: '#1e1e1e' }}>
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditingStock(stock);
+                                                                setIsModalOpen(true);
+                                                            }}
+                                                            className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                                            title="Edit Details"
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleDeleteStock(stock.id);
+                                                            }}
+                                                            className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                );
+            })()}
+
+            < StockTransactionModal
                 isOpen={isModalOpen}
                 onClose={() => {
                     setIsModalOpen(false);
@@ -424,100 +527,116 @@ const StockMarketDetails = () => {
                 customColumns={customColumns}
             />
 
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setStockToDelete(null);
+                }}
+                onConfirm={confirmDeleteStock}
+                title="Delete Stock"
+                message="Are you sure you want to delete this stock? This action cannot be undone."
+                confirmText="Delete"
+            />
+
             {/* Add Column Modal */}
-            {isAddColumnModalOpen && (
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 100
-                }}>
-                    <div className="bg-[#18181b] p-6 rounded-2xl border border-white/10 w-96 shadow-2xl">
-                        <h3 className="text-xl font-bold text-white mb-4">Add Custom Column</h3>
-                        <form onSubmit={handleAddColumn}>
-                            <input
-                                type="text"
-                                placeholder="Column Name (e.g. PE Ratio)"
-                                value={newColumnName}
-                                onChange={(e) => setNewColumnName(e.target.value)}
-                                className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white mb-4 focus:outline-none focus:border-indigo-500"
-                                autoFocus
-                            />
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsAddColumnModalOpen(false)}
-                                    className="px-4 py-2 rounded-lg text-gray-400 hover:text-white"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700"
-                                >
-                                    Add Column
-                                </button>
-                            </div>
-                        </form>
+            {
+                isAddColumnModalOpen && (
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 100
+                    }}>
+                        <div className="bg-[#18181b] p-6 rounded-2xl border border-white/10 w-96 shadow-2xl">
+                            <h3 className="text-xl font-bold text-white mb-4">Add Custom Column</h3>
+                            <form onSubmit={handleAddColumn}>
+                                <input
+                                    type="text"
+                                    placeholder="Column Name (e.g. PE Ratio)"
+                                    value={newColumnName}
+                                    onChange={(e) => setNewColumnName(e.target.value)}
+                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white mb-4 focus:outline-none focus:border-indigo-500"
+                                    autoFocus
+                                />
+                                <div className="flex justify-end gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAddColumnModalOpen(false)}
+                                        className="px-4 py-2 rounded-lg text-gray-400 hover:text-white"
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700"
+                                    >
+                                        Add Column
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Manage Columns Modal */}
-            {isManageColumnsModalOpen && createPortal(
-                <div style={{
-                    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2147483647,
-                    backdropFilter: 'blur(4px)'
-                }}>
-                    <div className="bg-[#18181b] rounded-2xl border border-white/10 w-96 shadow-2xl flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-6 border-b border-gray-800">
-                            <h3 className="text-xl font-bold text-white">Manage Columns</h3>
-                            <button onClick={() => setIsManageColumnsModalOpen(false)} className="text-gray-400 hover:text-white">
-                                <X size={20} />
-                            </button>
-                        </div>
+            {
+                isManageColumnsModalOpen && createPortal(
+                    <div style={{
+                        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2147483647,
+                        backdropFilter: 'blur(4px)'
+                    }}>
+                        <div className="bg-[#18181b] rounded-2xl border border-white/10 w-96 shadow-2xl flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-6 border-b border-gray-800">
+                                <h3 className="text-xl font-bold text-white">Manage Columns</h3>
+                                <button onClick={() => setIsManageColumnsModalOpen(false)} className="text-gray-400 hover:text-white">
+                                    <X size={20} />
+                                </button>
+                            </div>
 
-                        <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
-                            {customColumns.length === 0 ? (
-                                <p className="text-gray-500 text-center py-4">No custom columns added.</p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {customColumns.map((col, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                                            <span className="text-white font-medium">{col}</span>
-                                            <div className="flex items-center gap-1">
-                                                <button
-                                                    onClick={() => handleMoveColumn(idx, -1)}
-                                                    disabled={idx === 0}
-                                                    className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30"
-                                                >
-                                                    <ChevronUp size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleMoveColumn(idx, 1)}
-                                                    disabled={idx === customColumns.length - 1}
-                                                    className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30"
-                                                >
-                                                    <ChevronDown size={16} />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeleteCustomColumn(idx)}
-                                                    className="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 ml-2"
-                                                >
-                                                    <Trash2 size={16} />
-                                                </button>
+                            <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+                                {customColumns.length === 0 ? (
+                                    <p className="text-gray-500 text-center py-4">No custom columns added.</p>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {customColumns.map((col, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
+                                                <span className="text-white font-medium">{col}</span>
+                                                <div className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => handleMoveColumn(idx, -1)}
+                                                        disabled={idx === 0}
+                                                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30"
+                                                    >
+                                                        <ChevronUp size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleMoveColumn(idx, 1)}
+                                                        disabled={idx === customColumns.length - 1}
+                                                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30"
+                                                    >
+                                                        <ChevronDown size={16} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteCustomColumn(idx)}
+                                                        className="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 ml-2"
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </button>
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-        </div>
+                    </div>,
+                    document.body
+                )
+            }
+        </div >
     );
 };
 

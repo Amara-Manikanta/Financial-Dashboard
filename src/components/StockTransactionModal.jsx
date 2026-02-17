@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Hash, FileText, Calendar } from 'lucide-react';
+import { X, TrendingUp, Hash, FileText, Calendar, DollarSign, PieChart } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 
 const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [] }) => {
@@ -11,6 +11,8 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const [currentPrice, setCurrentPrice] = useState('');
     const [remarks, setRemarks] = useState('');
     const [customValues, setCustomValues] = useState({});
+    const [investedAmount, setInvestedAmount] = useState('');
+    const [realisedPL, setRealisedPL] = useState('');
 
     const currentYear = new Date().getFullYear();
     const dividendYears = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
@@ -28,6 +30,9 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setCurrentPrice(initialData.currentPrice || '');
             setRemarks(initialData.remarks || '');
             setCustomValues(initialData.customValues || {});
+            setInvestedAmount(initialData.manualInvestedAmount || '');
+            setRealisedPL(initialData.realisedPL || '');
+
             const initialDividends = {};
             dividendYears.forEach(year => {
                 initialDividends[year] = initialData.dividends?.[year] || 0;
@@ -41,6 +46,8 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setCurrentPrice('');
             setRemarks('');
             setCustomValues({});
+            setInvestedAmount('');
+            setRealisedPL('');
             setDividends(dividendYears.reduce((acc, year) => ({ ...acc, [year]: 0 }), {}));
         }
     }, [isOpen, initialData]);
@@ -58,6 +65,8 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             currentPrice: parseFloat(currentPrice),
             remarks,
             customValues,
+            manualInvestedAmount: investedAmount ? parseFloat(investedAmount) : null,
+            realisedPL: realisedPL ? parseFloat(realisedPL) : null,
             dividends: Object.entries(dividends).reduce((acc, [k, v]) => ({ ...acc, [k]: parseFloat(v) }), {})
         });
         onClose();
@@ -176,6 +185,41 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                             </div>
                         </div>
 
+                        {/* Archived/Manual Fields */}
+                        <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                            <h3 className="text-sm font-bold text-gray-300 mb-3 flex items-center gap-2">
+                                <PieChart size={16} />
+                                Archived / Manual Override
+                            </h3>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Invested Amount (Manual)</label>
+                                    <div className="relative">
+                                        <CurrencyInput
+                                            value={investedAmount}
+                                            onChange={(e) => setInvestedAmount(e.target.value)}
+                                            style={inputStyle}
+                                            placeholder="Auto-calculated if empty"
+                                        />
+                                        <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1 ml-1">Required for 0 quantity stocks</p>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Realised P/L</label>
+                                    <div className="relative">
+                                        <CurrencyInput
+                                            value={realisedPL}
+                                            onChange={(e) => setRealisedPL(e.target.value)}
+                                            style={inputStyle}
+                                            placeholder="0.00"
+                                        />
+                                        <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                                    </div>
+                                    <p className="text-[10px] text-gray-500 mt-1 ml-1">Profit/Loss booked on sale</p>
+                                </div>
+                            </div>
+                        </div>
 
 
                         {/* Custom Columns Inputs */}

@@ -34,9 +34,9 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
         originalAmount: '',
         interestEarned: '',
         maturityAmount: '',
-        maturityAmount: '',
         remarks: '',
-        tds: ''
+        tds: '',
+        renewalCount: 0
     });
 
     useEffect(() => {
@@ -52,9 +52,10 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         interestRate: '',
                         interestEarned: '0',
                         maturityAmount: '',
-                        maturityAmount: '',
                         remarks: '',
-                        tds: ''
+                        tds: '',
+                        renewalCount: (initialData.renewalCount || 0) + 1,
+                        interestTransactions: initialData.interestTransactions || []
                     });
                 } else {
                     setFormData({
@@ -66,9 +67,10 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         interestRate: initialData.interestRate || '',
                         interestEarned: initialData.interestEarned || '',
                         maturityAmount: initialData.maturityAmount || '',
-                        maturityAmount: initialData.maturityAmount || '',
                         remarks: initialData.remarks || '',
-                        tds: initialData.tds || ''
+                        tds: initialData.tds || '',
+                        renewalCount: initialData.renewalCount || 0,
+                        interestTransactions: initialData.interestTransactions || []
                     });
                 }
             } else {
@@ -80,9 +82,9 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                     originalAmount: '',
                     interestEarned: '0',
                     maturityAmount: '',
-                    maturityAmount: '',
                     remarks: '',
-                    tds: ''
+                    tds: '',
+                    renewalCount: 0
                 });
             }
         }
@@ -141,7 +143,8 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
             interestEarned: parseFloat(formData.interestEarned),
             maturityAmount: parseFloat(formData.maturityAmount),
             tds: parseFloat(formData.tds || 0),
-            currentValue: parseFloat(formData.originalAmount) + accrued // Current value based on accrual
+            currentValue: parseFloat(formData.originalAmount) + accrued, // Current value based on accrual
+            renewalCount: formData.renewalCount || 0
         });
         onClose();
     };

@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, X, Save, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import StockTransactionModal from '../components/StockTransactionModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -13,6 +14,8 @@ const StockDetails = () => {
     const [editingTx, setEditingTx] = useState(null);
     const [isEditStockModalOpen, setIsEditStockModalOpen] = useState(false);
     const [editingDividend, setEditingDividend] = useState(null);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [txToDelete, setTxToDelete] = useState(null);
 
     // Find Market and Stock
     const market = savings.find(s => s.id.toString() === id);
@@ -123,13 +126,18 @@ const StockDetails = () => {
     };
 
     const handleDeleteTransaction = async (txId) => {
-        if (!window.confirm('Delete this transaction?')) return;
-        const updatedTransactions = transactions.filter(t => t.id !== txId);
+        setTxToDelete(txId);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDeleteTransaction = async () => {
+        if (!txToDelete) return;
+        const updatedTransactions = transactions.filter(t => String(t.id) !== String(txToDelete));
 
         const { shares, avgCost, dividends } = recalculateStockMetrics(updatedTransactions);
 
         const updatedStocks = market.stocks.map(s => {
-            if (s.id.toString() === stockId) return {
+            if (String(s.id) === String(stockId)) return {
                 ...s,
                 transactions: updatedTransactions,
                 shares,
@@ -140,6 +148,7 @@ const StockDetails = () => {
         });
         const updatedMarket = { ...market, stocks: updatedStocks };
         await updateItem('savings', updatedMarket);
+        setTxToDelete(null);
     };
 
     const handleUpdateStock = async (updatedStockData) => {
@@ -173,10 +182,25 @@ const StockDetails = () => {
     };
 
     // Summary Calculations
+    const totalBuyValue = transactions.reduce((sum, tx) => {
+        if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+            return sum + (Number(tx.quantity) * Number(tx.price));
+        }
+        return sum;
+    }, 0);
+
+    const totalSellValue = transactions.reduce((sum, tx) => {
+        if (['sell', 'buyback'].includes(tx.type)) {
+            return sum + (Number(tx.quantity) * Number(tx.price));
+        }
+        return sum;
+    }, 0);
+
     const totalInvested = stock.shares * stock.avgCost;
     const currentValue = stock.shares * stock.currentPrice;
-    const totalPL = currentValue - totalInvested;
-    const isProfit = totalPL >= 0;
+    const unrealizedPL = currentValue - totalInvested;
+    const wholePL = (currentValue + totalSellValue) - totalBuyValue;
+    const isProfit = wholePL >= 0;
     const dividendEarned = Object.values(stock.dividends || {}).reduce((sum, val) => sum + val, 0);
 
     const currentYear = new Date().getFullYear();
@@ -219,11 +243,22 @@ const StockDetails = () => {
                             <p className="text-xl font-bold">{formatCurrency(totalInvested)}</p>
                         </div>
                         <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Total P/L</p>
+                            <p className="text-xs text-secondary uppercase font-bold">Unrealized P/L</p>
+                            <div className={`text-xl font-bold flex items-center gap-1 ${unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                                {unrealizedPL >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                                {formatCurrency(Math.abs(unrealizedPL))}
+                            </div>
+                        </div>
+                        <div className="card p-4 min-w-[150px]">
+                            <p className="text-xs text-secondary uppercase font-bold">Whole P/L</p>
                             <div className={`text-xl font-bold flex items-center gap-1 ${isProfit ? 'text-green-500' : 'text-red-500'}`}>
                                 {isProfit ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                {formatCurrency(Math.abs(totalPL))}
+                                {formatCurrency(Math.abs(wholePL))}
                             </div>
+                        </div>
+                        <div className="card p-4 min-w-[150px]">
+                            <p className="text-xs text-secondary uppercase font-bold">Net Invested</p>
+                            <p className="text-xl font-bold">{formatCurrency(totalBuyValue - totalSellValue)}</p>
                         </div>
                         <div className="card p-4 min-w-[150px]">
                             <p className="text-xs text-secondary uppercase font-bold">Dividends Earned</p>
@@ -320,7 +355,13 @@ const StockDetails = () => {
                                                 <Edit2 size={16} />
                                             </button>
                                             {tx.id !== 'synthetic-initial' && (
-                                                <button onClick={() => handleDeleteTransaction(tx.id)} className="p-1.5 rounded hover:bg-white/10 text-red-400">
+                                                <button
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleDeleteTransaction(tx.id);
+                                                    }}
+                                                    className="p-1.5 rounded hover:bg-white/10 text-red-400"
+                                                >
                                                     <Trash2 size={16} />
                                                 </button>
                                             )}
@@ -406,6 +447,18 @@ const StockDetails = () => {
                 onSave={handleUpdateStock}
                 initialData={stock}
                 customColumns={market.customColumns || []}
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setTxToDelete(null);
+                }}
+                onConfirm={confirmDeleteTransaction}
+                title="Delete Transaction"
+                message="Are you sure you want to delete this transaction? This will automatically recalculate your stock metrics."
+                confirmText="Delete"
             />
         </div>
     );

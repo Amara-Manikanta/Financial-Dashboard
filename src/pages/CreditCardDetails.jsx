@@ -26,7 +26,11 @@ const CreditCardDetails = () => {
                         const knownAliases = aliases[cardName] || [];
 
                         if (txName === cardName || cardName.includes(txName) || txName.includes(cardName) || knownAliases.includes(txName)) {
-                            spend += (tx.isCredited ? -Number(tx.amount) : Number(tx.amount));
+                            if (tx.category === 'credit card bill' && tx.deductFromSalary) {
+                                spend -= Number(tx.amount);
+                            } else {
+                                spend += (tx.isCredited ? -Number(tx.amount) : Number(tx.amount));
+                            }
                         }
                     }
                 });

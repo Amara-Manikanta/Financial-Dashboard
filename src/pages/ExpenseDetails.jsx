@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Wallet, TrendingDown, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MoreHorizontal, Plus, ChevronLeft, ChevronRight, ChevronDown, MessageSquare, Edit2, Trash2, Tag, Home, Utensils, ShoppingBag, Car, Smartphone, PiggyBank, Film, Gift, Wifi, Zap, CreditCard, Check } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, YAxis, AreaChart, Area, CartesianGrid, LineChart, Line } from 'recharts';
 import TransactionModal from '../components/TransactionModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const COLORS = ['#FF8C00', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B'];
 
@@ -150,6 +151,7 @@ const ExpenseDetails = () => {
     const [graphType, setGraphType] = useState('bar');
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [statementPage, setStatementPage] = useState(1);
+    const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, id: null });
     const ITEMS_PER_PAGE = 12;
     const STATEMENT_ITEMS_PER_PAGE = 10;
 
@@ -312,6 +314,17 @@ const ExpenseDetails = () => {
         setEditingTransaction(null);
     };
 
+    const handleDeleteTransaction = (id) => {
+        setDeleteConfirm({ isOpen: true, id });
+    };
+
+    const confirmDelete = () => {
+        if (deleteConfirm.id) {
+            deleteItem('expense', deleteConfirm.id);
+        }
+        setDeleteConfirm({ isOpen: false, id: null });
+    };
+
     if (!expenses[year] || !expenses[year][month]) {
         return (
             <div className="container min-h-[60vh] flex flex-col items-center justify-center text-center">
@@ -450,7 +463,7 @@ const ExpenseDetails = () => {
                                             compact={true}
                                             showActions={true}
                                             onEdit={(i) => { setEditingTransaction(i); setIsModalOpen(true); }}
-                                            onDelete={(id) => window.confirm('Delete entry?') && deleteItem('expense', id)}
+                                            onDelete={handleDeleteTransaction}
                                         />
                                     ))
                             ) : (
@@ -531,6 +544,18 @@ const ExpenseDetails = () => {
                     </div>
                 </div>
             </div>
+
+
+            <ConfirmModal
+                isOpen={deleteConfirm.isOpen}
+                onClose={() => setDeleteConfirm({ isOpen: false, id: null })}
+                onConfirm={confirmDelete}
+                title="Delete Transaction"
+                message="Are you sure you want to delete this transaction? This action cannot be undone."
+                confirmText="Delete"
+                cancelText="Cancel"
+                type="danger"
+            />
 
             <TransactionModal
                 isOpen={isModalOpen}
