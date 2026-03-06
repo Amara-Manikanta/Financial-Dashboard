@@ -1,13 +1,39 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2 } from 'lucide-react';
 import SavingsItemModal from '../components/SavingsItemModal';
+import ConfirmModal from '../components/ConfirmModal';
 
 const Savings = () => {
-    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem } = useFinance();
+    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, deleteItem } = useFinance();
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
+
+    const handleDeleteClick = (e, item) => {
+        e.stopPropagation();
+        setItemToDelete(item);
+        setIsDeleteModalOpen(true);
+    };
+
+    const confirmDelete = async () => {
+        if (itemToDelete) {
+            // The type in savings array matches the type expected by deleteItem's switch/endpoints
+            // except for capitalisation sometimes.
+            // deleteItem expects: 'savings', 'asset', 'lents', 'creditCards' OR 'expense'
+            // Wait, the deleteItem function in FinanceContext has specific logic.
+            // Let's check deleteItem in FinanceContext again.
+            // It accepts (type, id).
+            // types: 'savings', 'asset', 'lents', 'creditCards'.
+            // The items in `savings` array in FinanceContext come from `/savings` endpoint.
+            // So the type passed to deleteItem should be 'savings'.
+            await deleteItem('savings', itemToDelete.id);
+            setIsDeleteModalOpen(false);
+            setItemToDelete(null);
+        }
+    };
 
     const getIcon = (type) => {
         switch (type) {
@@ -122,6 +148,7 @@ const Savings = () => {
                                     </div>
                                 </div>
 
+
                                 <div className="mb-2">
                                     <p className="text-4xl font-black text-white tracking-tighter">{formatCurrency(displayAmount)}</p>
 
@@ -168,6 +195,15 @@ const Savings = () => {
                                     </div>
                                 )}
                             </div>
+
+
+                            <button
+                                onClick={(e) => handleDeleteClick(e, item)}
+                                className="absolute bottom-4 right-4 p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all z-20"
+                                title="Delete Account"
+                            >
+                                <Trash2 size={18} />
+                            </button>
                         </div>
                     );
                 })}
@@ -178,7 +214,19 @@ const Savings = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveNewItem}
             />
-        </div>
+
+            <ConfirmModal
+                isOpen={isDeleteModalOpen}
+                onClose={() => {
+                    setIsDeleteModalOpen(false);
+                    setItemToDelete(null);
+                }}
+                onConfirm={confirmDelete}
+                title="Delete Savings Account"
+                message={`Are you sure you want to delete "${itemToDelete?.title}"? This action cannot be undone.`}
+                confirmText="Delete"
+            />
+        </div >
     );
 };
 

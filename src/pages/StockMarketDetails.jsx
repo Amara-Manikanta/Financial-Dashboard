@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -84,6 +85,23 @@ const StockMarketDetails = () => {
             ? b.unrealisedPL - a.unrealisedPL
             : a.unrealisedPL - b.unrealisedPL;
     });
+
+    // Calculate Active Dividends
+    const activeDividendsData = activeStocks.reduce((acc, stock) => {
+        const stockDividends = stock.dividends || {};
+        Object.entries(stockDividends).forEach(([year, amount]) => {
+            acc.total += Number(amount);
+            acc.yearly[year] = (acc.yearly[year] || 0) + Number(amount);
+        });
+        return acc;
+    }, { total: 0, yearly: {} });
+
+    // Round total
+    activeDividendsData.total = Number(activeDividendsData.total.toFixed(2));
+
+    const dividendGraphData = Object.entries(activeDividendsData.yearly)
+        .map(([year, amount]) => ({ year, amount: Number(amount.toFixed(2)) }))
+        .sort((a, b) => a.year.localeCompare(b.year)); // Sort by year ascending
 
     const handleSaveStock = async (stockData) => {
         let updatedStocks;
@@ -515,6 +533,67 @@ const StockMarketDetails = () => {
                     </div>
                 );
             })()}
+
+            {/* Total Dividend Earned Section */}
+            {activeStocks.length > 0 && (
+                <div className="mt-12 mb-6">
+                    <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-bold text-gray-400 flex items-center gap-2">
+                            <BarChartIcon className="text-emerald-500" size={24} />
+                            Dividend Performance (Active Stocks)
+                        </h3>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                        {/* Summary Card */}
+                        <div className="card p-6 bg-[#1e1e1e] border border-white/5 flex flex-col justify-center">
+                            <p className="text-sm text-gray-500 uppercase font-bold mb-2">Total Dividends Earned</p>
+                            <div className="flex items-baseline gap-2">
+                                <p className="text-4xl font-bold text-emerald-400">{formatCurrency(activeDividendsData.total)}</p>
+                                <span className="text-sm text-gray-500">lifetime</span>
+                            </div>
+                            <div className="mt-4 pt-4 border-t border-white/5">
+                                <p className="text-xs text-gray-500">
+                                    Includes all dividends recorded for currently active stocks.
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Graph */}
+                        <div className="lg:col-span-2 card p-6 bg-[#1e1e1e] border border-white/5 h-[300px]">
+                            <p className="text-sm text-gray-500 uppercase font-bold mb-4">Dividends by Year</p>
+                            <ResponsiveContainer width="100%" height="90%">
+                                <BarChart data={dividendGraphData}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
+                                    <XAxis
+                                        dataKey="year"
+                                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                                        axisLine={{ stroke: '#333' }}
+                                        tickLine={false}
+                                    />
+                                    <YAxis
+                                        tick={{ fill: '#9ca3af', fontSize: 12 }}
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tickFormatter={(value) => `₹${value}`}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
+                                        itemStyle={{ color: '#fff' }}
+                                        formatter={(value) => [`₹${value}`, 'Dividends']}
+                                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    />
+                                    <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                                        {dividendGraphData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill="#10b981" />
+                                        ))}
+                                    </Bar>
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             < StockTransactionModal
                 isOpen={isModalOpen}

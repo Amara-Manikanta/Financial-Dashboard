@@ -18,6 +18,12 @@ const NPSDetails = () => {
 
     const nps = savings.find(s => s.id === id);
 
+    const sortedTransactions = useMemo(() => {
+        return [...(nps?.transactions || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [nps?.transactions]);
+
+    const { calculateItemCurrentValue, calculateItemInvestedValue } = useFinance();
+
     if (!nps) {
         return (
             <div style={{ padding: 'var(--spacing-lg)' }}>
@@ -40,14 +46,14 @@ const NPSDetails = () => {
             updatedHoldings.push(holdingData);
         }
 
-        // Recalculate totals and percentages based on Current Value (NAV * units)
-        const totalCurrent = updatedHoldings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0);
+        // Reverting totalCurrent to sum up invested amount (h.amount) as per request
+        const totalCurrent = updatedHoldings.reduce((sum, h) => sum + Number(h.amount), 0);
         const totalInvested = nps.investedAmount || 0; // Invested amount comes from transactions now
-        const totalProfitLoss = totalCurrent - totalInvested;
+        const totalProfitLoss = nps.holdings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0) - totalInvested;
 
         const holdingsWithPercentage = updatedHoldings.map(h => ({
             ...h,
-            percentage: totalCurrent > 0 ? parseFloat(((h.totalunits * h.nav) / totalCurrent * 100).toFixed(2)) : 0
+            percentage: totalCurrent > 0 ? parseFloat(((Number(h.amount)) / totalCurrent * 100).toFixed(2)) : 0
         }));
 
         updateItem('savings', {
@@ -65,13 +71,13 @@ const NPSDetails = () => {
     const handleDeleteHolding = (index) => {
         if (window.confirm('Delete this scheme holding?')) {
             const updatedHoldings = nps.holdings.filter((_, i) => i !== index);
-            const totalCurrent = updatedHoldings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0);
+            const totalCurrent = updatedHoldings.reduce((sum, h) => sum + Number(h.amount), 0);
             const totalInvested = nps.investedAmount || 0;
-            const totalProfitLoss = totalCurrent - totalInvested;
+            const totalProfitLoss = updatedHoldings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0) - totalInvested;
 
             const holdingsWithPercentage = updatedHoldings.map(h => ({
                 ...h,
-                percentage: totalCurrent > 0 ? parseFloat(((h.totalunits * h.nav) / totalCurrent * 100).toFixed(2)) : 0
+                percentage: totalCurrent > 0 ? parseFloat(((Number(h.amount)) / totalCurrent * 100).toFixed(2)) : 0
             }));
 
             updateItem('savings', {
@@ -92,8 +98,8 @@ const NPSDetails = () => {
         }
 
         const totalInvested = updatedTransactions.reduce((sum, t) => sum + t.amount, 0);
-        const totalCurrent = nps.holdings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0);
-        const totalProfitLoss = totalCurrent - totalInvested;
+        const totalCurrent = nps.holdings.reduce((sum, h) => sum + Number(h.amount), 0);
+        const totalProfitLoss = nps.holdings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0) - totalInvested;
 
         updateItem('savings', {
             ...nps,
@@ -110,8 +116,8 @@ const NPSDetails = () => {
         if (window.confirm('Delete this transaction?')) {
             const updatedTransactions = (nps.transactions || []).filter(t => t.id !== txId);
             const totalInvested = updatedTransactions.reduce((sum, t) => sum + t.amount, 0);
-            const totalCurrent = nps.holdings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0);
-            const totalProfitLoss = totalCurrent - totalInvested;
+            const totalCurrent = nps.holdings.reduce((sum, h) => sum + Number(h.amount), 0);
+            const totalProfitLoss = nps.holdings.reduce((sum, h) => sum + (h.totalunits * h.nav), 0) - totalInvested;
 
             updateItem('savings', {
                 ...nps,
@@ -122,11 +128,6 @@ const NPSDetails = () => {
         }
     };
 
-    const sortedTransactions = useMemo(() => {
-        return [...(nps.transactions || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [nps.transactions]);
-
-    const { calculateItemCurrentValue, calculateItemInvestedValue } = useFinance();
     const totalCurrent = calculateItemCurrentValue(nps);
     const totalInvested = calculateItemInvestedValue(nps);
     const totalProfitLoss = totalCurrent - totalInvested;
@@ -210,9 +211,9 @@ const NPSDetails = () => {
                             <thead>
                                 <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
                                     <th className="py-5 px-8">Scheme</th>
+                                    <th className="py-5 px-6 text-right">Invested</th>
                                     <th className="py-5 px-6 text-right">NAV</th>
                                     <th className="py-5 px-6 text-right">Units</th>
-                                    <th className="py-5 px-6 text-right font-black text-white">Value</th>
                                     <th className="py-5 px-8 text-center">Actions</th>
                                 </tr>
                             </thead>
@@ -223,9 +224,9 @@ const NPSDetails = () => {
                                             {item.scheme}
                                             <div className="text-[9px] text-gray-500 mt-1 uppercase">{item.percentage}% Allocation</div>
                                         </td>
+                                        <td className="py-6 px-6 text-right font-mono text-gray-400">{formatCurrency(item.amount)}</td>
                                         <td className="py-6 px-6 text-right font-mono text-gray-400">{formatCurrency(item.nav)}</td>
                                         <td className="py-6 px-6 text-right font-mono text-gray-400">{item.totalunits.toFixed(3)}</td>
-                                        <td className="py-6 px-6 text-right font-black text-white">{formatCurrency(item.totalunits * item.nav)}</td>
                                         <td className="py-6 px-8 text-center">
                                             <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all">
                                                 <button

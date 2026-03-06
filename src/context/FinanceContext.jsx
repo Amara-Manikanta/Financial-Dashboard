@@ -115,7 +115,7 @@ export function FinanceProvider({ children }) {
 
     const fetchMetalRates = async () => {
         try {
-            const res = await fetch('https://data-asg.goldprice.org/dbXRates/INR');
+            const res = await fetch('/api/goldprice/dbXRates/INR');
             const data = await res.json();
             if (data.items && data.items.length > 0) {
                 const item = data.items[0];
@@ -640,8 +640,8 @@ export function FinanceProvider({ children }) {
                 return (item.details || []).slice(-1)[0]?.balance || 0;
 
             case 'nps':
-                // NPS current value is the sum of holdings
-                return (item.holdings || []).reduce((sum, h) => sum + (Number(h.totalunits || 0) * Number(h.nav || 0)), 0);
+                // NPS current value is the sum of holdings' invested amounts
+                return (item.holdings || []).reduce((sum, h) => sum + Number(h.amount || 0), 0);
 
             case 'sgb':
                 return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.currentPrice || 0)), 0);
