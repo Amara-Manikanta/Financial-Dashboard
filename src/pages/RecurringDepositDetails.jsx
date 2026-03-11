@@ -54,6 +54,10 @@ const RecurringDepositDetails = () => {
 
     const totalInstallment = account.recurringDeposits?.reduce((sum, d) => sum + (Number(d.installmentAmount) || 0), 0) || 0;
     const totalMaturity = account.recurringDeposits?.reduce((sum, d) => sum + (Number(d.maturityAmount) || 0), 0) || 0;
+    const totalCurrentValue = account.recurringDeposits?.reduce((sum, rd) => {
+        const rdTotalPaid = (rd.installments || []).reduce((acc, tx) => acc + (tx.amount || 0), 0);
+        return sum + rdTotalPaid;
+    }, 0) || 0;
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
@@ -93,6 +97,10 @@ const RecurringDepositDetails = () => {
                     <p className="font-bold text-lg text-blue-400">{formatCurrency(totalInstallment)}/mo</p>
                 </div>
                 <div className="card">
+                    <p className="text-secondary text-sm mb-1">Total Current Value</p>
+                    <p className="font-bold text-lg text-blue-400">{formatCurrency(totalCurrentValue)}</p>
+                </div>
+                <div className="card">
                     <p className="text-secondary text-sm mb-1">Total Maturity Value</p>
                     <p className="font-bold text-lg text-emerald-400">{formatCurrency(totalMaturity)}</p>
                 </div>
@@ -107,15 +115,17 @@ const RecurringDepositDetails = () => {
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Rate (%)</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Start Date</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>End Date</th>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Current Paid</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Maturity Value</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Status</th>
                             <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {[...(account.recurringDeposits || [])]
                             .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
-                            .map((rd) => (
+                            .map((rd) => {
+                                const currentPaid = (rd.installments || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+                                return (
                                 <tr
                                     key={rd.id}
                                     onClick={() => navigate(`/savings/recurring-deposit/${id}/rd/${rd.id}`)}
@@ -130,12 +140,8 @@ const RecurringDepositDetails = () => {
                                     <td style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-accent)' }}>{rd.interestRate}%</td>
                                     <td style={{ padding: 'var(--spacing-md)' }}>{formatDate(rd.startDate)}</td>
                                     <td style={{ padding: 'var(--spacing-md)' }}>{rd.endDate ? formatDate(rd.endDate) : '-'}</td>
+                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{formatCurrency(currentPaid)}</td>
                                     <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)' }}>{formatCurrency(rd.maturityAmount)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
-                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rd.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
-                                            {rd.status}
-                                        </span>
-                                    </td>
                                     <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
                                         <div className="flex items-center justify-center gap-2">
                                             <button
@@ -155,7 +161,7 @@ const RecurringDepositDetails = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            )})}
                         {!account.recurringDeposits?.length && (
                             <tr>
                                 <td colSpan="8" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>

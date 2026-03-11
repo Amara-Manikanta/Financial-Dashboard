@@ -65,7 +65,8 @@ const Savings = () => {
         }
     };
 
-    const totalPortfolioValue = savings.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
+    const savingsOnly = savings.filter(item => item.type !== 'mutual_fund' && item.type !== 'stock_market');
+    const totalPortfolioValue = savingsOnly.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
 
     const handleSaveNewItem = async (newItem) => {
         await addItem('savings', newItem);
@@ -97,7 +98,7 @@ const Savings = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {savings.map(item => {
+                {savingsOnly.map(item => {
                     const progress = item.goal > 0 ? Math.min((item.amount / item.goal) * 100, 100) : 0;
                     const isStockMarket = item.type === 'stock_market';
                     const isMutualFund = item.type === 'mutual_fund';

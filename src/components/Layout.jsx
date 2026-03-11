@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 
@@ -86,6 +86,7 @@ const Layout = () => {
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         <NavItem to="/expenses" icon={Wallet} label="Expenses" />
                         <NavItem to="/savings" icon={PiggyBank} label="Savings" />
+                        <NavItem to="/investments" icon={TrendingUp} label="Investments" />
                         <NavItem to="/metals" icon={Coins} label="Gold & Silver" />
                         <NavItem to="/assets" icon={Car} label="Assets" />
                         <NavItem to="/lents" icon={ArrowUpRight} label="Lents" />
