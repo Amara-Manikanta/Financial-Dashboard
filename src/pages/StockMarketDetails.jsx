@@ -3,9 +3,106 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
+
+const StockTreemapContent = (props) => {
+    const { depth, x, y, width, height, index, name, ticker, percentage, value } = props;
+
+    // Only render actual leaf nodes (depth 2)
+    if (depth !== 2) return null;
+    if (width < 2 || height < 2) return null;
+
+    let fillColor = '#1e1e1e';
+    if (percentage > 0) {
+        if (percentage > 10) fillColor = '#14532d';
+        else if (percentage > 5) fillColor = '#166534';
+        else if (percentage > 2) fillColor = '#15803d';
+        else fillColor = '#22c55e';
+    } else if (percentage < 0) {
+        const abs = Math.abs(percentage);
+        if (abs > 10) fillColor = '#7f1d1d';
+        else if (abs > 5) fillColor = '#991b1b';
+        else if (abs > 2) fillColor = '#b91c1c';
+        else fillColor = '#ef4444';
+    } else {
+        fillColor = '#3f3f46';
+    }
+
+    const showText = width > 40 && height > 24;
+
+    return (
+        <g>
+            <rect
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                fill={fillColor}
+                stroke="#18181b"
+                strokeWidth={2}
+                style={{ transition: 'all 0.3s ease' }}
+            />
+            {showText && (
+                <foreignObject x={x + 4} y={y + 4} width={Math.max(0, width - 8)} height={Math.max(0, height - 8)} style={{ pointerEvents: 'none' }}>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {ticker || name}
+                        </span>
+                        {percentage !== undefined && height > 35 && (
+                            <span style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                {percentage > 0 ? '+' : ''}{percentage.toFixed(2)}%
+                            </span>
+                        )}
+                    </div>
+                </foreignObject>
+            )}
+        </g>
+    );
+};
+
+const DividendTreemapContent = (props) => {
+    const { depth, x, y, width, height, index, name, ticker, value } = props;
+
+    // Only render depth 2 (leaf nodes)
+    if (depth !== 2) return null;
+    if (width < 2 || height < 2) return null;
+
+    const colors = ['#059669', '#10b981', '#34d399', '#047857'];
+    const fillColor = colors[index % colors.length];
+
+    const showText = width > 40 && height > 24;
+
+    return (
+        <g>
+            <rect
+                x={x}
+                y={y}
+                width={width}
+                height={height}
+                fill={fillColor}
+                stroke="#18181b"
+                strokeWidth={2}
+                style={{ transition: 'all 0.3s ease' }}
+            />
+            {showText && (
+                <foreignObject x={x + 4} y={y + 4} width={Math.max(0, width - 8)} height={Math.max(0, height - 8)} style={{ pointerEvents: 'none' }}>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {ticker || name}
+                        </span>
+                        {value !== undefined && height > 35 && (
+                            <span style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                ₹{value.toLocaleString('en-IN')}
+                            </span>
+                        )}
+                    </div>
+                </foreignObject>
+            )}
+        </g>
+    );
+};
 
 const StockMarketDetails = () => {
     const { id } = useParams();
@@ -102,6 +199,23 @@ const StockMarketDetails = () => {
     const dividendGraphData = Object.entries(activeDividendsData.yearly)
         .map(([year, amount]) => ({ year, amount: Number(amount.toFixed(2)) }))
         .sort((a, b) => a.year.localeCompare(b.year)); // Sort by year ascending
+
+    const stockTreemapData = stockRows.map(stock => ({
+        name: stock.name,
+        ticker: stock.ticker,
+        value: stock.currentValue,
+        percentage: stock.unrealisedPercent
+    })).filter(item => item.value > 0);
+
+    const dividendTreemapData = activeStocks.map(stock => {
+        const stockDividends = stock.dividends || {};
+        const totalStockDividend = Object.values(stockDividends).reduce((sum, amount) => sum + Number(amount), 0);
+        return {
+            name: stock.name,
+            ticker: stock.ticker,
+            value: totalStockDividend
+        };
+    }).filter(item => item.value > 0);
 
     const handleSaveStock = async (stockData) => {
         let updatedStocks;
@@ -286,7 +400,6 @@ const StockMarketDetails = () => {
                     </div>
                 </div>
             </div>
-
 
             <div className="card" style={{ padding: 0, overflow: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1500px' }}>
@@ -591,6 +704,63 @@ const StockMarketDetails = () => {
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
+                    </div>
+
+                    {/* Local Heatmaps */}
+                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-6">
+                        {/* Current Stocks Heatmap */}
+                        {stockTreemapData.length > 0 && (
+                            <div className="card bg-[#1e1e1e] border border-white/5 w-full p-6" style={{ height: '400px' }}>
+                                <p className="text-sm text-gray-500 uppercase font-bold mb-4">Stocks by Current Value</p>
+                                <ResponsiveContainer width="100%" height="90%">
+                                        <Treemap
+                                            data={[{ name: 'root', children: stockTreemapData }]}
+                                            dataKey="value"
+                                            aspectRatio={4 / 3}
+                                            stroke="#fff"
+                                            fill="#8884d8"
+                                            content={<StockTreemapContent />}
+                                        >
+                                            <Tooltip
+                                                formatter={(value, name, props) => [
+                                                    `₹${value.toLocaleString('en-IN')}`, 
+                                                    props.payload.ticker || props.payload.name
+                                                ]}
+                                                contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
+                                                itemStyle={{ color: '#fff' }}
+                                            />
+                                        </Treemap>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
+
+                        {/* Dividend Heatmap */}
+                        {dividendTreemapData.length > 0 && (
+                            <div className="card bg-[#1e1e1e] border border-white/5 w-full p-6" style={{ height: '400px' }}>
+                                <p className="text-sm text-gray-500 uppercase font-bold mb-4 flex justify-between items-center">
+                                    <span>Stocks by Total Dividends</span>
+                                </p>
+                                <ResponsiveContainer width="100%" height="90%">
+                                        <Treemap
+                                            data={[{ name: 'root', children: dividendTreemapData }]}
+                                            dataKey="value"
+                                            aspectRatio={4 / 3}
+                                            stroke="#fff"
+                                            fill="#10b981"
+                                            content={<DividendTreemapContent />}
+                                        >
+                                            <Tooltip
+                                                formatter={(value, name, props) => [
+                                                    `₹${value.toLocaleString('en-IN')}`, 
+                                                    props.payload.ticker || props.payload.name
+                                                ]}
+                                                contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
+                                                itemStyle={{ color: '#fff' }}
+                                            />
+                                        </Treemap>
+                                </ResponsiveContainer>
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
