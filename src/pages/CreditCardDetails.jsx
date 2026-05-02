@@ -184,12 +184,10 @@ const CreditCardDetails = () => {
                                             •••• {card.last4Digits}
                                         </div>
                                     </div>
-                                    {card.billingDay && (
-                                        <div className="flex items-center gap-1.5 text-purple-400">
-                                            <Calendar size={14} />
-                                            <span>Bill Day: {card.billingDay}</span>
-                                        </div>
-                                    )}
+                                    <div className="flex items-center gap-1.5 text-purple-400">
+                                        <Calendar size={14} />
+                                        <span>Due: {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} {new Date().toLocaleString('default', { month: 'short' })}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

@@ -29,11 +29,13 @@ const Dashboard = () => {
     const stats = useMemo(() => {
         const totalSavings = savings.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
 
-        const goldVal = metals.gold.reduce((sum, item) => sum + item.currentValue, 0);
-        const goldGms = metals.gold.reduce((sum, item) => sum + item.weightGm, 0);
-        const silverVal = metals.silver.reduce((sum, item) => sum + item.currentValue, 0);
-        const silverGms = metals.silver.reduce((sum, item) => sum + item.weightGm, 0);
-        const totalMetals = goldVal + silverVal;
+        const goldVal = metals.gold?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
+        const goldGms = metals.gold?.reduce((sum, item) => sum + (item.weightGm || 0), 0) || 0;
+        const silverVal = metals.silver?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
+        const silverGms = metals.silver?.reduce((sum, item) => sum + (item.weightGm || 0), 0) || 0;
+        const antiqueCoinsVal = metals.antique_coins?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
+        const currenciesVal = metals.currencies?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
+        const totalMetals = goldVal + silverVal + antiqueCoinsVal + currenciesVal;
 
         const totalAssets = assets.reduce((total, cat) =>
             total + cat.items.reduce((sum, item) => sum + (Number(item.currentValue) || Number(item.purchasePrice) || 0), 0), 0
@@ -58,6 +60,8 @@ const Dashboard = () => {
             goldGms,
             silverVal,
             silverGms,
+            antiqueCoinsVal,
+            currenciesVal,
             fd,
             stocks,
             mf,
@@ -207,6 +211,22 @@ const Dashboard = () => {
                             <span className="text-[10px] text-gray-600 font-bold">{stats.silverGms.toFixed(2)}g</span>
                         </div>
                         <p className="text-lg font-bold text-white">{formatCurrency(stats.silverVal)}</p>
+                    </div>
+
+                    {/* Collectibles */}
+                    <div className="card p-5 bg-[#8B5A2B]/10 group">
+                        <div className="flex justify-between items-center mb-1">
+                            <p className="text-[#CD853F] text-[10px] font-bold uppercase tracking-wider">Antique Coins</p>
+                            <span className="text-[10px] text-[#8B5A2B] font-bold">{(metals.antique_coins?.length || 0)} Items</span>
+                        </div>
+                        <p className="text-lg font-bold text-white">{formatCurrency(stats.antiqueCoinsVal)}</p>
+                    </div>
+                    <div className="card p-5 bg-emerald-500/5 group">
+                        <div className="flex justify-between items-center mb-1">
+                            <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">Currencies</p>
+                            <span className="text-[10px] text-emerald-600 font-bold">{(metals.currencies?.length || 0)} Items</span>
+                        </div>
+                        <p className="text-lg font-bold text-white">{formatCurrency(stats.currenciesVal)}</p>
                     </div>
                 </div>
             </div>

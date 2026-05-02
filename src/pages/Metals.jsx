@@ -15,14 +15,16 @@ const Metals = () => {
         setIsModalOpen(true);
     };
 
-    const renderMetalSection = (title, items, color) => {
-        const totalWeight = items.reduce((sum, item) => sum + item.weightGm, 0);
-        const totalValue = items.reduce((sum, item) => sum + item.currentValue, 0);
+    const renderMetalSection = (title, items = [], color) => {
+        const totalWeight = items.reduce((sum, item) => sum + (item.weightGm || 0), 0);
+        const totalValue = items.reduce((sum, item) => sum + (item.currentValue || 0), 0);
+        const urlType = title.toLowerCase().replace(' ', '_');
+        const hideWeight = urlType === 'antique_coins' || urlType === 'currencies';
 
         return (
             <div
                 className="card mb-6 hover:bg-white/5 transition-all group relative overflow-hidden"
-                onClick={() => navigate(`/metals/${title.toLowerCase()}`)}
+                onClick={() => navigate(`/metals/${urlType}`)}
             >
                 <div className="flex justify-between items-end mb-2 relative z-10">
                     <div>
@@ -36,7 +38,7 @@ const Metals = () => {
                         <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Current Valuation</p>
                         <p className={`text-3xl font-black ${color} tracking-tighter`}>{formatCurrency(totalValue)}</p>
                         <div className="flex items-center justify-end gap-2 mt-1">
-                            <span className="text-xs text-secondary font-medium">{parseFloat(totalWeight.toFixed(4))}g Total weight</span>
+                            {!hideWeight && <span className="text-xs text-secondary font-medium">{parseFloat(totalWeight.toFixed(4))}g Total weight</span>}
                             <ChevronRight size={14} className="text-gray-600 group-hover:text-white transition-colors" />
                         </div>
                     </div>
@@ -63,20 +65,34 @@ const Metals = () => {
                         <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest">Silver Rate</p>
                         <p className="text-slate-400 font-black tracking-tight">{formatCurrency(metalRates?.silver || 0)}/g</p>
                     </div>
-                    <div className="flex gap-3">
+                    <div className="flex gap-2 flex-wrap justify-end">
                         <button
                             onClick={() => handleAddItem('gold')}
-                            className="flex items-center gap-2 bg-yellow-500 text-black font-black px-5 py-3 rounded-2xl hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/20 text-xs uppercase tracking-widest"
+                            className="flex items-center gap-1 bg-yellow-500 text-black font-black px-4 py-2 rounded-xl hover:bg-yellow-400 transition-all shadow-lg shadow-yellow-500/20 text-[10px] uppercase tracking-widest"
                         >
-                            <Plus size={18} />
-                            <span>Add Gold</span>
+                            <Plus size={14} />
+                            <span>Gold</span>
                         </button>
                         <button
                             onClick={() => handleAddItem('silver')}
-                            className="flex items-center gap-2 bg-slate-600 text-white font-black px-5 py-3 rounded-2xl hover:bg-slate-500 transition-all shadow-lg shadow-slate-500/20 text-xs uppercase tracking-widest border border-white/10"
+                            className="flex items-center gap-1 bg-slate-600 text-white font-black px-4 py-2 rounded-xl hover:bg-slate-500 transition-all shadow-lg shadow-slate-500/20 text-[10px] uppercase tracking-widest border border-white/10"
                         >
-                            <Plus size={18} />
-                            <span>Add Silver</span>
+                            <Plus size={14} />
+                            <span>Silver</span>
+                        </button>
+                        <button
+                            onClick={() => handleAddItem('antique_coins')}
+                            className="flex items-center gap-1 bg-[#8B5A2B] text-white font-black px-4 py-2 rounded-xl hover:bg-[#A0522D] transition-all shadow-lg shadow-[#8B5A2B]/20 text-[10px] uppercase tracking-widest border border-white/10"
+                        >
+                            <Plus size={14} />
+                            <span>Antique Coin</span>
+                        </button>
+                        <button
+                            onClick={() => handleAddItem('currencies')}
+                            className="flex items-center gap-1 bg-emerald-600 text-white font-black px-4 py-2 rounded-xl hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 text-[10px] uppercase tracking-widest border border-white/10"
+                        >
+                            <Plus size={14} />
+                            <span>Currency</span>
                         </button>
                     </div>
                 </div>
@@ -85,6 +101,8 @@ const Metals = () => {
             <div className="grid grid-cols-1 gap-4">
                 {renderMetalSection('Gold', metals.gold, 'text-yellow-400')}
                 {renderMetalSection('Silver', metals.silver, 'text-gray-300')}
+                {renderMetalSection('Antique Coins', metals.antique_coins, 'text-[#CD853F]')}
+                {renderMetalSection('Currencies', metals.currencies, 'text-emerald-400')}
             </div>
 
             <MetalModal

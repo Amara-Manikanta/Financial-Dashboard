@@ -22,6 +22,7 @@ import StockMarketDetails from './pages/StockMarketDetails';
 import MetalDetails from './pages/MetalDetails';
 import MetalItemDetails from './pages/MetalItemDetails';
 import PPFDetails from './pages/PPFDetails';
+import PFDetails from './pages/PFDetails';
 import NPSDetails from './pages/NPSDetails';
 import GoldBondDetails from './pages/GoldBondDetails';
 import AssetItemDetails from './pages/AssetItemDetails';
@@ -75,6 +76,7 @@ function App() {
                                 <Route path="savings/stock-market/:id" element={<StockMarketDetails />} />
                                 <Route path="savings/stock-market/:id/stock/:stockId" element={<StockDetails />} />
                                 <Route path="savings/ppf/:id" element={<PPFDetails />} />
+                                <Route path="savings/pf/:id" element={<PFDetails />} />
                                 <Route path="savings/nps/:id" element={<NPSDetails />} />
                                 <Route path="savings/sgb/:id" element={<GoldBondDetails />} />
                                 <Route path="savings/emergency-fund/:id" element={<EmergencyFundDetails />} />

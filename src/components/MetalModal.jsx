@@ -11,6 +11,11 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
     const [weightGm, setWeightGm] = useState('');
     const [purchasePrice, setPurchasePrice] = useState('');
     const [purity, setPurity] = useState(24);
+    const [printedYear, setPrintedYear] = useState('');
+    const [quantity, setQuantity] = useState(1);
+    const [currencyCode, setCurrencyCode] = useState('USD');
+    const [conversionRate, setConversionRate] = useState('');
+    const [foreignValue, setForeignValue] = useState('');
     const [purchaseDate, setPurchaseDate] = useState(new Date());
     const [place, setPlace] = useState('');
     const [remarks, setRemarks] = useState('');
@@ -23,6 +28,11 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             setWeightGm(initialData.weightGm || '');
             setPurchasePrice(initialData.purchasePrice || '');
             setPurity(initialData.purity || (metalType === 'gold' ? 24 : ''));
+            setPrintedYear(initialData.printedYear || '');
+            setQuantity(initialData.quantity || 1);
+            setCurrencyCode(initialData.currencyCode || 'USD');
+            setConversionRate(initialData.conversionRate || '');
+            setForeignValue(initialData.foreignValue || '');
 
             // Safely parse date: handle empty string or invalid dates
             const parsedDate = initialData.purchaseDate ? new Date(initialData.purchaseDate) : new Date();
@@ -36,6 +46,11 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             setWeightGm('');
             setPurchasePrice('');
             setPurity(metalType === 'gold' ? 24 : '');
+            setPrintedYear('');
+            setQuantity(1);
+            setCurrencyCode('USD');
+            setConversionRate('');
+            setForeignValue('');
             setPurchaseDate(new Date());
             setPlace('');
             setRemarks('');
@@ -89,18 +104,28 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
 
     const handleSubmit = (e) => {
         e.preventDefault();
+
+        let calculatedCurrentValue = initialData?.currentValue || 0;
+        if (metalType === 'currencies') {
+            calculatedCurrentValue = (parseFloat(foreignValue) || 0) * (parseFloat(conversionRate) || 0);
+        }
+
         const dataToSubmit = {
             ...initialData,
             name,
-            weightGm: parseFloat(weightGm) || 0,
+            weightGm: (metalType === 'antique_coins' || metalType === 'currencies') ? 0 : (parseFloat(weightGm) || 0),
             purchasePrice: parseFloat(purchasePrice) || 0,
-            // Preserve existing purity for non-gold items if not editable
             purity: metalType === 'gold' ? parseInt(purity) : (initialData?.purity || null),
+            printedYear: metalType === 'antique_coins' ? (parseInt(printedYear) || null) : null,
+            quantity: metalType === 'antique_coins' ? (parseInt(quantity) || 1) : 1,
+            currencyCode: metalType === 'currencies' ? currencyCode : null,
+            conversionRate: metalType === 'currencies' ? (parseFloat(conversionRate) || 0) : null,
+            foreignValue: metalType === 'currencies' ? (parseFloat(foreignValue) || 0) : null,
             purchaseDate: (purchaseDate && !isNaN(purchaseDate.getTime())) ? purchaseDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             place,
             remarks,
             image,
-            currentValue: initialData?.currentValue || 0
+            currentValue: calculatedCurrentValue
         };
         onAdd(dataToSubmit);
         onClose();
@@ -135,10 +160,10 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
 
                     <h2 className="text-xl font-black text-white tracking-tight flex items-center gap-2">
                         <Coins className={accentText} size={20} />
-                        {initialData ? `Update ${metalType}` : `New ${metalType} Entry`}
+                        {initialData ? `Update Item` : `New ${metalType.replace('_', ' ')} Entry`}
                     </h2>
                     <p className="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-wider">
-                        Track your precious metal holdings
+                        Track your portfolio
                     </p>
                 </div>
 
@@ -146,35 +171,101 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                 <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar pb-10">
                     <form id="metal-form" onSubmit={handleSubmit} className="space-y-5">
                         <div className="space-y-2">
-                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Asset Name</label>
+                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">
+                                {metalType === 'antique_coins' ? 'Coin Name' : metalType === 'currencies' ? 'Currency Name' : 'Asset Name'}
+                            </label>
                             <div className="relative">
                                 <FileText size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
                                 <input
                                     type="text"
-                                    required
+                                    required={metalType !== 'currencies'}
                                     value={name}
                                     onChange={(e) => setName(e.target.value)}
                                     className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
-                                    placeholder="e.g. Gold Ring, Silver Coin"
+                                    placeholder={metalType === 'antique_coins' ? 'e.g. Rare 1950 Coin' : metalType === 'currencies' ? 'e.g. Vacation Money (Optional)' : 'e.g. Gold Ring, Silver Coin'}
                                 />
                             </div>
                         </div>
 
                         <div className="flex gap-4">
-                            <div className="flex-1">
-                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Weight (Gm)</label>
-                                <div className="relative">
-                                    <Weight size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
-                                    <input
-                                        type="number"
-                                        step="0.001"
-                                        value={weightGm}
-                                        onChange={(e) => setWeightGm(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
-                                        placeholder="0.000"
-                                    />
+                            {metalType !== 'antique_coins' && metalType !== 'currencies' ? (
+                                <div className="flex-1">
+                                    <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Weight (Gm)</label>
+                                    <div className="relative">
+                                        <Weight size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                                        <input
+                                            type="number"
+                                            step="0.001"
+                                            value={weightGm}
+                                            onChange={(e) => setWeightGm(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                            placeholder="0.000"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            ) : metalType === 'antique_coins' ? (
+                                <div className="flex-1">
+                                    <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Quantity</label>
+                                    <div className="relative">
+                                        <input
+                                            type="number"
+                                            value={quantity}
+                                            onChange={(e) => setQuantity(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                            placeholder="1"
+                                        />
+                                    </div>
+                                </div>
+                            ) : null}
+
+                            {metalType === 'currencies' && (
+                                <>
+                                    <div className="flex-1">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Currency</label>
+                                        <select
+                                            value={currencyCode}
+                                            onChange={(e) => setCurrencyCode(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm appearance-none"
+                                        >
+                                            <option value="USD" className="bg-[#0c0c0e]">USD ($)</option>
+                                            <option value="SGD" className="bg-[#0c0c0e]">SGD (S$)</option>
+                                            <option value="EUR" className="bg-[#0c0c0e]">EUR (€)</option>
+                                            <option value="GBP" className="bg-[#0c0c0e]">GBP (£)</option>
+                                            <option value="AUD" className="bg-[#0c0c0e]">AUD (A$)</option>
+                                            <option value="CAD" className="bg-[#0c0c0e]">CAD (C$)</option>
+                                            <option value="AED" className="bg-[#0c0c0e]">AED (د.إ)</option>
+                                            <option value="Other" className="bg-[#0c0c0e]">Other</option>
+                                        </select>
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Foreign Value</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={foreignValue}
+                                                onChange={(e) => setForeignValue(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                                placeholder="e.g. 100"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="flex-1">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Conv. Rate (₹)</label>
+                                        <div className="relative">
+                                            <input
+                                                type="number"
+                                                step="0.01"
+                                                value={conversionRate}
+                                                onChange={(e) => setConversionRate(e.target.value)}
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                                placeholder="e.g. 62.50"
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
+
                             {metalType === 'gold' && (
                                 <div className="w-[100px]">
                                     <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Purity</label>
@@ -189,21 +280,39 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                                     </select>
                                 </div>
                             )}
+
+                            {metalType === 'antique_coins' && (
+                                <div className="flex-1">
+                                    <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Printed Year</label>
+                                    <div className="relative">
+                                        <Calendar size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                                        <input
+                                            type="number"
+                                            value={printedYear}
+                                            onChange={(e) => setPrintedYear(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                            placeholder="e.g. 1950"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex gap-4">
-                            <div className="flex-1">
-                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Purchase Price</label>
-                                <div className="relative">
-                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs">₹</span>
-                                    <CurrencyInput
-                                        value={purchasePrice}
-                                        onChange={(e) => setPurchasePrice(e.target.value)}
-                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
-                                        placeholder="0"
-                                    />
+                            {metalType !== 'currencies' && (
+                                <div className="flex-1">
+                                    <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Purchase Price</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs">₹</span>
+                                        <CurrencyInput
+                                            value={purchasePrice}
+                                            onChange={(e) => setPurchasePrice(e.target.value)}
+                                            className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                            placeholder="0"
+                                        />
+                                    </div>
                                 </div>
-                            </div>
+                            )}
                             <div className="flex-1">
                                 <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">Date</label>
                                 <div className="relative">

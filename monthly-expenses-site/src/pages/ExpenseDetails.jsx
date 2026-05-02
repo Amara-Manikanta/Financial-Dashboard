@@ -246,16 +246,7 @@ const ExpenseDetails = () => {
         const transactionsByDay = rawTransactions
             .filter(t => !t.isCredited)
             .reduce((acc, t) => {
-                const txDate = new Date(t.date);
-                let day = txDate.getDate();
-                
-                // If the transaction was shifted from a previous month due to the cutoff rule,
-                // plot it on the 1st of the current viewed month so it doesn't wrongly appear at the end of the month.
-                const viewedMonthIndex = new Date(`${month} 1, ${year}`).getMonth();
-                if (txDate.getMonth() !== viewedMonthIndex) {
-                    day = 1;
-                }
-
+                const day = new Date(t.date).getDate();
                 acc[day] = (acc[day] || 0) + Number(t.amount);
                 return acc;
             }, {});

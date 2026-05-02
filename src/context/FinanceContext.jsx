@@ -33,7 +33,7 @@ export function FinanceProvider({ children }) {
 
     const [expenses, setExpenses] = useState({});
     const [savings, setSavings] = useState([]);
-    const [metals, setMetals] = useState({ gold: [], silver: [] });
+    const [metals, setMetals] = useState({ gold: [], silver: [], antique_coins: [], currencies: [] });
     const [assets, setAssets] = useState([]);
     const [lents, setLents] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -63,7 +63,7 @@ export function FinanceProvider({ children }) {
 
                 setExpenses(guestExpenses);
                 setSavings(guestSavings);
-                setMetals({ gold: [], silver: [] });
+                setMetals({ gold: [], silver: [], antique_coins: [], currencies: [] });
                 setAssets(guestAssets);
                 setLents(guestLents);
                 setCreditCards(guestCreditCards);
@@ -199,18 +199,6 @@ export function FinanceProvider({ children }) {
     const addItem = async (type, item) => {
         if (type === 'expense') {
             const dateObj = new Date(item.date);
-            // Scapia billing cycle adjustment: 25th onwards counts as next month
-            if (item.paymentMode === 'credit_card' && item.creditCardName && item.creditCardName.includes('Scapia') && dateObj.getDate() > 24) {
-                dateObj.setMonth(dateObj.getMonth() + 1, 1);
-            } else {
-                // Month-End Cutoff Rule: Last Working Day onwards counts as next month
-                const curYear = dateObj.getFullYear();
-                const curMonth = dateObj.getMonth();
-                const lastWorkingDay = getLastWorkingDayOfMonth(curYear, curMonth);
-                if (dateObj.getDate() >= lastWorkingDay) {
-                    dateObj.setMonth(dateObj.getMonth() + 1, 1);
-                }
-            }
             const year = dateObj.getFullYear().toString();
             const month = dateObj.toLocaleString('default', { month: 'long' });
             const amount = Number(item.amount) || 0;
@@ -613,7 +601,9 @@ export function FinanceProvider({ children }) {
             silver: metals.silver.map(item => {
                 if (item.currentValue > 0) return item;
                 return { ...item, currentValue: item.weightGm * SILVER_RATE };
-            })
+            }),
+            antique_coins: metals.antique_coins || [],
+            currencies: metals.currencies || []
         };
     }, [metals, metalRates, manualMetalRates]);
 
@@ -638,6 +628,11 @@ export function FinanceProvider({ children }) {
 
             case 'ppf':
                 return (item.details || []).slice(-1)[0]?.balance || 0;
+
+            case 'pf':
+                // For PF, amount is base initial balance, details handles individual transactions.
+                // We'll calculate it on the fly: initial amount + sum of all details
+                return (item.details || []).reduce((sum, d) => sum + Number(d.amount || 0), Number(item.amount || 0));
 
             case 'nps':
                 // NPS current value is the sum of holdings' invested amounts
@@ -698,6 +693,9 @@ export function FinanceProvider({ children }) {
             case 'ppf':
                 return (item.details || []).reduce((sum, d) => sum + Number(d.deposit || 0), 0);
 
+            case 'pf':
+                return (item.details || []).reduce((sum, d) => sum + (d.type !== 'Interest' ? Number(d.amount || 0) : 0), Number(item.amount || 0));
+
             case 'nps':
                 return (item.transactions || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
@@ -713,18 +711,6 @@ export function FinanceProvider({ children }) {
         if (type === 'expense') {
             const newExpenses = { ...expenses };
             const dateObj = new Date(item.date);
-            // Scapia billing cycle adjustment: 25th onwards counts as next month
-            if (item.paymentMode === 'credit_card' && item.creditCardName && item.creditCardName.includes('Scapia') && dateObj.getDate() > 24) {
-                dateObj.setMonth(dateObj.getMonth() + 1, 1);
-            } else {
-                // Month-End Cutoff Rule: Last Working Day onwards counts as next month
-                const curYear = dateObj.getFullYear();
-                const curMonth = dateObj.getMonth();
-                const lastWorkingDay = getLastWorkingDayOfMonth(curYear, curMonth);
-                if (dateObj.getDate() >= lastWorkingDay) {
-                    dateObj.setMonth(dateObj.getMonth() + 1, 1);
-                }
-            }
             const newYear = dateObj.getFullYear().toString();
             const newMonth = dateObj.toLocaleString('default', { month: 'long' });
             const newCategory = item.category;

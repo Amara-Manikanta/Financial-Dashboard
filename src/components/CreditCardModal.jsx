@@ -6,7 +6,6 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [name, setName] = useState('');
     const [last4Digits, setLast4Digits] = useState('');
     const [bankName, setBankName] = useState('');
-    const [billingDay, setBillingDay] = useState('');
     const [creditLimit, setCreditLimit] = useState('');
     const [error, setError] = useState('');
 
@@ -15,13 +14,11 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             setName(initialData.name);
             setLast4Digits(initialData.last4Digits || '');
             setBankName(initialData.bankName || '');
-            setBillingDay(initialData.billingDay || '');
             setCreditLimit(initialData.creditLimit || '');
         } else {
             setName('');
             setLast4Digits('');
             setBankName('');
-            setBillingDay('');
             setCreditLimit('');
         }
         setError('');
@@ -41,7 +38,6 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             name,
             last4Digits,
             bankName,
-            billingDay: Number(billingDay),
             creditLimit: Number(creditLimit),
             monthlyData: initialData ? initialData.monthlyData : []
         };
@@ -118,32 +114,15 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 ml-1">Billing Day</label>
-                                <div className="relative">
-                                    <Calendar size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="31"
-                                        value={billingDay}
-                                        onChange={(e) => setBillingDay(e.target.value)}
-                                        placeholder="e.g. 25"
-                                        className="w-full bg-gray-800 border border-white/10 rounded-xl pl-11 pr-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500 transition-colors"
-                                        style={{ backgroundColor: '#27272a', color: '#ffffff' }}
-                                    />
-                                </div>
+                                <label className="text-sm font-medium text-gray-400 ml-1">Credit Limit</label>
+                                <CurrencyInput
+                                    value={creditLimit}
+                                    onChange={(e) => setCreditLimit(e.target.value)}
+                                    placeholder="0.00"
+                                    className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500 transition-colors font-mono"
+                                    style={{ backgroundColor: '#27272a', color: '#ffffff' }}
+                                />
                             </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium text-gray-400 ml-1">Credit Limit</label>
-                            <CurrencyInput
-                                value={creditLimit}
-                                onChange={(e) => setCreditLimit(e.target.value)}
-                                placeholder="0.00"
-                                className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500 transition-colors font-mono"
-                                style={{ backgroundColor: '#27272a', color: '#ffffff' }}
-                            />
                         </div>
 
                         <button

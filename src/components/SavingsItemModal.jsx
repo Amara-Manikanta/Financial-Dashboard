@@ -39,7 +39,8 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
         { id: 'recurring_deposit', label: 'Recurring Deposit', icon: <RefreshCcw size={16} /> },
         { id: 'savings_account', label: 'Savings Account', icon: <CreditCard size={16} /> },
         { id: 'nps', label: 'NPS Account', icon: <Layout size={16} /> },
-        { id: 'ppf', label: 'PPF Account', icon: <Landmark size={16} /> }
+        { id: 'ppf', label: 'PPF Account', icon: <Landmark size={16} /> },
+        { id: 'pf', label: 'PF Account', icon: <Landmark size={16} /> }
     ];
 
     const handleExtraChange = (key, value) => {
@@ -71,6 +72,8 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
         } else if (type === 'savings_account') {
             newItem.transactions = [];
             newItem.interestRate = 5.4;
+        } else if (type === 'pf') {
+            newItem.details = [];
         }
 
         onSave(newItem);
@@ -206,7 +209,7 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                             </div>
                         )}
 
-                        {(type === 'savings_account' || type === 'ppf') && (
+                        {(type === 'savings_account' || type === 'ppf' || type === 'pf') && (
                             <div className="relative">
                                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Bank / Account Number</label>
                                 <div className="relative">

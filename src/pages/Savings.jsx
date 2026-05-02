@@ -37,6 +37,7 @@ const Savings = () => {
 
     const getIcon = (type) => {
         switch (type) {
+            case 'pf': return <Landmark size={64} />;
             case 'savings_account': return <Landmark size={64} />;
             case 'fixed_deposit': return <Landmark size={64} />;
             case 'recurring_deposit': return <RefreshCcw size={64} />;
@@ -50,6 +51,8 @@ const Savings = () => {
 
     const getStyle = (type) => {
         switch (type) {
+            case 'pf':
+                return { bg: 'bg-indigo-500/20', text: 'text-indigo-400', bar: 'bg-indigo-500' };
             case 'stock_market':
             case 'mutual_fund':
                 return { bg: 'bg-purple-500/20', text: 'text-purple-400', bar: 'bg-purple-500' };
@@ -110,11 +113,12 @@ const Savings = () => {
                     const isNPS = item.type === 'nps';
                     const isSGB = item.type === 'sgb';
                     const isLiquid = item.type === 'liquid';
+                    const isPF = item.type === 'pf';
                     const isClickable = true;
                     const style = getStyle(item.type);
 
                     const displayAmount = calculateItemCurrentValue(item);
-                    const showProgress = item.goal > 0 && !isStockMarket && !isPolicy && !isFixedDeposit && !isLiquid && !isPPF && !isNPS && !isSGB && !isSavingsAccount && !isRecurringDeposit;
+                    const showProgress = item.goal > 0 && !isStockMarket && !isPolicy && !isFixedDeposit && !isLiquid && !isPPF && !isNPS && !isSGB && !isSavingsAccount && !isRecurringDeposit && !isPF;
 
                     const handleClick = () => {
                         if (isMutualFund) { navigate(`/savings/mutual-fund/${item.id}`); }
@@ -127,6 +131,7 @@ const Savings = () => {
                         else if (isLiquid) { navigate(`/savings/emergency-fund/${item.id}`); }
                         else if (isSavingsAccount) { navigate(`/savings/savings-account/${item.id}`); }
                         else if (isRecurringDeposit) { navigate(`/savings/recurring-deposit/${item.id}`); }
+                        else if (isPF) { navigate(`/savings/pf/${item.id}`); }
                     };
 
                     return (
@@ -142,7 +147,7 @@ const Savings = () => {
                             <div className="relative z-10">
                                 <div className="flex justify-between items-start mb-10">
                                     <div>
-                                        <h3 className="text-2xl font-black text-white tracking-tight mb-2 group-hover:text-blue-400 transition-colors">{item.title}</h3>
+                                        <h3 className={`text-2xl font-black text-white tracking-tight mb-2 ${isClickable ? 'group-hover:text-blue-400 transition-colors' : ''}`}>{item.title}</h3>
                                         <span className={`text-[9px] px-3 py-1.5 rounded-full font-black uppercase tracking-widest border ${style.bg} ${style.text} border-white/5`}>
                                             {item.type.replace('_', ' ')}
                                         </span>
@@ -154,7 +159,7 @@ const Savings = () => {
                                     <p className="text-4xl font-black text-white tracking-tighter">{formatCurrency(displayAmount)}</p>
 
                                     {/* Profit/Loss Display */}
-                                    {(isStockMarket || isMutualFund || isFixedDeposit || isPPF || isNPS || isSGB || isSavingsAccount || isRecurringDeposit) && (
+                                    {(isStockMarket || isMutualFund || isFixedDeposit || isPPF || isNPS || isSGB || isSavingsAccount || isRecurringDeposit || isPF) && (
                                         (() => {
                                             if (isFixedDeposit || isRecurringDeposit || isPPF || isSavingsAccount) {
                                                 const invested = calculateItemInvestedValue(item);

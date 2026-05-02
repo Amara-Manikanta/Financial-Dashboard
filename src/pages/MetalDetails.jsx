@@ -29,11 +29,11 @@ const MetalDetails = () => {
         (item.remarks && item.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
-    const formattedType = type.charAt(0).toUpperCase() + type.slice(1);
-    const colorClass = type === 'gold' ? 'text-yellow-400' : 'text-slate-300';
-    const accentBg = type === 'gold' ? 'bg-yellow-500' : 'bg-slate-500';
-    const accentBorder = type === 'gold' ? 'border-yellow-500/20' : 'border-slate-500/20';
-    const accentShadow = type === 'gold' ? 'shadow-yellow-500/20' : 'shadow-slate-500/20';
+    const formattedType = type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+    const colorClass = type === 'gold' ? 'text-yellow-400' : type === 'silver' ? 'text-slate-300' : type === 'antique_coins' ? 'text-[#CD853F]' : 'text-emerald-400';
+    const accentBg = type === 'gold' ? 'bg-yellow-500' : type === 'silver' ? 'bg-slate-500' : type === 'antique_coins' ? 'bg-[#8B5A2B]' : 'bg-emerald-600';
+    const accentBorder = type === 'gold' ? 'border-yellow-500/20' : type === 'silver' ? 'border-slate-500/20' : type === 'antique_coins' ? 'border-[#8B5A2B]/20' : 'border-emerald-600/20';
+    const accentShadow = type === 'gold' ? 'shadow-yellow-500/20' : type === 'silver' ? 'shadow-slate-500/20' : type === 'antique_coins' ? 'shadow-[#8B5A2B]/20' : 'shadow-emerald-600/20';
 
     // Calculate aggregate stats (on all items, not filtered)
     const totalWeight = metalItems.reduce((sum, item) => sum + item.weightGm, 0);
@@ -113,22 +113,24 @@ const MetalDetails = () => {
                                     <Settings size={20} />
                                 </button>
                             </div>
-                            <div
-                                onClick={openRateModal}
-                                className="flex items-center gap-2 mt-2 text-xs font-bold uppercase tracking-wider text-gray-500 cursor-pointer hover:text-white transition-colors"
-                                title="Click to edit rate"
-                            >
-                                {isManualRateActive ? (
-                                    <span className="text-yellow-500 flex items-center gap-1">
-                                        <Edit2 size={12} /> Manual Rate:
-                                    </span>
-                                ) : (
-                                    <span className="text-emerald-500 flex items-center gap-1">
-                                        <RefreshCw size={12} /> Live Rate:
-                                    </span>
-                                )}
-                                <span className="underline decoration-dotted underline-offset-4 decoration-gray-600">{formatCurrency(currentRate)}/g</span>
-                            </div>
+                            {type !== 'antique_coins' && type !== 'currencies' && (
+                                <div
+                                    onClick={openRateModal}
+                                    className="flex items-center gap-2 mt-2 text-xs font-bold uppercase tracking-wider text-gray-500 cursor-pointer hover:text-white transition-colors"
+                                    title="Click to edit rate"
+                                >
+                                    {isManualRateActive ? (
+                                        <span className="text-yellow-500 flex items-center gap-1">
+                                            <Edit2 size={12} /> Manual Rate:
+                                        </span>
+                                    ) : (
+                                        <span className="text-emerald-500 flex items-center gap-1">
+                                            <RefreshCw size={12} /> Live Rate:
+                                        </span>
+                                    )}
+                                    <span className="underline decoration-dotted underline-offset-4 decoration-gray-600">{formatCurrency(currentRate)}/g</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -163,10 +165,16 @@ const MetalDetails = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
                 <div className="card group relative overflow-hidden border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent">
                     <div className="relative z-10 p-1">
-                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Total Accumulation</p>
+                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">
+                            {type === 'antique_coins' || type === 'currencies' ? 'Total Items' : 'Total Accumulation'}
+                        </p>
                         <div className="flex items-baseline gap-2">
-                            <p className="text-4xl font-black text-white tracking-tighter">{parseFloat(totalWeight.toFixed(4))}</p>
-                            <span className="text-sm font-bold text-gray-400">grams</span>
+                            <p className="text-4xl font-black text-white tracking-tighter">
+                                {type === 'antique_coins' || type === 'currencies' ? metalItems.length : parseFloat(totalWeight.toFixed(4))}
+                            </p>
+                            {type !== 'antique_coins' && type !== 'currencies' && (
+                                <span className="text-sm font-bold text-gray-400">grams</span>
+                            )}
                         </div>
                     </div>
                     <div className={`absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-[0.03] group-hover:opacity-[0.08] transition-all duration-500 ${accentBg} blur-2xl`} />
@@ -223,6 +231,20 @@ const MetalDetails = () => {
                                     </span>
                                 </div>
                             )}
+                            {type === 'antique_coins' && item.printedYear && (
+                                <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-xl backdrop-blur-md border ${accentBorder} ${accentBg}/20 shadow-lg`}>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>
+                                        {item.printedYear}
+                                    </span>
+                                </div>
+                            )}
+                            {type === 'currencies' && (
+                                <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-xl backdrop-blur-md border ${accentBorder} ${accentBg}/20 shadow-lg`}>
+                                    <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>
+                                        {item.currencyCode || 'Currency'}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Content Section */}
@@ -255,8 +277,12 @@ const MetalDetails = () => {
 
                             <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
                                 <div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Weight</p>
-                                    <p className="text-lg font-black text-gray-300">{item.weightGm}g</p>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                                        {type === 'antique_coins' ? 'Quantity' : type === 'currencies' ? 'Foreign Value' : 'Weight'}
+                                    </p>
+                                    <p className="text-lg font-black text-gray-300">
+                                        {type === 'antique_coins' ? (item.quantity || 1) : type === 'currencies' ? `${item.currencyCode || ''} ${item.foreignValue || 0}` : `${item.weightGm}g`}
+                                    </p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Value</p>
@@ -267,7 +293,7 @@ const MetalDetails = () => {
                             <div className="flex justify-between items-center pt-2">
                                 <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{formatDate(item.purchaseDate)}</span>
                                 <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
-                                    ID: {type === 'gold' ? 'G' : 'S'}{(filteredItems.indexOf(item) + 1)}
+                                    ID: {type === 'gold' ? 'G' : type === 'silver' ? 'S' : type === 'antique_coins' ? 'A' : 'C'}{(filteredItems.indexOf(item) + 1)}
                                 </span>
                             </div>
                         </div>
