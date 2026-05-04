@@ -26,8 +26,6 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
         if (isOpen && initialData) {
             setName(initialData.name || '');
             setPurchaseDate(initialData.purchaseDate ? new Date(initialData.purchaseDate) : null);
-            setPurchaseDate(initialData.purchaseDate ? new Date(initialData.purchaseDate) : null);
-            setPurchaseDate(initialData.purchaseDate ? new Date(initialData.purchaseDate) : null);
             setPurchasePrice(initialData.purchasePrice || initialData.purchasedValue || '');
             setCurrentValue(initialData.currentValue || '');
             setPlace(initialData.place || '');
@@ -52,7 +50,6 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             ...initialData,
             id: initialData?.id || Date.now().toString(),
             name,
-            purchaseDate: purchaseDate ? purchaseDate.toISOString().split('T')[0] : '',
             purchaseDate: purchaseDate ? purchaseDate.toISOString().split('T')[0] : '',
             purchasePrice: parseFloat(purchasePrice) || 0,
             currentValue: parseFloat(currentValue) || 0,
