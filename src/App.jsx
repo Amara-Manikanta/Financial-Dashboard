@@ -10,6 +10,8 @@ import Dashboard from './pages/Dashboard';
 import Expenses from './pages/Expenses';
 import ExpenseDetails from './pages/ExpenseDetails';
 import Analytics from './pages/Analytics';
+import InsightsDashboard from './pages/InsightsDashboard';
+import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
 import Metals from './pages/Metals';
@@ -67,6 +69,8 @@ function App() {
                                 <Route path="expenses" element={<Expenses />} />
                                 <Route path="expenses/:year/:month" element={<ExpenseDetails />} />
                                 <Route path="analytics" element={<Analytics />} />
+                                <Route path="insights" element={<InsightsDashboard />} />
+                                <Route path="salary" element={<Salary />} />
                                 <Route path="savings" element={<Savings />} />
                                 <Route path="investments" element={<Investments />} />
                                 <Route path="savings/mutual-fund/:id" element={<MutualFundDetails />} />

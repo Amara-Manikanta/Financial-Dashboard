@@ -33,10 +33,9 @@ const Analytics = () => {
                     // Aggregate from transactions (Includes Tax/Gross expenses)
                     transactions.forEach(t => {
                         const cat = t.category || 'others';
-                        if (['salary received', 'income'].includes(cat.toLowerCase())) return;
 
                         const amt = Number(t.amount) || 0;
-                        const effective = t.isCredited ? -amt : amt; // Expense is positive
+                        const effective = t.isCredited ? amt : amt; // Use absolute amount for both income and expense in trends
 
                         monthlyCategories[cat] = (monthlyCategories[cat] || 0) + effective;
                     });
@@ -45,7 +44,7 @@ const Analytics = () => {
                     const categories = data.categories || data;
                     if (typeof categories === 'object' && !Array.isArray(categories)) {
                         Object.entries(categories).forEach(([title, amount]) => {
-                            if (title !== 'salary received' && title !== 'income' && title !== 'transactions') {
+                            if (title !== 'transactions') {
                                 monthlyCategories[title] = Number(amount) || 0;
                             }
                         });
@@ -212,6 +211,7 @@ const Analytics = () => {
                         .filter(t => t.paymentMode === 'credit_card')
                         .reduce((sum, t) => {
                             const amount = Number(t.amount) || 0;
+                            if (t.category === 'credit card bill') return sum - amount;
                             return t.isCredited ? sum - amount : sum + amount;
                         }, 0);
 

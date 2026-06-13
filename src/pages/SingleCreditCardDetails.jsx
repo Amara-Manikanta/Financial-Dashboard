@@ -95,14 +95,14 @@ const SingleCreditCardDetails = () => {
     const currentMonthSpending = linkedTransactions
         .filter(t => t.month === currentMonthName && t.year === currentYearStr)
         .reduce((sum, t) => {
-            if (t.category === 'credit card bill' && t.deductFromSalary) {
+            if (t.category === 'credit card bill') {
                 return sum - Number(t.amount);
             }
             return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
         }, 0);
 
     const filteredNetSpend = filteredTransactions.reduce((sum, t) => {
-        if (t.category === 'credit card bill' && t.deductFromSalary) {
+        if (t.category === 'credit card bill') {
             return sum - Number(t.amount);
         }
         return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));

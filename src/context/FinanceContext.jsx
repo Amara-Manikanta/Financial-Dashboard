@@ -38,11 +38,14 @@ export function FinanceProvider({ children }) {
     const [lents, setLents] = useState([]);
     const [categories, setCategories] = useState([]);
     const [creditCards, setCreditCards] = useState([]);
+    const [salaryDetails, setSalaryDetails] = useState([]);
     const [salaryStats, setSalaryStats] = useState({});
     const [snapshots, setSnapshots] = useState([]);
     const [categoryBudgets, setCategoryBudgets] = useState({});
     const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
+    const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
+    const [hiddenSalaryFields, setHiddenSalaryFields] = useState([]);
 
     const { user, isGuest } = useAuth();
 
@@ -70,11 +73,14 @@ export function FinanceProvider({ children }) {
                 setCategoryBudgets({});
                 setCategories(["salary received", "house rent", "groceries", "others"]);
                 setSalaryStats({});
+                setSalaryDetails([]);
                 setSnapshots([]);
+                setCustomSalaryFields({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
+                setHiddenSalaryFields([]);
                 return;
             }
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, salRes] = await Promise.all([
                     fetch(`${API_URL}/expenses`),
                     fetch(`${API_URL}/savings`),
                     fetch(`${API_URL}/metals`),
@@ -82,7 +88,8 @@ export function FinanceProvider({ children }) {
                     fetch(`${API_URL}/appData`),
                     fetch(`${API_URL}/snapshots`),
                     fetch(`${API_URL}/lents`),
-                    fetch(`${API_URL}/creditCards`)
+                    fetch(`${API_URL}/creditCards`),
+                    fetch(`${API_URL}/salaryDetails`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })) // Fallback if endpoint doesn't exist yet
                 ]);
 
                 const expData = await expRes.json();
@@ -93,6 +100,7 @@ export function FinanceProvider({ children }) {
                 const snapData = await snapRes.json();
                 const lentData = await lentRes.json();
                 const ccData = await ccRes.json();
+                const salaryDetailsData = await salRes.json();
 
                 setExpenses(expData);
                 setSavings(savData);
@@ -103,7 +111,10 @@ export function FinanceProvider({ children }) {
                 setCategoryBudgets(appData.categoryBudgets || {});
                 setCategories(appData.categories || []);
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
+                setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
+                setHiddenSalaryFields(appData.hiddenSalaryFields || []);
                 setSnapshots(snapData || []);
+                setSalaryDetails(salaryDetailsData || []);
 
             } catch (error) {
                 console.error("Failed to fetch data:", error);
@@ -116,6 +127,7 @@ export function FinanceProvider({ children }) {
     const fetchMetalRates = async () => {
         try {
             const res = await fetch('/api/goldprice/dbXRates/INR');
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
             const data = await res.json();
             if (data.items && data.items.length > 0) {
                 const item = data.items[0];
@@ -157,6 +169,29 @@ export function FinanceProvider({ children }) {
             currency: 'INR',
             maximumFractionDigits: 2,
         }).format(amount);
+    };
+
+    const updateSalaryFieldsConfig = async (newCustomFields, newHiddenFields) => {
+        setCustomSalaryFields(newCustomFields);
+        setHiddenSalaryFields(newHiddenFields);
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            
+            const payload = {
+                ...currentAppData,
+                customSalaryFields: newCustomFields,
+                hiddenSalaryFields: newHiddenFields
+            };
+            
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            console.error("Failed to save salary fields config:", error);
+        }
     };
 
     const saveExpenses = async (updatedExpenses) => {
@@ -328,40 +363,23 @@ export function FinanceProvider({ children }) {
 
                     // Let's adhere to the plan: Update the card object specifically.
 
-                    const updatedMonthlyData = cardToUpdate.monthlyData || [];
-                    const paymentRecord = {
-                        id: Date.now().toString(),
-                        month,
-                        year: parseInt(year),
-                        billAmount: amount,
-                        isPaid: true,
-                        paidDate: item.date,
-                        remarks: `Bill payment: ${item.title || 'Credit Card Bill'}`,
-                        points: 0 // No points as per user request
-                    };
-
-                    updatedMonthlyData.push(paymentRecord);
+                    const updatedMonthlyData = [...(cardToUpdate.monthlyData || [])];
+                    const unpaidBillIndex = updatedMonthlyData.findIndex(m => !m.isPaid && m.billAmount > 0);
+                    if (unpaidBillIndex !== -1) {
+                        updatedMonthlyData[unpaidBillIndex] = {
+                            ...updatedMonthlyData[unpaidBillIndex],
+                            isPaid: true,
+                            paidDate: item.date,
+                            remarks: updatedMonthlyData[unpaidBillIndex].remarks 
+                                ? updatedMonthlyData[unpaidBillIndex].remarks + ' (Paid)'
+                                : `Paid on ${item.date}`
+                        };
+                    }
 
                     const updatedCard = {
                         ...cardToUpdate,
                         monthlyData: updatedMonthlyData
                     };
-
-                    // Logic to update 'availableLimit' if it exists
-                    if (updatedCard.availableLimit !== undefined) {
-                        updatedCard.availableLimit = Number(updatedCard.availableLimit) + Number(amount);
-                    }
-
-                    // Logic to update 'unbilledAmount' if it exists (This is likely what's being displayed)
-                    if (updatedCard.unbilledAmount !== undefined) {
-                        updatedCard.unbilledAmount = Number(updatedCard.unbilledAmount) - Number(amount);
-                    } else if (updatedCard.outstandingAmount !== undefined) {
-                        updatedCard.outstandingAmount = Number(updatedCard.outstandingAmount) - Number(amount);
-                    }
-
-                    // Scapia specific: Reset billing cycle logic? 
-                    // The addItem generic logic (lines 203-204) already handles the date shift.
-                    // So we just save the card.
 
                     // Save updated credit card
                     try {
@@ -382,7 +400,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
         if (!endpoint) return;
 
         try {
@@ -396,6 +414,7 @@ export function FinanceProvider({ children }) {
             if (type === 'asset') setAssets(prev => [...prev, savedItem]);
             if (type === 'lents') setLents(prev => [...prev, savedItem]);
             if (type === 'creditCards') setCreditCards(prev => [...prev, savedItem]);
+            if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
         } catch (error) {
             console.error("Error adding item:", error);
         }
@@ -511,31 +530,37 @@ export function FinanceProvider({ children }) {
                                 );
 
                                 if (cardToUpdate) {
-                                    // Find and remove the corresponding payment record by date and amount
-                                    const updatedMonthlyData = (cardToUpdate.monthlyData || []).filter(record => {
-                                        // Match by date and amount (since we might not have the exact ID)
-                                        const sameDate = record.paidDate === tx.date;
-                                        const sameAmount = Number(record.billAmount) === Number(tx.amount);
-                                        return !(sameDate && sameAmount);
-                                    });
-
-                                    const updatedCard = {
-                                        ...cardToUpdate,
-                                        monthlyData: updatedMonthlyData
-                                    };
-
-                                    // Save updated credit card
-                                    fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(updatedCard)
-                                    }).then(() => {
-                                        setCreditCards(prev => prev.map(c =>
-                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
-                                        ));
-                                    }).catch(error => {
-                                        console.error("Error updating credit card after bill deletion:", error);
-                                    });
+                                    let updatedCard = { ...cardToUpdate, monthlyData: [...(cardToUpdate.monthlyData || [])] };
+                                    // Revert the payment status instead of deleting if it was an actual bill
+                                    const recordIndex = updatedCard.monthlyData.findIndex(m => 
+                                        m.isPaid && 
+                                        (m.paidDate === tx.date || (m.billAmount === tx.amount && String(m.remarks || '').includes('Bill payment')))
+                                    );
+                                    if (recordIndex !== -1) {
+                                        if (updatedCard.monthlyData[recordIndex].points === 0 && String(updatedCard.monthlyData[recordIndex].remarks || '').includes('Bill payment')) {
+                                            updatedCard.monthlyData.splice(recordIndex, 1);
+                                        } else {
+                                            updatedCard.monthlyData[recordIndex] = {
+                                                ...updatedCard.monthlyData[recordIndex],
+                                                isPaid: false,
+                                                paidDate: null,
+                                                remarks: (updatedCard.monthlyData[recordIndex].remarks || '').replace(' (Paid)', '')
+                                            };
+                                        }
+                                        fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                            method: 'PUT',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(updatedCard)
+                                        })
+                                        .then(() => {
+                                            setCreditCards(prev => prev.map(c => 
+                                                String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                            ));
+                                        })
+                                        .catch(error => {
+                                            console.error("Error updating credit card after bill payment deletion:", error);
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -564,7 +589,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
         if (!endpoint) return;
         try {
             await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE' });
@@ -572,6 +597,7 @@ export function FinanceProvider({ children }) {
             if (type === 'asset') setAssets(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'lents') setLents(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'creditCards') setCreditCards(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'salaryDetail') setSalaryDetails(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
             console.error("Error deleting item:", error);
         }
@@ -625,6 +651,9 @@ export function FinanceProvider({ children }) {
 
             case 'fixed_deposit':
                 return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.currentValue) || 0), 0);
+
+            case 'recurring_deposit':
+                return (item.recurringDeposits || []).reduce((sum, rd) => sum + (rd.installments || []).reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0), 0);
 
             case 'ppf':
                 return (item.details || []).slice(-1)[0]?.balance || 0;
@@ -689,6 +718,9 @@ export function FinanceProvider({ children }) {
 
             case 'fixed_deposit':
                 return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.originalAmount) || 0), 0);
+
+            case 'recurring_deposit':
+                return (item.recurringDeposits || []).reduce((sum, rd) => sum + (rd.installments || []).reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0), 0);
 
             case 'ppf':
                 return (item.details || []).reduce((sum, d) => sum + Number(d.deposit || 0), 0);
@@ -800,25 +832,37 @@ export function FinanceProvider({ children }) {
                         );
 
                         if (oldCard) {
-                            const updatedMonthlyData = (oldCard.monthlyData || []).filter(record => {
-                                const sameDate = record.paidDate === oldTx.date;
-                                const sameAmount = Number(record.billAmount) === Number(oldTx.amount);
-                                return !(sameDate && sameAmount);
-                            });
+                            const updatedMonthlyData = [...(oldCard.monthlyData || [])];
+                            const recordIndex = updatedMonthlyData.findIndex(m => 
+                                m.isPaid && 
+                                (m.paidDate === oldTx.date || (Number(m.billAmount) === Number(oldTx.amount) && String(m.remarks || '').includes('Bill payment')))
+                            );
+                            
+                            if (recordIndex !== -1) {
+                                if (updatedMonthlyData[recordIndex].points === 0 && String(updatedMonthlyData[recordIndex].remarks || '').includes('Bill payment')) {
+                                    updatedMonthlyData.splice(recordIndex, 1);
+                                } else {
+                                    updatedMonthlyData[recordIndex] = {
+                                        ...updatedMonthlyData[recordIndex],
+                                        isPaid: false,
+                                        paidDate: null,
+                                        remarks: (updatedMonthlyData[recordIndex].remarks || '').replace(' (Paid)', '')
+                                    };
+                                }
 
-                            const updatedCard = { ...oldCard, monthlyData: updatedMonthlyData };
-
-                            try {
-                                await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(updatedCard)
-                                });
-                                setCreditCards(prev => prev.map(c =>
-                                    String(c.id) === String(updatedCard.id) ? updatedCard : c
-                                ));
-                            } catch (error) {
-                                console.error("Error removing old credit card payment record:", error);
+                                const updatedCard = { ...oldCard, monthlyData: updatedMonthlyData };
+                                try {
+                                    await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedCard)
+                                    });
+                                    setCreditCards(prev => prev.map(c =>
+                                        String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                    ));
+                                } catch (error) {
+                                    console.error("Error removing old credit card payment record:", error);
+                                }
                             }
                         }
                     }
@@ -830,123 +874,31 @@ export function FinanceProvider({ children }) {
                         );
 
                         if (newCard) {
-                            const updatedMonthlyData = newCard.monthlyData || [];
+                            const updatedMonthlyData = [...(newCard.monthlyData || [])];
+                            const unpaidBillIndex = updatedMonthlyData.findIndex(m => !m.isPaid && m.billAmount > 0);
+                            
+                            if (unpaidBillIndex !== -1) {
+                                updatedMonthlyData[unpaidBillIndex] = {
+                                    ...updatedMonthlyData[unpaidBillIndex],
+                                    isPaid: true,
+                                    paidDate: item.date,
+                                    remarks: updatedMonthlyData[unpaidBillIndex].remarks 
+                                        ? updatedMonthlyData[unpaidBillIndex].remarks + ' (Paid)'
+                                        : `Paid on ${item.date}`
+                                };
 
-                            const paymentRecord = {
-                                id: Date.now().toString(),
-                                month: newMonth,
-                                year: parseInt(newYear),
-                                billAmount: newAmount,
-                                isPaid: true,
-                                paidDate: item.date,
-                                remarks: `Bill payment: ${item.title || 'Credit Card Bill'}`,
-                                points: 0
-                            };
-
-                            updatedMonthlyData.push(paymentRecord);
-
-                            const updatedCard = { ...newCard, monthlyData: updatedMonthlyData };
-
-                            try {
-                                await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
-                                    method: 'PUT',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(updatedCard)
-                                });
-                                setCreditCards(prev => prev.map(c =>
-                                    String(c.id) === String(updatedCard.id) ? updatedCard : c
-                                ));
-                            } catch (error) {
-                                console.error("Error adding new credit card payment record:", error);
-                            }
-                        }
-                    }
-
-                    // Handle updates within same credit card bill category (amount/date/card changed)
-                    if (wasOldCreditCardBill && isNewCreditCardBill) {
-                        const oldCardName = oldTx.creditCardName;
-                        const newCardName = item.creditCardName;
-                        const amountChanged = Number(oldTx.amount) !== newAmount;
-                        const dateChanged = oldTx.date !== item.date;
-                        const cardChanged = oldCardName?.toLowerCase().trim() !== newCardName?.toLowerCase().trim();
-
-                        if (amountChanged || dateChanged || cardChanged) {
-                            // Remove from old card if card changed, otherwise update in same card
-                            if (cardChanged && oldCardName) {
-                                const oldCard = creditCards.find(c =>
-                                    c.name.toLowerCase().trim() === oldCardName.toLowerCase().trim()
-                                );
-
-                                if (oldCard) {
-                                    const updatedMonthlyData = (oldCard.monthlyData || []).filter(record => {
-                                        const sameDate = record.paidDate === oldTx.date;
-                                        const sameAmount = Number(record.billAmount) === Number(oldTx.amount);
-                                        return !(sameDate && sameAmount);
+                                const updatedCard = { ...newCard, monthlyData: updatedMonthlyData };
+                                try {
+                                    await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedCard)
                                     });
-
-                                    const updatedCard = { ...oldCard, monthlyData: updatedMonthlyData };
-
-                                    try {
-                                        await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify(updatedCard)
-                                        });
-                                        setCreditCards(prev => prev.map(c =>
-                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
-                                        ));
-                                    } catch (error) {
-                                        console.error("Error updating old credit card:", error);
-                                    }
-                                }
-                            }
-
-                            // Add/update in new/same card
-                            if (newCardName) {
-                                const targetCard = creditCards.find(c =>
-                                    c.name.toLowerCase().trim() === newCardName.toLowerCase().trim()
-                                );
-
-                                if (targetCard) {
-                                    let updatedMonthlyData = targetCard.monthlyData || [];
-
-                                    if (!cardChanged) {
-                                        // Same card - remove old record first
-                                        updatedMonthlyData = updatedMonthlyData.filter(record => {
-                                            const sameDate = record.paidDate === oldTx.date;
-                                            const sameAmount = Number(record.billAmount) === Number(oldTx.amount);
-                                            return !(sameDate && sameAmount);
-                                        });
-                                    }
-
-                                    // Add new record
-                                    const paymentRecord = {
-                                        id: Date.now().toString(),
-                                        month: newMonth,
-                                        year: parseInt(newYear),
-                                        billAmount: newAmount,
-                                        isPaid: true,
-                                        paidDate: item.date,
-                                        remarks: `Bill payment: ${item.title || 'Credit Card Bill'}`,
-                                        points: 0
-                                    };
-
-                                    updatedMonthlyData.push(paymentRecord);
-
-                                    const updatedCard = { ...targetCard, monthlyData: updatedMonthlyData };
-
-                                    try {
-                                        await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify(updatedCard)
-                                        });
-                                        setCreditCards(prev => prev.map(c =>
-                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
-                                        ));
-                                    } catch (error) {
-                                        console.error("Error updating target credit card:", error);
-                                    }
+                                    setCreditCards(prev => prev.map(c =>
+                                        String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                    ));
+                                } catch (error) {
+                                    console.error("Error adding new credit card payment record:", error);
                                 }
                             }
                         }
@@ -978,7 +930,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
         if (!endpoint || !item.id) return;
         try {
             const res = await fetch(`${API_URL}/${endpoint}/${item.id}`, {
@@ -991,6 +943,8 @@ export function FinanceProvider({ children }) {
             if (type === 'asset') setAssets(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'lents') setLents(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'creditCards') setCreditCards(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'salaryDetail') setSalaryDetails(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            return { success: true };
         } catch (error) {
             console.error("Error updating item:", error);
         }
@@ -1160,13 +1114,17 @@ export function FinanceProvider({ children }) {
     };
 
     const value = {
-        expenses, savings, metals: processedMetals, assets, creditCards, lents, salaryStats, categories, snapshots, categoryBudgets,
+        expenses, savings, metals: processedMetals, assets, creditCards, lents, salaryStats, categories, snapshots, categoryBudgets, salaryDetails,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal,
         addNewYear, takeSnapshot, updateCategoryBudget,
         formatCurrency,
         calculateItemCurrentValue,
         calculateItemInvestedValue,
         refreshMutualFundNAV,
+        refreshStockPrices,
+        customSalaryFields,
+        hiddenSalaryFields,
+        updateSalaryFieldsConfig,
         metalRates,
         fetchMetalRates,
         manualMetalRates,

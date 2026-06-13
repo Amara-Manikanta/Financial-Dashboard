@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X, Archive, ArchiveRestore } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import MutualFundTransactionModal from '../components/MutualFundTransactionModal';
 import MutualFundEditModal from '../components/MutualFundEditModal';
@@ -99,6 +99,13 @@ const MutualFundDetails = () => {
         setIsFundEditModalOpen(false);
     };
 
+    const handleToggleArchive = () => {
+        const action = fund.isArchived ? 'unarchive' : 'archive';
+        if (window.confirm(`Are you sure you want to ${action} this fund? Archived funds are hidden from your main dashboard but retain their data.`)) {
+            updateItem('savings', { ...fund, isArchived: !fund.isArchived });
+        }
+    };
+
     // --- Unit-based Accounting (Centralized Logic) ---
     const currentTotalValue = calculateItemCurrentValue(fund);
     const total_cost_held = calculateItemInvestedValue(fund);
@@ -181,6 +188,15 @@ const MutualFundDetails = () => {
                     </h2>
 
                     <div className="flex gap-3">
+                        <button
+                            onClick={handleToggleArchive}
+                            className={`px-4 py-2 rounded-xl font-bold transition-all flex items-center gap-2 ${fund.isArchived ? 'bg-orange-600 hover:bg-orange-700 text-white shadow-lg shadow-orange-500/20' : 'bg-white/5 hover:bg-white/10 text-gray-300'} border border-white/5`}
+                            title={fund.isArchived ? "Unarchive this fund" : "Archive this fund"}
+                        >
+                            {fund.isArchived ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+                            <span className="hidden sm:inline">{fund.isArchived ? 'Unarchive' : 'Archive'}</span>
+                        </button>
+
                         <button
                             onClick={handleRefreshNav}
                             disabled={isRefreshing}

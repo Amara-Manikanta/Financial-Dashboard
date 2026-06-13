@@ -10,9 +10,9 @@ import ConfirmModal from '../components/ConfirmModal';
 const StockTreemapContent = (props) => {
     const { depth, x, y, width, height, index, name, ticker, percentage, value } = props;
 
-    // Only render actual leaf nodes (depth 2)
-    if (depth !== 2) return null;
-    if (width < 2 || height < 2) return null;
+    // Only render leaf nodes (those without children)
+    if (props.children) return null;
+    if (width < 1 || height < 1) return null;
 
     let fillColor = '#1e1e1e';
     if (percentage > 0) {
@@ -30,7 +30,7 @@ const StockTreemapContent = (props) => {
         fillColor = '#3f3f46';
     }
 
-    const showText = width > 40 && height > 24;
+    const showText = width > 30 && height > 20;
 
     return (
         <g>
@@ -65,14 +65,14 @@ const StockTreemapContent = (props) => {
 const DividendTreemapContent = (props) => {
     const { depth, x, y, width, height, index, name, ticker, value } = props;
 
-    // Only render depth 2 (leaf nodes)
-    if (depth !== 2) return null;
-    if (width < 2 || height < 2) return null;
+    // Only render leaf nodes
+    if (props.children) return null;
+    if (width < 1 || height < 1) return null;
 
     const colors = ['#059669', '#10b981', '#34d399', '#047857'];
     const fillColor = colors[index % colors.length];
 
-    const showText = width > 40 && height > 24;
+    const showText = width > 30 && height > 20;
 
     return (
         <g>
@@ -714,7 +714,7 @@ const StockMarketDetails = () => {
                                 <p className="text-sm text-gray-500 uppercase font-bold mb-4">Stocks by Current Value</p>
                                 <ResponsiveContainer width="100%" height="90%">
                                         <Treemap
-                                            data={[{ name: 'root', children: stockTreemapData }]}
+                                            data={stockTreemapData}
                                             dataKey="value"
                                             aspectRatio={4 / 3}
                                             stroke="#fff"
@@ -742,7 +742,7 @@ const StockMarketDetails = () => {
                                 </p>
                                 <ResponsiveContainer width="100%" height="90%">
                                         <Treemap
-                                            data={[{ name: 'root', children: dividendTreemapData }]}
+                                            data={dividendTreemapData}
                                             dataKey="value"
                                             aspectRatio={4 / 3}
                                             stroke="#fff"

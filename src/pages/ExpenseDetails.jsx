@@ -40,10 +40,23 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
     if (item.title) subtitleParts.push(item.category); // Show category if title is the main header
     if (!hideDate) subtitleParts.push(new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
 
-    // For Statement Info (showActions=true), explicitly add Credit/Debit
+    // For Statement Info (showActions=true), explicitly add Credit/Debit and Payment Mode
     if (showActions) {
         const type = item.isCredited ? 'Credit' : 'Debit';
-        subtitleParts.push(type);
+        let paymentType = '';
+        if (item.paymentMode === 'credit_card') {
+            paymentType = 'Card';
+        } else if (item.paymentMode === 'direct' || item.paymentMode === 'upi') {
+            paymentType = 'UPI';
+        } else if (item.paymentMode) {
+            paymentType = item.paymentMode;
+        }
+        
+        if (paymentType) {
+            subtitleParts.push(`${type} • ${paymentType}`);
+        } else {
+            subtitleParts.push(type);
+        }
     }
 
     // Join with bullet point
@@ -288,6 +301,7 @@ const ExpenseDetails = () => {
             .filter(t => t.paymentMode === 'credit_card')
             .reduce((sum, t) => {
                 const amount = Number(t.amount) || 0;
+                if (t.category === 'credit card bill') return sum - amount;
                 return t.isCredited ? sum - amount : sum + amount;
             }, 0);
 
@@ -297,7 +311,12 @@ const ExpenseDetails = () => {
                 const card = t.creditCardName;
                 const amount = Number(t.amount) || 0;
                 const current = acc[card] || 0;
-                acc[card] = t.isCredited ? current - amount : current + amount;
+                
+                if (t.category === 'credit card bill') {
+                    acc[card] = current - amount;
+                } else {
+                    acc[card] = t.isCredited ? current - amount : current + amount;
+                }
                 return acc;
             }, {});
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Calculator, CreditCard, Wallet, Tag, FileText, ChevronDown, Check, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
 import DatePicker from "react-datepicker";
@@ -12,13 +12,42 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
     const [amount, setAmount] = useState('');
     const [category, setCategory] = useState('');
     const [date, setDate] = useState(new Date());
-    const [deductFromSalary, setDeductFromSalary] = useState(true);
     const [paymentMode, setPaymentMode] = useState('direct');
     const [creditCardName, setCreditCardName] = useState('');
     const [isCustomCategory, setIsCustomCategory] = useState(false);
     const [isCredited, setIsCredited] = useState(false);
+    const [isCreditCardBill, setIsCreditCardBill] = useState(false);
 
-    const { categories, creditCards } = useFinance();
+    const { categories, creditCards, expenses } = useFinance();
+
+    const sortedCategories = useMemo(() => {
+        if (!expenses) return categories;
+        
+        const frequencies = {};
+        categories.forEach(c => frequencies[c.toLowerCase()] = 0);
+        
+        Object.values(expenses).forEach(yearData => {
+            Object.values(yearData).forEach(monthData => {
+                if (monthData.transactions && Array.isArray(monthData.transactions)) {
+                    monthData.transactions.forEach(t => {
+                        if (t.category) {
+                            const cat = t.category.toLowerCase();
+                            frequencies[cat] = (frequencies[cat] || 0) + 1;
+                        }
+                    });
+                }
+            });
+        });
+
+        return [...categories].sort((a, b) => {
+            const freqA = frequencies[a.toLowerCase()] || 0;
+            const freqB = frequencies[b.toLowerCase()] || 0;
+            if (freqA !== freqB) {
+                return freqB - freqA;
+            }
+            return a.localeCompare(b);
+        });
+    }, [categories, expenses]);
 
     // Use cards from context if available, otherwise fallback (or merge)
     // Actually, let's prioritize context cards.
@@ -39,10 +68,10 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
             setIsCustomCategory(!!initialCat && !isKnown);
 
             setDate(initialData.date ? new Date(initialData.date) : new Date());
-            setDeductFromSalary(initialData.deductFromSalary !== false);
             setPaymentMode(initialData.paymentMode || 'direct');
             setCreditCardName(initialData.creditCardName || '');
             setIsCredited(!!initialData.isCredited);
+            setIsCreditCardBill(initialCat.toLowerCase() === 'credit card bill');
         } else if (isOpen && !initialData) {
             setTitle('');
             setAmount('');
@@ -50,9 +79,9 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
             setIsCustomCategory(false);
             setIsCredited(false);
             setDate(new Date());
-            setDeductFromSalary(true);
             setPaymentMode('direct');
             setCreditCardName('');
+            setIsCreditCardBill(false);
         }
     }, [initialData, isOpen]);
 
@@ -72,6 +101,17 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
         return () => window.removeEventListener('keydown', handleEsc);
     }, [isOpen, onClose]);
 
+    const handleCreditCardBillToggle = () => {
+        const newState = !isCreditCardBill;
+        setIsCreditCardBill(newState);
+        if (newState) {
+            setCategory('credit card bill');
+            setIsCredited(false);
+            setPaymentMode('credit_card');
+            if (!title) setTitle('Credit Card Bill');
+        }
+    };
+
     if (!isOpen) return null;
 
     const handleSubmit = (e) => {
@@ -82,7 +122,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
             amount: parseFloat(amount),
             category: category.toLowerCase(),
             date: date.toISOString().split('T')[0],
-            deductFromSalary,
+            deductFromSalary: (paymentMode === 'direct' && category.toLowerCase() !== 'tax') || category.toLowerCase() === 'credit card bill',
             paymentMode,
             creditCardName: paymentMode === 'credit_card' ? creditCardName : null,
             isCredited,
@@ -158,6 +198,20 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                             </div>
                         </div>
 
+                        {/* Credit Card Bill Toggle */}
+                        <div onClick={handleCreditCardBillToggle} className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${isCreditCardBill ? 'bg-indigo-500/10 border-indigo-500/30 shadow-lg shadow-indigo-500/10' : 'bg-white/2 border-white/5'}`}>
+                            <div className="flex items-center gap-3">
+                                <CreditCard size={18} className={isCreditCardBill ? 'text-indigo-400' : 'text-gray-500'} />
+                                <div>
+                                    <span className={`text-[12px] font-bold block ${isCreditCardBill ? 'text-white' : 'text-gray-400'}`}>Paying a Credit Card Bill?</span>
+                                    <span className="text-[10px] text-gray-500 mt-0.5 block font-medium">Auto-configures the correct options below</span>
+                                </div>
+                            </div>
+                            <div className={`w-10 h-5 rounded-full p-1 transition-all ${isCreditCardBill ? 'bg-indigo-500' : 'bg-white/10'}`}>
+                                <div className={`w-3 h-3 bg-white rounded-full transition-all ${isCreditCardBill ? 'translate-x-5' : 'translate-x-0'}`} />
+                            </div>
+                        </div>
+
                         <div className="space-y-2">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Reference Name</label>
                             <div className="relative group">
@@ -202,7 +256,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                                         className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-12 text-white font-bold appearance-none focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all text-sm cursor-pointer"
                                     >
                                         <option value="" disabled className="bg-[#0c0c0e]">Select Category</option>
-                                        {categories.map(cat => <option key={cat} value={cat} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
+                                        {sortedCategories.map(cat => <option key={cat} value={cat} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
                                         <option value="__custom__" className="bg-[#0c0c0e] text-emerald-400 font-bold">+ Add New Category</option>
                                     </select>
                                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
@@ -232,15 +286,6 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                             </div>
                         </div>
 
-                        <div onClick={() => setDeductFromSalary(!deductFromSalary)} className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${deductFromSalary ? 'bg-emerald-500/5 border-emerald-500/20' : 'bg-white/2 border-white/5'}`}>
-                            <div className="flex items-center gap-3">
-                                <Calculator size={16} className={deductFromSalary ? 'text-emerald-400' : 'text-gray-500'} />
-                                <span className={`text-[11px] font-bold ${deductFromSalary ? 'text-white' : 'text-gray-500'}`}>{isCredited ? 'Add to Salary' : 'Deduct from Salary'}</span>
-                            </div>
-                            <div className={`w-8 h-4 rounded-full p-1 transition-all ${deductFromSalary ? 'bg-emerald-500' : 'bg-white/10'}`}>
-                                <div className={`w-2 h-2 bg-white rounded-full transition-all ${deductFromSalary ? 'translate-x-4' : 'translate-x-0'}`} />
-                            </div>
-                        </div>
 
                         <div className="space-y-3">
                             <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Payment Method</label>
@@ -271,10 +316,10 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                                             required
                                             value={creditCardName}
                                             onChange={(e) => setCreditCardName(e.target.value)}
-                                            className="w-full bg-transparent border-none text-white font-bold appearance-none focus:outline-none text-xs pl-8 pr-8"
+                                            className="w-full bg-white rounded-lg border-none text-black font-bold appearance-none focus:outline-none text-xs pl-8 pr-8 py-2"
                                         >
-                                            <option value="" disabled className="bg-[#0c0c0e]">Select Card</option>
-                                            {availableCreditCards.map(card => <option key={card} value={card} className="bg-[#0c0c0e]">{card}</option>)}
+                                            <option value="" disabled className="text-gray-500">Select Card</option>
+                                            {availableCreditCards.map(card => <option key={card} value={card} className="text-black">{card}</option>)}
                                         </select>
                                         <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-400" />
                                     </div>

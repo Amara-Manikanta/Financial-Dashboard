@@ -249,19 +249,35 @@ const Expenses = () => {
                         <form onSubmit={handleAddYear} className="p-8 space-y-8">
                             <div className="space-y-4">
                                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Financial Year</label>
-                                <div className="relative">
+                                <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-3xl p-4">
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setNewYear(prev => prev - 1)}
+                                        className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all active:scale-95"
+                                    >
+                                        <div className="w-4 h-[2px] bg-current rounded-full" />
+                                    </button>
                                     <input
-                                        type="number"
-                                        required
-                                        min="2000"
-                                        max="2100"
+                                        type="text"
+                                        inputMode="numeric"
+                                        pattern="[0-9]*"
                                         value={newYear}
-                                        onChange={e => setNewYear(parseInt(e.target.value))}
-                                        className="w-full bg-white/[0.03] border border-white/5 rounded-2xl p-6 text-4xl font-black text-white tracking-tighter focus:bg-white/[0.05] focus:border-blue-500/50 outline-none transition-all"
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/\D/g, '');
+                                            setNewYear(val === '' ? '' : parseInt(val));
+                                        }}
+                                        className="w-48 bg-transparent border-none text-center text-5xl font-black text-white tracking-tighter focus:outline-none focus:ring-0 p-0 m-0"
                                     />
-                                    <Calendar className="absolute right-6 top-1/2 -translate-y-1/2 text-gray-600" size={32} />
+                                    <button 
+                                        type="button" 
+                                        onClick={() => setNewYear(prev => prev + 1)}
+                                        className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all active:scale-95 relative"
+                                    >
+                                        <div className="w-4 h-[2px] bg-current rounded-full absolute" />
+                                        <div className="w-[2px] h-4 bg-current rounded-full absolute" />
+                                    </button>
                                 </div>
-                                <p className="text-[10px] text-gray-600 italic px-2">
+                                <p className="text-[10px] text-gray-600 italic px-2 text-center mt-4">
                                     This will create all 12 months with your current expense categories initialized to zero.
                                 </p>
                             </div>

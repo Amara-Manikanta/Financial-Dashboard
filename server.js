@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-
+import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -108,6 +108,16 @@ const proxy = http.createServer((req, res) => {
     }
 
     // 2. PROXY LOGIC: Forward to internal server
+    if (req.url === '/api/insights' && req.method === 'GET') {
+        return handleInsightsRequest(req, res, INTERNAL_PORT);
+    }
+    if (req.url === '/api/chat' && (req.method === 'POST' || req.method === 'OPTIONS')) {
+        return handleChatRequest(req, res, INTERNAL_PORT);
+    }
+    if (req.url === '/api/summarize' && (req.method === 'POST' || req.method === 'OPTIONS')) {
+        return handleSummarizeRequest(req, res);
+    }
+
     const options = {
         hostname: '127.0.0.1',
         port: INTERNAL_PORT,

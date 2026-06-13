@@ -11,9 +11,12 @@ const Investments = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [showArchived, setShowArchived] = useState(false);
 
     // Filter only investments
     const investments = savings.filter(item => item.type === 'mutual_fund' || item.type === 'stock_market');
+    const activeInvestments = investments.filter(item => !item.isArchived);
+    const archivedInvestments = investments.filter(item => item.isArchived);
 
     const handleDeleteClick = (e, item) => {
         e.stopPropagation();
@@ -41,7 +44,7 @@ const Investments = () => {
         return { bg: 'bg-purple-500/20', text: 'text-purple-400', bar: 'bg-purple-500' };
     };
 
-    const totalPortfolioValue = investments.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
+    const totalPortfolioValue = activeInvestments.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
 
     const handleSaveNewItem = async (newItem) => {
         await addItem('savings', newItem);
@@ -73,7 +76,7 @@ const Investments = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {investments.map(item => {
+                {activeInvestments.map(item => {
                     const isStockMarket = item.type === 'stock_market';
                     const isMutualFund = item.type === 'mutual_fund';
                     const style = getStyle(item.type);
@@ -137,6 +140,59 @@ const Investments = () => {
                     );
                 })}
             </div>
+
+            {archivedInvestments.length > 0 && (
+                <div className="mt-16 pt-8 border-t border-white/5">
+                    <div className="flex justify-between items-center mb-8">
+                        <div>
+                            <h3 className="text-2xl font-black text-white tracking-tight text-gray-500">Archived Accounts</h3>
+                            <p className="text-gray-600 font-bold uppercase tracking-widest text-[10px] mt-1">Hidden from main portfolio view</p>
+                        </div>
+                        <button 
+                            onClick={() => setShowArchived(!showArchived)}
+                            className="text-xs font-bold uppercase tracking-widest text-gray-500 hover:text-white transition-colors px-4 py-2 border border-white/5 rounded-xl bg-white/5"
+                        >
+                            {showArchived ? 'Hide Archived' : 'Show Archived'} ({archivedInvestments.length})
+                        </button>
+                    </div>
+
+                    {showArchived && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8 opacity-60 hover:opacity-100 transition-opacity duration-300">
+                            {archivedInvestments.map(item => {
+                                const isStockMarket = item.type === 'stock_market';
+                                const isMutualFund = item.type === 'mutual_fund';
+                                const style = getStyle(item.type);
+                                const displayAmount = calculateItemCurrentValue(item);
+                                const handleClick = () => {
+                                    if (isMutualFund) { navigate(`/savings/mutual-fund/${item.id}`); }
+                                    else if (isStockMarket) { navigate(`/savings/stock-market/${item.id}`); }
+                                };
+
+                                return (
+                                    <div key={item.id} className="card group relative overflow-hidden p-8 bg-black border-white/5 hover:bg-white/[0.02] transition-all cursor-pointer" onClick={handleClick}>
+                                        <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-all">
+                                            {getIcon(item.type)}
+                                        </div>
+                                        <div className="relative z-10">
+                                            <div className="flex justify-between items-start mb-10">
+                                                <div>
+                                                    <h3 className="text-xl font-black text-gray-400 tracking-tight mb-2 group-hover:text-white transition-colors">{item.title}</h3>
+                                                    <span className={`text-[9px] px-3 py-1.5 rounded-full font-black uppercase tracking-widest border border-white/10 text-gray-500`}>
+                                                        Archived
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            <div className="mb-2">
+                                                <p className="text-3xl font-black text-gray-400 tracking-tighter">{formatCurrency(displayAmount)}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <InvestmentsItemModal
                 isOpen={isModalOpen}
