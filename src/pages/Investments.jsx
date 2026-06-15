@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2 } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -46,6 +47,47 @@ const Investments = () => {
 
     const totalPortfolioValue = activeInvestments.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
 
+    const stockMarketTotal = activeInvestments.filter(i => i.type === 'stock_market').reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
+    
+    let pieData = [];
+    if (stockMarketTotal > 0) {
+        pieData.push({ name: 'Stock Market', value: stockMarketTotal });
+    }
+
+    activeInvestments.filter(i => i.type === 'mutual_fund').forEach(fund => {
+        const val = calculateItemInvestedValue(fund);
+        if (val > 0) {
+            pieData.push({ name: fund.title || 'Mutual Fund', value: val });
+        }
+    });
+
+    const totalInvestedValue = pieData.reduce((sum, item) => sum + item.value, 0);
+
+    const PIE_COLORS = [
+        '#8b5cf6', // Purple
+        '#ec4899', // Pink
+        '#3b82f6', // Blue
+        '#10b981', // Emerald
+        '#f59e0b', // Amber
+        '#ef4444', // Red
+        '#06b6d4', // Cyan
+        '#84cc16', // Lime
+        '#f97316'  // Orange
+    ];
+
+    const RADIAN = Math.PI / 180;
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+        return (
+            <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="black">
+                {`${(percent * 100).toFixed(0)}%`}
+            </text>
+        );
+    };
+
     const handleSaveNewItem = async (newItem) => {
         await addItem('savings', newItem);
         setIsModalOpen(false);
@@ -74,6 +116,48 @@ const Investments = () => {
                     </button>
                 </div>
             </div>
+
+            {pieData.length > 0 && (
+                <div className="mb-12 card p-8 bg-white/[0.02] border-white/5 flex flex-col md:flex-row items-center justify-center" style={{ gap: '4rem' }}>
+                    <div style={{ width: '300px', height: '300px', position: 'relative', flexShrink: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={pieData}
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={120}
+                                    dataKey="value"
+                                    stroke="rgba(255,255,255,0.1)"
+                                    strokeWidth={1}
+                                    labelLine={false}
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip 
+                                    formatter={(value) => formatCurrency(value)} 
+                                    contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                                    itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-col" style={{ gap: '1.25rem' }}>
+                        {pieData.map((entry, index) => {
+                            const percentage = ((entry.value / totalInvestedValue) * 100).toFixed(1);
+                            return (
+                                <div key={entry.name} className="flex items-center gap-4">
+                                    <div className="rounded shadow-sm" style={{ width: '40px', height: '20px', backgroundColor: PIE_COLORS[index % PIE_COLORS.length], flexShrink: 0 }} />
+                                    <span className="font-bold text-gray-300" style={{ fontSize: '1.25rem' }}>{entry.name}</span>
+                                    <span className="font-black text-white ml-2" style={{ fontSize: '1.25rem' }}>{percentage}%</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {activeInvestments.map(item => {

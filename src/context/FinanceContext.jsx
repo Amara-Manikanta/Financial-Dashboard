@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from './AuthContext';
 import { getLastWorkingDayOfMonth } from '../utils/dateUtils';
+import { CATEGORY_MAP } from '../utils/categories';
 
 
 const FinanceContext = createContext();
@@ -42,6 +43,7 @@ export function FinanceProvider({ children }) {
     const [salaryStats, setSalaryStats] = useState({});
     const [snapshots, setSnapshots] = useState([]);
     const [categoryBudgets, setCategoryBudgets] = useState({});
+    const [customCategoryMap, setCustomCategoryMap] = useState({});
     const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
@@ -77,6 +79,7 @@ export function FinanceProvider({ children }) {
                 setSnapshots([]);
                 setCustomSalaryFields({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields([]);
+                setCustomCategoryMap({});
                 return;
             }
             try {
@@ -102,7 +105,64 @@ export function FinanceProvider({ children }) {
                 const ccData = await ccRes.json();
                 const salaryDetailsData = await salRes.json();
 
-                setExpenses(expData);
+                let modifiedExpenses = expData;
+                let isModified = false;
+                const wallets = (ccData || []).filter(c => c.type === 'wallet' && c.autoCredit);
+                
+                wallets.forEach(wallet => {
+                    const { amount, dayOfMonth, startYear, startMonth } = wallet.autoCredit;
+                    const currentDate = new Date();
+                    
+                    let date = new Date(startYear, startMonth - 1, 1);
+                    while (date <= currentDate) {
+                        const y = date.getFullYear().toString();
+                        const m = date.toLocaleString('default', { month: 'long' });
+                        
+                        const transactions = modifiedExpenses[y]?.[m]?.transactions || [];
+                        const hasCredit = transactions.some(t => 
+                            t.paymentMode === 'credit_card' && 
+                            t.creditCardName === wallet.name && 
+                            t.isCredited === true && 
+                            (t.category || '').toLowerCase().includes('wallet')
+                        );
+                        
+                        if (!hasCredit) {
+                            const txDate = new Date(date.getFullYear(), date.getMonth(), dayOfMonth);
+                            // Set txDate to current local time if we want to bypass exact timezone boundary issues, but Date() works fine.
+                            if (txDate <= currentDate) {
+                                if (!modifiedExpenses[y]) modifiedExpenses[y] = {};
+                                if (!modifiedExpenses[y][m]) modifiedExpenses[y][m] = { categories: {}, transactions: [] };
+                                
+                                modifiedExpenses[y][m].transactions.push({
+                                    id: `auto-${wallet.id}-${y}-${m}`,
+                                    title: "Wallet Auto-Load",
+                                    amount: amount,
+                                    category: "food wallet",
+                                    date: txDate.toISOString().split('T')[0],
+                                    paymentMode: "credit_card",
+                                    creditCardName: wallet.name,
+                                    mainCategory: "Income",
+                                    isCredited: true,
+                                    transactionType: "credit",
+                                    deductFromSalary: false,
+                                    type: "monthly"
+                                });
+                                isModified = true;
+                            }
+                        }
+                        date.setMonth(date.getMonth() + 1);
+                    }
+                });
+
+                if (isModified) {
+                    await fetch(`${API_URL}/expenses`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(modifiedExpenses)
+                    });
+                }
+                
+                setExpenses(modifiedExpenses);
                 setSavings(savData);
                 setMetals(metData);
                 setAssets(assData);
@@ -113,6 +173,7 @@ export function FinanceProvider({ children }) {
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
                 setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
+                setCustomCategoryMap(appData.customCategoryMap || {});
                 setSnapshots(snapData || []);
                 setSalaryDetails(salaryDetailsData || []);
 
@@ -143,6 +204,7 @@ export function FinanceProvider({ children }) {
 
     const updateManualRates = async (rates) => {
         setManualMetalRates(rates);
+        if (isGuest) return;
         try {
             // Fetch current appData to merge correctly
             const res = await fetch(`${API_URL}/appData`);
@@ -174,6 +236,7 @@ export function FinanceProvider({ children }) {
     const updateSalaryFieldsConfig = async (newCustomFields, newHiddenFields) => {
         setCustomSalaryFields(newCustomFields);
         setHiddenSalaryFields(newHiddenFields);
+        if (isGuest) return;
         try {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
@@ -196,6 +259,7 @@ export function FinanceProvider({ children }) {
 
     const saveExpenses = async (updatedExpenses) => {
         setExpenses(updatedExpenses);
+        if (isGuest) return;
         try {
             await fetch(`${API_URL}/expenses`, {
                 method: 'PUT',
@@ -210,6 +274,7 @@ export function FinanceProvider({ children }) {
     const updateCategoryBudget = async (category, amount) => {
         const updatedBudgets = { ...categoryBudgets, [category]: Number(amount) };
         setCategoryBudgets(updatedBudgets);
+        if (isGuest) return;
 
         try {
             // Fetch current appData first (safer approach)
@@ -228,6 +293,50 @@ export function FinanceProvider({ children }) {
             });
         } catch (error) {
             console.error("Failed to update category budget:", error);
+        }
+    };
+
+    const mergedCategoryMap = useMemo(() => {
+        const merged = { ...CATEGORY_MAP };
+        for (const [main, subs] of Object.entries(customCategoryMap)) {
+            if (!merged[main]) {
+                merged[main] = [...subs];
+            } else {
+                merged[main] = [...new Set([...merged[main], ...subs])];
+            }
+        }
+        return merged;
+    }, [customCategoryMap]);
+
+    const addCustomCategory = async (mainCategory, subCategory) => {
+        if (isGuest) return;
+
+        const newMap = { ...customCategoryMap };
+        if (!newMap[mainCategory]) newMap[mainCategory] = [];
+        
+        if (subCategory && !newMap[mainCategory].includes(subCategory)) {
+            // Also ensure it's not already in the base map before adding
+            const baseSubs = CATEGORY_MAP[mainCategory] || [];
+            const subExistsInBase = baseSubs.some(s => s.toLowerCase() === subCategory.toLowerCase());
+            const subExistsInCustom = newMap[mainCategory].some(s => s.toLowerCase() === subCategory.toLowerCase());
+            
+            if (!subExistsInBase && !subExistsInCustom) {
+                newMap[mainCategory] = [...newMap[mainCategory], subCategory];
+            }
+        }
+
+        setCustomCategoryMap(newMap);
+
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, customCategoryMap: newMap })
+            });
+        } catch (error) {
+            console.error("Failed to save custom category map:", error);
         }
     };
 
@@ -382,15 +491,16 @@ export function FinanceProvider({ children }) {
                     };
 
                     // Save updated credit card
+                    setCreditCards(prev => prev.map(c =>
+                        String(c.id) === String(updatedCard.id) ? updatedCard : c
+                    ));
+                    if (isGuest) return;
                     try {
                         await fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(updatedCard)
                         });
-                        setCreditCards(prev => prev.map(c =>
-                            String(c.id) === String(updatedCard.id) ? updatedCard : c
-                        ));
                     } catch (error) {
                         console.error("Error updating credit card after bill payment:", error);
                     }
@@ -402,6 +512,16 @@ export function FinanceProvider({ children }) {
 
         let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
         if (!endpoint) return;
+
+        if (isGuest) {
+            const savedItem = { ...item, id: Date.now().toString() };
+            if (type === 'savings') setSavings(prev => [...prev, savedItem]);
+            if (type === 'asset') setAssets(prev => [...prev, savedItem]);
+            if (type === 'lents') setLents(prev => [...prev, savedItem]);
+            if (type === 'creditCards') setCreditCards(prev => [...prev, savedItem]);
+            if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
+            return;
+        }
 
         try {
             const res = await fetch(`${API_URL}/${endpoint}`, {
@@ -424,6 +544,7 @@ export function FinanceProvider({ children }) {
         const newItem = { ...item, id: Date.now() };
         const updated = { ...metals, [type]: [...metals[type], newItem] };
         setMetals(updated);
+        if (isGuest) return;
         try {
             await fetch(`${API_URL}/metals`, {
                 method: 'PUT',
@@ -441,6 +562,7 @@ export function FinanceProvider({ children }) {
             [type]: metals[type].map(i => i.id === item.id ? item : i)
         };
         setMetals(updated);
+        if (isGuest) return;
         try {
             await fetch(`${API_URL}/metals`, {
                 method: 'PUT',
@@ -458,6 +580,7 @@ export function FinanceProvider({ children }) {
             [type]: metals[type].filter(i => i.id !== id)
         };
         setMetals(updated);
+        if (isGuest) return;
         try {
             await fetch(`${API_URL}/metals`, {
                 method: 'PUT',
@@ -591,6 +714,7 @@ export function FinanceProvider({ children }) {
 
         let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
         if (!endpoint) return;
+        if (isGuest) return;
         try {
             await fetch(`${API_URL}/${endpoint}/${id}`, { method: 'DELETE' });
             if (type === 'savings') setSavings(prev => prev.filter(i => String(i.id) !== String(id)));
@@ -932,6 +1056,7 @@ export function FinanceProvider({ children }) {
 
         let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
         if (!endpoint || !item.id) return;
+        if (isGuest) return;
         try {
             const res = await fetch(`${API_URL}/${endpoint}/${item.id}`, {
                 method: 'PUT',
@@ -974,6 +1099,7 @@ export function FinanceProvider({ children }) {
 
         const updatedExpenses = { ...expenses, [year]: newYearData };
         setExpenses(updatedExpenses);
+        if (isGuest) return;
 
         try {
             await fetch(`${API_URL}/expenses`, {
@@ -1009,6 +1135,7 @@ export function FinanceProvider({ children }) {
 
         const updatedSnapshots = [...snapshots, newSnapshot].sort((a, b) => new Date(a.date) - new Date(b.date));
         setSnapshots(updatedSnapshots);
+        if (isGuest) return;
 
         try {
             await fetch(`${API_URL}/snapshots`, {
@@ -1128,7 +1255,9 @@ export function FinanceProvider({ children }) {
         metalRates,
         fetchMetalRates,
         manualMetalRates,
-        updateManualRates
+        updateManualRates,
+        mergedCategoryMap,
+        addCustomCategory
     };
 
     return (

@@ -7,6 +7,9 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [last4Digits, setLast4Digits] = useState('');
     const [bankName, setBankName] = useState('');
     const [creditLimit, setCreditLimit] = useState('');
+    const [isWallet, setIsWallet] = useState(false);
+    const [autoLoadAmount, setAutoLoadAmount] = useState('');
+    const [autoLoadDay, setAutoLoadDay] = useState('');
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -15,11 +18,28 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             setLast4Digits(initialData.last4Digits || '');
             setBankName(initialData.bankName || '');
             setCreditLimit(initialData.creditLimit || '');
+            if (initialData.type === 'wallet') {
+                setIsWallet(true);
+                if (initialData.autoCredit) {
+                    setAutoLoadAmount(initialData.autoCredit.amount || '');
+                    setAutoLoadDay(initialData.autoCredit.dayOfMonth || '');
+                } else {
+                    setAutoLoadAmount('');
+                    setAutoLoadDay('');
+                }
+            } else {
+                setIsWallet(false);
+                setAutoLoadAmount('');
+                setAutoLoadDay('');
+            }
         } else {
             setName('');
             setLast4Digits('');
             setBankName('');
             setCreditLimit('');
+            setIsWallet(false);
+            setAutoLoadAmount('');
+            setAutoLoadDay('');
         }
         setError('');
     }, [isOpen, initialData]);
@@ -33,7 +53,7 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             return;
         }
 
-        const newCard = {
+        let newCard = {
             id: initialData ? initialData.id : Date.now().toString(),
             name,
             last4Digits,
@@ -41,6 +61,20 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             creditLimit: Number(creditLimit),
             monthlyData: initialData ? initialData.monthlyData : []
         };
+        
+        if (isWallet) {
+            newCard.type = 'wallet';
+            if (autoLoadAmount && autoLoadDay) {
+                newCard.autoCredit = {
+                    amount: Number(autoLoadAmount),
+                    dayOfMonth: Number(autoLoadDay),
+                    startYear: initialData?.autoCredit?.startYear || new Date().getFullYear(),
+                    startMonth: initialData?.autoCredit?.startMonth || (new Date().getMonth() + 1)
+                };
+            } else {
+                delete newCard.autoCredit;
+            }
+        }
 
         onSave(newCard);
         onClose();
@@ -101,20 +135,22 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
+                            {!isWallet && (
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">Last 4 Digits</label>
+                                    <input
+                                        type="text"
+                                        maxLength="4"
+                                        value={last4Digits}
+                                        onChange={(e) => setLast4Digits(e.target.value.replace(/\D/g, ''))}
+                                        placeholder="1234"
+                                        className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500 transition-colors font-mono"
+                                        style={{ backgroundColor: '#27272a', color: '#ffffff' }}
+                                    />
+                                </div>
+                            )}
                             <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 ml-1">Last 4 Digits</label>
-                                <input
-                                    type="text"
-                                    maxLength="4"
-                                    value={last4Digits}
-                                    onChange={(e) => setLast4Digits(e.target.value.replace(/\D/g, ''))}
-                                    placeholder="1234"
-                                    className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500 transition-colors font-mono"
-                                    style={{ backgroundColor: '#27272a', color: '#ffffff' }}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium text-gray-400 ml-1">Credit Limit</label>
+                                <label className="text-sm font-medium text-gray-400 ml-1">{isWallet ? 'Available Balance' : 'Credit Limit'}</label>
                                 <CurrencyInput
                                     value={creditLimit}
                                     onChange={(e) => setCreditLimit(e.target.value)}
@@ -124,6 +160,32 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
                                 />
                             </div>
                         </div>
+
+                        {isWallet && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">Auto-Load Amount</label>
+                                    <CurrencyInput
+                                        value={autoLoadAmount}
+                                        onChange={(e) => setAutoLoadAmount(e.target.value)}
+                                        placeholder="0.00"
+                                        className="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-emerald-400 placeholder:text-emerald-900/50 focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-sm font-medium text-gray-400 ml-1">Day of Month</label>
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max="31"
+                                        value={autoLoadDay}
+                                        onChange={(e) => setAutoLoadDay(e.target.value)}
+                                        placeholder="4"
+                                        className="w-full bg-emerald-500/10 border border-emerald-500/20 rounded-xl px-4 py-3 text-emerald-400 placeholder:text-emerald-900/50 focus:outline-none focus:border-emerald-500 transition-colors font-mono"
+                                    />
+                                </div>
+                            </div>
+                        )}
 
                         <button
                             type="submit"

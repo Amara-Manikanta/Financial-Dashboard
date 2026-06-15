@@ -33,11 +33,22 @@ const Analytics = () => {
                     // Aggregate from transactions (Includes Tax/Gross expenses)
                     transactions.forEach(t => {
                         const cat = t.category || 'others';
+                        const mainCat = t.mainCategory || 'Miscellaneous';
 
                         const amt = Number(t.amount) || 0;
-                        const effective = t.isCredited ? amt : amt; // Use absolute amount for both income and expense in trends
+                        const isIncomeCat = mainCat === 'Income' || ['salary received', 'income', 'salary', 'bonus', 'interest income', 'dividend', 'refund'].includes(cat.toLowerCase());
+                        
+                        let effective = 0;
+                        if (isIncomeCat) {
+                            effective = t.isCredited ? amt : -amt;
+                        } else {
+                            effective = t.isCredited ? -amt : amt; // Refunds reduce expenses
+                        }
 
-                        monthlyCategories[cat] = (monthlyCategories[cat] || 0) + effective;
+                        if (!monthlyCategories[cat]) {
+                            monthlyCategories[cat] = { amount: 0, mainCategory: mainCat, isIncome: isIncomeCat };
+                        }
+                        monthlyCategories[cat].amount += effective;
                     });
                 } else {
                     // Fallback to categories map
@@ -45,21 +56,27 @@ const Analytics = () => {
                     if (typeof categories === 'object' && !Array.isArray(categories)) {
                         Object.entries(categories).forEach(([title, amount]) => {
                             if (title !== 'transactions') {
-                                monthlyCategories[title] = Number(amount) || 0;
+                                const isIncomeCat = ['salary received', 'income', 'salary', 'bonus'].includes(title.toLowerCase());
+                                monthlyCategories[title] = { amount: Number(amount) || 0, mainCategory: isIncomeCat ? 'Income' : 'Miscellaneous', isIncome: isIncomeCat };
                             }
                         });
                     }
                 }
 
                 // Push to flat array
-                Object.entries(monthlyCategories).forEach(([title, amount]) => {
-                    flat.push({
-                        title,
-                        amount,
-                        date: new Date(`${month} 1, ${year}`),
-                        year,
-                        month
-                    });
+                Object.entries(monthlyCategories).forEach(([title, dataObj]) => {
+                    // Ensure we don't push completely empty categories, but allow negative net expenses
+                    if (dataObj.amount !== 0) {
+                        flat.push({
+                            title,
+                            mainCategory: dataObj.mainCategory,
+                            amount: dataObj.amount,
+                            isIncome: dataObj.isIncome,
+                            date: new Date(`${month} 1, ${year}`),
+                            year,
+                            month
+                        });
+                    }
                 });
             });
         });
@@ -90,32 +107,24 @@ const Analytics = () => {
         }
     }, [allCategories, trendCategory]);
 
-    // Data for the first plot (Monthly Expenses / Category Breakdown)
+    // Data for the first plot (Monthly Expenses Trend)
     const isSpecificMonthSelected = selectedYear !== 'All' && selectedMonth !== 'All';
 
-    const data = useMemo(() => {
+    const monthlyTrendData = useMemo(() => {
+        if (isSpecificMonthSelected) return []; // Hide trend if specific month selected
+        
         const groups = {};
-
         flattenedExpenses.forEach(item => {
+            if (item.isIncome) return; // Exclude income from total monthly expenses
+
             const date = item.date;
             const year = date.getFullYear();
-            const monthIndex = date.getMonth();
             const monthName = date.toLocaleString('default', { month: 'short' });
 
-            // Filter logic
             if (selectedYear !== 'All' && year !== parseInt(selectedYear)) return;
-            if (selectedMonth !== 'All' && monthIndex !== parseInt(selectedMonth)) return;
 
-            let key, sortKey;
-
-            if (isSpecificMonthSelected) {
-                // Group by Category
-                key = item.title;
-            } else {
-                // Group by Month Year
-                key = `${monthName} ${year}`;
-                sortKey = date.getTime();
-            }
+            const key = `${monthName} ${year}`;
+            const sortKey = date.getTime();
 
             if (!groups[key]) {
                 groups[key] = {
@@ -127,15 +136,40 @@ const Analytics = () => {
             groups[key].amount += item.amount;
         });
 
-        let result = Object.values(groups);
+        return Object.values(groups).sort((a, b) => a.sortKey - b.sortKey);
+    }, [flattenedExpenses, selectedYear, isSpecificMonthSelected]);
 
-        if (isSpecificMonthSelected) {
-            return result.sort((a, b) => b.amount - a.amount);
-        } else {
-            // Sort by date for time view
-            return result.sort((a, b) => a.sortKey - b.sortKey);
-        }
-    }, [flattenedExpenses, selectedYear, selectedMonth, isSpecificMonthSelected]);
+    // Data for Breakdowns (Main & Sub Category)
+    const { mainCategoryData, subCategoryData } = useMemo(() => {
+        const mainGroups = {};
+        const subGroups = {};
+
+        flattenedExpenses.forEach(item => {
+            if (item.isIncome) return; // Exclude income from expense breakdowns
+
+            const date = item.date;
+            const year = date.getFullYear();
+            const monthIndex = date.getMonth();
+
+            if (selectedYear !== 'All' && year !== parseInt(selectedYear)) return;
+            if (selectedMonth !== 'All' && monthIndex !== parseInt(selectedMonth)) return;
+
+            // Main Category Grouping
+            const mainKey = item.mainCategory;
+            if (!mainGroups[mainKey]) mainGroups[mainKey] = { name: mainKey, amount: 0 };
+            mainGroups[mainKey].amount += item.amount;
+
+            // Sub Category Grouping
+            const subKey = item.title;
+            if (!subGroups[subKey]) subGroups[subKey] = { name: subKey, amount: 0 };
+            subGroups[subKey].amount += item.amount;
+        });
+
+        return {
+            mainCategoryData: Object.values(mainGroups).sort((a, b) => b.amount - a.amount),
+            subCategoryData: Object.values(subGroups).sort((a, b) => b.amount - a.amount)
+        };
+    }, [flattenedExpenses, selectedYear, selectedMonth]);
 
     // Data for the second plot (Category Trend)
     const trendData = useMemo(() => {
@@ -210,9 +244,18 @@ const Analytics = () => {
                     const monthlyTotal = transactions
                         .filter(t => t.paymentMode === 'credit_card')
                         .reduce((sum, t) => {
+                            if (t.category && (t.category.toLowerCase() === 'credit card bill' || t.category.toLowerCase() === 'credit card payment')) {
+                                return sum; // Ignore the bill payment itself
+                            }
                             const amount = Number(t.amount) || 0;
-                            if (t.category === 'credit card bill') return sum - amount;
-                            return t.isCredited ? sum - amount : sum + amount;
+                            
+                            if (t.isCredited) {
+                                if (t.category && ['food wallet', 'wallet load', 'deposit', 'income'].includes(t.category.toLowerCase())) {
+                                    return sum; 
+                                }
+                                return sum - amount;
+                            }
+                            return sum + amount;
                         }, 0);
 
                     groups[monthIndex].amount = monthlyTotal;
@@ -296,55 +339,63 @@ const Analytics = () => {
                 </div>
             </div>
 
-            <div className="card" style={{ height: '400px', padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)' }}>
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold">{getChartTitle()}</h3>
-                    {data.length === 0 && <p className="text-danger italic">No data found for selected filters</p>}
+            {!isSpecificMonthSelected && (
+                <div className="card" style={{ height: '400px', padding: 'var(--spacing-lg)', marginBottom: 'var(--spacing-xl)' }}>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold">Monthly Expenses</h3>
+                        {monthlyTrendData.length === 0 && <p className="text-danger italic">No data found</p>}
+                    </div>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={monthlyTrendData}>
+                            <CartesianGrid strokeDasharray="3 3" opacity={0.1} vertical={false} />
+                            <XAxis dataKey="name" stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
+                            <YAxis stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value / 1000}k`} />
+                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                            <Bar dataKey="amount" fill="var(--accent-primary)" radius={[4, 4, 0, 0]} barSize={40} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
+            {/* Breakdowns Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                {/* Main Category Breakdown */}
+                <div className="card" style={{ minHeight: '400px', padding: 'var(--spacing-lg)' }}>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold">Main Category Breakdown</h3>
+                        {mainCategoryData.length === 0 && <p className="text-danger italic">No data</p>}
+                    </div>
+                    <div style={{ height: Math.max(300, mainCategoryData.length * 40) }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={mainCategoryData} layout="vertical">
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={true} vertical={false} />
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={100} stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                                <Bar dataKey="amount" fill="var(--accent-secondary)" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
 
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={data} layout={isSpecificMonthSelected ? "vertical" : "horizontal"}>
-                        <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={isSpecificMonthSelected} vertical={!isSpecificMonthSelected} />
-                        {isSpecificMonthSelected ? (
-                            <>
+                {/* Sub Category Breakdown */}
+                <div className="card" style={{ minHeight: '400px', padding: 'var(--spacing-lg)' }}>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-xl font-bold">Sub Category Breakdown</h3>
+                        {subCategoryData.length === 0 && <p className="text-danger italic">No data</p>}
+                    </div>
+                    <div style={{ height: Math.max(300, subCategoryData.length * 40) }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={subCategoryData} layout="vertical">
+                                <CartesianGrid strokeDasharray="3 3" opacity={0.1} horizontal={true} vertical={false} />
                                 <XAxis type="number" hide />
-                                <YAxis
-                                    dataKey="name"
-                                    type="category"
-                                    width={100}
-                                    stroke="var(--text-secondary)"
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                            </>
-                        ) : (
-                            <>
-                                <XAxis
-                                    dataKey="name"
-                                    stroke="var(--text-secondary)"
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <YAxis
-                                    stroke="var(--text-secondary)"
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(value) => `₹${value / 1000}k`}
-                                />
-                            </>
-                        )}
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                        <Bar
-                            dataKey="amount"
-                            fill="var(--accent-primary)"
-                            radius={isSpecificMonthSelected ? [0, 4, 4, 0] : [4, 4, 0, 0]}
-                            barSize={isSpecificMonthSelected ? 20 : 40}
-                        />
-                    </BarChart>
-                </ResponsiveContainer>
+                                <YAxis dataKey="name" type="category" width={100} stroke="var(--text-secondary)" fontSize={12} tickLine={false} axisLine={false} className="capitalize" />
+                                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                                <Bar dataKey="amount" fill="var(--accent-secondary)" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
             </div>
 
             {/* Second Plot Section */}

@@ -5,52 +5,24 @@ import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useFinance } from '../context/FinanceContext';
 import CurrencyInput from './CurrencyInput';
+import { CATEGORY_MAP } from '../utils/categories';
 
-const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
+const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultDate = null }) => {
     // State initialization
     const [title, setTitle] = useState('');
     const [amount, setAmount] = useState('');
+    const [mainCategory, setMainCategory] = useState('');
     const [category, setCategory] = useState('');
     const [date, setDate] = useState(new Date());
     const [paymentMode, setPaymentMode] = useState('direct');
     const [creditCardName, setCreditCardName] = useState('');
-    const [isCustomCategory, setIsCustomCategory] = useState(false);
     const [isCredited, setIsCredited] = useState(false);
     const [isCreditCardBill, setIsCreditCardBill] = useState(false);
 
-    const { categories, creditCards, expenses } = useFinance();
+    const { creditCards, mergedCategoryMap, addCustomCategory } = useFinance();
+    const mainCategoriesList = Object.keys(mergedCategoryMap);
+    const subCategoriesList = mainCategory ? mergedCategoryMap[mainCategory] : [];
 
-    const sortedCategories = useMemo(() => {
-        if (!expenses) return categories;
-        
-        const frequencies = {};
-        categories.forEach(c => frequencies[c.toLowerCase()] = 0);
-        
-        Object.values(expenses).forEach(yearData => {
-            Object.values(yearData).forEach(monthData => {
-                if (monthData.transactions && Array.isArray(monthData.transactions)) {
-                    monthData.transactions.forEach(t => {
-                        if (t.category) {
-                            const cat = t.category.toLowerCase();
-                            frequencies[cat] = (frequencies[cat] || 0) + 1;
-                        }
-                    });
-                }
-            });
-        });
-
-        return [...categories].sort((a, b) => {
-            const freqA = frequencies[a.toLowerCase()] || 0;
-            const freqB = frequencies[b.toLowerCase()] || 0;
-            if (freqA !== freqB) {
-                return freqB - freqA;
-            }
-            return a.localeCompare(b);
-        });
-    }, [categories, expenses]);
-
-    // Use cards from context if available, otherwise fallback (or merge)
-    // Actually, let's prioritize context cards.
     const availableCreditCards = creditCards && creditCards.length > 0
         ? creditCards.map(c => c.name)
         : ["Scapia", "Amazon", "Icici Rupay", "ICICI HP card"];
@@ -62,35 +34,53 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
             setAmount(initialData.amount || '');
 
             const initialCat = initialData.category || '';
-            const isKnown = categories.some(c => c.toLowerCase() === initialCat.toLowerCase());
+            let initialMain = initialData.mainCategory || '';
+            let properCaseCat = initialCat;
 
-            setCategory(initialCat);
-            setIsCustomCategory(!!initialCat && !isKnown);
+            if (initialMain && mergedCategoryMap[initialMain]) {
+                const matched = mergedCategoryMap[initialMain].find(s => s.toLowerCase() === initialCat.toLowerCase());
+                if (matched) properCaseCat = matched;
+            }
 
-            setDate(initialData.date ? new Date(initialData.date) : new Date());
+            if (!initialMain && initialCat) {
+                for (const [main, subs] of Object.entries(mergedCategoryMap)) {
+                    const matched = subs.find(s => s.toLowerCase() === initialCat.toLowerCase());
+                    if (matched) {
+                        initialMain = main;
+                        properCaseCat = matched;
+                        break;
+                    }
+                }
+            }
+            if (!initialMain && initialCat) initialMain = 'Miscellaneous';
+
+            setMainCategory(initialMain);
+            setCategory(properCaseCat);
+
+            setDate(initialData.date ? new Date(initialData.date) : (defaultDate || new Date()));
             setPaymentMode(initialData.paymentMode || 'direct');
             setCreditCardName(initialData.creditCardName || '');
             setIsCredited(!!initialData.isCredited);
-            setIsCreditCardBill(initialCat.toLowerCase() === 'credit card bill');
+            setIsCreditCardBill(initialCat.toLowerCase() === 'credit card bill' || initialCat.toLowerCase() === 'credit card payment');
         } else if (isOpen && !initialData) {
             setTitle('');
             setAmount('');
+            setMainCategory('');
             setCategory('');
-            setIsCustomCategory(false);
             setIsCredited(false);
-            setDate(new Date());
+            setDate(defaultDate || new Date());
             setPaymentMode('direct');
             setCreditCardName('');
             setIsCreditCardBill(false);
         }
-    }, [initialData, isOpen]);
+    }, [initialData, isOpen, defaultDate]);
 
     // Auto-set credit mode for salary/income
     useEffect(() => {
-        if (category && (category.toLowerCase() === 'salary received' || category.toLowerCase() === 'income')) {
+        if (mainCategory === 'Income' || (category && (category.toLowerCase() === 'salary received' || category.toLowerCase() === 'income'))) {
             setIsCredited(true);
         }
-    }, [category]);
+    }, [category, mainCategory]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -105,7 +95,8 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
         const newState = !isCreditCardBill;
         setIsCreditCardBill(newState);
         if (newState) {
-            setCategory('credit card bill');
+            setMainCategory('Finance');
+            setCategory('Credit Card Payment');
             setIsCredited(false);
             setPaymentMode('credit_card');
             if (!title) setTitle('Credit Card Bill');
@@ -120,9 +111,10 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
             ...initialData,
             title,
             amount: parseFloat(amount),
+            mainCategory: mainCategory,
             category: category.toLowerCase(),
-            date: date.toISOString().split('T')[0],
-            deductFromSalary: (paymentMode === 'direct' && category.toLowerCase() !== 'tax') || category.toLowerCase() === 'credit card bill',
+            date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
+            deductFromSalary: (paymentMode === 'direct' && !category.toLowerCase().includes('tax')) || category.toLowerCase() === 'credit card bill' || category.toLowerCase() === 'credit card payment',
             paymentMode,
             creditCardName: paymentMode === 'credit_card' ? creditCardName : null,
             isCredited,
@@ -226,42 +218,67 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null }) => {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Category</label>
-                            {isCustomCategory ? (
+                        <div className="flex gap-4">
+                            <div className="flex-1 space-y-2">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Main Category</label>
                                 <div className="relative group">
-                                    <Tag size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-400 transition-colors" />
-                                    <input
-                                        type="text"
+                                    <Tag size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-400 transition-colors pointer-events-none" />
+                                    <select
                                         required
-                                        value={category}
-                                        onChange={(e) => setCategory(e.target.value)}
-                                        className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-12 text-white font-bold text-sm focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all"
-                                        placeholder="Enter custom category"
-                                    />
-                                    <button type="button" onClick={() => setIsCustomCategory(false)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white p-1">
-                                        <X size={16} />
-                                    </button>
+                                        value={mainCategory}
+                                        onChange={(e) => {
+                                            if (e.target.value === '__add_custom__') {
+                                                const newMain = window.prompt("Enter new Main Category name:");
+                                                if (newMain && newMain.trim()) {
+                                                    const formattedMain = newMain.trim();
+                                                    addCustomCategory(formattedMain);
+                                                    setMainCategory(formattedMain);
+                                                    setCategory('');
+                                                }
+                                            } else {
+                                                setMainCategory(e.target.value);
+                                                setCategory(''); // reset sub category
+                                            }
+                                        }}
+                                        className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-12 text-white font-bold appearance-none focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all text-sm cursor-pointer"
+                                    >
+                                        <option value="" disabled className="bg-[#0c0c0e]">Select Main</option>
+                                        {mainCategoriesList.map(cat => <option key={cat} value={cat} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
+                                        <option value="__add_custom__" className="bg-[#0c0c0e] text-emerald-400 font-bold">+ Add New Main Category</option>
+                                    </select>
+                                    <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                                 </div>
-                            ) : (
+                            </div>
+
+                            <div className="flex-1 space-y-2">
+                                <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Sub Category</label>
                                 <div className="relative group">
                                     <Tag size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-400 transition-colors pointer-events-none" />
                                     <select
                                         required
                                         value={category}
                                         onChange={(e) => {
-                                            if (e.target.value === '__custom__') setIsCustomCategory(true);
-                                            else setCategory(e.target.value);
+                                            if (e.target.value === '__add_custom__') {
+                                                const newSub = window.prompt(`Enter new Sub Category for ${mainCategory}:`);
+                                                if (newSub && newSub.trim()) {
+                                                    const formattedSub = newSub.trim();
+                                                    addCustomCategory(mainCategory, formattedSub);
+                                                    setCategory(formattedSub);
+                                                }
+                                            } else {
+                                                setCategory(e.target.value);
+                                            }
                                         }}
-                                        className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-12 text-white font-bold appearance-none focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all text-sm cursor-pointer"
+                                        disabled={!mainCategory}
+                                        className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-12 text-white font-bold appearance-none focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all text-sm cursor-pointer disabled:opacity-50"
                                     >
-                                        <option value="" disabled className="bg-[#0c0c0e]">Select Category</option>
-                                        {sortedCategories.map(cat => <option key={cat} value={cat} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
-                                        <option value="__custom__" className="bg-[#0c0c0e] text-emerald-400 font-bold">+ Add New Category</option>
+                                        <option value="" disabled className="bg-[#0c0c0e]">{mainCategory ? "Select Sub" : "Select Main First"}</option>
+                                        {subCategoriesList.map(cat => <option key={cat} value={cat} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
+                                        {mainCategory && <option value="__add_custom__" className="bg-[#0c0c0e] text-emerald-400 font-bold">+ Add New Sub Category</option>}
                                     </select>
                                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                                 </div>
-                            )}
+                            </div>
                         </div>
 
                         <div className="space-y-3">

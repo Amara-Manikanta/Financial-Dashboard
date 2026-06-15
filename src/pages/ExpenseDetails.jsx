@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Wallet, TrendingDown, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MoreHorizontal, Plus, ChevronLeft, ChevronRight, ChevronDown, MessageSquare, Edit2, Trash2, Tag, Home, Utensils, ShoppingBag, Car, Smartphone, PiggyBank, Film, Gift, Wifi, Zap, CreditCard, Check } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip, YAxis, AreaChart, Area, CartesianGrid, LineChart, Line } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, Tooltip, YAxis, AreaChart, Area, CartesianGrid, LineChart, Line } from 'recharts';
 import TransactionModal from '../components/TransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -32,12 +32,18 @@ const SummaryCard = ({ title, subtitle, amount, percentage, color }) => (
     </div>
 );
 
-const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = false, showActions = true, hideDate = false }) => {
+const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = false, showActions = true, hideDate = false, onClick, isHighlighted = false, isDimmed = false }) => {
     const IconComponent = CATEGORY_ICONS[item.category?.toLowerCase()] || Tag;
+
+    const fullCategoryString = item.mainCategory && item.category 
+        ? `${item.mainCategory} • ${item.category}` 
+        : item.category;
 
     // Construct subtitle parts based on what is available and requested
     const subtitleParts = [];
-    if (item.title) subtitleParts.push(item.category); // Show category if title is the main header
+    if (fullCategoryString) {
+        subtitleParts.push(fullCategoryString); // Always show category in subtitle
+    }
     if (!hideDate) subtitleParts.push(new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
 
     // For Statement Info (showActions=true), explicitly add Credit/Debit and Payment Mode
@@ -65,14 +71,25 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
     const isCredit = item.isCredited;
 
     return (
-        <div className={`group flex items-center justify-between ${compact ? 'p-2' : 'p-3'} rounded-xl hover:bg-white/5 transition-all duration-200 border border-transparent hover:border-white/5 relative`}>
+        <div 
+            onClick={onClick}
+            className={`group flex items-center justify-between ${compact ? 'p-2' : 'p-3'} rounded-xl transition-all duration-200 border relative ${
+                onClick ? 'cursor-pointer' : ''
+            } ${
+                isHighlighted 
+                    ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
+                    : isDimmed 
+                        ? 'opacity-30 border-transparent grayscale-[50%]' 
+                        : 'hover:bg-white/5 border-transparent hover:border-white/5'
+            }`}
+        >
             <div className="flex items-center gap-3 overflow-hidden flex-1">
                 <div className={`${compact ? 'p-1.5' : 'p-2'} rounded-lg bg-opacity-20 flex-shrink-0 flex items-center justify-center`} style={{ backgroundColor: `${COLORS[Math.abs((item.category || '').length) % COLORS.length]}20`, color: COLORS[Math.abs((item.category || '').length) % COLORS.length] }}>
                     <IconComponent size={compact ? 14 : 18} />
                 </div>
                 <div className="overflow-hidden flex-1 min-w-0">
                     <h4 className={`text-white font-medium ${compact ? 'text-xs' : 'text-sm'} capitalize truncate`}>
-                        {item.title || item.category || 'Untitled'}
+                        {item.title || fullCategoryString || 'Untitled'}
                     </h4>
                     {subtitle && (
                         <p className="text-gray-500 text-[10px] mt-0.5 truncate flex items-center gap-1">
@@ -158,13 +175,15 @@ const CATEGORY_ICONS = {
 const ExpenseDetails = () => {
     const { year, month } = useParams();
     const navigate = useNavigate();
-    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [currentPage, setCurrentPage] = useState(1);
+    const [currentMainPage, setCurrentMainPage] = useState(1);
+    const [currentSubPage, setCurrentSubPage] = useState(1);
     const [graphType, setGraphType] = useState('bar');
     const [editingTransaction, setEditingTransaction] = useState(null);
     const [statementPage, setStatementPage] = useState(1);
     const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, id: null });
+    const [selectedCategoryHighlight, setSelectedCategoryHighlight] = useState(null);
     const ITEMS_PER_PAGE = 12;
     const STATEMENT_ITEMS_PER_PAGE = 10;
 
@@ -173,9 +192,11 @@ const ExpenseDetails = () => {
         const categories = monthData.categories || monthData;
 
         // Calculate category totals from transactions dynamically
-        // This ensures we can show non-deducted transactions in the breakdown even if they don't count towards the 'salary' balance
         const categoryTotals = {};
         const categoryDeductibles = {}; // To track what counts for totalNetExpenses
+
+        const mainCategoryTotals = {};
+        const mainCategoryDeductibles = {};
 
         // Initialize with existing categories from DB just in case, but rely on transactions for accuracy
         Object.entries(categories).forEach(([cat, val]) => {
@@ -189,7 +210,6 @@ const ExpenseDetails = () => {
         const activeTransactions = (monthData.transactions || []);
         if (activeTransactions.length > 0) {
             // Reset to 0 to rebuild strictly from transactions if they exist
-            // This avoids double counting if DB is sync but enables mixed states
             Object.keys(categoryTotals).forEach(k => { categoryTotals[k] = 0; categoryDeductibles[k] = 0; });
 
             activeTransactions.forEach(t => {
@@ -204,11 +224,14 @@ const ExpenseDetails = () => {
 
                 // Case insensitive matching
                 const targetKey = Object.keys(categoryTotals).find(k => k.toLowerCase() === cat.toLowerCase()) || cat;
-
                 categoryTotals[targetKey] = (categoryTotals[targetKey] || 0) + effective;
+
+                const mainCat = t.mainCategory || 'Miscellaneous';
+                mainCategoryTotals[mainCat] = (mainCategoryTotals[mainCat] || 0) + effective;
 
                 if (t.deductFromSalary !== false) {
                     categoryDeductibles[targetKey] = (categoryDeductibles[targetKey] || 0) + effective;
+                    mainCategoryDeductibles[mainCat] = (mainCategoryDeductibles[mainCat] || 0) + effective;
                 }
             });
         }
@@ -224,13 +247,22 @@ const ExpenseDetails = () => {
                 type: 'monthly'
             })).sort((a, b) => b.amount - a.amount);
 
+        const mainItems = Object.entries(mainCategoryTotals)
+            .filter(([_, amount]) => amount !== 0)
+            .map(([category, amount], index) => ({
+                id: `${year}-${month}-main-${category}-${index}`,
+                date: new Date(`${month} 1, ${year}`).toISOString(),
+                category: category,
+                amount: amount,
+                deductibleAmount: mainCategoryDeductibles[category] || 0,
+                type: 'monthly-main'
+            })).sort((a, b) => b.amount - a.amount);
+
         // Calculate totalNetExpenses using ONLY the deductible amounts
         const totalNetExpenses = items.reduce((sum, item) => sum + item.deductibleAmount, 0);
         // Calculate totalGrossExpenses using ALL amounts (deductible + non-deductible)
         const totalGrossExpenses = items.reduce((sum, item) => sum + item.amount, 0);
 
-        // Direct lookup for salary to ensure reactivity
-        // We check both the nested categories object and the root month object to handle different DB structures
         const findSalary = (obj) => {
             if (!obj) return 0;
             const key = Object.keys(obj).find(k => ['salary received', 'salary', 'income'].includes(k.toLowerCase()));
@@ -242,10 +274,22 @@ const ExpenseDetails = () => {
             salary = Number(monthData['salary received']);
         }
 
-        console.log('Debug - Salary Calculation:', { categories, salary }); // Debug log
+        // Add manual incomes from transactions
+        if (activeTransactions.length > 0) {
+            const hasSalaryTx = activeTransactions.some(t => ['salary received', 'salary'].includes((t.category || '').toLowerCase()));
+            const baseSalary = hasSalaryTx ? 0 : salary; 
+            
+            const manualIncome = activeTransactions
+                .filter(t => t.isCredited && (t.mainCategory === 'Income' || ['salary received', 'salary'].includes((t.category || '').toLowerCase())))
+                .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                
+            salary = baseSalary + manualIncome;
+        }
+
         const balance = salary - totalNetExpenses;
         const expensePercentage = salary > 0 ? Math.round((totalNetExpenses / salary) * 100) : 0;
         const balancePercentage = salary > 0 ? Math.round((balance / salary) * 100) : 0;
+
 
         // Spending Trend Data
         const daysInMonth = new Date(year, new Date(`${month} 1, ${year}`).getMonth() + 1, 0).getDate();
@@ -274,7 +318,7 @@ const ExpenseDetails = () => {
             }, {});
 
         const totalTransactionAmount = rawTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-        const unaccounted = Math.max(0, totalNetExpenses - totalTransactionAmount);
+        const unaccounted = Math.max(0, totalGrossExpenses - totalTransactionAmount);
 
         let runningTotal = 0;
         const trendData = Array.from({ length: daysInMonth }, (_, i) => {
@@ -300,25 +344,70 @@ const ExpenseDetails = () => {
         const totalCreditCardSpend = rawTransactions
             .filter(t => t.paymentMode === 'credit_card')
             .reduce((sum, t) => {
+                if (t.category && (t.category.toLowerCase() === 'credit card bill' || t.category.toLowerCase() === 'credit card payment')) {
+                    return sum;
+                }
                 const amount = Number(t.amount) || 0;
-                if (t.category === 'credit card bill') return sum - amount;
-                return t.isCredited ? sum - amount : sum + amount;
+                
+                // Do not subtract wallet loads or incomes from spends
+                if (t.isCredited) {
+                    if (t.category && ['food wallet', 'wallet load', 'deposit', 'income'].includes(t.category.toLowerCase())) {
+                        return sum; 
+                    }
+                    return sum - amount; // Regular refund
+                }
+                
+                return sum + amount;
             }, 0);
 
-        const creditCardStats = rawTransactions
+        const creditCardStats = {};
+        const walletStats = {};
+        
+        const wallets = (creditCards || []).filter(c => c.type === 'wallet');
+        
+        wallets.forEach(w => {
+            walletStats[w.name] = 0;
+            const targetMonthDate = new Date(`${month} 1, ${year}`);
+            Object.entries(expenses).forEach(([y, yData]) => {
+                Object.entries(yData).forEach(([m, mData]) => {
+                    const mDate = new Date(`${m} 1, ${y}`);
+                    if (mDate <= targetMonthDate && mData.transactions) {
+                        mData.transactions.forEach(t => {
+                            if (t.paymentMode === 'credit_card' && t.creditCardName === w.name) {
+                                if (t.isCredited) {
+                                    walletStats[w.name] += Number(t.amount) || 0;
+                                } else {
+                                    walletStats[w.name] -= Number(t.amount) || 0;
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+        });
+
+        rawTransactions
             .filter(t => t.paymentMode === 'credit_card' && t.creditCardName)
-            .reduce((acc, t) => {
+            .forEach(t => {
                 const card = t.creditCardName;
-                const amount = Number(t.amount) || 0;
-                const current = acc[card] || 0;
-                
-                if (t.category === 'credit card bill') {
-                    acc[card] = current - amount;
-                } else {
-                    acc[card] = t.isCredited ? current - amount : current + amount;
+                if (wallets.some(w => w.name === card)) return;
+
+                if (t.category && (t.category.toLowerCase() === 'credit card bill' || t.category.toLowerCase() === 'credit card payment')) {
+                    return;
                 }
-                return acc;
-            }, {});
+                const amount = Number(t.amount) || 0;
+                const current = creditCardStats[card] || 0;
+                
+                if (t.isCredited) {
+                    if (t.category && ['food wallet', 'wallet load', 'deposit', 'income'].includes(t.category.toLowerCase())) {
+                        creditCardStats[card] = current; 
+                    } else {
+                        creditCardStats[card] = current - amount;
+                    }
+                } else {
+                    creditCardStats[card] = current + amount;
+                }
+            });
 
         return {
             items,
@@ -332,9 +421,28 @@ const ExpenseDetails = () => {
             balancePercentage,
             trendData,
             totalCreditCardSpend,
-            creditCardStats
+            creditCardStats,
+            walletStats,
+            mainItems
         };
-    }, [expenses, year, month, salaryStats]);
+    }, [expenses, creditCards, year, month, salaryStats]);
+
+    const displayTransactions = useMemo(() => {
+        let txs = monthDetails.rawTransactions;
+        if (selectedCategoryHighlight) {
+            txs = txs.filter(t => 
+                selectedCategoryHighlight.type === 'main' 
+                    ? (t.mainCategory || 'Miscellaneous') === selectedCategoryHighlight.name 
+                    : (t.category || 'others') === selectedCategoryHighlight.name
+            );
+        }
+        return txs;
+    }, [monthDetails.rawTransactions, selectedCategoryHighlight]);
+
+    // Reset statement page when filter changes
+    React.useEffect(() => {
+        setStatementPage(1);
+    }, [selectedCategoryHighlight]);
 
     const handleSaveTransaction = (transaction) => {
         if (transaction.id) updateItem('expense', transaction);
@@ -427,15 +535,15 @@ const ExpenseDetails = () => {
                         </div>
                     </div>
 
-                    {/* Category Breakdown Area */}
-                    <div className="card border border-white/5">
+                    {/* Main Category Breakdown Area */}
+                    <div className="card border border-white/5 mb-6">
                         <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-xl font-bold">Category Breakdown</h3>
+                            <h3 className="text-xl font-bold">Main Category Breakdown</h3>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {monthDetails.items
-                                .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+                            {monthDetails.mainItems
+                                .slice((currentMainPage - 1) * ITEMS_PER_PAGE, currentMainPage * ITEMS_PER_PAGE)
                                 .map((item, index) => (
                                     <TransactionItem
                                         key={index}
@@ -443,6 +551,53 @@ const ExpenseDetails = () => {
                                         formatCurrency={formatCurrency}
                                         showActions={false}
                                         hideDate={true}
+                                        onClick={() => setSelectedCategoryHighlight(
+                                            selectedCategoryHighlight?.name === item.category && selectedCategoryHighlight?.type === 'main'
+                                                ? null 
+                                                : { type: 'main', name: item.category }
+                                        )}
+                                        isHighlighted={selectedCategoryHighlight?.type === 'main' && selectedCategoryHighlight?.name === item.category}
+                                        isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'main' || selectedCategoryHighlight.name !== item.category)}
+                                    />
+                                ))
+                            }
+                        </div>
+
+                        {/* Pagination */}
+                        {monthDetails.mainItems.length > ITEMS_PER_PAGE && (
+                            <div className="flex items-center justify-between mt-10 pt-6 border-t border-white/5">
+                                <span className="text-xs font-medium text-gray-500">Page {currentMainPage} of {Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE)}</span>
+                                <div className="flex gap-2">
+                                    <button onClick={() => setCurrentMainPage(p => Math.max(1, p - 1))} disabled={currentMainPage === 1} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronLeft size={18} /></button>
+                                    <button onClick={() => setCurrentMainPage(p => Math.min(Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE), p + 1))} disabled={currentMainPage === Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronRight size={18} /></button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Sub Category Breakdown Area */}
+                    <div className="card border border-white/5">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-bold">Sub Category Breakdown</h3>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {monthDetails.items
+                                .slice((currentSubPage - 1) * ITEMS_PER_PAGE, currentSubPage * ITEMS_PER_PAGE)
+                                .map((item, index) => (
+                                    <TransactionItem
+                                        key={index}
+                                        item={item}
+                                        formatCurrency={formatCurrency}
+                                        showActions={false}
+                                        hideDate={true}
+                                        onClick={() => setSelectedCategoryHighlight(
+                                            selectedCategoryHighlight?.name === item.category && selectedCategoryHighlight?.type === 'sub'
+                                                ? null 
+                                                : { type: 'sub', name: item.category }
+                                        )}
+                                        isHighlighted={selectedCategoryHighlight?.type === 'sub' && selectedCategoryHighlight?.name === item.category}
+                                        isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'sub' || selectedCategoryHighlight.name !== item.category)}
                                     />
                                 ))
                             }
@@ -451,10 +606,10 @@ const ExpenseDetails = () => {
                         {/* Pagination */}
                         {monthDetails.items.length > ITEMS_PER_PAGE && (
                             <div className="flex items-center justify-between mt-10 pt-6 border-t border-white/5">
-                                <span className="text-xs font-medium text-gray-500">Page {currentPage} of {Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)}</span>
+                                <span className="text-xs font-medium text-gray-500">Page {currentSubPage} of {Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)}</span>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronLeft size={18} /></button>
-                                    <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE), p + 1))} disabled={currentPage === Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronRight size={18} /></button>
+                                    <button onClick={() => setCurrentSubPage(p => Math.max(1, p - 1))} disabled={currentSubPage === 1} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronLeft size={18} /></button>
+                                    <button onClick={() => setCurrentSubPage(p => Math.min(Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE), p + 1))} disabled={currentSubPage === Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronRight size={18} /></button>
                                 </div>
                             </div>
                         )}
@@ -473,15 +628,25 @@ const ExpenseDetails = () => {
                             <div className="flex-1 flex justify-between items-center">
                                 <h3 className="text-lg font-bold text-white">Statement Info</h3>
                                 <span className="text-[10px] font-bold bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded-lg">
-                                    {monthDetails.rawTransactions.length} Total
+                                    {displayTransactions.length} Total
                                 </span>
                             </div>
                         </div>
 
                         <div className="flex-1 space-y-2 min-h-[300px]">
-                            <p className="text-[10px] font-black text-indigo-400/50 uppercase tracking-widest mb-4 ml-1">Latest Transactions</p>
-                            {monthDetails.rawTransactions.length > 0 ? (
-                                monthDetails.rawTransactions
+                            <div className="flex justify-between items-center mb-4 ml-1">
+                                <p className="text-[10px] font-black text-indigo-400/50 uppercase tracking-widest">Latest Transactions</p>
+                                {selectedCategoryHighlight && (
+                                    <button 
+                                        onClick={() => setSelectedCategoryHighlight(null)}
+                                        className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold bg-emerald-500/10 px-2 py-1 rounded-md transition-colors"
+                                    >
+                                        Clear Filter
+                                    </button>
+                                )}
+                            </div>
+                            {displayTransactions.length > 0 ? (
+                                displayTransactions
                                     .slice((statementPage - 1) * STATEMENT_ITEMS_PER_PAGE, statementPage * STATEMENT_ITEMS_PER_PAGE)
                                     .map((item, index) => (
                                         <TransactionItem
@@ -492,17 +657,18 @@ const ExpenseDetails = () => {
                                             showActions={true}
                                             onEdit={(i) => { setEditingTransaction(i); setIsModalOpen(true); }}
                                             onDelete={handleDeleteTransaction}
+                                            isHighlighted={!!selectedCategoryHighlight}
                                         />
                                     ))
                             ) : (
                                 <div className="py-8 text-center">
-                                    <p className="text-xs text-gray-600">No individual transactions recorded.</p>
+                                    <p className="text-xs text-gray-600">No transactions match the selected category.</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Statement Pagination */}
-                        {monthDetails.rawTransactions.length > STATEMENT_ITEMS_PER_PAGE && (
+                        {displayTransactions.length > STATEMENT_ITEMS_PER_PAGE && (
                             <div className="mt-6 pt-4 border-t border-indigo-500/10 flex justify-between items-center">
                                 <button
                                     onClick={() => setStatementPage(p => Math.max(1, p - 1))}
@@ -512,11 +678,11 @@ const ExpenseDetails = () => {
                                     <ChevronLeft size={16} />
                                 </button>
                                 <span className="text-xs font-bold text-indigo-300">
-                                    Page {statementPage} of {Math.ceil(monthDetails.rawTransactions.length / STATEMENT_ITEMS_PER_PAGE)}
+                                    Page {statementPage} of {Math.ceil(displayTransactions.length / STATEMENT_ITEMS_PER_PAGE)}
                                 </span>
                                 <button
-                                    onClick={() => setStatementPage(p => Math.min(Math.ceil(monthDetails.rawTransactions.length / STATEMENT_ITEMS_PER_PAGE), p + 1))}
-                                    disabled={statementPage === Math.ceil(monthDetails.rawTransactions.length / STATEMENT_ITEMS_PER_PAGE)}
+                                    onClick={() => setStatementPage(p => Math.min(Math.ceil(displayTransactions.length / STATEMENT_ITEMS_PER_PAGE), p + 1))}
+                                    disabled={statementPage === Math.ceil(displayTransactions.length / STATEMENT_ITEMS_PER_PAGE)}
                                     className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
                                 >
                                     <ChevronRight size={16} />
@@ -549,6 +715,37 @@ const ExpenseDetails = () => {
                                 <div className="pt-4 border-t border-purple-500/10 flex justify-between items-center">
                                     <span className="text-xs text-purple-400 font-bold uppercase tracking-wider">Total Credit</span>
                                     <span className="text-lg font-black text-white">{formatCurrency(monthDetails.totalCreditCardSpend)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Wallet Summary */}
+                    {Object.keys(monthDetails.walletStats).length > 0 && (
+                        <div className="card bg-emerald-500/5 border border-emerald-500/10">
+                            <div className="flex items-center gap-3 mb-6">
+                                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+                                    <Wallet size={20} />
+                                </div>
+                                <h3 className="text-lg font-bold text-white">Wallets Summary</h3>
+                            </div>
+                            <div className="space-y-4">
+                                {Object.entries(monthDetails.walletStats).map(([walletName, amount]) => (
+                                    <div key={walletName} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-8 h-5 rounded bg-gradient-to-br from-emerald-700 to-emerald-900 border border-white/10 flex items-center justify-center">
+                                                <div className="w-4 h-3 bg-white/10 rounded-sm" />
+                                            </div>
+                                            <span className="text-sm font-medium text-gray-300">{walletName}</span>
+                                        </div>
+                                        <span className="text-sm font-black text-emerald-400">{formatCurrency(amount)}</span>
+                                    </div>
+                                ))}
+                                <div className="pt-4 border-t border-emerald-500/10 flex justify-between items-center">
+                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Total Available</span>
+                                    <span className="text-lg font-black text-white">
+                                        {formatCurrency(Object.values(monthDetails.walletStats).reduce((a, b) => a + b, 0))}
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -590,6 +787,14 @@ const ExpenseDetails = () => {
                 onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }}
                 onAdd={handleSaveTransaction}
                 initialData={editingTransaction}
+                defaultDate={(() => {
+                    const today = new Date();
+                    const targetMonthDate = new Date(`${month} 1, ${year}`);
+                    if (today.getMonth() !== targetMonthDate.getMonth() || today.getFullYear() !== targetMonthDate.getFullYear()) {
+                        return targetMonthDate;
+                    }
+                    return today;
+                })()}
             />
         </div>
     );

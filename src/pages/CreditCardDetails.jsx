@@ -39,6 +39,24 @@ const CreditCardDetails = () => {
         return spend;
     };
 
+    const getWalletBalance = (card) => {
+        let balance = 0;
+        if (expenses) {
+            Object.values(expenses).forEach(yearData => {
+                Object.values(yearData).forEach(monthData => {
+                    if (monthData.transactions) {
+                        monthData.transactions.forEach(tx => {
+                            if (tx.paymentMode === 'credit_card' && tx.creditCardName === card.name) {
+                                balance += tx.isCredited ? Number(tx.amount) : -Number(tx.amount);
+                            }
+                        });
+                    }
+                });
+            });
+        }
+        return balance;
+    };
+
     const handleSave = async (card) => {
         if (editingCard) {
             await updateItem('creditCards', card);
@@ -63,6 +81,7 @@ const CreditCardDetails = () => {
     };
 
     const totalDue = creditCards.reduce((sum, card) => {
+        if (card.type === 'wallet') return sum;
         const billPending = (card.monthlyData || [])
             .filter(m => !m.isPaid)
             .reduce((s, m) => s + (Number(m.billAmount) || 0), 0);
@@ -165,29 +184,51 @@ const CreditCardDetails = () => {
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-2 gap-4 my-6">
-                                    <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                                        <p className="text-xs text-secondary uppercase tracking-wider mb-1">Limit</p>
-                                        <p className="font-mono font-bold text-white">{formatCurrency(card.creditLimit)}</p>
+                                {card.type === 'wallet' ? (
+                                    <div className="grid grid-cols-2 gap-4 my-6">
+                                        <div className="bg-emerald-500/10 rounded-xl p-3 border border-emerald-500/20">
+                                            <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1">Available</p>
+                                            <p className="font-mono font-bold text-emerald-400">{formatCurrency(getWalletBalance(card))}</p>
+                                        </div>
+                                        {card.autoCredit ? (
+                                            <div className="bg-black/20 rounded-xl p-3 border border-white/5">
+                                                <p className="text-xs text-secondary uppercase tracking-wider mb-1">Auto-Load</p>
+                                                <p className="font-mono font-bold text-white">{formatCurrency(card.autoCredit.amount)} <span className="text-[10px] text-gray-500 font-sans font-normal">(Day {card.autoCredit.dayOfMonth})</span></p>
+                                            </div>
+                                        ) : (
+                                            <div className="bg-black/20 rounded-xl p-3 border border-white/5">
+                                                <p className="text-xs text-secondary uppercase tracking-wider mb-1">Wallet</p>
+                                                <p className="font-mono font-bold text-gray-400">Manual</p>
+                                            </div>
+                                        )}
                                     </div>
-                                    <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                                        <p className="text-xs text-secondary uppercase tracking-wider mb-1">{isUnbilled ? 'Unbilled' : 'To Pay'}</p>
-                                        <p className={`font-mono font-bold flex items-center gap-1 ${displayDue > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                                            {formatCurrency(displayDue)}
-                                        </p>
+                                ) : (
+                                    <div className="grid grid-cols-2 gap-4 my-6">
+                                        <div className="bg-black/20 rounded-xl p-3 border border-white/5">
+                                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">Limit</p>
+                                            <p className="font-mono font-bold text-white">{formatCurrency(card.creditLimit)}</p>
+                                        </div>
+                                        <div className="bg-black/20 rounded-xl p-3 border border-white/5">
+                                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">{isUnbilled ? 'Unbilled' : 'To Pay'}</p>
+                                            <p className={`font-mono font-bold flex items-center gap-1 ${displayDue > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                                                {formatCurrency(displayDue)}
+                                            </p>
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="flex items-center justify-between text-sm pt-4 border-t border-white/5">
                                     <div className="flex items-center gap-2 text-gray-400">
                                         <div className="font-mono bg-white/5 px-2 py-1 rounded">
-                                            •••• {card.last4Digits}
+                                            {card.type === 'wallet' ? 'Wallet' : `•••• ${card.last4Digits}`}
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-1.5 text-purple-400">
-                                        <Calendar size={14} />
-                                        <span>Due: {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} {new Date().toLocaleString('default', { month: 'short' })}</span>
-                                    </div>
+                                    {card.type !== 'wallet' && (
+                                        <div className="flex items-center gap-1.5 text-purple-400">
+                                            <Calendar size={14} />
+                                            <span>Due: {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} {new Date().toLocaleString('default', { month: 'short' })}</span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

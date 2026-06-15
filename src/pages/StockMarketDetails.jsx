@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, Archive } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -145,8 +145,8 @@ const StockMarketDetails = () => {
         stock.ticker.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    const activeStocks = filteredStocks.filter(stock => stock.shares > 0);
-    const archivedStocks = filteredStocks.filter(stock => stock.shares === 0);
+    const activeStocks = filteredStocks.filter(stock => !stock.isArchived && stock.shares > 0);
+    const archivedStocks = filteredStocks.filter(stock => stock.isArchived || stock.shares === 0);
 
     // Calculate aggregate stats
     let totalInvested = 0;
@@ -268,6 +268,17 @@ const StockMarketDetails = () => {
         const updatedMarket = { ...market, stocks: updatedStocks };
         await updateItem('savings', updatedMarket);
         setStockToDelete(null);
+    };
+
+    const handleArchiveToggle = async (stockId, archiveStatus) => {
+        const updatedStocks = stocks.map(s => {
+            if (s.id === stockId) {
+                return { ...s, isArchived: archiveStatus };
+            }
+            return s;
+        });
+        const updatedMarket = { ...market, stocks: updatedStocks };
+        await updateItem('savings', updatedMarket);
     };
 
     const handleAddColumn = async (e) => {
@@ -470,6 +481,16 @@ const StockMarketDetails = () => {
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
+                                                    handleArchiveToggle(stock.id, true);
+                                                }}
+                                                className="p-1.5 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-white transition-colors"
+                                                title="Archive Stock"
+                                            >
+                                                <Archive size={16} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
                                                     handleDeleteStock(stock.id);
                                                 }}
                                                 className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
@@ -625,6 +646,18 @@ const StockMarketDetails = () => {
                                                         >
                                                             <Edit2 size={16} />
                                                         </button>
+                                                        {stock.isArchived && stock.shares > 0 && (
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleArchiveToggle(stock.id, false);
+                                                                }}
+                                                                className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors"
+                                                                title="Unarchive Stock"
+                                                            >
+                                                                <RefreshCw size={16} />
+                                                            </button>
+                                                        )}
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();

@@ -186,7 +186,7 @@ const AllTransactions = () => {
                                         </td>
                                         <td className="py-4 px-6">
                                             <span className="px-3 py-1 rounded-lg text-xs font-bold bg-white/5 text-gray-300 uppercase tracking-wider border border-white/5 group-hover:border-white/10 transition-colors">
-                                                {t.category}
+                                                {t.mainCategory ? `${t.mainCategory} • ${t.category}` : t.category}
                                             </span>
                                         </td>
                                         <td className="py-4 px-6">
