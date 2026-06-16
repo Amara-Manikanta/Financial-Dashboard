@@ -1,14 +1,55 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Calendar, ChevronDown, ChevronUp, BarChart3, Plus, X } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, BarChart3, Plus, X, Upload, Loader2 } from 'lucide-react';
+import { processBankStatement, mergeTransactionsIntoExpenses } from '../utils/importUtils';
 
 const Expenses = () => {
-    const { expenses, formatCurrency, salaryStats, addNewYear } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addNewYear, categoryRules, updateCategoryRules, saveExpenses } = useFinance();
     const navigate = useNavigate();
-    const [collapsedYears, setCollapsedYears] = useState(new Set());
+    const [expandedYears, setExpandedYears] = useState(new Set());
     const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
     const [newYear, setNewYear] = useState(new Date().getFullYear() + 1);
+    const fileInputRef = React.useRef(null);
+    const [isImporting, setIsImporting] = useState(false);
+    const [notification, setNotification] = useState(null);
+
+    React.useEffect(() => {
+        if (notification) {
+            const timer = setTimeout(() => setNotification(null), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [notification]);
+
+    const handleImportStatement = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        setIsImporting(true);
+        try {
+            const { newTransactions, updatedRules } = await processBankStatement(file, categoryRules);
+            
+            // Only update rules if we learned new ones
+            if (Object.keys(updatedRules).length > Object.keys(categoryRules).length) {
+                await updateCategoryRules(updatedRules);
+            }
+
+            const { updatedExpenses, addedCount } = mergeTransactionsIntoExpenses(expenses, newTransactions);
+            
+            if (addedCount > 0) {
+                await saveExpenses(updatedExpenses);
+                setNotification({ type: 'success', message: `Successfully imported ${addedCount} new transactions!` });
+            } else {
+                setNotification({ type: 'info', message: 'No new transactions found in the file.' });
+            }
+        } catch (error) {
+            console.error("Failed to import statement:", error);
+            setNotification({ type: 'error', message: 'Failed to read the statement. Ensure it is a valid Excel file.' });
+        } finally {
+            setIsImporting(false);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        }
+    };
 
     const expenseGroups = useMemo(() => {
         const groups = {};
@@ -78,7 +119,7 @@ const Expenses = () => {
     }, [expenseGroups, salaryStats]);
 
     const toggleYear = (year) => {
-        setCollapsedYears(prev => {
+        setExpandedYears(prev => {
             const newSet = new Set(prev);
             if (newSet.has(year)) {
                 newSet.delete(year);
@@ -91,23 +132,57 @@ const Expenses = () => {
 
     const handleAddYear = async (e) => {
         e.preventDefault();
+        const yearNum = Number(newYear);
+        if (!newYear || isNaN(yearNum) || yearNum < 2000 || yearNum > 2100) {
+            setNotification({ type: 'error', message: 'Please enter a valid year between 2000 and 2100' });
+            return;
+        }
         try {
-            await addNewYear(newYear.toString());
+            await addNewYear(yearNum.toString());
             setIsAddYearModalOpen(false);
             setNewYear(new Date().getFullYear() + 1);
+            setNotification({ type: 'success', message: `Year ${yearNum} initialized successfully!` });
         } catch (error) {
-            alert(error.message);
+            setNotification({ type: 'error', message: error.message });
         }
     };
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto">
+        <div className="p-8 max-w-[1600px] mx-auto relative">
+            {notification && (
+                <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-2xl animate-in slide-in-from-top-4 ${
+                    notification.type === 'error' ? 'bg-red-500/10 border border-red-500/20 text-red-400' :
+                    notification.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
+                    'bg-blue-500/10 border border-blue-500/20 text-blue-400'
+                }`}>
+                    <span className="font-bold text-sm tracking-wide">{notification.message}</span>
+                    <button onClick={() => setNotification(null)} className="opacity-50 hover:opacity-100 transition-opacity">
+                        <X size={16} />
+                    </button>
+                </div>
+            )}
+            
             <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6">
                 <div>
                     <h2 className="text-5xl font-black text-white tracking-tighter mb-4">Expenses History</h2>
                     <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs">Track and analyze your spending over time</p>
                 </div>
                 <div className="flex items-center gap-4 w-full lg:w-auto">
+                    <input 
+                        type="file" 
+                        accept=".xlsx, .xls, .csv" 
+                        ref={fileInputRef} 
+                        style={{ display: 'none' }} 
+                        onChange={handleImportStatement} 
+                    />
+                    <button 
+                        onClick={() => fileInputRef.current?.click()} 
+                        disabled={isImporting}
+                        className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white/[0.03] hover:bg-white/[0.08] text-white font-black py-4 px-8 rounded-2xl border border-white/5 transition-all active:scale-95 text-xs uppercase tracking-widest disabled:opacity-50"
+                    >
+                        {isImporting ? <Loader2 size={18} className="animate-spin text-gray-400" /> : <Upload size={18} className="text-emerald-400" />}
+                        <span>{isImporting ? 'Importing...' : 'Import Statement'}</span>
+                    </button>
                     <button
                         onClick={() => setIsAddYearModalOpen(true)}
                         className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white/[0.03] hover:bg-white/[0.08] text-white font-black py-4 px-8 rounded-2xl border border-white/5 transition-all active:scale-95 text-xs uppercase tracking-widest"
@@ -132,7 +207,7 @@ const Expenses = () => {
                 </div>
             ) : (
                 years.map(year => {
-                    const isCollapsed = collapsedYears.has(year);
+                    const isCollapsed = !expandedYears.has(year);
                     const yearlyTotalExpenses = expenseGroups[year]
                         ? Object.values(expenseGroups[year]).reduce((acc, month) => acc + month.total, 0)
                         : 0;
@@ -162,14 +237,22 @@ const Expenses = () => {
                                 </div>
                             </div>
 
-                            {!isCollapsed && expenseGroups[year] && (
+                            {!isCollapsed && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-2">
-                                    {Object.entries(expenseGroups[year])
+                                    {(!expenseGroups[year] || Object.keys(expenseGroups[year]).length === 0) ? (
+                                        <div className="col-span-full py-12 text-center border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
+                                            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No data for this year</p>
+                                        </div>
+                                    ) : Object.entries(expenseGroups[year])
                                         .sort(([a], [b]) => Number(a) - Number(b))
                                         .map(([index, data]) => {
                                             const monthlySalary = salaryStats[year]?.months[data.name] || 0;
                                             const balance = monthlySalary - data.total;
                                             const isDeficit = balance < 0;
+
+                                            const maxAmount = Math.max(monthlySalary, data.total, 1);
+                                            const incomePercent = Math.min((monthlySalary / maxAmount) * 100, 100);
+                                            const expensePercent = Math.min((data.total / maxAmount) * 100, 100);
 
                                             return (
                                                 <div
@@ -191,7 +274,10 @@ const Expenses = () => {
                                                                 <span className="text-emerald-400">{formatCurrency(monthlySalary)}</span>
                                                             </div>
                                                             <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
-                                                                <div className="bg-emerald-500 h-full w-full opacity-30" />
+                                                                <div 
+                                                                    className="bg-emerald-500 h-full transition-all duration-1000" 
+                                                                    style={{ width: `${incomePercent}%` }} 
+                                                                />
                                                             </div>
                                                         </div>
 
@@ -203,7 +289,7 @@ const Expenses = () => {
                                                             <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
                                                                 <div
                                                                     className="bg-rose-500 h-full transition-all duration-1000"
-                                                                    style={{ width: `${Math.min((data.total / (monthlySalary || 1)) * 100, 100)}%` }}
+                                                                    style={{ width: `${expensePercent}%` }}
                                                                 />
                                                             </div>
                                                         </div>
@@ -252,7 +338,7 @@ const Expenses = () => {
                                 <div className="flex items-center justify-between bg-black/40 border border-white/10 rounded-3xl p-4">
                                     <button 
                                         type="button" 
-                                        onClick={() => setNewYear(prev => prev - 1)}
+                                        onClick={() => setNewYear(prev => prev === '' ? new Date().getFullYear() : Number(prev) - 1)}
                                         className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all active:scale-95"
                                     >
                                         <div className="w-4 h-[2px] bg-current rounded-full" />
@@ -270,7 +356,7 @@ const Expenses = () => {
                                     />
                                     <button 
                                         type="button" 
-                                        onClick={() => setNewYear(prev => prev + 1)}
+                                        onClick={() => setNewYear(prev => prev === '' ? new Date().getFullYear() : Number(prev) + 1)}
                                         className="w-14 h-14 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all active:scale-95 relative"
                                     >
                                         <div className="w-4 h-[2px] bg-current rounded-full absolute" />

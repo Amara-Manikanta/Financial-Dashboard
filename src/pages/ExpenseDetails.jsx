@@ -439,6 +439,14 @@ const ExpenseDetails = () => {
         return txs;
     }, [monthDetails.rawTransactions, selectedCategoryHighlight]);
 
+    // Reset pagination and filters on route change
+    React.useEffect(() => {
+        setStatementPage(1);
+        setCurrentMainPage(1);
+        setCurrentSubPage(1);
+        setSelectedCategoryHighlight(null);
+    }, [year, month]);
+
     // Reset statement page when filter changes
     React.useEffect(() => {
         setStatementPage(1);
@@ -461,12 +469,43 @@ const ExpenseDetails = () => {
         setDeleteConfirm({ isOpen: false, id: null });
     };
 
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    const currentMonthIndex = MONTHS.indexOf(month);
+    
+    let prevMonth = '', prevYear = year;
+    let nextMonth = '', nextYear = year;
+
+    if (currentMonthIndex > 0) {
+        prevMonth = MONTHS[currentMonthIndex - 1];
+    } else {
+        prevMonth = MONTHS[11];
+        prevYear = String(Number(year) - 1);
+    }
+
+    if (currentMonthIndex < 11) {
+        nextMonth = MONTHS[currentMonthIndex + 1];
+    } else {
+        nextMonth = MONTHS[0];
+        nextYear = String(Number(year) + 1);
+    }
+
+    const handlePrevMonth = () => navigate(`/expenses/${prevYear}/${prevMonth}`);
+    const handleNextMonth = () => navigate(`/expenses/${nextYear}/${nextMonth}`);
+
     if (!expenses[year] || !expenses[year][month]) {
         return (
             <div className="container min-h-[60vh] flex flex-col items-center justify-center text-center">
                 <Calendar size={48} className="text-gray-600 mb-6" />
                 <h2 className="text-2xl font-bold mb-2">Month {month} {year} not found</h2>
-                <button onClick={() => navigate(-1)} className="mt-4 px-6 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">Go Back</button>
+                <div className="flex items-center gap-4 mt-6">
+                    <button onClick={handlePrevMonth} className="px-6 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-2">
+                        <ChevronLeft size={16} /> Previous
+                    </button>
+                    <button onClick={() => navigate('/expenses')} className="px-6 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">Go Back</button>
+                    <button onClick={handleNextMonth} className="px-6 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors flex items-center gap-2">
+                        Next <ChevronRight size={16} />
+                    </button>
+                </div>
             </div>
         );
     }
@@ -479,7 +518,17 @@ const ExpenseDetails = () => {
                     <button onClick={() => navigate('/expenses')} className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-2 text-sm">
                         <ArrowLeft size={14} /> All Expenses
                     </button>
-                    <h1 className="text-4xl font-black tracking-tight">{month} <span className="opacity-30">{year}</span></h1>
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-4xl font-black tracking-tight">{month} <span className="opacity-30">{year}</span></h1>
+                        <div className="flex items-center gap-2 ml-4">
+                            <button onClick={handlePrevMonth} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all" title={`Go to ${prevMonth} ${prevYear}`}>
+                                <ChevronLeft size={20} />
+                            </button>
+                            <button onClick={handleNextMonth} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all" title={`Go to ${nextMonth} ${nextYear}`}>
+                                <ChevronRight size={20} />
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 <button onClick={() => setIsModalOpen(true)} className="px-6 py-3 rounded-2xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center gap-2">
                     <Plus size={20} /> Add Expense
@@ -546,7 +595,7 @@ const ExpenseDetails = () => {
                                 .slice((currentMainPage - 1) * ITEMS_PER_PAGE, currentMainPage * ITEMS_PER_PAGE)
                                 .map((item, index) => (
                                     <TransactionItem
-                                        key={index}
+                                        key={item.id}
                                         item={item}
                                         formatCurrency={formatCurrency}
                                         showActions={false}
@@ -586,7 +635,7 @@ const ExpenseDetails = () => {
                                 .slice((currentSubPage - 1) * ITEMS_PER_PAGE, currentSubPage * ITEMS_PER_PAGE)
                                 .map((item, index) => (
                                     <TransactionItem
-                                        key={index}
+                                        key={item.id}
                                         item={item}
                                         formatCurrency={formatCurrency}
                                         showActions={false}

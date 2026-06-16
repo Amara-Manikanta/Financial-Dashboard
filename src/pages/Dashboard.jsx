@@ -17,11 +17,11 @@ import {
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { savings, metals, assets, formatCurrency, calculateItemCurrentValue, addItem } = useFinance();
+    const { savings, metals, assets, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const handleSaveTransaction = (transaction) => {
-        addItem('expense', transaction);
+    const handleSaveTransaction = async (transaction) => {
+        await addItem('expense', transaction);
         setIsModalOpen(false);
     };
 
@@ -51,6 +51,35 @@ const Dashboard = () => {
         const nps = savings.filter(s => s.type === 'nps').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
         const sgb = savings.filter(s => s.type === 'sgb').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
 
+        // Growth Index and Health
+        const totalInvestedSavings = savings.reduce((sum, item) => sum + (calculateItemInvestedValue(item) || calculateItemCurrentValue(item)), 0);
+        const totalInvestedAssets = assets.reduce((total, cat) =>
+            total + cat.items.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0), 0
+        );
+        const totalInvestedMetals = (metals.gold?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0) +
+                                    (metals.silver?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0) +
+                                    (metals.antique_coins?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0) +
+                                    (metals.currencies?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0);
+
+        const totalInvested = totalInvestedSavings + totalInvestedAssets + totalInvestedMetals;
+        const growthIndexValue = totalInvested > 0 ? (((netWorth - totalInvested) / totalInvested) * 100) : 0;
+        
+        let assetHealth = "Stable";
+        let healthColor = "text-blue-400";
+        if (growthIndexValue > 15) {
+            assetHealth = "Excellent";
+            healthColor = "text-emerald-400";
+        } else if (growthIndexValue < -5) {
+            assetHealth = "Volatile";
+            healthColor = "text-rose-400";
+        } else if (growthIndexValue > 5) {
+            assetHealth = "Good";
+            healthColor = "text-emerald-400";
+        }
+
+        const growthIndex = growthIndexValue > 0 ? `+${growthIndexValue.toFixed(1)}%` : `${growthIndexValue.toFixed(1)}%`;
+        const growthColor = growthIndexValue > 0 ? "text-emerald-400" : (growthIndexValue < 0 ? "text-rose-400" : "text-gray-400");
+
         return {
             netWorth,
             totalSavings,
@@ -67,9 +96,13 @@ const Dashboard = () => {
             mf,
             ppf,
             nps,
-            sgb
+            sgb,
+            growthIndex,
+            growthColor,
+            assetHealth,
+            healthColor
         };
-    }, [savings, metals, assets, calculateItemCurrentValue]);
+    }, [savings, metals, assets, calculateItemCurrentValue, calculateItemInvestedValue]);
 
     return (
         <div className="animate-fade-in space-y-8 pb-12">
@@ -107,11 +140,11 @@ const Dashboard = () => {
                 <div className="relative z-10 grid grid-cols-2 gap-4 w-full md:w-auto">
                     <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/5 min-w-[140px]">
                         <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mb-1">Growth Index</p>
-                        <p className="text-xl font-bold text-success">+12.4%</p>
+                        <p className={`text-xl font-bold ${stats.growthColor}`}>{stats.growthIndex}</p>
                     </div>
                     <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/5 min-w-[140px]">
                         <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mb-1">Asset Health</p>
-                        <p className="text-xl font-bold text-blue-400">Stable</p>
+                        <p className={`text-xl font-bold ${stats.healthColor}`}>{stats.assetHealth}</p>
                     </div>
                 </div>
             </div>

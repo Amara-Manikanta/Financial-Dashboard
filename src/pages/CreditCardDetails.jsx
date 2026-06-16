@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Plus, CreditCard, Calendar, Building, Trash2, Edit2, ArrowRight } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import CreditCardModal from '../components/CreditCardModal';
 import { useNavigate } from 'react-router-dom';
+import ConfirmModal from '../components/ConfirmModal';
 
 const CreditCardDetails = () => {
     const { creditCards, expenses, addItem, updateItem, deleteItem, formatCurrency } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingCard, setEditingCard] = useState(null);
+    const [deletingCardId, setDeletingCardId] = useState(null);
     const navigate = useNavigate();
 
     const getCardSpend = (card) => {
@@ -69,9 +71,7 @@ const CreditCardDetails = () => {
 
     const handleDelete = async (e, id) => {
         e.stopPropagation();
-        if (window.confirm('Are you sure you want to delete this credit card?')) {
-            await deleteItem('creditCards', id);
-        }
+        setDeletingCardId(id);
     };
 
     const handleEdit = (e, card) => {
@@ -80,13 +80,13 @@ const CreditCardDetails = () => {
         setIsModalOpen(true);
     };
 
-    const totalDue = creditCards.reduce((sum, card) => {
+    const totalDue = useMemo(() => creditCards.reduce((sum, card) => {
         if (card.type === 'wallet') return sum;
         const billPending = (card.monthlyData || [])
             .filter(m => !m.isPaid)
             .reduce((s, m) => s + (Number(m.billAmount) || 0), 0);
         return sum + (billPending > 0 ? billPending : getCardSpend(card));
-    }, 0);
+    }, 0), [creditCards, expenses]);
 
     return (
         <div className="space-y-8 animate-fade-in pb-20">
@@ -220,7 +220,7 @@ const CreditCardDetails = () => {
                                 <div className="flex items-center justify-between text-sm pt-4 border-t border-white/5">
                                     <div className="flex items-center gap-2 text-gray-400">
                                         <div className="font-mono bg-white/5 px-2 py-1 rounded">
-                                            {card.type === 'wallet' ? 'Wallet' : `•••• ${card.last4Digits}`}
+                                            {card.type === 'wallet' ? 'Wallet' : card.last4Digits ? `•••• ${card.last4Digits}` : 'Card'}
                                         </div>
                                     </div>
                                     {card.type !== 'wallet' && (
@@ -254,6 +254,14 @@ const CreditCardDetails = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSave}
                 initialData={editingCard}
+            />
+            <ConfirmModal
+                isOpen={!!deletingCardId}
+                onClose={() => setDeletingCardId(null)}
+                onConfirm={async () => { await deleteItem('creditCards', deletingCardId); setDeletingCardId(null); }}
+                title="Delete Card"
+                message="Are you sure you want to delete this credit card? All associated data will be lost."
+                confirmText="Delete"
             />
         </div >
     );

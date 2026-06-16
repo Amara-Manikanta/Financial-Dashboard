@@ -7,31 +7,27 @@ import { CATEGORY_MAP } from '../utils/categories';
 const FinanceContext = createContext();
 
 
-export function FinanceProvider({ children }) {
-    const calculateSalaryStats = (expensesData) => {
-        const stats = {};
-        if (!expensesData || typeof expensesData !== 'object') return stats;
+const API_URL = 'http://127.0.0.1:3000';
 
-        Object.entries(expensesData).forEach(([year, months]) => {
-            if (!stats[year]) stats[year] = { total: 0, months: {} };
-
-            Object.entries(months).forEach(([month, data]) => {
-                if (!data) return;
-                const categories = data.categories || data;
-                const salary = categories['salary received'] || 0;
-                if (salary > 0) {
-                    stats[year].total += salary;
-                    stats[year].months[month] = salary;
-                }
-            });
+const calculateSalaryStats = (expensesData) => {
+    const stats = {};
+    if (!expensesData || typeof expensesData !== 'object') return stats;
+    Object.entries(expensesData).forEach(([year, months]) => {
+        if (!stats[year]) stats[year] = { total: 0, months: {} };
+        Object.entries(months).forEach(([month, data]) => {
+            if (!data) return;
+            const categories = data.categories || data;
+            const salary = categories['salary received'] || 0;
+            if (salary > 0) {
+                stats[year].total += salary;
+                stats[year].months[month] = salary;
+            }
         });
-        return stats;
-    };
+    });
+    return stats;
+};
 
-
-
-    const API_URL = 'http://127.0.0.1:3000';
-
+export function FinanceProvider({ children }) {
     const [expenses, setExpenses] = useState({});
     const [savings, setSavings] = useState([]);
     const [metals, setMetals] = useState({ gold: [], silver: [], antique_coins: [], currencies: [] });
@@ -48,6 +44,9 @@ export function FinanceProvider({ children }) {
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
     const [hiddenSalaryFields, setHiddenSalaryFields] = useState([]);
+    const [categoryRules, setCategoryRules] = useState({});
+    const [isLoading, setIsLoading] = useState(true);
+    const [dataError, setDataError] = useState(null);
 
     const { user, isGuest } = useAuth();
 
@@ -105,7 +104,7 @@ export function FinanceProvider({ children }) {
                 const ccData = await ccRes.json();
                 const salaryDetailsData = await salRes.json();
 
-                let modifiedExpenses = expData;
+                const modifiedExpenses = JSON.parse(JSON.stringify(expData)); // deep-clone to avoid mutating fetched object
                 let isModified = false;
                 const wallets = (ccData || []).filter(c => c.type === 'wallet' && c.autoCredit);
                 
@@ -170,6 +169,7 @@ export function FinanceProvider({ children }) {
                 setCreditCards(ccData || []);
                 setCategoryBudgets(appData.categoryBudgets || {});
                 setCategories(appData.categories || []);
+                setCategoryRules(appData.categoryRules || {});
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
                 setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
@@ -179,6 +179,9 @@ export function FinanceProvider({ children }) {
 
             } catch (error) {
                 console.error("Failed to fetch data:", error);
+                setDataError(error.message || 'Failed to load data');
+            } finally {
+                setIsLoading(false);
             }
         };
         fetchData();
@@ -222,6 +225,22 @@ export function FinanceProvider({ children }) {
             });
         } catch (error) {
             console.error("Failed to save manual rates:", error);
+        }
+    };
+
+    const updateCategoryRules = async (newRules) => {
+        setCategoryRules(newRules);
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, categoryRules: newRules })
+            });
+        } catch (error) {
+            console.error("Failed to save category rules:", error);
         }
     };
 
@@ -353,15 +372,17 @@ export function FinanceProvider({ children }) {
                 const newCategories = [...categories, category];
                 setCategories(newCategories);
 
-                // Safe updated of appData
-                const res = await fetch(`${API_URL}/appData`);
-                const currentAppData = await res.json();
-
-                fetch(`${API_URL}/appData`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...currentAppData, categories: newCategories })
-                });
+                try {
+                    const res = await fetch(`${API_URL}/appData`);
+                    const currentAppData = await res.json();
+                    await fetch(`${API_URL}/appData`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ ...currentAppData, categories: newCategories })
+                    });
+                } catch (catErr) {
+                    console.error('Failed to persist new category:', catErr);
+                }
             }
 
             const isIncomeCategory = ['salary received', 'income'].includes(category);
@@ -1241,8 +1262,8 @@ export function FinanceProvider({ children }) {
     };
 
     const value = {
-        expenses, savings, metals: processedMetals, assets, creditCards, lents, salaryStats, categories, snapshots, categoryBudgets, salaryDetails,
-        addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal,
+        expenses, savings, metals: processedMetals, assets, creditCards, lents, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
+        addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,
         addNewYear, takeSnapshot, updateCategoryBudget,
         formatCurrency,
         calculateItemCurrentValue,
@@ -1257,7 +1278,9 @@ export function FinanceProvider({ children }) {
         manualMetalRates,
         updateManualRates,
         mergedCategoryMap,
-        addCustomCategory
+        addCustomCategory,
+        isLoading,
+        dataError
     };
 
     return (

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -32,7 +32,9 @@ const AllTransactions = () => {
             });
         });
 
-        return flattened.sort((a, b) => b.originalDate - a.originalDate);
+        return flattened
+            .filter(t => !isNaN(t.originalDate))
+            .sort((a, b) => b.originalDate - a.originalDate);
     }, [expenses]);
 
     // Extract unique years and months for filters
@@ -57,6 +59,17 @@ const AllTransactions = () => {
             return matchesSearch && matchesType && matchesYear && matchesMonth;
         });
     }, [allTransactions, searchTerm, typeFilter, yearFilter, monthFilter]);
+
+    // Reset to page 1 whenever any filter changes
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, yearFilter, monthFilter, itemsPerPage]);
+
+    const handleClearFilters = () => {
+        setSearchTerm('');
+        setTypeFilter('all');
+        setYearFilter('all');
+        setMonthFilter('all');
+    };
+    const hasActiveFilters = searchTerm || typeFilter !== 'all' || yearFilter !== 'all' || monthFilter !== 'all';
 
     // Pagination
     const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -91,13 +104,24 @@ const AllTransactions = () => {
                         {filteredTransactions.length} Total Transactions
                     </p>
                 </div>
-                <button
-                    onClick={handleExport}
-                    className="px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-xl font-bold flex items-center gap-2 transition-all border border-emerald-500/20"
-                >
-                    <Download size={18} />
-                    Export to Excel
-                </button>
+                <div className="flex items-center gap-3">
+                    {hasActiveFilters && (
+                        <button
+                            onClick={handleClearFilters}
+                            className="px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl font-bold text-sm transition-all border border-white/5"
+                        >
+                            Clear Filters
+                        </button>
+                    )}
+                    <button
+                        onClick={handleExport}
+                        disabled={filteredTransactions.length === 0}
+                        className="px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-xl font-bold flex items-center gap-2 transition-all border border-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                    >
+                        <Download size={18} />
+                        Export to Excel
+                    </button>
+                </div>
             </div>
 
             {/* Filters Bar */}
@@ -168,8 +192,8 @@ const AllTransactions = () => {
                         </thead>
                         <tbody className="divide-y divide-white/5">
                             {displayedTransactions.length > 0 ? (
-                                displayedTransactions.map((t, i) => (
-                                    <tr key={i} className="hover:bg-white/[0.02] transition-colors group">
+                                displayedTransactions.map((t) => (
+                                    <tr key={t.id || `${t.date}-${t.amount}-${t.title}`} className="hover:bg-white/[0.02] transition-colors group">
                                         <td className="py-4 px-6 whitespace-nowrap">
                                             <div className="font-bold text-white text-sm">
                                                 {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -195,9 +219,21 @@ const AllTransactions = () => {
                                                     <div className="w-8 h-5 rounded bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center shadow-lg">
                                                         <div className="w-5 h-0.5 bg-white/30 rounded-full" />
                                                     </div>
-                                                ) : (
+                                                ) : t.paymentMode === 'direct' || t.paymentMode === 'upi' ? (
                                                     <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
                                                         <span className="text-[10px] font-black text-emerald-500">UPI</span>
+                                                    </div>
+                                                ) : t.paymentMode === 'cash' ? (
+                                                    <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
+                                                        <span className="text-[10px] font-black text-amber-500">CASH</span>
+                                                    </div>
+                                                ) : t.paymentMode === 'bank_transfer' || t.paymentMode === 'neft' || t.paymentMode === 'imps' ? (
+                                                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
+                                                        <span className="text-[10px] font-black text-blue-400">BANK</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
+                                                        <span className="text-[10px] font-black text-gray-400">{(t.paymentMode || 'N/A').slice(0,4).toUpperCase()}</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -223,8 +259,19 @@ const AllTransactions = () => {
                 {/* Pagination Footer */}
                 {totalPages > 1 && (
                     <div className="p-4 border-t border-white/5 flex items-center justify-between bg-black/20">
-                        <div className="text-xs font-bold text-gray-500">
-                            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} results
+                        <div className="flex items-center gap-4">
+                            <div className="text-xs font-bold text-gray-500">
+                                Showing {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                            </div>
+                            <select
+                                value={itemsPerPage}
+                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                className="bg-white/5 border border-white/10 text-white text-xs font-bold rounded-lg px-2 py-1 focus:outline-none"
+                            >
+                                <option value={20}>20 / page</option>
+                                <option value={50}>50 / page</option>
+                                <option value={100}>100 / page</option>
+                            </select>
                         </div>
                         <div className="flex gap-2">
                             <button

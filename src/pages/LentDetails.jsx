@@ -20,7 +20,7 @@ const LentDetails = () => {
         return (
             <div className="flex flex-col items-center justify-center min-h-[50vh] text-gray-400">
                 <p>Record not found</p>
-                <button onClick={() => navigate('/lents')} className="mt-4 text-emerald-400 hover:text-emerald-300">
+                <button onClick={() => navigate('/lents-loans')} className="mt-4 text-emerald-400 hover:text-emerald-300">
                     Go Back
                 </button>
             </div>
@@ -46,7 +46,7 @@ const LentDetails = () => {
     const handleDelete = async () => {
         if (window.confirm('Are you sure you want to delete this record?')) {
             await deleteItem('lents', id);
-            navigate('/lents');
+            navigate('/lents-loans');
         }
     };
 
@@ -105,10 +105,10 @@ const LentDetails = () => {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 mb-8">
                 <button
-                    onClick={() => navigate('/lents')}
-                    className="p-2 rounded-lg hover:bg-white/5 text-gray-400 hover:text-white transition-colors"
+                    onClick={() => navigate('/lents-loans')}
+                    className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-gray-400 hover:text-white"
                 >
                     <ArrowLeft size={20} />
                 </button>
