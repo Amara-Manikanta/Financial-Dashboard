@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
+import ConfirmModal from './ConfirmModal';
 
 const NavItem = ({ to, icon: Icon, label }) => (
     <NavLink
@@ -31,6 +32,7 @@ const NavItem = ({ to, icon: Icon, label }) => (
 const Layout = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
+    const [isLogoutModalOpen, setIsLogoutModalOpen] = useState(false);
 
     const handleLogout = () => {
         logout();
@@ -84,15 +86,13 @@ const Layout = () => {
                     {/* Navigation Items - Centered */}
                     <nav className="flex-1 flex items-center justify-center gap-8">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                        <NavItem to="/insights" icon={BrainCircuit} label="AI Insights" />
                         <NavItem to="/salary" icon={Briefcase} label="Salary" />
                         <NavItem to="/expenses" icon={Wallet} label="Expenses" />
                         <NavItem to="/savings" icon={PiggyBank} label="Savings" />
                         <NavItem to="/investments" icon={TrendingUp} label="Investments" />
                         <NavItem to="/metals" icon={Coins} label="Gold & Silver" />
                         <NavItem to="/assets" icon={Car} label="Assets" />
-                        <NavItem to="/lents" icon={ArrowUpRight} label="Lents" />
-                        <NavItem to="/loans" icon={ArrowDownLeft} label="Loans" />
+                        <NavItem to="/lents-loans" icon={ArrowUpRight} label="Loans & Lents" />
                         <NavItem to="/credit-cards" icon={CreditCard} label="Cards" />
                         <NavItem to="/all-transactions" icon={List} label="All Transactions" />
                     </nav>
@@ -105,13 +105,13 @@ const Layout = () => {
                                     <UserIcon size={16} />
                                 </div>
                                 <div className="hidden md:block text-left">
-                                    <p className="text-xs font-bold leading-none capitalize">{user?.username}</p>
-                                    <p className="text-[10px] text-gray-500 leading-none mt-1 uppercase">{user?.role}</p>
+                                    <p className="text-xs font-bold leading-none capitalize">{user?.username || 'Guest'}</p>
+                                    <p className="text-[10px] text-gray-500 leading-none mt-1 uppercase">{user?.role || 'User'}</p>
                                 </div>
                             </NavLink>
                         </div>
                         <button
-                            onClick={handleLogout}
+                            onClick={() => setIsLogoutModalOpen(true)}
                             className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-all"
                             title="Logout"
                         >
@@ -135,6 +135,16 @@ const Layout = () => {
             >
                 <Outlet />
             </main>
+            
+            <ConfirmModal
+                isOpen={isLogoutModalOpen}
+                onClose={() => setIsLogoutModalOpen(false)}
+                onConfirm={handleLogout}
+                title="Logout Confirmation"
+                message="Are you sure you want to log out of your session?"
+                confirmText="Log Out"
+                type="danger"
+            />
         </div>
     );
 }

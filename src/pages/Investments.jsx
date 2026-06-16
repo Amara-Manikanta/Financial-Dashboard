@@ -42,7 +42,11 @@ const Investments = () => {
     };
 
     const getStyle = (type) => {
-        return { bg: 'bg-purple-500/20', text: 'text-purple-400', bar: 'bg-purple-500' };
+        switch (type) {
+            case 'stock_market': return { bg: 'bg-blue-500/20', text: 'text-blue-400', bar: 'bg-blue-500' };
+            case 'mutual_fund': return { bg: 'bg-purple-500/20', text: 'text-purple-400', bar: 'bg-purple-500' };
+            default: return { bg: 'bg-gray-500/20', text: 'text-gray-400', bar: 'bg-gray-500' };
+        }
     };
 
     const totalPortfolioValue = activeInvestments.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
@@ -131,6 +135,7 @@ const Investments = () => {
                                     stroke="rgba(255,255,255,0.1)"
                                     strokeWidth={1}
                                     labelLine={false}
+                                    label={renderCustomizedLabel}
                                 >
                                     {pieData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
@@ -159,8 +164,21 @@ const Investments = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {activeInvestments.map(item => {
+            {activeInvestments.length === 0 ? (
+                <div className="card p-12 flex flex-col items-center justify-center text-center bg-white/[0.02] border-white/5 border-dashed mb-8">
+                    <Target size={48} className="text-gray-600 mb-6" />
+                    <h3 className="text-2xl font-black text-white mb-2">No Investments Yet</h3>
+                    <p className="text-gray-500 max-w-md mx-auto mb-6">Start tracking your mutual funds and stocks by adding your first investment account.</p>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-xl transition-all"
+                    >
+                        Add Account
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                    {activeInvestments.map(item => {
                     const isStockMarket = item.type === 'stock_market';
                     const isMutualFund = item.type === 'mutual_fund';
                     const style = getStyle(item.type);
@@ -224,6 +242,7 @@ const Investments = () => {
                     );
                 })}
             </div>
+            )}
 
             {archivedInvestments.length > 0 && (
                 <div className="mt-16 pt-8 border-t border-white/5">

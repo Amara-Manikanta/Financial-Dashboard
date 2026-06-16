@@ -119,6 +119,8 @@ const StockMarketDetails = () => {
     const [newColumnName, setNewColumnName] = useState('');
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [stockToDelete, setStockToDelete] = useState(null);
+    const [isDeleteColumnModalOpen, setIsDeleteColumnModalOpen] = useState(false);
+    const [columnToDelete, setColumnToDelete] = useState(null);
 
     const market = savings.find(s => s.id.toString() === id);
 
@@ -268,6 +270,7 @@ const StockMarketDetails = () => {
         const updatedMarket = { ...market, stocks: updatedStocks };
         await updateItem('savings', updatedMarket);
         setStockToDelete(null);
+        setIsDeleteModalOpen(false);
     };
 
     const handleArchiveToggle = async (stockId, archiveStatus) => {
@@ -307,11 +310,17 @@ const StockMarketDetails = () => {
     };
 
     const handleDeleteCustomColumn = async (index) => {
-        if (window.confirm(`Delete column "${customColumns[index]}"? This will hide the data.`)) {
-            const newColumns = customColumns.filter((_, i) => i !== index);
-            const updatedMarket = { ...market, customColumns: newColumns };
-            await updateItem('savings', updatedMarket);
-        }
+        setColumnToDelete(index);
+        setIsDeleteColumnModalOpen(true);
+    };
+
+    const confirmDeleteColumn = async () => {
+        if (columnToDelete === null) return;
+        const newColumns = customColumns.filter((_, i) => i !== columnToDelete);
+        const updatedMarket = { ...market, customColumns: newColumns };
+        await updateItem('savings', updatedMarket);
+        setColumnToDelete(null);
+        setIsDeleteColumnModalOpen(false);
     };
 
     return (
@@ -798,7 +807,7 @@ const StockMarketDetails = () => {
                 </div>
             )}
 
-            < StockTransactionModal
+            <StockTransactionModal
                 isOpen={isModalOpen}
                 onClose={() => {
                     setIsModalOpen(false);
@@ -811,13 +820,19 @@ const StockMarketDetails = () => {
 
             <ConfirmModal
                 isOpen={isDeleteModalOpen}
-                onClose={() => {
-                    setIsDeleteModalOpen(false);
-                    setStockToDelete(null);
-                }}
+                onClose={() => { setIsDeleteModalOpen(false); setStockToDelete(null); }}
                 onConfirm={confirmDeleteStock}
                 title="Delete Stock"
                 message="Are you sure you want to delete this stock? This action cannot be undone."
+                confirmText="Delete"
+            />
+
+            <ConfirmModal
+                isOpen={isDeleteColumnModalOpen}
+                onClose={() => { setIsDeleteColumnModalOpen(false); setColumnToDelete(null); }}
+                onConfirm={confirmDeleteColumn}
+                title="Delete Column"
+                message={`Delete column "${customColumns[columnToDelete]}"? This will hide the data.`}
                 confirmText="Delete"
             />
 

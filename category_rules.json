@@ -1,0 +1,1118 @@
+{
+  "52709": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "75592": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "75747": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "76139": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "106185": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "155004": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "167486": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "168021": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "243314": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "252070": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "455109": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "514292": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "637669": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "647099": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "696717": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "790927": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "1738636": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "8317753": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "17206565": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "19247890": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "April share": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "INF/IWISH CONTRIBUTION": {
+    "main": "Investments",
+    "sub": "Fixed Deposit"
+  },
+  "To RD Ac no 119625014916": {
+    "main": "Investments",
+    "sub": "Fixed Deposit"
+  },
+  "UPI": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "PayingAngelOne": {
+    "main": "Investments",
+    "sub": "Investment"
+  },
+  "NEFT-N095232402230338-INDMONEY...": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "LPKKNXX62025 APR23 Dileep Mani": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "ANGEL ONE LIMITED CLIENT AC": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Payment from Ph": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "APPLESERVICES": {
+    "main": "Subscriptions",
+    "sub": "Subscriptions"
+  },
+  "000000-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "rent": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "payment behalf": {
+    "main": "Transfers",
+    "sub": "Transfers"
+  },
+  "MandateRequest": {
+    "main": "Subscriptions",
+    "sub": ""
+  },
+  "Oid100004111864": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "PayviaRazorpay": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "collect": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "202304261534": {
+    "main": "Subscriptions",
+    "sub": ""
+  },
+  "kitty amount": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "202301-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "20230428171827": {
+    "main": "Transfers",
+    "sub": "Transfers"
+  },
+  "ICICI BANK CREDIT CA": {
+    "main": "Finance",
+    "sub": "Credit Card Payment"
+  },
+  "behalf of varal": {
+    "main": "Transfers",
+    "sub": "Other"
+  },
+  "JIO20TB00002M1C": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "may month share": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "INF/iWish Funds Add": {
+    "main": "Investments",
+    "sub": "Fixed Deposit"
+  },
+  "Dr Tran For Funding iWish A/c ...": {
+    "main": "Investments",
+    "sub": "Fixed Deposit"
+  },
+  "kedarnath trip": {
+    "main": "Travel",
+    "sub": "Other"
+  },
+  "LPKKNXX62025 MAY23 Dileep Mani": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "APPLEINDIA": {
+    "main": "Shopping",
+    "sub": "Other"
+  },
+  "food": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "ACCT CLOSURE TRANSACTION 1256": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "hotel booking": {
+    "main": "Travel",
+    "sub": "Other"
+  },
+  "hotel room": {
+    "main": "Travel",
+    "sub": "Other"
+  },
+  "lunch": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "juice": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "Zomato Payment": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "movie ticket": {
+    "main": "Entertainment",
+    "sub": "Other"
+  },
+  "dinner": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "Payment for ad6": {
+    "main": "Travel",
+    "sub": "Cab"
+  },
+  "Payment for d19": {
+    "main": "Travel",
+    "sub": "Cab"
+  },
+  "Upi Transaction": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "INF/IWISH KTC FUNDING-26-MAY-2...": {
+    "main": "Investments",
+    "sub": "Fixed Deposit"
+  },
+  "202302-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "saloon": {
+    "main": "Health",
+    "sub": "Other"
+  },
+  "June share": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "gold": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "00000000000000169770": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "LPKKNXX62025 JUN23 Dileep Mani": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "Online Refund": {
+    "main": "Income",
+    "sub": "Refund"
+  },
+  "202306081034": {
+    "main": "Finance",
+    "sub": "Other"
+  },
+  "pini amount": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "316019389119": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "CASH WDL": {
+    "main": "Transfers",
+    "sub": "Cash Reserve"
+  },
+  "Pay via Razorpa": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "badammilk": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "soda": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "00000000000003099267": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "00000000000000365212": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "INF/IWISH KTC FUNDING-24-JUN-2...": {
+    "main": "Investments",
+    "sub": "Fixed Deposit"
+  },
+  "pet shop": {
+    "main": "Health",
+    "sub": "Other"
+  },
+  "119601526779:Int.Pd:30-03-2023...": {
+    "main": "Income",
+    "sub": "Interest Income"
+  },
+  "202303-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "cakes": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "kedernath": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "july share": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "amount behalf o": {
+    "main": "Transfers",
+    "sub": "Other"
+  },
+  "FINAL DIV2022-23 33443517": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "UPI Transaction": {
+    "main": "Essentials",
+    "sub": "Groceries"
+  },
+  "LPKKNXX62025 JUL23 Dileep Mani": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "kitty": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "kitty party amo": {
+    "main": "Transfers",
+    "sub": "Other"
+  },
+  "milk": {
+    "main": "Essentials",
+    "sub": "Other"
+  },
+  "Oid100004288839": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004289193": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004289878": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "grocery": {
+    "main": "Essentials",
+    "sub": "Groceries"
+  },
+  "50k due": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "ATD/Auto Debit CC0xx4228": {
+    "main": "Finance",
+    "sub": "Other"
+  },
+  "ATD/Auto Debit CC0xx8411": {
+    "main": "Finance",
+    "sub": "Other"
+  },
+  "NEFT-SBIN423201927072-ITDTAX R...": {
+    "main": "Income",
+    "sub": "Refund"
+  },
+  "OidTB00002SVP94": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "202304-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "2nd Interim Dividend 2023-20": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "Netflix share": {
+    "main": "Subscriptions",
+    "sub": "OTT"
+  },
+  "321508244247": {
+    "main": "Family",
+    "sub": "Other"
+  },
+  "321709795542": {
+    "main": "Family",
+    "sub": "Other"
+  },
+  "HS92321711834932": {
+    "main": "Family",
+    "sub": "Other"
+  },
+  "LPKKNXX62025 AUG23 Dileep Mani": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "book": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "august rent": {
+    "main": "Housing",
+    "sub": "House Rent"
+  },
+  "00000000000002865668": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "aug kitty": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "august gold amo": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "katakam padma r": {
+    "main": "Transfers",
+    "sub": "Other"
+  },
+  "322415358724": {
+    "main": "Transfers",
+    "sub": "Other"
+  },
+  "Rewarded for ma": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "dress": {
+    "main": "Shopping",
+    "sub": "Other"
+  },
+  "LTO0INT02024W063461": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Payment for Swi": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "makeup": {
+    "main": "Health",
+    "sub": "Other"
+  },
+  "202305-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "Andhra mess": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "cake": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "FINAL DIV 2022-23 6745438": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "LPKKNXX62025 SEP23 Dileep Mani": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "CENTRAL DEPOSITORY SERVICES  I": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Blinkit Payment": {
+    "main": "Essentials",
+    "sub": "Groceries"
+  },
+  "ACCT CLOSURE TRANSACTION": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "September gold": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "team outing tra": {
+    "main": "Travel",
+    "sub": "Other"
+  },
+  "202309151106": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "202309151114": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "house rent": {
+    "main": "Housing",
+    "sub": "House Rent"
+  },
+  "IPS REF DT 17 09 2023 009632 I...": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "326521014999": {
+    "main": "Transfers",
+    "sub": "Cash Reserve"
+  },
+  "OidZTDUPIC23B44": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "202309261635": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "Debit Money Usi": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "202306-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "netflix Oct  sh": {
+    "main": "Subscriptions",
+    "sub": "OTT"
+  },
+  "119601526779:Int.Pd:30-06-2023...": {
+    "main": "Income",
+    "sub": "Interest Income"
+  },
+  "23k due": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "10k due": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "salon": {
+    "main": "Health",
+    "sub": "Other"
+  },
+  "October gold sc": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "October house r": {
+    "main": "Housing",
+    "sub": "Other"
+  },
+  "payment on CRED": {
+    "main": "Essentials",
+    "sub": "Groceries"
+  },
+  "LPKKNXX62025 OCT23 Dileep Mani": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "-025610011017291-UBIN0802565": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "LTO0FIN02023W065678": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "328322386397": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Oid100004507708": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "You are paying": {
+    "main": "Shopping",
+    "sub": "Online Shopping"
+  },
+  "UberRide": {
+    "main": "Travel",
+    "sub": "Cab"
+  },
+  "Charge Adjustme": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "charge": {
+    "main": "Travel",
+    "sub": "Cab"
+  },
+  "eggs": {
+    "main": "Essentials",
+    "sub": "Other"
+  },
+  "OidTB00002Z323G": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "OidZTDUPIC23C73": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC23BEA": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "202307-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "Oid100004550085": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004550980": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004550907": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "BOOKMYSHOW": {
+    "main": "Entertainment",
+    "sub": "Other"
+  },
+  "November amount": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "Nov kitty": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Personal Loan XX62025 EMI Dile": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "INTERIM DIV2023-24 36733156": {
+    "main": "Income",
+    "sub": "Dividend"
+  },
+  "Refund for Deca": {
+    "main": "Income",
+    "sub": "Refund"
+  },
+  "cab": {
+    "main": "Travel",
+    "sub": "Cab"
+  },
+  "R02 PhonePe Rev": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Ratnakiriti tow": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "tkts": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Oid100004588792": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "-435304020000161-UBIN0810215": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "medicines": {
+    "main": "Health",
+    "sub": "Other"
+  },
+  "Oid100004612594": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "OidZTDUPIC236F4": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidTB000030VPRZ": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "bakery": {
+    "main": "Food",
+    "sub": "Other"
+  },
+  "OidZTDUPIC235BE": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "202308-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "Ecatering order": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Refund for IRCT": {
+    "main": "Income",
+    "sub": "Refund"
+  },
+  "dec share": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "gold scheme": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "Oid100004637207": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "OidZTDUPIC23511": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC23899": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "00000000000000162237": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "334108339802": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "dairies remaini": {
+    "main": "Finance",
+    "sub": "Other"
+  },
+  "202312091252": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "events advance": {
+    "main": "Finance",
+    "sub": "Other"
+  },
+  "CLD3719510": {
+    "main": "Family",
+    "sub": "Other"
+  },
+  "advance for eve": {
+    "main": "Finance",
+    "sub": "Other"
+  },
+  "flight tkt": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "RRRPPPL18674468": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "for makeup": {
+    "main": "Health",
+    "sub": "Other"
+  },
+  "lic amount": {
+    "main": "Finance",
+    "sub": "Insurance Premium"
+  },
+  "gas refill": {
+    "main": "Utilities",
+    "sub": "Other"
+  },
+  "Oid100004662681": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004663685": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "NEFT-BKIDN23352586371-RAJESWAR...": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Oid100004685503": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004685749": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "resort advance": {
+    "main": "Travel",
+    "sub": "Other"
+  },
+  "recharge": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "OidZTDUPIC238FD": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "cab advance": {
+    "main": "Travel",
+    "sub": "Cab"
+  },
+  "202309-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "119601526779:Int.Pd:30-09-2023...": {
+    "main": "Income",
+    "sub": "Interest Income"
+  },
+  "jan share": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "Jan scheme": {
+    "main": "Investments",
+    "sub": "Other"
+  },
+  "Dec rent": {
+    "main": "Housing",
+    "sub": "House Rent"
+  },
+  "Oid100004712398": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Gift": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "venku mobile": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "Oid100004724603": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "collect-pay-req": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "Oid100004741929": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004742286": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004744967": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "water bill": {
+    "main": "Utilities",
+    "sub": "Other"
+  },
+  "202401261740": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "Oid100004759208": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "202310-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "feb share": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "OidZTDUPIC24C15": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "Oid100004765729": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "403416003862": {
+    "main": "Transfers",
+    "sub": "Cash Reserve"
+  },
+  "Oid100004769272": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004769340": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "Oid100004770499": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "-328402010018016-UBIN0810215": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "tution": {
+    "main": "Family",
+    "sub": "Other"
+  },
+  "00000000000019852041": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "OidZTDUPIC247AE": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC24576": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC248F2": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "house rent adva": {
+    "main": "Housing",
+    "sub": "House Rent"
+  },
+  "UPIIntent": {
+    "main": "Utilities",
+    "sub": "Mobile Recharge"
+  },
+  "hair cut": {
+    "main": "Health",
+    "sub": "Other"
+  },
+  "Oid100004788558": {
+    "main": "Travel",
+    "sub": "Train"
+  },
+  "OidZTDUPIC240A1": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC2470D": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "tailor": {
+    "main": "Shopping",
+    "sub": "Other"
+  },
+  "OidZTDUPIC24F44": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC249B9": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "stationary": {
+    "main": "Essentials",
+    "sub": "Other"
+  },
+  "202311-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "OidZTDUPIC241C1": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC24771": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC2464A": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "REFUND": {
+    "main": "Income",
+    "sub": "Refund"
+  },
+  "furniture": {
+    "main": "Housing",
+    "sub": "Other"
+  },
+  "remaining advan": {
+    "main": "Housing",
+    "sub": "Other"
+  },
+  "march month": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "Generating DYNA": {
+    "main": "Shopping",
+    "sub": "Other"
+  },
+  "auto": {
+    "main": "Travel",
+    "sub": "Other"
+  },
+  "NEFT-AXISP00479684046-NSE CLEA...": {
+    "main": "Income",
+    "sub": "Interest Income"
+  },
+  "NEFT-AXISP00479741836-NSE CLEA...": {
+    "main": "Income",
+    "sub": "Interest Income"
+  },
+  "express": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "NEFT-SBIN524072581828-BAJAJ FI...": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "RTGS-UBINR22024031401356696-KA...": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "PAYMENT": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "Subscription fo": {
+    "main": "Subscriptions",
+    "sub": "Other"
+  },
+  "OidpvrcinemasBC": {
+    "main": "Entertainment",
+    "sub": "Other"
+  },
+  "Oidpvrcinemas50": {
+    "main": "Entertainment",
+    "sub": "Other"
+  },
+  "aggrement amoun": {
+    "main": "Housing",
+    "sub": "Other"
+  },
+  "venku": {
+    "main": "Transfers",
+    "sub": "Bank Transfer"
+  },
+  "OidZTDUPIC24B65": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "OidZTDUPIC2440A": {
+    "main": "Food",
+    "sub": "Food Delivery"
+  },
+  "Payment Against Loan Account N...": {
+    "main": "Finance",
+    "sub": "Loan EMI"
+  },
+  "202312-0007479832-CITI0000002": {
+    "main": "Income",
+    "sub": "Salary"
+  },
+  "petrol": {
+    "main": "Travel",
+    "sub": "Fuel"
+  },
+  "119601526779:Int.Pd:30-12-2023...": {
+    "main": "Income",
+    "sub": "Interest Income"
+  }
+}

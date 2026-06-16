@@ -577,7 +577,7 @@ const Analytics = () => {
                                             <p className="text-gray-500 text-[10px] font-black uppercase mb-2">{label}</p>
                                             <p className="text-xl font-bold text-white mb-3">{formatCurrency(data.totalValue)}</p>
                                             <div className="space-y-1">
-                                                {Object.entries(data.breakdown).map(([key, val]) => (
+                                                {data.breakdown && Object.entries(data.breakdown).map(([key, val]) => (
                                                     <div key={key} className="flex justify-between text-[10px] uppercase font-bold">
                                                         <span className="text-gray-500">{key.replace('_', ' ')}</span>
                                                         <span className="text-gray-300">{formatCurrency(val)}</span>

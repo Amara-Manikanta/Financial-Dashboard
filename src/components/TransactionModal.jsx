@@ -75,12 +75,12 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
         }
     }, [initialData, isOpen, defaultDate]);
 
-    // Auto-set credit mode for salary/income
+    // Auto-set credit mode for salary/income (only for NEW transactions, not when editing)
     useEffect(() => {
-        if (mainCategory === 'Income' || (category && (category.toLowerCase() === 'salary received' || category.toLowerCase() === 'income'))) {
+        if (!initialData && (mainCategory === 'Income' || (category && (category.toLowerCase() === 'salary received' || category.toLowerCase() === 'income')))) {
             setIsCredited(true);
         }
-    }, [category, mainCategory]);
+    }, [category, mainCategory, initialData]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -96,7 +96,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
         setIsCreditCardBill(newState);
         if (newState) {
             setMainCategory('Finance');
-            setCategory('Credit Card Payment');
+            setCategory('Credit Card Bill'); // Must match FinanceContext check for marking card as paid
             setIsCredited(false);
             setPaymentMode('credit_card');
             if (!title) setTitle('Credit Card Bill');
@@ -107,14 +107,17 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        const parsedAmount = parseFloat(amount);
+        if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) return;
+        if (paymentMode === 'credit_card' && !creditCardName) return;
         onAdd({
             ...initialData,
             title,
-            amount: parseFloat(amount),
+            amount: parsedAmount,
             mainCategory: mainCategory,
             category: category.toLowerCase(),
             date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
-            deductFromSalary: (paymentMode === 'direct' && !category.toLowerCase().includes('tax')) || category.toLowerCase() === 'credit card bill' || category.toLowerCase() === 'credit card payment',
+            deductFromSalary: (paymentMode === 'direct' && !category.toLowerCase().includes('tax')) || category.toLowerCase() === 'credit card bill',
             paymentMode,
             creditCardName: paymentMode === 'credit_card' ? creditCardName : null,
             isCredited,
@@ -150,7 +153,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                     </button>
 
                     <h2 className="text-xl font-black text-white tracking-tight">
-                        {initialData ? 'Update Record' : 'Log Expense'}
+                        {initialData ? 'Update Record' : 'Log Transaction'}
                     </h2>
                     <p className="text-[10px] text-gray-500 mt-1 font-bold uppercase tracking-wider">
                         Enter transaction details below
@@ -289,7 +292,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                     onClick={() => setIsCredited(false)}
                                     className={`flex items-center justify-center gap-2 h-14 rounded-2xl border transition-all ${!isCredited ? 'bg-indigo-500/10 border-indigo-500/50 text-indigo-400 shadow-md shadow-indigo-500/10' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300'}`}
                                 >
-                                    <ArrowUpCircle size={18} />
+                                    <ArrowDownCircle size={18} />
                                     <span className="text-[11px] font-black tracking-widest uppercase">Debit</span>
                                 </button>
                                 <button
@@ -297,7 +300,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                     onClick={() => setIsCredited(true)}
                                     className={`flex items-center justify-center gap-2 h-14 rounded-2xl border transition-all ${isCredited ? 'bg-emerald-500/10 border-emerald-500/50 text-emerald-400 shadow-md shadow-emerald-500/10' : 'bg-white/5 border-white/5 text-gray-500 hover:text-gray-300'}`}
                                 >
-                                    <ArrowDownCircle size={18} />
+                                    <ArrowUpCircle size={18} />
                                     <span className="text-[11px] font-black tracking-widest uppercase">Credit</span>
                                 </button>
                             </div>
@@ -333,10 +336,10 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                             required
                                             value={creditCardName}
                                             onChange={(e) => setCreditCardName(e.target.value)}
-                                            className="w-full bg-white rounded-lg border-none text-black font-bold appearance-none focus:outline-none text-xs pl-8 pr-8 py-2"
+                                            className="w-full bg-white/10 rounded-lg border border-white/10 text-white font-bold appearance-none focus:outline-none text-xs pl-8 pr-8 py-2"
                                         >
-                                            <option value="" disabled className="text-gray-500">Select Card</option>
-                                            {availableCreditCards.map(card => <option key={card} value={card} className="text-black">{card}</option>)}
+                                            <option value="" disabled className="bg-[#1c1c1e] text-gray-400">Select Card</option>
+                                            {availableCreditCards.map(card => <option key={card} value={card} className="bg-[#1c1c1e] text-white">{card}</option>)}
                                         </select>
                                         <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-400" />
                                     </div>

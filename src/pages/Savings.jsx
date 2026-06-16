@@ -100,6 +100,19 @@ const Savings = () => {
                 </div>
             </div>
 
+            {savingsOnly.length === 0 ? (
+                <div className="card p-12 flex flex-col items-center justify-center text-center bg-white/[0.02] border-white/5 border-dashed mb-8">
+                    <Target size={48} className="text-gray-600 mb-6" />
+                    <h3 className="text-2xl font-black text-white mb-2">No Savings Yet</h3>
+                    <p className="text-gray-500 max-w-md mx-auto mb-6">Start tracking your financial goals by adding your first savings account or deposit.</p>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all"
+                    >
+                        Add Account
+                    </button>
+                </div>
+            ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                 {savingsOnly.map(item => {
                     const progress = item.goal > 0 ? Math.min((item.amount / item.goal) * 100, 100) : 0;
@@ -202,7 +215,6 @@ const Savings = () => {
                                 )}
                             </div>
 
-
                             <button
                                 onClick={(e) => handleDeleteClick(e, item)}
                                 className="absolute bottom-4 right-4 p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all z-20"
@@ -214,6 +226,7 @@ const Savings = () => {
                     );
                 })}
             </div>
+            )}
 
             <SavingsItemModal
                 isOpen={isModalOpen}
