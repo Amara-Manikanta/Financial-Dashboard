@@ -108,6 +108,22 @@ const FixedDepositDetails = () => {
             .sort((a, b) => b.year - a.year);
     }, [fund.deposits]);
 
+    const yearlyTdsBreakdown = React.useMemo(() => {
+        const breakdown = {};
+        if (!fund.deposits) return [];
+
+        fund.deposits.forEach(deposit => {
+            (deposit.tdsTransactions || []).forEach(tx => {
+                const year = tx.financialYear || new Date(tx.date).getFullYear().toString();
+                breakdown[year] = (breakdown[year] || 0) + (tx.amount || 0);
+            });
+        });
+
+        return Object.entries(breakdown)
+            .map(([year, amount]) => ({ year, amount }))
+            .sort((a, b) => b.year.localeCompare(a.year));
+    }, [fund.deposits]);
+
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
@@ -183,6 +199,10 @@ const FixedDepositDetails = () => {
                                 const today = new Date();
                                 const isMatured = today >= maturityDate;
                                 const isNearingMaturity = !isMatured && (maturityDate - today) / (1000 * 60 * 60 * 24 * 30.44) <= 2;
+                                
+                                const totalInterest = (deposit.interestTransactions || []).reduce((sum, tx) => sum + (tx.amount || 0), 0) || deposit.interestEarned || 0;
+                                const totalTds = (deposit.tdsTransactions || []).reduce((sum, tx) => sum + (tx.amount || 0), 0) || deposit.tds || 0;
+
                                 return (
                                     <tr key={deposit.id}
                                         onClick={() => navigate(`/savings/fixed-deposit/${id}/deposit/${deposit.id}`)}
@@ -206,8 +226,8 @@ const FixedDepositDetails = () => {
                                         <td style={{ padding: 'var(--spacing-md)' }}>{formatDate(deposit.startDate)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', fontWeight: (isNearingMaturity || isMatured) ? 'bold' : 'normal', color: isMatured ? '#10b981' : (isNearingMaturity ? '#fbbf24' : 'inherit') }}>{formatDate(deposit.endDate)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.originalAmount)}</td>
-                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)' }}>{formatCurrency(deposit.interestEarned)}</td>
-                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-accent)' }}>{deposit.tds ? formatCurrency(deposit.tds) : '-'}</td>
+                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)' }}>{formatCurrency(totalInterest)}</td>
+                                        <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-accent)' }}>{totalTds ? formatCurrency(totalTds) : '-'}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.currentValue)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatCurrency(deposit.maturityAmount)}</td>
                                         <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={deposit.remarks}>{deposit.remarks || '—'}</td>
@@ -275,6 +295,24 @@ const FixedDepositDetails = () => {
                             <div key={year} className="card p-4 flex flex-col items-center justify-center text-center border-l-4 border-l-emerald-500">
                                 <span className="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">{year}</span>
                                 <span className="text-lg font-bold text-emerald-400">{formatCurrency(amount)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Yearly TDS Summary Section */}
+            {yearlyTdsBreakdown.length > 0 && (
+                <div className="mt-12">
+                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                        <TrendingUp size={24} className="text-rose-500" />
+                        Yearly TDS Deducted
+                    </h3>
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                        {yearlyTdsBreakdown.map(({ year, amount }) => (
+                            <div key={year} className="card p-4 flex flex-col items-center justify-center text-center border-l-4 border-l-rose-500">
+                                <span className="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">{year}</span>
+                                <span className="text-lg font-bold text-rose-400">{formatCurrency(amount)}</span>
                             </div>
                         ))}
                     </div>

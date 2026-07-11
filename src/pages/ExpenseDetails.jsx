@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Wallet, TrendingDown, TrendingUp, Calendar, ArrowUpRight, ArrowDownRight, MoreHorizontal, Plus, ChevronLeft, ChevronRight, ChevronDown, MessageSquare, Edit2, Trash2, Tag, Home, Utensils, ShoppingBag, Car, Smartphone, PiggyBank, Film, Gift, Wifi, Zap, CreditCard, Check } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, Tooltip, YAxis, AreaChart, Area, CartesianGrid, LineChart, Line } from 'recharts';
@@ -33,6 +33,7 @@ const SummaryCard = ({ title, subtitle, amount, percentage, color }) => (
 );
 
 const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = false, showActions = true, hideDate = false, onClick, isHighlighted = false, isDimmed = false }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
     const IconComponent = CATEGORY_ICONS[item.category?.toLowerCase()] || Tag;
 
     const fullCategoryString = item.mainCategory && item.category 
@@ -72,6 +73,7 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
 
     return (
         <div 
+            id={`tx-${item.id}`}
             onClick={onClick}
             className={`group flex items-center justify-between ${compact ? 'p-2' : 'p-3'} rounded-xl transition-all duration-200 border relative ${
                 onClick ? 'cursor-pointer' : ''
@@ -83,6 +85,7 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
                         : 'hover:bg-white/5 border-transparent hover:border-white/5'
             }`}
         >
+            <div className="flex items-center justify-between w-full">
             <div className="flex items-center gap-3 overflow-hidden flex-1">
                 <div className={`${compact ? 'p-1.5' : 'p-2'} rounded-lg bg-opacity-20 flex-shrink-0 flex items-center justify-center`} style={{ backgroundColor: `${COLORS[Math.abs((item.category || '').length) % COLORS.length]}20`, color: COLORS[Math.abs((item.category || '').length) % COLORS.length] }}>
                     <IconComponent size={compact ? 14 : 18} />
@@ -129,6 +132,38 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
                     </p>
                 </div>
             </div>
+            
+            {/* Grocery Items Expansion */}
+            {item.groceryItems && item.groceryItems.length > 0 && isExpanded && (
+                <div className="w-full mt-4 bg-black/40 rounded-xl border border-white/5 p-4 animate-fade-in">
+                    <h5 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-3">Detailed Receipt</h5>
+                    <div className="space-y-2">
+                        {item.groceryItems.map((gi, idx) => (
+                            <div key={idx} className="flex justify-between items-center text-xs">
+                                <div className="flex flex-col">
+                                    <span className="text-white font-medium">{gi.name} <span className="text-gray-500 text-[10px] ml-1">({gi.quantity || gi.customQuantity})</span></span>
+                                    {(gi.brand || gi.flavour) && (
+                                        <span className="text-gray-500 text-[9px]">
+                                            {gi.brand} {gi.brand && gi.flavour ? '•' : ''} {gi.flavour}
+                                        </span>
+                                    )}
+                                </div>
+                                <span className="text-gray-400 font-medium">₹{Number(gi.price || 0).toFixed(2)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+            </div>
+            
+            {item.groceryItems && item.groceryItems.length > 0 && (
+                <button
+                    onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
+                    className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#18181b] border border-white/10 rounded-full p-1 text-gray-500 hover:text-emerald-400 hover:border-emerald-500/50 transition-colors z-10"
+                >
+                    <ChevronDown size={14} className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                </button>
+            )}
         </div>
     );
 };
@@ -187,6 +222,18 @@ const ExpenseDetails = () => {
     const ITEMS_PER_PAGE = 12;
     const STATEMENT_ITEMS_PER_PAGE = 10;
 
+    const location = useLocation();
+    const highlightTxId = new URLSearchParams(location.search).get('highlightTxId');
+
+    const defaultModalDate = useMemo(() => {
+        const today = new Date();
+        const targetMonthDate = new Date(`${month} 1, ${year}`);
+        if (today.getMonth() !== targetMonthDate.getMonth() || today.getFullYear() !== targetMonthDate.getFullYear()) {
+            return targetMonthDate;
+        }
+        return today;
+    }, [month, year]);
+
     const monthDetails = useMemo(() => {
         const monthData = expenses[year]?.[month] || {};
         const categories = monthData.categories || monthData;
@@ -200,7 +247,7 @@ const ExpenseDetails = () => {
 
         // Initialize with existing categories from DB just in case, but rely on transactions for accuracy
         Object.entries(categories).forEach(([cat, val]) => {
-            if (cat !== 'salary received' && cat !== 'income' && cat !== 'transactions') {
+            if (cat !== 'salary received' && cat !== 'salary' && cat !== 'income' && cat !== 'transactions') {
                 categoryTotals[cat] = Number(val);
                 categoryDeductibles[cat] = Number(val); // Default to deductible if from DB map
             }
@@ -216,7 +263,7 @@ const ExpenseDetails = () => {
                 const cat = t.category || 'others';
 
                 // Skip income categories from expense calculation
-                if (['salary received', 'income'].includes(cat.toLowerCase())) return;
+                if (['salary received', 'salary', 'income'].includes(cat.toLowerCase())) return;
 
                 const amt = Number(t.amount) || 0;
                 // Logic: isCredited ? -amt : amt
@@ -269,9 +316,13 @@ const ExpenseDetails = () => {
             return key ? Number(obj[key]) : 0;
         };
 
-        let salary = findSalary(categories);
-        if (salary === 0 && monthData['salary received']) {
-            salary = Number(monthData['salary received']);
+        // Get configured salary from salaryStats first, fallback to categories
+        let salary = salaryStats[year]?.months[month] || 0;
+        if (salary === 0) {
+            salary = findSalary(categories);
+            if (salary === 0 && monthData['salary received']) {
+                salary = Number(monthData['salary received']);
+            }
         }
 
         // Add manual incomes from transactions
@@ -317,7 +368,7 @@ const ExpenseDetails = () => {
                 return acc;
             }, {});
 
-        const totalTransactionAmount = rawTransactions.reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+        const totalTransactionAmount = rawTransactions.filter(t => !t.isCredited).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
         const unaccounted = Math.max(0, totalGrossExpenses - totalTransactionAmount);
 
         let runningTotal = 0;
@@ -427,6 +478,27 @@ const ExpenseDetails = () => {
         };
     }, [expenses, creditCards, year, month, salaryStats]);
 
+    React.useEffect(() => {
+        if (highlightTxId && monthDetails?.rawTransactions) {
+            // Find which page the transaction is on
+            const activeTxs = monthDetails.rawTransactions.filter(t => 
+                selectedCategoryHighlight ? t.category === selectedCategoryHighlight : true
+            );
+            const index = activeTxs.findIndex(tx => tx.id === highlightTxId);
+            if (index !== -1) {
+                const targetPage = Math.floor(index / STATEMENT_ITEMS_PER_PAGE) + 1;
+                setStatementPage(targetPage);
+                
+                setTimeout(() => {
+                    const el = document.getElementById(`tx-${highlightTxId}`);
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 100);
+            }
+        }
+    }, [highlightTxId, monthDetails?.rawTransactions, selectedCategoryHighlight]);
+
     const displayTransactions = useMemo(() => {
         let txs = monthDetails.rawTransactions;
         if (selectedCategoryHighlight) {
@@ -530,7 +602,7 @@ const ExpenseDetails = () => {
                         </div>
                     </div>
                 </div>
-                <button onClick={() => setIsModalOpen(true)} className="px-6 py-3 rounded-2xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center gap-2">
+                <button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="px-6 py-3 rounded-2xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center gap-2">
                     <Plus size={20} /> Add Expense
                 </button>
             </div>
@@ -706,7 +778,7 @@ const ExpenseDetails = () => {
                                             showActions={true}
                                             onEdit={(i) => { setEditingTransaction(i); setIsModalOpen(true); }}
                                             onDelete={handleDeleteTransaction}
-                                            isHighlighted={!!selectedCategoryHighlight}
+                                            isHighlighted={item.id === highlightTxId}
                                         />
                                     ))
                             ) : (
@@ -836,14 +908,7 @@ const ExpenseDetails = () => {
                 onClose={() => { setIsModalOpen(false); setEditingTransaction(null); }}
                 onAdd={handleSaveTransaction}
                 initialData={editingTransaction}
-                defaultDate={(() => {
-                    const today = new Date();
-                    const targetMonthDate = new Date(`${month} 1, ${year}`);
-                    if (today.getMonth() !== targetMonthDate.getMonth() || today.getFullYear() !== targetMonthDate.getFullYear()) {
-                        return targetMonthDate;
-                    }
-                    return today;
-                })()}
+                defaultDate={defaultModalDate}
             />
         </div>
     );

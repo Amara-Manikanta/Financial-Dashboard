@@ -17,7 +17,7 @@ const calculateSalaryStats = (expensesData) => {
         Object.entries(months).forEach(([month, data]) => {
             if (!data) return;
             const categories = data.categories || data;
-            const salary = categories['salary received'] || 0;
+            const salary = categories['salary received'] || categories['salary'] || 0;
             if (salary > 0) {
                 stats[year].total += salary;
                 stats[year].months[month] = salary;
@@ -40,6 +40,9 @@ export function FinanceProvider({ children }) {
     const [snapshots, setSnapshots] = useState([]);
     const [categoryBudgets, setCategoryBudgets] = useState({});
     const [customCategoryMap, setCustomCategoryMap] = useState({});
+    const [customGroceryItems, setCustomGroceryItems] = useState({});
+    const [groceryBrands, setGroceryBrands] = useState({});
+    const [groceryFlavours, setGroceryFlavours] = useState({});
     const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
@@ -53,6 +56,23 @@ export function FinanceProvider({ children }) {
     useEffect(() => {
         setSalaryStats(calculateSalaryStats(expenses));
     }, [expenses]);
+
+    // Defined before the useEffect that calls it to avoid temporal dead zone
+    const fetchMetalRates = async () => {
+        try {
+            const res = await fetch('/api/goldprice/dbXRates/INR');
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            const data = await res.json();
+            if (data.items && data.items.length > 0) {
+                const item = data.items[0];
+                const goldPerGram = item.xauPrice / 31.1034768;
+                const silverPerGram = item.xagPrice / 31.1034768;
+                setMetalRates({ gold: goldPerGram, silver: silverPerGram });
+            }
+        } catch (error) {
+            console.error("Failed to fetch metal rates:", error);
+        }
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -79,6 +99,9 @@ export function FinanceProvider({ children }) {
                 setCustomSalaryFields({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields([]);
                 setCustomCategoryMap({});
+                setCustomGroceryItems({});
+                setGroceryBrands({});
+                setGroceryFlavours({});
                 return;
             }
             try {
@@ -174,6 +197,14 @@ export function FinanceProvider({ children }) {
                 setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
                 setCustomCategoryMap(appData.customCategoryMap || {});
+                setCustomGroceryItems(appData.customGroceryItems || {});
+                // Handle old flat array if present
+                const loadedBrands = appData.groceryBrands || {};
+                setGroceryBrands(Array.isArray(loadedBrands) ? {} : loadedBrands);
+                
+                const loadedFlavours = appData.groceryFlavours || {};
+                setGroceryFlavours(Array.isArray(loadedFlavours) ? {} : loadedFlavours);
+                
                 setSnapshots(snapData || []);
                 setSalaryDetails(salaryDetailsData || []);
 
@@ -188,22 +219,6 @@ export function FinanceProvider({ children }) {
         fetchMetalRates();
     }, [user, isGuest]);
 
-    const fetchMetalRates = async () => {
-        try {
-            const res = await fetch('/api/goldprice/dbXRates/INR');
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const data = await res.json();
-            if (data.items && data.items.length > 0) {
-                const item = data.items[0];
-                // Prices are per Ounce (31.1035 g)
-                const goldPerGram = item.xauPrice / 31.1034768;
-                const silverPerGram = item.xagPrice / 31.1034768;
-                setMetalRates({ gold: goldPerGram, silver: silverPerGram });
-            }
-        } catch (error) {
-            console.error("Failed to fetch metal rates:", error);
-        }
-    };
 
     const updateManualRates = async (rates) => {
         setManualMetalRates(rates);
@@ -244,12 +259,92 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const addCustomGroceryItem = async (category, itemName) => {
+        if (!category || !itemName) return;
+        const currentList = customGroceryItems[category] || [];
+        if (currentList.includes(itemName)) return;
+        
+        const newCustomItems = { 
+            ...customGroceryItems, 
+            [category]: [...currentList, itemName].sort() 
+        };
+        setCustomGroceryItems(newCustomItems);
+        
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, customGroceryItems: newCustomItems })
+            });
+        } catch (error) {
+            console.error("Failed to save custom grocery item:", error);
+        }
+    };
+
+    const addGroceryBrand = async (category, brandName) => {
+        if (!category || !brandName) return;
+        const currentList = Array.isArray(groceryBrands) ? [] : (groceryBrands[category] || []);
+        if (currentList.includes(brandName)) return;
+
+        const newBrandsObj = {
+            ...groceryBrands,
+            [category]: [...currentList, brandName].sort()
+        };
+        // Clean up if it was a flat array previously
+        if (Array.isArray(newBrandsObj)) return; 
+        
+        setGroceryBrands(newBrandsObj);
+
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryBrands: newBrandsObj })
+            });
+        } catch (error) {
+            console.error("Failed to save grocery brand:", error);
+        }
+    };
+
+    const addGroceryFlavour = async (category, flavourName) => {
+        if (!category || !flavourName) return;
+        const currentList = Array.isArray(groceryFlavours) ? [] : (groceryFlavours[category] || []);
+        if (currentList.includes(flavourName)) return;
+
+        const newFlavoursObj = {
+            ...groceryFlavours,
+            [category]: [...currentList, flavourName].sort()
+        };
+        if (Array.isArray(newFlavoursObj)) return; 
+        
+        setGroceryFlavours(newFlavoursObj);
+
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryFlavours: newFlavoursObj })
+            });
+        } catch (error) {
+            console.error("Failed to save grocery flavour:", error);
+        }
+    };
+
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
             maximumFractionDigits: 2,
-        }).format(amount);
+        }).format(Number(amount) || 0);
     };
 
     const updateSalaryFieldsConfig = async (newCustomFields, newHiddenFields) => {
@@ -391,6 +486,9 @@ export function FinanceProvider({ children }) {
             const newExpenses = { ...expenses };
             if (!newExpenses[year]) newExpenses[year] = {};
             if (!newExpenses[year][month]) newExpenses[year][month] = { categories: {}, transactions: [] };
+            // Deep clone the specific month to avoid mutating live state
+            newExpenses[year] = { ...newExpenses[year] };
+            newExpenses[year][month] = JSON.parse(JSON.stringify(newExpenses[year][month]));
 
             const monthData = newExpenses[year][month];
             const target = monthData.categories || monthData;
@@ -410,9 +508,11 @@ export function FinanceProvider({ children }) {
                 target[finalKey] = Math.max(0, (target[finalKey] || 0) + effectiveAmount);
             }
 
+            const expenseId = Date.now().toString();
             if (!monthData.transactions) monthData.transactions = [];
             monthData.transactions.push({
-                id: Date.now().toString(),
+                ...item,
+                id: expenseId,
                 title: item.title,
                 amount: amount,
                 category: category,
@@ -421,10 +521,16 @@ export function FinanceProvider({ children }) {
                 creditCardName: item.creditCardName,
                 isCredited: item.isCredited,
                 transactionType: item.transactionType,
-                deductFromSalary: item.deductFromSalary
+                deductFromSalary: item.deductFromSalary,
+                investmentData: item.investmentData || null
             });
 
             await saveExpenses(newExpenses);
+
+            // Handle Investment Sync
+            if (item.investmentData && !item.skipInvestmentSync) {
+                await syncExpenseToInvestment(item.investmentData, item.date, item.title, expenseId);
+            }
 
             // Handle Credit Card Bill Payment
             const isCreditCardBill = category === 'credit card bill';
@@ -494,7 +600,11 @@ export function FinanceProvider({ children }) {
                     // Let's adhere to the plan: Update the card object specifically.
 
                     const updatedMonthlyData = [...(cardToUpdate.monthlyData || [])];
-                    const unpaidBillIndex = updatedMonthlyData.findIndex(m => !m.isPaid && m.billAmount > 0);
+                    // Find the most recent unpaid bill (not just the first/oldest)
+                    const unpaidBillIndex = updatedMonthlyData.reduce((best, m, i) =>
+                        (!m.isPaid && m.billAmount > 0 &&
+                         (best === -1 || new Date(m.date || `${m.year}-${m.month}-01`) > new Date(updatedMonthlyData[best].date || `${updatedMonthlyData[best].year}-${updatedMonthlyData[best].month}-01`)))
+                            ? i : best, -1);
                     if (unpaidBillIndex !== -1) {
                         updatedMonthlyData[unpaidBillIndex] = {
                             ...updatedMonthlyData[unpaidBillIndex],
@@ -532,6 +642,7 @@ export function FinanceProvider({ children }) {
         }
 
         let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
+
         if (!endpoint) return;
 
         if (isGuest) {
@@ -558,6 +669,186 @@ export function FinanceProvider({ children }) {
             if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
         } catch (error) {
             console.error("Error adding item:", error);
+        }
+    };
+
+    const syncExpenseDeleteToInvestment = async (invData, expenseId) => {
+        if (isGuest) return;
+        const { type, assetId } = invData;
+        
+        if (type === 'mutual_fund') {
+            const fund = savings.find(s => s.id.toString() === assetId.toString());
+            if (fund && fund.transactions) {
+                const updatedTransactions = fund.transactions.filter(t => t.id !== expenseId);
+                
+                let totalUnits = 0;
+                updatedTransactions.forEach(t => {
+                    const tType = t.type || (t.remarks && t.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
+                    if (tType === 'buy' || tType === 'sip') totalUnits += Number(t.units);
+                    if (tType === 'sell' || tType === 'withdraw') totalUnits -= Number(t.units);
+                });
+                if (totalUnits < 0.0001) totalUnits = 0;
+                
+                const newAmount = totalUnits * (fund.currentNav || 0);
+                const updatedFund = { ...fund, transactions: updatedTransactions, amount: newAmount };
+                
+                setSavings(prev => prev.map(s => String(s.id) === String(fund.id) ? updatedFund : s));
+                try {
+                    await fetch(`${API_URL}/savings/${fund.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedFund)
+                    });
+                } catch (e) { console.error(e); }
+            }
+        } else if (type === 'stock') {
+            const [marketId, stockId] = assetId.split('|');
+            const market = savings.find(s => s.id.toString() === marketId);
+            if (market && market.stocks) {
+                const stockIndex = market.stocks.findIndex(s => s.id.toString() === stockId);
+                if (stockIndex !== -1) {
+                    const stock = market.stocks[stockIndex];
+                    if (!stock.transactions) return;
+                    
+                    const updatedTransactions = stock.transactions.filter(t => t.id !== expenseId);
+                    
+                    let currentShares = 0;
+                    let totalInvested = 0;
+                    updatedTransactions.forEach(t => {
+                        const q = Number(t.quantity);
+                        const p = Number(t.price);
+                        if (t.type === 'buy') {
+                            totalInvested += (q * p);
+                            currentShares += q;
+                        } else if (t.type === 'sell') {
+                            const avgCost = currentShares > 0 ? totalInvested / currentShares : 0;
+                            totalInvested -= (q * avgCost);
+                            currentShares -= q;
+                        }
+                    });
+                    
+                    if (currentShares < 0.0001) { currentShares = 0; totalInvested = 0; }
+                    const newAvgCost = currentShares > 0 ? totalInvested / currentShares : 0;
+                    
+                    const updatedStock = {
+                        ...stock,
+                        transactions: updatedTransactions,
+                        shares: currentShares,
+                        avgCost: newAvgCost
+                    };
+                    
+                    const updatedStocks = [...market.stocks];
+                    updatedStocks[stockIndex] = updatedStock;
+                    
+                    const updatedMarket = { ...market, stocks: updatedStocks };
+                    setSavings(prev => prev.map(s => String(s.id) === String(market.id) ? updatedMarket : s));
+                    
+                    try {
+                        await fetch(`${API_URL}/savings/${market.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updatedMarket)
+                        });
+                    } catch (e) { console.error(e); }
+                }
+            }
+        }
+    };
+
+    const syncExpenseToInvestment = async (invData, date, title, expenseId) => {
+        if (isGuest) return;
+        const { type, assetId, action } = invData;
+        
+        if (type === 'mutual_fund') {
+            const fund = savings.find(s => s.id.toString() === assetId.toString());
+            if (fund) {
+                const updatedTransactions = [...(fund.transactions || [])];
+                updatedTransactions.push({
+                    id: expenseId, // link IDs
+                    date: date,
+                    type: action,
+                    units: invData.units,
+                    nav: invData.nav,
+                    remarks: invData.remarks || title || 'Expense Sync'
+                });
+                
+                let totalUnits = 0;
+                updatedTransactions.forEach(t => {
+                    const tType = t.type || (t.remarks && t.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
+                    if (tType === 'buy' || tType === 'sip') totalUnits += Number(t.units);
+                    if (tType === 'sell' || tType === 'withdraw') totalUnits -= Number(t.units);
+                });
+                if (totalUnits < 0.0001) totalUnits = 0;
+                
+                const newAmount = totalUnits * (fund.currentNav || 0);
+                const updatedFund = { ...fund, transactions: updatedTransactions, amount: newAmount };
+                
+                setSavings(prev => prev.map(s => String(s.id) === String(fund.id) ? updatedFund : s));
+                try {
+                    await fetch(`${API_URL}/savings/${fund.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(updatedFund)
+                    });
+                } catch (e) { console.error(e); }
+            }
+        } else if (type === 'stock') {
+            const [marketId, stockId] = assetId.split('|');
+            const market = savings.find(s => s.id.toString() === marketId);
+            if (market && market.stocks) {
+                const stockIndex = market.stocks.findIndex(s => s.id.toString() === stockId);
+                if (stockIndex !== -1) {
+                    const stock = market.stocks[stockIndex];
+                    const updatedTransactions = [...(stock.transactions || [])];
+                    updatedTransactions.push({
+                        id: expenseId,
+                        date: date,
+                        type: action,
+                        quantity: invData.quantity,
+                        price: invData.price,
+                        remarks: title || 'Expense Sync'
+                    });
+                    
+                    let currentShares = 0;
+                    let totalInvested = 0;
+                    updatedTransactions.forEach(t => {
+                        const q = Number(t.quantity);
+                        const p = Number(t.price);
+                        if (t.type === 'buy') {
+                            totalInvested += (q * p);
+                            currentShares += q;
+                        } else if (t.type === 'sell') {
+                            const avgCost = currentShares > 0 ? totalInvested / currentShares : 0;
+                            totalInvested -= (q * avgCost);
+                            currentShares -= q;
+                        }
+                    });
+                    
+                    if (currentShares < 0.0001) { currentShares = 0; totalInvested = 0; }
+                    const newAvgCost = currentShares > 0 ? totalInvested / currentShares : 0;
+                    
+                    const updatedStock = {
+                        ...stock,
+                        transactions: updatedTransactions,
+                        shares: currentShares,
+                        avgCost: newAvgCost
+                    };
+                    
+                    const updatedStocks = [...market.stocks];
+                    updatedStocks[stockIndex] = updatedStock;
+                    
+                    const updatedMarket = { ...market, stocks: updatedStocks };
+                    setSavings(prev => prev.map(s => String(s.id) === String(market.id) ? updatedMarket : s));
+                    
+                    try {
+                        await fetch(`${API_URL}/savings/${market.id}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(updatedMarket)
+                        });
+                    } catch (e) { console.error(e); }
+                }
+            }
         }
     };
 
@@ -619,99 +910,82 @@ export function FinanceProvider({ children }) {
             // Individual transaction delete
             if (typeof id === 'string' && !id.includes('-')) {
                 let found = false;
-                Object.values(newExpenses).forEach(months => {
-                    Object.values(months).forEach(monthData => {
-                        if (found || !monthData.transactions) return;
-                        const txIndex = monthData.transactions.findIndex(t => t.id === id);
-                        if (txIndex !== -1) {
-                            const tx = monthData.transactions[txIndex];
-                            const target = monthData.categories || monthData;
-                            const catKey = Object.keys(target).find(k => k.toLowerCase() === tx.category.toLowerCase());
-                            if (catKey && tx.deductFromSalary !== false) {
-                                const isIncome = ['salary received', 'income'].includes(catKey.toLowerCase());
-                                let effectiveAmount = 0;
-                                if (isIncome) {
-                                    // removing a credit reduces total
-                                    effectiveAmount = tx.isCredited ? -tx.amount : tx.amount;
-                                } else {
-                                    // removing a debit reduces total (which means adding back the credited amount? no wait)
-                                    // In expenses: 
-                                    // Add: debit (+amount), credit (-amount)
-                                    // Delete: debit (-amount), credit (+amount)
-                                    effectiveAmount = tx.isCredited ? tx.amount : -tx.amount;
-                                }
-                                // We want to SUBTRACT the original effect.
-                                // Original effect for expense: Credit(-), Debit(+)
-                                // So to remove: Credit(+), Debit(-)
+                outer: for (const year of Object.keys(newExpenses)) {
+                    for (const mth of Object.keys(newExpenses[year] || {})) {
+                        const mData = newExpenses[year][mth];
+                        if (!mData?.transactions) continue;
+                        const txIndex = mData.transactions.findIndex(t => t.id === id);
+                        if (txIndex === -1) continue;
 
-                                // Original effect for income: Credit(+), Debit(-)
-                                // So to remove: Credit(-), Debit(+)
+                        // Deep clone this month before mutating
+                        newExpenses[year] = { ...newExpenses[year] };
+                        newExpenses[year][mth] = JSON.parse(JSON.stringify(mData));
+                        const monthData = newExpenses[year][mth];
+                        const tx = monthData.transactions[txIndex];
+                        const target = monthData.categories || monthData;
+                        const catKey = Object.keys(target).find(k => k.toLowerCase() === (tx.category || '').toLowerCase());
 
-                                // The code below was:
-                                // const effectiveAmount = tx.isCredited ? -tx.amount : tx.amount;
-                                // target[catKey] = Math.max(0, (target[catKey] || 0) - effectiveAmount);
+                        if (catKey && tx.deductFromSalary !== false) {
+                            const isIncome = ['salary received', 'income'].includes(catKey.toLowerCase());
+                            const val = isIncome
+                                ? (tx.isCredited ? tx.amount : -tx.amount)
+                                : (tx.isCredited ? -tx.amount : tx.amount);
+                            target[catKey] = Math.max(0, (target[catKey] || 0) - val);
+                        }
 
-                                // If I use that same logic:
-                                // Income Credit: eff = +amount.  Target - (+amount) = Correct.
-                                // Income Debit: eff = -amount. Target - (-amount) = Correct.
+                        if (tx.investmentData) {
+                            syncExpenseDeleteToInvestment(tx.investmentData, id);
+                        }
 
-                                // So I just need to define effectiveAmount correctly as per the Add logic.
+                        monthData.transactions.splice(txIndex, 1);
+                        found = true;
 
-                                const val = isIncome
-                                    ? (tx.isCredited ? tx.amount : -tx.amount)
-                                    : (tx.isCredited ? -tx.amount : tx.amount);
-
-                                target[catKey] = Math.max(0, (target[catKey] || 0) - val);
-                            }
-                            monthData.transactions.splice(txIndex, 1);
-                            found = true;
-
-                            // Handle Credit Card Bill deletion - Remove payment record from card
-                            const isCreditCardBill = tx.category.toLowerCase() === 'credit card bill';
-                            if (isCreditCardBill && tx.creditCardName) {
-                                const cardToUpdate = creditCards.find(c =>
-                                    c.name.toLowerCase().trim() === tx.creditCardName.toLowerCase().trim()
-                                );
-
-                                if (cardToUpdate) {
-                                    let updatedCard = { ...cardToUpdate, monthlyData: [...(cardToUpdate.monthlyData || [])] };
-                                    // Revert the payment status instead of deleting if it was an actual bill
-                                    const recordIndex = updatedCard.monthlyData.findIndex(m => 
-                                        m.isPaid && 
-                                        (m.paidDate === tx.date || (m.billAmount === tx.amount && String(m.remarks || '').includes('Bill payment')))
-                                    );
-                                    if (recordIndex !== -1) {
-                                        if (updatedCard.monthlyData[recordIndex].points === 0 && String(updatedCard.monthlyData[recordIndex].remarks || '').includes('Bill payment')) {
-                                            updatedCard.monthlyData.splice(recordIndex, 1);
-                                        } else {
-                                            updatedCard.monthlyData[recordIndex] = {
-                                                ...updatedCard.monthlyData[recordIndex],
-                                                isPaid: false,
-                                                paidDate: null,
-                                                remarks: (updatedCard.monthlyData[recordIndex].remarks || '').replace(' (Paid)', '')
-                                            };
-                                        }
-                                        fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
-                                            method: 'PUT',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify(updatedCard)
-                                        })
-                                        .then(() => {
-                                            setCreditCards(prev => prev.map(c => 
-                                                String(c.id) === String(updatedCard.id) ? updatedCard : c
-                                            ));
-                                        })
-                                        .catch(error => {
-                                            console.error("Error updating credit card after bill payment deletion:", error);
-                                        });
+                        // Handle Credit Card Bill deletion - normalise dates before comparing
+                        const isCreditCardBill = (tx.category || '').toLowerCase() === 'credit card bill';
+                        if (isCreditCardBill && tx.creditCardName) {
+                            const cardToUpdate = creditCards.find(c =>
+                                c.name.toLowerCase().trim() === tx.creditCardName.toLowerCase().trim()
+                            );
+                            if (cardToUpdate) {
+                                let updatedCard = { ...cardToUpdate, monthlyData: [...(cardToUpdate.monthlyData || [])] };
+                                const txDateNorm = (tx.date || '').replace(/-/g, '/').split('/').map(p => p.padStart(2,'0')).join('-');
+                                const recordIndex = updatedCard.monthlyData.findIndex(m => {
+                                    if (!m.isPaid) return false;
+                                    const paidNorm = (m.paidDate || '').replace(/-/g, '/').split('/').map(p => p.padStart(2,'0')).join('-');
+                                    return paidNorm === txDateNorm || Number(m.billAmount) === Number(tx.amount);
+                                });
+                                if (recordIndex !== -1) {
+                                    if (updatedCard.monthlyData[recordIndex].points === 0 &&
+                                        String(updatedCard.monthlyData[recordIndex].remarks || '').includes('Bill payment')) {
+                                        updatedCard.monthlyData.splice(recordIndex, 1);
+                                    } else {
+                                        updatedCard.monthlyData[recordIndex] = {
+                                            ...updatedCard.monthlyData[recordIndex],
+                                            isPaid: false,
+                                            paidDate: null,
+                                            remarks: (updatedCard.monthlyData[recordIndex].remarks || '').replace(' (Paid)', '')
+                                        };
                                     }
+                                    fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
+                                        method: 'PUT',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(updatedCard)
+                                    }).then(() => {
+                                        setCreditCards(prev => prev.map(c =>
+                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
+                                        ));
+                                    }).catch(error => {
+                                        console.error("Error updating credit card after bill payment deletion:", error);
+                                    });
                                 }
                             }
                         }
-                    });
-                });
+                        break outer;
+                    }
+                }
                 if (found) await saveExpenses(newExpenses);
                 return;
+
             }
 
             // Category-level delete
@@ -804,13 +1078,26 @@ export function FinanceProvider({ children }) {
                 return (item.details || []).slice(-1)[0]?.balance || 0;
 
             case 'pf':
-                // For PF, amount is base initial balance, details handles individual transactions.
-                // We'll calculate it on the fly: initial amount + sum of all details
-                return (item.details || []).reduce((sum, d) => sum + Number(d.amount || 0), Number(item.amount || 0));
+                // For PF, item.amount is the base balance. details tracks additional contributions.
+                // Only sum details entries (do NOT add item.amount again to avoid double-counting
+                // if the opening balance is also present as the first details entry).
+                return (item.details || []).reduce((sum, d) => sum + Number(d.amount || 0), 0) || Number(item.amount || 0);
 
             case 'nps':
-                // NPS current value is the sum of holdings' invested amounts
-                return (item.holdings || []).reduce((sum, h) => sum + Number(h.amount || 0), 0);
+                return (item.holdings || []).reduce((sum, h) => {
+                    if (h.transactions && h.transactions.length > 0) {
+                        const hUnits = h.transactions.reduce((acc, tx) => {
+                            const u = Number(tx.units || 0);
+                            // Billing and sell/withdraw reduce units; contribution adds
+                            if (tx.type === 'billing' || tx.type === 'sell' || tx.type === 'withdraw') {
+                                return acc + u; // units are already stored as negative for billing/sell
+                            }
+                            return acc + u;
+                        }, 0);
+                        return sum + (hUnits * Number(h.nav || 0));
+                    }
+                    return sum + Number(h.amount || 0);
+                }, 0);
 
             case 'sgb':
                 return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.currentPrice || 0)), 0);
@@ -847,7 +1134,7 @@ export function FinanceProvider({ children }) {
                 let runningCost = 0;
                 (item.transactions || []).forEach(tx => {
                     const isSell = tx.type === 'sell' || tx.type === 'withdraw';
-                    const txAmount = Number(tx.amount || 0);
+                    const txAmount = Number(tx.amount || 0) || (Number(tx.units || 0) * Number(tx.nav || 0));
                     const txUnits = Number(tx.units || 0);
                     if (isSell) {
                         const avgCostAtSale = runningUnits > 0 ? runningCost / runningUnits : 0;
@@ -873,8 +1160,17 @@ export function FinanceProvider({ children }) {
             case 'pf':
                 return (item.details || []).reduce((sum, d) => sum + (d.type !== 'Interest' ? Number(d.amount || 0) : 0), Number(item.amount || 0));
 
-            case 'nps':
-                return (item.transactions || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
+            case 'nps': {
+                let hasAnyTx = false;
+                const txInvested = (item.holdings || []).reduce((sum, h) => {
+                    if (h.transactions && h.transactions.length > 0) {
+                        hasAnyTx = true;
+                        return sum + h.transactions.reduce((acc, tx) => acc + (tx.type === 'billing' ? 0 : Number(tx.amount || 0)), 0);
+                    }
+                    return sum;
+                }, 0);
+                return hasAnyTx ? txInvested : Number(item.investedAmount || 0);
+            }
 
             case 'sgb':
                 return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.issuePrice || 0)), 0);
@@ -907,7 +1203,11 @@ export function FinanceProvider({ children }) {
                 });
 
                 if (foundLocation) {
-                    const { year: oldYear, month: oldMonth, index: txIndex, data: oldMonthData } = foundLocation;
+                    const { year: oldYear, month: oldMonth, index: txIndex } = foundLocation;
+                    // Deep clone old month before any mutation
+                    newExpenses[oldYear] = { ...newExpenses[oldYear] };
+                    newExpenses[oldYear][oldMonth] = JSON.parse(JSON.stringify(foundLocation.data));
+                    const oldMonthData = newExpenses[oldYear][oldMonth];
                     const oldTx = oldMonthData.transactions[txIndex];
                     const oldTarget = oldMonthData.categories || oldMonthData;
 
@@ -927,9 +1227,11 @@ export function FinanceProvider({ children }) {
                         // Remove from old location
                         oldMonthData.transactions.splice(txIndex, 1);
 
-                        // Ensure new location exists
+                        // Ensure new location exists and deep clone it
                         if (!newExpenses[newYear]) newExpenses[newYear] = {};
                         if (!newExpenses[newYear][newMonth]) newExpenses[newYear][newMonth] = { categories: {}, transactions: [] };
+                        newExpenses[newYear] = { ...newExpenses[newYear] };
+                        newExpenses[newYear][newMonth] = JSON.parse(JSON.stringify(newExpenses[newYear][newMonth]));
 
                         const newMonthData = newExpenses[newYear][newMonth];
                         const newTarget = newMonthData.categories || newMonthData;
@@ -961,10 +1263,20 @@ export function FinanceProvider({ children }) {
                             oldTarget[newKey] = Math.max(0, (oldTarget[newKey] || 0) + newEffective);
                         }
 
-                        oldMonthData.transactions[txIndex] = { ...oldTx, ...item, amount: newAmount, category: newCategory, deductFromSalary: item.deductFromSalary };
+                        oldMonthData.transactions[txIndex] = { ...oldTx, ...item, amount: newAmount, category: newCategory, deductFromSalary: item.deductFromSalary, investmentData: item.investmentData || null };
                     }
 
                     await saveExpenses(newExpenses);
+                    
+                    // Handle Investment Sync on Edit
+                    if (!item.skipInvestmentSync) {
+                        if (oldTx.investmentData) {
+                            await syncExpenseDeleteToInvestment(oldTx.investmentData, oldTx.id);
+                        }
+                        if (item.investmentData) {
+                            await syncExpenseToInvestment(item.investmentData, item.date, item.title, item.id);
+                        }
+                    }
 
                     // Handle Credit Card Bill update
                     const wasOldCreditCardBill = oldTx.category?.toLowerCase() === 'credit card bill';
@@ -1279,6 +1591,12 @@ export function FinanceProvider({ children }) {
         updateManualRates,
         mergedCategoryMap,
         addCustomCategory,
+        customGroceryItems,
+        addCustomGroceryItem,
+        groceryBrands,
+        addGroceryBrand,
+        groceryFlavours,
+        addGroceryFlavour,
         isLoading,
         dataError
     };

@@ -15,8 +15,16 @@ const PFDetails = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
     const [editingIndex, setEditingIndex] = useState(null);
+    const [isEditingUan, setIsEditingUan] = useState(false);
+    const [uan, setUan] = useState('');
 
     const pf = savings.find(s => s.id === id);
+
+    React.useEffect(() => {
+        if (pf && uan === '' && !isEditingUan) {
+            setUan(pf.uan || '');
+        }
+    }, [pf, uan, isEditingUan]);
 
     if (!pf) return <div>ID not found</div>;
 
@@ -35,6 +43,11 @@ const PFDetails = () => {
             runningBalance += txAmount;
             return { ...item, balance: runningBalance };
         });
+    };
+
+    const handleSaveUan = () => {
+        updateItem('savings', { ...pf, uan });
+        setIsEditingUan(false);
     };
 
     const handleSaveTx = (txData) => {
@@ -107,6 +120,31 @@ const PFDetails = () => {
                         {pf.title}
                     </h2>
                     <p className="text-secondary font-medium">Opening Balance: {formatCurrency(openingBalance)} | Started: {formatDate(pf.date)}</p>
+                    <div className="mt-3 flex items-center gap-3">
+                        <span className="text-gray-400 font-black uppercase tracking-widest text-[10px] bg-white/5 px-2 py-1 rounded-md">UAN</span>
+                        {isEditingUan ? (
+                            <div className="flex items-center gap-2">
+                                <input 
+                                    type="text" 
+                                    value={uan} 
+                                    onChange={e => setUan(e.target.value)} 
+                                    className="bg-black/40 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white font-mono outline-none w-48 focus:border-indigo-500 transition-colors"
+                                    placeholder="e.g. 100908765432"
+                                    autoFocus
+                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveUan(); if (e.key === 'Escape') { setUan(pf.uan || ''); setIsEditingUan(false); } }}
+                                />
+                                <button onClick={handleSaveUan} className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-md transition-colors text-xs font-black uppercase tracking-widest">Save</button>
+                                <button onClick={() => { setUan(pf.uan || ''); setIsEditingUan(false); }} className="bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white px-3 py-1.5 rounded-md transition-colors text-xs font-black uppercase tracking-widest">Cancel</button>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setIsEditingUan(true)}>
+                                <span className="text-white font-mono text-lg">{pf.uan ? pf.uan : <span className="text-gray-500 italic text-sm">Not specified</span>}</span>
+                                <button className="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-indigo-500/20 rounded-md" title="Edit UAN">
+                                    <Edit2 size={14} />
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
                 <button
                     onClick={() => { setEditingTx(null); setEditingIndex(null); setIsModalOpen(true); }}

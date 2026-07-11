@@ -6,6 +6,7 @@ import "react-datepicker/dist/react-datepicker.css";
 import { useFinance } from '../context/FinanceContext';
 import CurrencyInput from './CurrencyInput';
 import { CATEGORY_MAP } from '../utils/categories';
+import GroceryBuilder from './GroceryBuilder';
 
 const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultDate = null }) => {
     // State initialization
@@ -18,11 +19,27 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const [creditCardName, setCreditCardName] = useState('');
     const [isCredited, setIsCredited] = useState(false);
     const [isCreditCardBill, setIsCreditCardBill] = useState(false);
+    const [deductFromSalary, setDeductFromSalary] = useState(true);
+    const [km, setKm] = useState('');
+    const [liters, setLiters] = useState('');
+    const [pricePerLiter, setPricePerLiter] = useState('');
+    const [vehicleType, setVehicleType] = useState('scooty');
+    
+    // Investment fields
+    const [investmentAssetId, setInvestmentAssetId] = useState('');
+    const [invQuantity, setInvQuantity] = useState('');
+    const [invPrice, setInvPrice] = useState('');
+    const [invNav, setInvNav] = useState('');
+    const [invUnits, setInvUnits] = useState('');
+    const [invRemarks, setInvRemarks] = useState('');
+    
+    // Grocery fields
+    const [groceryItems, setGroceryItems] = useState([]);
 
-    const { creditCards, mergedCategoryMap, addCustomCategory } = useFinance();
+    const { expenses, creditCards, mergedCategoryMap, addCustomCategory, savings = [] } = useFinance();
     const mainCategoriesList = Object.keys(mergedCategoryMap);
-    const subCategoriesList = mainCategory ? mergedCategoryMap[mainCategory] : [];
-
+    const subCategoriesList = mainCategory ? (mergedCategoryMap[mainCategory] || []) : [];
+    
     const availableCreditCards = creditCards && creditCards.length > 0
         ? creditCards.map(c => c.name)
         : ["Scapia", "Amazon", "Icici Rupay", "ICICI HP card"];
@@ -33,21 +50,17 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setTitle(initialData.title || '');
             setAmount(initialData.amount || '');
 
-            const initialCat = initialData.category || '';
+            let initialCat = initialData.category || '';
+            if (initialCat.toLowerCase() === 'fuels') initialCat = 'fuel';
+            
             let initialMain = initialData.mainCategory || '';
-            let properCaseCat = initialCat;
-
-            if (initialMain && mergedCategoryMap[initialMain]) {
-                const matched = mergedCategoryMap[initialMain].find(s => s.toLowerCase() === initialCat.toLowerCase());
-                if (matched) properCaseCat = matched;
-            }
+            let properCaseCat = initialCat.toLowerCase();
 
             if (!initialMain && initialCat) {
                 for (const [main, subs] of Object.entries(mergedCategoryMap)) {
                     const matched = subs.find(s => s.toLowerCase() === initialCat.toLowerCase());
                     if (matched) {
                         initialMain = main;
-                        properCaseCat = matched;
                         break;
                     }
                 }
@@ -56,24 +69,69 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
 
             setMainCategory(initialMain);
             setCategory(properCaseCat);
+            setDeductFromSalary(initialData.deductFromSalary !== false);
+            
+            setKm(initialData.km || '');
+            setLiters(initialData.liters || '');
+            setVehicleType(initialData.vehicleType || 'scooty');
+            if (initialData.liters && initialData.amount) {
+                setPricePerLiter((Number(initialData.amount) / Number(initialData.liters)).toFixed(2));
+            } else {
+                setPricePerLiter('');
+            }
 
             setDate(initialData.date ? new Date(initialData.date) : (defaultDate || new Date()));
             setPaymentMode(initialData.paymentMode || 'direct');
             setCreditCardName(initialData.creditCardName || '');
             setIsCredited(!!initialData.isCredited);
             setIsCreditCardBill(initialCat.toLowerCase() === 'credit card bill' || initialCat.toLowerCase() === 'credit card payment');
+            
+            // Investment logic
+            const isInv = initialMain === 'Investments';
+            if (isInv && initialData.investmentData) {
+                const inv = initialData.investmentData;
+                setInvestmentAssetId(inv.assetId || '');
+                setInvQuantity(inv.quantity || '');
+                setInvPrice(inv.price || '');
+                setInvNav(inv.nav || '');
+                setInvUnits(inv.units || '');
+                setInvRemarks(inv.remarks || '');
+            } else {
+                setInvestmentAssetId('');
+                setInvQuantity('');
+                setInvPrice('');
+                setInvNav('');
+                setInvUnits('');
+                setInvRemarks('');
+            }
+            
+            setGroceryItems(initialData.groceryItems || []);
         } else if (isOpen && !initialData) {
             setTitle('');
             setAmount('');
             setMainCategory('');
             setCategory('');
+            setDeductFromSalary(true);
             setIsCredited(false);
             setDate(defaultDate || new Date());
             setPaymentMode('direct');
             setCreditCardName('');
             setIsCreditCardBill(false);
+            setKm(''); setLiters(''); setPricePerLiter(''); setVehicleType('scooty');
+            setInvestmentAssetId(''); setInvQuantity(''); setInvPrice(''); setInvNav(''); setInvUnits(''); setInvRemarks('');
+            setGroceryItems([]);
         }
-    }, [initialData, isOpen, defaultDate]);
+    }, [initialData, isOpen, defaultDate, mergedCategoryMap]);
+
+    // Auto-calculate amount for groceries if items exist
+    useEffect(() => {
+        if (category && category.toLowerCase() === 'groceries' && groceryItems && groceryItems.length > 0) {
+            const total = groceryItems.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
+            if (total > 0) {
+                setAmount(total.toFixed(2));
+            }
+        }
+    }, [groceryItems, category]);
 
     // Auto-set credit mode for salary/income (only for NEW transactions, not when editing)
     useEffect(() => {
@@ -110,19 +168,36 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
         const parsedAmount = parseFloat(amount);
         if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) return;
         if (paymentMode === 'credit_card' && !creditCardName) return;
+        let computedLiters = null;
+        if (category && category.toLowerCase().includes('fuel') && km && pricePerLiter) {
+            computedLiters = Number((Number(amount) / Number(pricePerLiter)).toFixed(2));
+        }
+
+        const investmentData = mainCategory === 'Investments' && investmentAssetId ? {
+            assetId: investmentAssetId,
+            quantity: Number(invQuantity) || null,
+            price: Number(invPrice) || null,
+            nav: Number(invNav) || null,
+            units: Number(invUnits) || null,
+            remarks: invRemarks
+        } : null;
+
         onAdd({
             ...initialData,
             title,
             amount: parsedAmount,
-            mainCategory: mainCategory,
+            mainCategory,
             category: category.toLowerCase(),
             date: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`,
-            deductFromSalary: (paymentMode === 'direct' && !category.toLowerCase().includes('tax')) || category.toLowerCase() === 'credit card bill',
+            deductFromSalary,
             paymentMode,
             creditCardName: paymentMode === 'credit_card' ? creditCardName : null,
             isCredited,
             transactionType: isCredited ? 'credit' : 'debit',
-            type: 'monthly'
+            type: 'monthly',
+            ...(category && category.toLowerCase().includes('fuel') && { km: km ? Number(km) : null, liters: computedLiters || (liters ? Number(liters) : null), vehicleType }),
+            ...(investmentData && { investmentData }),
+            ...(category && category.toLowerCase() === 'groceries' && groceryItems.length > 0 && { groceryItems })
         });
         onClose();
     };
@@ -276,13 +351,50 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                         className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-12 text-white font-bold appearance-none focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all text-sm cursor-pointer disabled:opacity-50"
                                     >
                                         <option value="" disabled className="bg-[#0c0c0e]">{mainCategory ? "Select Sub" : "Select Main First"}</option>
-                                        {subCategoriesList.map(cat => <option key={cat} value={cat} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
+                                        {subCategoriesList.map(cat => <option key={cat} value={cat.toLowerCase()} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
                                         {mainCategory && <option value="__add_custom__" className="bg-[#0c0c0e] text-emerald-400 font-bold">+ Add New Sub Category</option>}
                                     </select>
                                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                                 </div>
                             </div>
                         </div>
+
+                        {category && category.toLowerCase() === 'groceries' && (
+                            <GroceryBuilder 
+                                items={groceryItems} 
+                                onChange={setGroceryItems} 
+                                expenses={expenses} 
+                            />
+                        )}
+
+                        {category && category.toLowerCase().includes('fuel') && (
+                            <div className="space-y-4 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10">
+                                <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Fuel Details</h3>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Vehicle Type</label>
+                                        <select value={vehicleType} onChange={e => setVehicleType(e.target.value)} className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-4 text-white font-bold text-sm focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all">
+                                            <option value="scooty">Scooty (TVS Ntorq)</option>
+                                            <option value="bike">Bike</option>
+                                            <option value="car">Car</option>
+                                            <option value="other">Other</option>
+                                        </select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Odometer (KM)</label>
+                                        <input type="number" value={km} onChange={e => setKm(e.target.value)} placeholder="e.g. 15400" className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-4 text-white font-bold text-sm placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Price/Liter</label>
+                                        <input type="number" value={pricePerLiter} onChange={e => setPricePerLiter(e.target.value)} placeholder="e.g. 102.5" className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-4 text-white font-bold text-sm placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all" />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Liters (Optional)</label>
+                                        <input type="number" value={liters} onChange={e => setLiters(e.target.value)} placeholder="Auto-calculated" className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl px-4 text-white font-bold text-sm placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-3">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Transaction Type</label>

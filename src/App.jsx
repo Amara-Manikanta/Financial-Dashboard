@@ -40,6 +40,8 @@ import LentDetails from './pages/LentDetails';
 import CreditCardDetails from './pages/CreditCardDetails';
 import SingleCreditCardDetails from './pages/SingleCreditCardDetails';
 import AllTransactions from './pages/AllTransactions';
+import FuelAnalytics from './pages/FuelAnalytics';
+import GroceryAnalytics from './pages/GroceryAnalytics';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -147,6 +149,8 @@ function App() {
                                     <Route path="assets/:categoryId/:itemId" element={<AssetItemDetails />} />
                                     <Route path="lents-loans" element={<LentsAndLoans />} />
                                     <Route path="lents-loans/:id" element={<LentDetails />} />
+                                    <Route path="fuel" element={<FuelAnalytics />} />
+                                    <Route path="grocery-analytics" element={<GroceryAnalytics />} />
                                     <Route path="profile" element={<Profile />} />
                                     <Route path="credit-cards" element={<CreditCardDetails />} />
                                     <Route path="credit-cards/:id" element={<SingleCreditCardDetails />} />

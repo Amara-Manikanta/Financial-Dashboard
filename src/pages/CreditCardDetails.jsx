@@ -14,31 +14,31 @@ const CreditCardDetails = () => {
 
     const getCardSpend = (card) => {
         let spend = 0;
-        const currentMonthName = new Date().toLocaleString('default', { month: 'long' });
-        const currentYearStr = new Date().getFullYear().toString();
-
         if (expenses) {
-            const yearData = expenses[currentYearStr];
-            if (yearData && yearData[currentMonthName] && yearData[currentMonthName].transactions) {
-                yearData[currentMonthName].transactions.forEach(tx => {
-                    if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
-                        const txName = tx.creditCardName.trim().toLowerCase();
-                        const cardName = card.name.trim().toLowerCase();
-                        const aliases = { 'coral rupay': ['icici rupay'], 'hpcl': ['icici hp card'] };
-                        const knownAliases = aliases[cardName] || [];
+            Object.values(expenses).forEach(yearData => {
+                Object.values(yearData).forEach(monthData => {
+                    if (monthData.transactions) {
+                        monthData.transactions.forEach(tx => {
+                            if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
+                                const txName = tx.creditCardName.trim().toLowerCase();
+                                const cardName = card.name.trim().toLowerCase();
+                                const aliases = { 'coral rupay': ['icici rupay'], 'hpcl': ['icici hp card'] };
+                                const knownAliases = aliases[cardName] || [];
 
-                        if (txName === cardName || cardName.includes(txName) || txName.includes(cardName) || knownAliases.includes(txName)) {
-                            if (tx.category === 'credit card bill') {
-                                spend -= Number(tx.amount);
-                            } else {
-                                spend += (tx.isCredited ? -Number(tx.amount) : Number(tx.amount));
+                                if (txName === cardName || cardName.includes(txName) || txName.includes(cardName) || knownAliases.includes(txName)) {
+                                    if (tx.category === 'credit card bill') {
+                                        spend -= Number(tx.amount);
+                                    } else {
+                                        spend += (tx.isCredited ? -Number(tx.amount) : Number(tx.amount));
+                                    }
+                                }
                             }
-                        }
+                        });
                     }
                 });
-            }
+            });
         }
-        return spend;
+        return Math.max(0, spend);
     };
 
     const getWalletBalance = (card) => {
@@ -48,8 +48,12 @@ const CreditCardDetails = () => {
                 Object.values(yearData).forEach(monthData => {
                     if (monthData.transactions) {
                         monthData.transactions.forEach(tx => {
-                            if (tx.paymentMode === 'credit_card' && tx.creditCardName === card.name) {
-                                balance += tx.isCredited ? Number(tx.amount) : -Number(tx.amount);
+                            if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
+                                const txName = tx.creditCardName.trim().toLowerCase();
+                                const cardName = card.name.trim().toLowerCase();
+                                if (txName === cardName || cardName.includes(txName) || txName.includes(cardName)) {
+                                    balance += tx.isCredited ? Number(tx.amount) : -Number(tx.amount);
+                                }
                             }
                         });
                     }

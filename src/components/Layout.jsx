@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
@@ -28,6 +28,38 @@ const NavItem = ({ to, icon: Icon, label }) => (
         )}
     </NavLink>
 );
+
+const NavDropdown = ({ label, icon: Icon, items }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    return (
+        <div 
+            className="relative group/dropdown z-50"
+            onMouseEnter={() => setIsOpen(true)}
+            onMouseLeave={() => setIsOpen(false)}
+        >
+            <div className="relative flex items-center gap-2 px-1 py-2 text-sm font-medium transition-all duration-200 group text-gray-400 hover:text-white cursor-pointer">
+                <span className="p-1.5 rounded-lg transition-colors group-hover:bg-white/5">
+                    <Icon size={18} />
+                </span>
+                <span>{label}</span>
+            </div>
+            {isOpen && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-48 bg-[#18181b] border border-white/10 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] flex flex-col py-1 overflow-hidden animate-fade-in">
+                    {items.map(item => (
+                        <NavLink
+                            key={item.to}
+                            to={item.to}
+                            className={({ isActive }) => `px-4 py-2.5 text-xs transition-colors flex items-center gap-2 ${isActive ? 'text-orange-500 bg-white/5 font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                        >
+                            <item.icon size={14} />
+                            {item.label}
+                        </NavLink>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
+};
 
 const Layout = () => {
     const { user, logout } = useAuth();
@@ -87,7 +119,17 @@ const Layout = () => {
                     <nav className="flex-1 flex items-center justify-center gap-8">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         <NavItem to="/salary" icon={Briefcase} label="Salary" />
-                        <NavItem to="/expenses" icon={Wallet} label="Expenses" />
+                        
+                        <NavDropdown 
+                            label="Expenses" 
+                            icon={Wallet} 
+                            items={[
+                                { to: '/expenses', label: 'All Expenses', icon: Wallet },
+                                { to: '/fuel', label: 'Fuel Analytics', icon: Fuel },
+                                { to: '/grocery-analytics', label: 'Grocery Analytics', icon: ShoppingBag }
+                            ]} 
+                        />
+                        
                         <NavItem to="/savings" icon={PiggyBank} label="Savings" />
                         <NavItem to="/investments" icon={TrendingUp} label="Investments" />
                         <NavItem to="/metals" icon={Coins} label="Gold & Silver" />

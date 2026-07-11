@@ -25,9 +25,10 @@ const iconStyle = {
     height: '18px'
 };
 
-const InterestTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
+const InterestTransactionModal = ({ isOpen, onClose, onSave, initialData, title = "Interest", useFinancialYear = false }) => {
     const [formData, setFormData] = useState({
         date: '',
+        financialYear: '',
         amount: '',
         remarks: ''
     });
@@ -36,13 +37,19 @@ const InterestTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
         if (isOpen) {
             if (initialData) {
                 setFormData({
-                    date: toISODate(initialData.date) || '',
+                    date: initialData.date ? toISODate(initialData.date) : '',
+                    financialYear: initialData.financialYear || '',
                     amount: initialData.amount || '',
                     remarks: initialData.remarks || ''
                 });
             } else {
+                const currentYear = new Date().getFullYear();
+                const currentMonth = new Date().getMonth();
+                const defaultFy = currentMonth >= 3 ? `${currentYear}-${currentYear + 1}` : `${currentYear - 1}-${currentYear}`;
+                
                 setFormData({
                     date: toISODate(new Date()) || '',
+                    financialYear: defaultFy,
                     amount: '',
                     remarks: ''
                 });
@@ -82,16 +89,29 @@ const InterestTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
 
                 <div className="flex items-center justify-between p-4 border-b border-gray-800">
                     <h3 className="text-lg font-bold text-white">
-                        {initialData ? 'Edit Interest' : 'Add Interest'}
+                        {initialData ? `Edit ${title}` : `Add ${title}`}
                     </h3>
                     <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-4 space-y-4">
                     <div className="relative">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Date</label>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                            {useFinancialYear ? 'Financial Year' : 'Date'}
+                        </label>
                         <div className="relative">
-                            <input type="date" name="date" required value={formData.date} onChange={handleChange} style={inputStyle} />
+                            {useFinancialYear ? (
+                                <select name="financialYear" value={formData.financialYear} onChange={handleChange} style={inputStyle} required>
+                                    <option value="">Select Financial Year</option>
+                                    {[...Array(10)].map((_, i) => {
+                                        const startYear = new Date().getFullYear() - 5 + i;
+                                        const fy = `${startYear}-${startYear + 1}`;
+                                        return <option key={fy} value={fy}>{fy}</option>;
+                                    })}
+                                </select>
+                            ) : (
+                                <input type="date" name="date" required value={formData.date} onChange={handleChange} style={inputStyle} />
+                            )}
                             <Calendar style={iconStyle} />
                         </div>
                     </div>

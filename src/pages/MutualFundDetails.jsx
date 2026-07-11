@@ -9,7 +9,7 @@ import MutualFundEditModal from '../components/MutualFundEditModal';
 const MutualFundDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { savings, formatCurrency, updateItem, refreshMutualFundNAV, calculateItemCurrentValue, calculateItemInvestedValue } = useFinance();
+    const { savings, formatCurrency, updateItem, refreshMutualFundNAV, calculateItemCurrentValue, calculateItemInvestedValue, addItem, deleteItem } = useFinance();
 
     // State for modals
     const [isTxModalOpen, setIsTxModalOpen] = useState(false);
@@ -59,9 +59,37 @@ const MutualFundDetails = () => {
         if (editingTx) {
             // Edit existing
             updatedTransactions = updatedTransactions.map(t => t.id === tx.id ? tx : t);
+            updateItem('expense', {
+                 id: tx.id,
+                 title: `${tx.type === 'sell' ? 'Sell' : 'Buy'} ${fund.title || fund.name || 'Mutual Fund'}`,
+                 amount: Number(tx.amount || (tx.units * (tx.nav || fund.currentNav || 0))),
+                 category: 'mutual funds',
+                 mainCategory: 'Investments',
+                 date: tx.date,
+                 paymentMode: 'direct',
+                 isCredited: tx.type === 'sell' || tx.type === 'withdraw',
+                 transactionType: tx.type === 'sell' || tx.type === 'withdraw' ? 'credit' : 'debit',
+                 deductFromSalary: true,
+                 skipInvestmentSync: true,
+                 investmentData: { type: 'mutual_fund', assetId: fund.id, action: tx.type, nav: fund.currentNav, units: tx.units, remarks: tx.remarks }
+            });
         } else {
             // Add new
             updatedTransactions.push(tx);
+            addItem('expense', {
+                 id: tx.id,
+                 title: `${tx.type === 'sell' ? 'Sell' : 'Buy'} ${fund.title || fund.name || 'Mutual Fund'}`,
+                 amount: Number(tx.amount || (tx.units * (tx.nav || fund.currentNav || 0))),
+                 category: 'mutual funds',
+                 mainCategory: 'Investments',
+                 date: tx.date,
+                 paymentMode: 'direct',
+                 isCredited: tx.type === 'sell' || tx.type === 'withdraw',
+                 transactionType: tx.type === 'sell' || tx.type === 'withdraw' ? 'credit' : 'debit',
+                 deductFromSalary: true,
+                 skipInvestmentSync: true,
+                 investmentData: { type: 'mutual_fund', assetId: fund.id, action: tx.type, nav: fund.currentNav, units: tx.units, remarks: tx.remarks }
+            });
         }
 
         updatedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -85,10 +113,11 @@ const MutualFundDetails = () => {
 
     const handleDeleteTransaction = (txId) => {
         if (window.confirm('Delete this transaction?')) {
-            const updatedTransactions = fund.transactions.filter(t => t.id != txId);
+            const updatedTransactions = fund.transactions.filter(t => t.id !== txId);
             const updatedFund = { ...fund, transactions: updatedTransactions };
             updatedFund.amount = calculateItemCurrentValue(updatedFund);
             updateItem('savings', updatedFund);
+            deleteItem('expense', txId);
         }
     };
 
@@ -109,7 +138,7 @@ const MutualFundDetails = () => {
     // --- Unit-based Accounting (Centralized Logic) ---
     const currentTotalValue = calculateItemCurrentValue(fund);
     const total_cost_held = calculateItemInvestedValue(fund);
-    const total_profit = currentTotalValue - total_cost_held;
+    const total_unrealised_profit = currentTotalValue - total_cost_held;
 
     // We still calculate transactionsWithCalcs for the table breakdown
     let runningUnits = 0;
@@ -131,6 +160,9 @@ const MutualFundDetails = () => {
 
                 runningUnits -= txUnits;
                 runningCost -= cost_of_units_sold;
+                // Guard against going negative due to out-of-order data
+                if (runningUnits < 0) runningUnits = 0;
+                if (runningCost < 0) runningCost = 0;
 
                 return {
                     ...tx,
@@ -160,7 +192,7 @@ const MutualFundDetails = () => {
     const avgNav = total_units_held > 0 ? (runningCost / total_units_held) : 0;
     // For Realized/Unrealized splits:
     const total_realised_profit = transactionsWithCalcs.filter(tx => tx.isSell).reduce((sum, tx) => sum + tx.displayPL, 0);
-    const total_unrealised_profit = total_profit - total_realised_profit;
+    const total_profit = total_unrealised_profit + total_realised_profit;
 
     const isTotalProfit = total_profit >= 0;
 

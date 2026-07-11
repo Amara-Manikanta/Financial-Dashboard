@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2 } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import SavingsItemModal from '../components/SavingsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -71,6 +72,33 @@ const Savings = () => {
     const savingsOnly = savings.filter(item => item.type !== 'mutual_fund' && item.type !== 'stock_market');
     const totalPortfolioValue = savingsOnly.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
 
+    let pieData = [];
+    savingsOnly.forEach(item => {
+        const val = calculateItemCurrentValue(item);
+        if (val > 0) {
+            pieData.push({ name: item.title || item.type.replace('_', ' '), value: val });
+        }
+    });
+    pieData.sort((a,b) => b.value - a.value);
+
+    const PIE_COLORS = [
+        '#8b5cf6', '#ec4899', '#3b82f6', '#10b981', 
+        '#f59e0b', '#ef4444', '#06b6d4', '#84cc16', '#f97316'
+    ];
+
+    const RADIAN = Math.PI / 180;
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+        if (percent * 100 < 5) return null;
+        return (
+            <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight="black">
+                {`${(percent * 100).toFixed(0)}%`}
+            </text>
+        );
+    };
+
     const handleSaveNewItem = async (newItem) => {
         await addItem('savings', newItem);
         setIsModalOpen(false);
@@ -99,6 +127,49 @@ const Savings = () => {
                     </button>
                 </div>
             </div>
+
+            {pieData.length > 0 && (
+                <div className="mb-12 card p-8 bg-white/[0.02] border-white/5 flex flex-col md:flex-row items-center justify-center" style={{ gap: '4rem' }}>
+                    <div style={{ width: '300px', height: '300px', position: 'relative', flexShrink: 0 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <PieChart>
+                                <Pie
+                                    data={pieData}
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={120}
+                                    dataKey="value"
+                                    stroke="rgba(255,255,255,0.1)"
+                                    strokeWidth={1}
+                                    labelLine={false}
+                                    label={renderCustomizedLabel}
+                                >
+                                    {pieData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip 
+                                    formatter={(value) => formatCurrency(value)} 
+                                    contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                                    itemStyle={{ color: '#fff', fontWeight: 'bold' }}
+                                />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-col" style={{ gap: '1.25rem' }}>
+                        {pieData.map((entry, index) => {
+                            const percentage = ((entry.value / totalPortfolioValue) * 100).toFixed(1);
+                            return (
+                                <div key={entry.name} className="flex items-center gap-4">
+                                    <div className="rounded shadow-sm" style={{ width: '40px', height: '20px', backgroundColor: PIE_COLORS[index % PIE_COLORS.length], flexShrink: 0 }} />
+                                    <span className="font-bold text-gray-300" style={{ fontSize: '1.25rem' }}>{entry.name}</span>
+                                    <span className="font-black text-white ml-2" style={{ fontSize: '1.25rem' }}>{percentage}%</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {savingsOnly.length === 0 ? (
                 <div className="card p-12 flex flex-col items-center justify-center text-center bg-white/[0.02] border-white/5 border-dashed mb-8">

@@ -65,6 +65,8 @@ const Investments = () => {
         }
     });
 
+    pieData.sort((a, b) => b.value - a.value);
+
     const totalInvestedValue = pieData.reduce((sum, item) => sum + item.value, 0);
 
     const PIE_COLORS = [

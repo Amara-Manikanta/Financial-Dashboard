@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-function guessCategory(remarks, isCredit) {
+export function guessCategory(remarks, isCredit) {
     const raw = remarks.toLowerCase();
     
     if (isCredit) {

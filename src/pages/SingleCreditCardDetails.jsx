@@ -1,21 +1,49 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Edit2, Trash2, Plus, Calendar, Award, CheckCircle, XCircle } from 'lucide-react';
+import { ArrowLeft, Edit2, Trash2, Plus, Calendar, Award, CheckCircle, XCircle, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatDate } from '../utils/dateUtils';
 import CreditCardTransactionModal from '../components/CreditCardTransactionModal';
+import CreditCardImportModal from '../components/CreditCardImportModal';
+import { mergeTransactionsIntoExpenses } from '../utils/importUtils';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+
+const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
+    if (active && payload && payload.length) {
+        return (
+            <div className="bg-[#18181b] border border-white/10 p-3 rounded-xl shadow-xl">
+                <p className="text-white font-bold mb-2">{label}</p>
+                {payload.map((entry, index) => (
+                    <div key={index} className="flex justify-between items-center gap-4 text-sm mb-1">
+                        <span style={{ color: entry.color }}>{entry.name}</span>
+                        <span className="font-mono text-white">{formatCurrency(entry.value)}</span>
+                    </div>
+                ))}
+            </div>
+        );
+    }
+    return null;
+};
 
 const SingleCreditCardDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { creditCards, expenses, updateItem, formatCurrency, categories } = useFinance();
+    const { creditCards, expenses, updateItem, saveExpenses, formatCurrency, categories } = useFinance();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
+    const [isImportModalOpen, setIsImportModalOpen] = useState(false);
 
     const [filterYear, setFilterYear] = useState('All');
     const [filterMonth, setFilterMonth] = useState('All');
     const [filterType, setFilterType] = useState('All');
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(20);
+
+    // Reset page when navigating to a different card
+    useEffect(() => { setCurrentPage(1); }, [id]);
 
     const card = creditCards.find(c => c.id.toString() === id);
 
@@ -90,16 +118,12 @@ const SingleCreditCardDetails = () => {
         return true;
     });
 
-    const currentMonthName = new Date().toLocaleString('default', { month: 'long' });
-    const currentYearStr = new Date().getFullYear().toString();
-    const currentMonthSpending = linkedTransactions
-        .filter(t => t.month === currentMonthName && t.year === currentYearStr)
-        .reduce((sum, t) => {
-            if (t.category === 'credit card bill') {
-                return sum - Number(t.amount);
-            }
-            return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
-        }, 0);
+    const totalOutstanding = linkedTransactions.reduce((sum, t) => {
+        if (t.category === 'credit card bill') {
+            return sum - Number(t.amount);
+        }
+        return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
+    }, 0);
 
     const filteredNetSpend = filteredTransactions.reduce((sum, t) => {
         if (t.category === 'credit card bill') {
@@ -107,6 +131,47 @@ const SingleCreditCardDetails = () => {
         }
         return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
     }, 0);
+
+    // Compute chart data using ALL linked transactions to show a complete trend, not just the filtered ones
+    const monthlyAggregates = {};
+    linkedTransactions.forEach(tx => {
+        const d = new Date(tx.date);
+        const month = d.toLocaleString('default', { month: 'long' });
+        const year = d.getFullYear();
+        const key = `${month} ${year}`;
+        
+        if (!monthlyAggregates[key]) {
+            monthlyAggregates[key] = { month, year, debit: 0, credit: 0, net: 0 };
+        }
+        
+        const amt = Number(tx.amount) || 0;
+        if (tx.isCredited) {
+            monthlyAggregates[key].credit += amt;
+            monthlyAggregates[key].net -= amt;
+        } else {
+            if (tx.category === 'credit card bill') {
+                monthlyAggregates[key].net -= amt;
+            } else {
+                monthlyAggregates[key].debit += amt;
+                monthlyAggregates[key].net += amt;
+            }
+        }
+    });
+
+    const sortedAggregates = Object.values(monthlyAggregates).sort((a, b) => {
+        if (b.year !== a.year) return b.year - a.year;
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        return months.indexOf(b.month) - months.indexOf(a.month);
+    });
+
+    const chartData = [...sortedAggregates].reverse().map(agg => ({
+        ...agg,
+        name: `${agg.month.substring(0, 3)} '${String(agg.year).substring(2)}`
+    }));
+
+    const sortedFilteredTransactions = [...filteredTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const totalPages = Math.max(1, Math.ceil(sortedFilteredTransactions.length / itemsPerPage));
+    const paginatedTransactions = sortedFilteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
 
     const handleSaveTransaction = async (transaction) => {
@@ -121,6 +186,12 @@ const SingleCreditCardDetails = () => {
         await updateItem('creditCards', updatedCard);
         setEditingTx(null);
         setIsModalOpen(false);
+    };
+
+    const handleSaveImport = async (parsedTransactions) => {
+        const { updatedExpenses, addedCount } = mergeTransactionsIntoExpenses(expenses || {}, parsedTransactions);
+        await saveExpenses(updatedExpenses);
+        alert(`Successfully imported ${addedCount} new transactions!`);
     };
 
     const handleDeleteTransaction = async (txId) => {
@@ -155,9 +226,9 @@ const SingleCreditCardDetails = () => {
 
                     <div className="flex gap-4">
                         <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 border border-white/5 min-w-[140px]">
-                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">Net Spend (This Month)</p>
+                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">Total Outstanding</p>
                             <p className="font-mono font-bold text-2xl text-white flex items-center gap-2">
-                                {formatCurrency(currentMonthSpending)}
+                                {formatCurrency(Math.max(0, totalOutstanding))}
                             </p>
                         </div>
                         <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 border border-white/5 min-w-[140px]">
@@ -172,15 +243,24 @@ const SingleCreditCardDetails = () => {
             </div>
 
             {/* Actions & List */}
-            <div className="flex items-center justify-between mt-8">
+            <div className="flex flex-wrap items-center justify-between mt-8 gap-4">
                 <h2 className="text-2xl font-bold text-white">Monthly history</h2>
-                <button
-                    onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
-                    className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-900/40"
-                >
-                    <Plus size={18} />
-                    Add Entry
-                </button>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={() => setIsImportModalOpen(true)}
+                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-lg shadow-indigo-900/40"
+                    >
+                        <Upload size={18} />
+                        Import Statement
+                    </button>
+                    <button
+                        onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
+                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-900/40"
+                    >
+                        <Plus size={18} />
+                        Add Entry
+                    </button>
+                </div>
             </div>
 
             <div className="bg-[#18181b] border border-white/5 rounded-3xl overflow-hidden shadow-xl mb-12">
@@ -197,7 +277,7 @@ const SingleCreditCardDetails = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {monthlyData
+                            {[...monthlyData]
                                 .sort((a, b) => {
                                     if (b.year !== a.year) return b.year - a.year;
                                     const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -276,7 +356,7 @@ const SingleCreditCardDetails = () => {
                         {/* Year Filter */}
                         <select
                             value={filterYear}
-                            onChange={(e) => setFilterYear(e.target.value)}
+                            onChange={(e) => { setFilterYear(e.target.value); setCurrentPage(1); }}
                             className="bg-transparent text-gray-300 text-sm font-medium px-3 py-2 rounded-lg hover:text-white focus:outline-none cursor-pointer"
                         >
                             <option value="All" className="bg-[#18181b]">All Years</option>
@@ -289,7 +369,7 @@ const SingleCreditCardDetails = () => {
                         {/* Month Filter */}
                         <select
                             value={filterMonth}
-                            onChange={(e) => setFilterMonth(e.target.value)}
+                            onChange={(e) => { setFilterMonth(e.target.value); setCurrentPage(1); }}
                             className="bg-transparent text-gray-300 text-sm font-medium px-3 py-2 rounded-lg hover:text-white focus:outline-none cursor-pointer"
                         >
                             <option value="All" className="bg-[#18181b]">All Months</option>
@@ -302,7 +382,7 @@ const SingleCreditCardDetails = () => {
                         {/* Type Filter */}
                         <select
                             value={filterType}
-                            onChange={(e) => setFilterType(e.target.value)}
+                            onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
                             className="bg-transparent text-gray-300 text-sm font-medium px-3 py-2 rounded-lg hover:text-white focus:outline-none cursor-pointer"
                         >
                             <option value="All" className="bg-[#18181b]">All Types</option>
@@ -311,6 +391,42 @@ const SingleCreditCardDetails = () => {
                         </select>
                     </div>
                 </div>
+
+                {/* Monthly Aggregates Summary */}
+                {chartData.length > 0 && (
+                    <div className="mb-6 bg-[#18181b] border border-white/5 rounded-3xl p-6 shadow-xl relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+                        <h3 className="text-white font-bold mb-6 flex items-center gap-2">
+                            <Calendar size={18} className="text-indigo-400" />
+                            Monthly Expenditure Overview
+                        </h3>
+                        <div className="h-[300px] w-full">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                    <XAxis 
+                                        dataKey="name" 
+                                        stroke="#71717a" 
+                                        fontSize={12} 
+                                        tickLine={false}
+                                        axisLine={false}
+                                    />
+                                    <YAxis 
+                                        stroke="#71717a" 
+                                        fontSize={12}
+                                        tickLine={false}
+                                        axisLine={false}
+                                        tickFormatter={(value) => `₹${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
+                                    />
+                                    <RechartsTooltip content={<CustomTooltip formatCurrency={formatCurrency} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#a1a1aa' }} />
+                                    <Bar dataKey="debit" name="Debit" fill="#f87171" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="credit" name="Credit" fill="#34d399" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                )}
 
                 <div className="bg-[#18181b] border border-white/5 rounded-3xl overflow-hidden shadow-xl">
                     <table className="w-full">
@@ -324,9 +440,7 @@ const SingleCreditCardDetails = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-white/5">
-                            {filteredTransactions
-                                .sort((a, b) => new Date(b.date) - new Date(a.date))
-                                .map((tx) => (
+                            {paginatedTransactions.map((tx) => (
                                     <tr key={tx.id} className="hover:bg-white/5 transition-colors">
                                         <td className="py-4 px-6 text-gray-400 text-sm whitespace-nowrap">
                                             {formatDate(tx.date)}
@@ -358,14 +472,69 @@ const SingleCreditCardDetails = () => {
                             )}
                         </tbody>
                     </table>
+
+                    {/* Pagination Controls */}
+                    {filteredTransactions.length > 0 && (
+                        <div className="border-t border-white/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#18181b]">
+                            <div className="flex items-center gap-3">
+                                <span className="text-sm text-gray-400">Rows per page:</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => {
+                                        setItemsPerPage(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className="bg-black/50 border border-white/10 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
+                                >
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+                            
+                            <div className="flex items-center gap-4">
+                                <span className="text-sm text-gray-400">
+                                    Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                                </span>
+                                
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className={`p-2 rounded-lg border ${currentPage === 1 ? 'border-transparent text-gray-600 cursor-not-allowed' : 'border-white/10 text-white hover:bg-white/5'} transition-colors`}
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <div className="px-3 py-1 text-sm font-medium text-white">
+                                        {currentPage} / {totalPages}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className={`p-2 rounded-lg border ${currentPage === totalPages ? 'border-transparent text-gray-600 cursor-not-allowed' : 'border-white/10 text-white hover:bg-white/5'} transition-colors`}
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
 
             <CreditCardTransactionModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
+                onClose={() => { setIsModalOpen(false); setEditingTx(null); }}
                 onSave={handleSaveTransaction}
                 initialData={editingTx}
+            />
+
+            <CreditCardImportModal
+                isOpen={isImportModalOpen}
+                onClose={() => setIsImportModalOpen(false)}
+                onSave={handleSaveImport}
+                existingTransactions={linkedTransactions}
+                cardName={card.name}
             />
         </div>
     );

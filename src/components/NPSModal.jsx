@@ -26,21 +26,15 @@ const iconStyle = {
 
 const NPSModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [scheme, setScheme] = useState('');
-    const [amount, setAmount] = useState('');
-    const [totalunits, setTotalunits] = useState('');
     const [nav, setNav] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
                 setScheme(initialData.scheme || '');
-                setAmount(initialData.amount !== undefined ? initialData.amount : '');
-                setTotalunits(initialData.totalunits !== undefined ? initialData.totalunits : '');
                 setNav(initialData.nav !== undefined ? initialData.nav : '');
             } else {
                 setScheme('');
-                setAmount('');
-                setTotalunits('');
                 setNav('');
             }
         }
@@ -51,8 +45,6 @@ const NPSModal = ({ isOpen, onClose, onSave, initialData }) => {
         onSave({
             id: initialData?.id || Date.now(),
             scheme,
-            amount: parseFloat(amount),
-            totalunits: parseFloat(totalunits),
             nav: parseFloat(nav)
         });
         onClose();
@@ -88,27 +80,10 @@ const NPSModal = ({ isOpen, onClose, onSave, initialData }) => {
                     </div>
 
                     <div className="relative">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Invested Amount</label>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Current NAV</label>
                         <div className="relative">
-                            <CurrencyInput name="amount" required value={amount} onChange={(e) => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
+                            <input type="number" step="any" required value={nav} onChange={e => setNav(e.target.value)} style={inputStyle} placeholder="0.00" />
                             <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="relative">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Total Units</label>
-                            <div className="relative">
-                                <input type="number" step="any" required value={totalunits} onChange={e => setTotalunits(e.target.value)} style={inputStyle} placeholder="0" />
-                                <Hash style={iconStyle} />
-                            </div>
-                        </div>
-                        <div className="relative">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Current NAV</label>
-                            <div className="relative">
-                                <input type="number" step="any" required value={nav} onChange={e => setNav(e.target.value)} style={inputStyle} placeholder="0.00" />
-                                <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
-                            </div>
                         </div>
                     </div>
 

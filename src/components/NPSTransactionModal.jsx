@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, FileText } from 'lucide-react';
+import { X, Calendar, FileText, Hash } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
@@ -24,33 +24,57 @@ const iconStyle = {
     height: '18px'
 };
 
-const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
+const selectStyle = {
+    ...inputStyle,
+    appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%239ca3af%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpolyline%20points%3D%226%209%2012%2015%2018%209%22%3E%3C%2Fpolyline%3E%3C%2Fsvg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 1rem center',
+    backgroundSize: '16px'
+};
+
+const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings }) => {
+    const [schemeId, setSchemeId] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+    const [description, setDescription] = useState('');
     const [amount, setAmount] = useState('');
-    const [remarks, setRemarks] = useState('');
+    const [nav, setNav] = useState('');
+    const [units, setUnits] = useState('');
 
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
+                setSchemeId(initialData.schemeId || (holdings && holdings.length > 0 ? holdings[0].id : ''));
                 setDate(initialData.date);
-                setAmount(initialData.amount || '');
-                setRemarks(initialData.remarks || '');
+                setDescription(initialData.description || initialData.remarks || '');
+                setAmount(initialData.amount !== undefined ? initialData.amount : '');
+                setNav(initialData.nav !== undefined ? initialData.nav : '');
+                setUnits(initialData.units !== undefined ? initialData.units : '');
             } else {
+                setSchemeId(holdings && holdings.length > 0 ? holdings[0].id : '');
                 setDate(new Date().toISOString().split('T')[0]);
+                setDescription('');
                 setAmount('');
-                setRemarks('');
+                setNav('');
+                setUnits('');
             }
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData, holdings]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        
+        const parsedAmount = parseFloat(amount || 0);
+        
         onSave({
             id: initialData?.id || Date.now(),
+            schemeId: Number(schemeId),
             date,
-            amount: parseFloat(amount || 0),
-            remarks,
-            type: 'contribution' // NPS transactions are usually contributions
+            description,
+            amount: parsedAmount,
+            nav: parseFloat(nav || 0),
+            units: parseFloat(units || 0),
+            type: parsedAmount < 0 ? 'billing' : 'contribution'
         });
         onClose();
     };
@@ -71,37 +95,71 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
             }} onClick={e => e.stopPropagation()}>
 
                 <div className="flex items-center justify-between p-4 border-b border-gray-800">
-                    <h3 className="text-lg font-bold text-white">{initialData ? 'Edit NPS Contribution' : 'Add NPS Contribution'}</h3>
+                    <h3 className="text-lg font-bold text-white">{initialData ? 'Edit Statement Line' : 'Add Statement Line'}</h3>
                     <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-4 space-y-4">
                     <div className="relative">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Date</label>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Scheme</label>
                         <div className="relative">
-                            <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
-                            <Calendar style={iconStyle} />
+                            <select required value={schemeId} onChange={e => setSchemeId(e.target.value)} style={selectStyle}>
+                                <option value="" disabled>Select Scheme</option>
+                                {holdings && holdings.map(h => (
+                                    <option key={h.id} value={h.id}>{h.scheme}</option>
+                                ))}
+                            </select>
+                            <FileText style={iconStyle} />
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="relative">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Date</label>
+                            <div className="relative">
+                                <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
+                                <Calendar style={iconStyle} />
+                            </div>
+                        </div>
+                        <div className="relative">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Amount (₹)</label>
+                            <div className="relative">
+                                {/* Using regular input here because CurrencyInput doesn't easily support typing negative numbers like (-15) out of the box in some implementations, but we will allow it. */}
+                                <input type="number" step="any" required value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
+                                <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="relative">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">NAV</label>
+                            <div className="relative">
+                                <input type="number" step="any" required value={nav} onChange={e => setNav(e.target.value)} style={inputStyle} placeholder="0.0000" />
+                                <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                            </div>
+                        </div>
+                        <div className="relative">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Units</label>
+                            <div className="relative">
+                                <input type="number" step="any" required value={units} onChange={e => setUnits(e.target.value)} style={inputStyle} placeholder="0.0000" />
+                                <Hash style={iconStyle} />
+                            </div>
                         </div>
                     </div>
 
                     <div className="relative">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Amount</label>
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Description</label>
                         <div className="relative">
-                            <CurrencyInput required value={amount} onChange={e => setAmount(e.target.value)} style={inputStyle} placeholder="0.00" />
-                            <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
-                        </div>
-                    </div>
-
-                    <div className="relative">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Remarks</label>
-                        <div className="relative">
-                            <textarea
-                                value={remarks}
-                                onChange={e => setRemarks(e.target.value)}
-                                style={{ ...inputStyle, paddingLeft: '2.5rem', minHeight: '80px', resize: 'none' }}
-                                placeholder="Yearly contribution, Bonus, etc."
+                            <input
+                                type="text"
+                                required
+                                value={description}
+                                onChange={e => setDescription(e.target.value)}
+                                style={inputStyle}
+                                placeholder="By Voluntary Contributions..."
                             />
-                            <FileText style={{ ...iconStyle, top: '20px', transform: 'none' }} />
+                            <FileText style={iconStyle} />
                         </div>
                     </div>
 

@@ -12,6 +12,8 @@ const SingleDepositDetails = () => {
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
+    const [isTdsModalOpen, setIsTdsModalOpen] = useState(false);
+    const [editingTdsTx, setEditingTdsTx] = useState(null);
 
     const fund = savings.find(s => s.id.toString() === id);
     const depositIndex = fund?.deposits?.findIndex(d => d.id.toString() === depositId);
@@ -34,6 +36,9 @@ const SingleDepositDetails = () => {
     const interestTransactions = deposit.interestTransactions || [];
     const totalInterestReceived = interestTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
 
+    const tdsTransactions = deposit.tdsTransactions || [];
+    const totalTdsPaid = tdsTransactions.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
     const handleSaveTransaction = (transaction) => {
         const updatedTransactions = editingTx
             ? interestTransactions.map(t => t.id === transaction.id ? transaction : t)
@@ -52,6 +57,31 @@ const SingleDepositDetails = () => {
         if (window.confirm('Delete this transaction?')) {
             const updatedTransactions = interestTransactions.filter(t => t.id !== txId);
             const updatedDeposit = { ...deposit, interestTransactions: updatedTransactions };
+            const updatedDeposits = [...fund.deposits];
+            updatedDeposits[depositIndex] = updatedDeposit;
+
+            updateItem('savings', { ...fund, deposits: updatedDeposits });
+        }
+    };
+
+    const handleSaveTds = (transaction) => {
+        const updatedTransactions = editingTdsTx
+            ? tdsTransactions.map(t => t.id === transaction.id ? transaction : t)
+            : [...tdsTransactions, transaction];
+
+        const updatedDeposit = { ...deposit, tdsTransactions: updatedTransactions };
+        const updatedDeposits = [...fund.deposits];
+        updatedDeposits[depositIndex] = updatedDeposit;
+
+        updateItem('savings', { ...fund, deposits: updatedDeposits });
+        setEditingTdsTx(null);
+        setIsTdsModalOpen(false);
+    };
+
+    const handleDeleteTds = (txId) => {
+        if (window.confirm('Delete this TDS record?')) {
+            const updatedTransactions = tdsTransactions.filter(t => t.id !== txId);
+            const updatedDeposit = { ...deposit, tdsTransactions: updatedTransactions };
             const updatedDeposits = [...fund.deposits];
             updatedDeposits[depositIndex] = updatedDeposit;
 
@@ -82,7 +112,7 @@ const SingleDepositDetails = () => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
                 <div className="card">
                     <p className="text-secondary text-sm mb-1">Principal Amount</p>
                     <p className="font-bold text-2xl">{formatCurrency(deposit.originalAmount)}</p>
@@ -93,10 +123,17 @@ const SingleDepositDetails = () => {
                 </div>
                 <div className="card relative overflow-hidden">
                     <div className="absolute right-0 top-0 p-4 opacity-10">
-                        <TrendingUp size={48} />
+                        <TrendingUp size={48} className="text-emerald-500" />
                     </div>
-                    <p className="text-secondary text-sm mb-1">Interest Received (Payouts)</p>
+                    <p className="text-secondary text-sm mb-1">Total Interest</p>
                     <p className="font-bold text-2xl text-emerald-400">{formatCurrency(totalInterestReceived)}</p>
+                </div>
+                <div className="card relative overflow-hidden">
+                    <div className="absolute right-0 top-0 p-4 opacity-10">
+                        <TrendingUp size={48} className="text-rose-500" />
+                    </div>
+                    <p className="text-secondary text-sm mb-1">Total TDS Deducted</p>
+                    <p className="font-bold text-2xl text-rose-400">{formatCurrency(totalTdsPaid)}</p>
                 </div>
             </div>
 
@@ -160,11 +197,81 @@ const SingleDepositDetails = () => {
                 </table>
             </div>
 
+            <div className="flex items-center justify-between mb-6 mt-12">
+                <h3 className="text-xl font-bold">TDS Deductions</h3>
+                <button
+                    onClick={() => { setEditingTdsTx(null); setIsTdsModalOpen(true); }}
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-rose-900/40"
+                >
+                    <Plus size={20} />
+                    Add TDS
+                </button>
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <thead>
+                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Financial Year</th>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Amount</th>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Remarks</th>
+                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {tdsTransactions
+                            .sort((a, b) => new Date(b.date) - new Date(a.date))
+                            .map((tx) => (
+                                <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} className="hover:bg-white/5 transition-colors group">
+                                    <td style={{ padding: 'var(--spacing-md)' }}>{tx.financialYear || formatDate(tx.date)}</td>
+                                    <td style={{ padding: 'var(--spacing-md)', fontWeight: 'bold', color: 'var(--color-danger)', fontFamily: 'monospace' }} className="text-rose-400">
+                                        {formatCurrency(tx.amount)}
+                                    </td>
+                                    <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>{tx.remarks || '—'}</td>
+                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
+                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => { setEditingTdsTx(tx); setIsTdsModalOpen(true); }}
+                                                className="p-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                            >
+                                                <Edit2 size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteTds(tx.id)}
+                                                className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        {!tdsTransactions.length && (
+                            <tr>
+                                <td colSpan="4" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                    No TDS transactions recorded.
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </div>
+
             <InterestTransactionModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveTransaction}
                 initialData={editingTx}
+                title="Interest"
+            />
+
+            <InterestTransactionModal
+                isOpen={isTdsModalOpen}
+                onClose={() => setIsTdsModalOpen(false)}
+                onSave={handleSaveTds}
+                initialData={editingTdsTx}
+                title="TDS"
+                useFinancialYear={true}
             />
         </div>
     );
