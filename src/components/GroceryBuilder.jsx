@@ -17,7 +17,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [finalBillAmount, setFinalBillAmount] = useState('');
-    const { customGroceryItems = {}, addCustomGroceryItem, groceryBrands = {}, addGroceryBrand, groceryFlavours = {}, addGroceryFlavour, groceryCategories, groceryItemBrandMap = {}, groceryItemFlavourMap = {} } = useFinance();
+    const { customGroceryItems = {}, addCustomGroceryItem, groceryBrands = {}, addGroceryBrand, groceryFlavours = {}, addGroceryFlavour, groceryCategories, groceryItemBrandMap = {}, groceryItemFlavourMap = {}, saveGroceryItemBrandMap, saveGroceryItemFlavourMap } = useFinance();
 
     // Extract historical data for autocomplete (brands and custom items)
     const historicalData = useMemo(() => {
@@ -238,12 +238,12 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                         
                         const histBrands = historicalData.brandsByCategory[item.subcategory] || [];
                         const mappedBrands = groceryItemBrandMap[item.subcategory]?.[item.name];
-                        const explicitBrands = Array.isArray(groceryBrands) ? [] : (mappedBrands || groceryBrands[item.subcategory] || []);
+                        const explicitBrands = Array.isArray(groceryBrands) ? [] : (mappedBrands || []);
                         const availableBrands = Array.from(new Set([...histBrands, ...explicitBrands])).sort();
                         
                         const histFlavours = historicalData.flavoursByCategory[item.subcategory] || [];
                         const mappedFlavours = groceryItemFlavourMap[item.subcategory]?.[item.name];
-                        const explicitFlavours = Array.isArray(groceryFlavours) ? [] : (mappedFlavours || groceryFlavours[item.subcategory] || []);
+                        const explicitFlavours = Array.isArray(groceryFlavours) ? [] : (mappedFlavours || []);
                         const availableFlavours = Array.from(new Set([...histFlavours, ...explicitFlavours])).sort();
                         
                         return (
@@ -265,6 +265,20 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                                                         if (newBrand && newBrand.trim()) {
                                                             const formatted = newBrand.trim().charAt(0).toUpperCase() + newBrand.trim().slice(1);
                                                             addGroceryBrand(item.subcategory, formatted);
+                                                            
+                                                            // Also map this brand to the specific item automatically
+                                                            const catMap = groceryItemBrandMap[item.subcategory] || {};
+                                                            const currentMapped = catMap[item.name] || [];
+                                                            if (!currentMapped.includes(formatted)) {
+                                                                saveGroceryItemBrandMap({
+                                                                    ...groceryItemBrandMap,
+                                                                    [item.subcategory]: {
+                                                                        ...catMap,
+                                                                        [item.name]: [...currentMapped, formatted].sort()
+                                                                    }
+                                                                });
+                                                            }
+                                                            
                                                             updateItem(item.id, 'brand', formatted);
                                                         }
                                                     } else {
@@ -290,6 +304,20 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                                                         if (newFlavour && newFlavour.trim()) {
                                                             const formatted = newFlavour.trim().charAt(0).toUpperCase() + newFlavour.trim().slice(1);
                                                             addGroceryFlavour(item.subcategory, formatted);
+
+                                                            // Also map this flavour to the specific item automatically
+                                                            const catMap = groceryItemFlavourMap[item.subcategory] || {};
+                                                            const currentMapped = catMap[item.name] || [];
+                                                            if (!currentMapped.includes(formatted)) {
+                                                                saveGroceryItemFlavourMap({
+                                                                    ...groceryItemFlavourMap,
+                                                                    [item.subcategory]: {
+                                                                        ...catMap,
+                                                                        [item.name]: [...currentMapped, formatted].sort()
+                                                                    }
+                                                                });
+                                                            }
+
                                                             updateItem(item.id, 'flavour', formatted);
                                                         }
                                                     } else {
