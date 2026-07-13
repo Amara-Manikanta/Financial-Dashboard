@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X, Search } from 'lucide-react';
 
 const GroceryMasterList = () => {
     const { 
@@ -13,6 +13,7 @@ const GroceryMasterList = () => {
     const [selectedCategory, setSelectedCategory] = useState(Object.keys(groceryCategories)[0] || '');
     const [activeTab, setActiveTab] = useState('items'); // items, brands, flavours
     const [mappingItem, setMappingItem] = useState(null); // Item name currently being mapped
+    const [searchQuery, setSearchQuery] = useState('');
     
     // Add new category
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -220,21 +221,38 @@ const GroceryMasterList = () => {
                             <div style={{ color: '#71717a', textAlign: 'center', padding: '3rem' }}>Select a category to view and edit.</div>
                         ) : (
                             <>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
                                     <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', margin: 0, textTransform: 'capitalize' }}>{activeTab} in {selectedCategory}</h3>
-                                    <form onSubmit={handleAddItem} style={{ display: 'flex', width: '300px' }}>
-                                        <input 
-                                            type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder={`Add new ${activeTab.slice(0, -1)}...`}
-                                            style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem 0 0 0.75rem', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.875rem', outline: 'none' }}
-                                        />
-                                    <button type="submit" style={{ backgroundColor: '#10b981', color: 'black', border: 'none', borderRadius: '0 0.75rem 0.75rem 0', padding: '0 1rem', cursor: 'pointer' }}><Plus size={16} /></button>
-                                </form>
-                            </div>
+                                    
+                                    <div style={{ display: 'flex', gap: '1rem', flex: 1, minWidth: '300px', justifyContent: 'flex-end' }}>
+                                        {/* Search Bar */}
+                                        <div style={{ position: 'relative', width: '100%', maxWidth: '250px' }}>
+                                            <div style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#71717a', pointerEvents: 'none' }}>
+                                                <Search size={16} />
+                                            </div>
+                                            <input
+                                                type="text"
+                                                placeholder={`Search ${activeTab}...`}
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.75rem 1rem 0.75rem 2.5rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                            />
+                                        </div>
+
+                                        {activeTab === 'items' && (
+                                            <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '1rem', maxWidth: '300px' }}>
+                                                <input 
+                                                    type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder="Add new item..." 
+                                                    style={{ width: '150px', padding: '0.75rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                                />
+                                                <button type="submit" style={{ backgroundColor: '#10b981', color: 'black', border: 'none', borderRadius: '0.75rem', padding: '0 1rem', cursor: 'pointer' }}><Plus size={16} /></button>
+                                            </form>
+                                        )}
+                                    </div>
+                                </div>
 
                                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                                    {(activeTab === 'items' ? groceryCategories[selectedCategory] : 
-                                      activeTab === 'brands' ? (groceryBrands[selectedCategory] || []) : 
-                                      (groceryFlavours[selectedCategory] || [])).map(item => (
+                                    {getFilteredList(activeTab === 'items' ? currentItems : activeTab === 'brands' ? currentBrands : currentFlavours).map(item => (
                                         <div key={item} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <span style={{ color: 'white', fontWeight: 'bold' }}>{item}</span>
@@ -265,7 +283,7 @@ const GroceryMasterList = () => {
                                             )}
                                         </div>
                                     ))}
-                                    {((activeTab === 'items' ? groceryCategories[selectedCategory] : activeTab === 'brands' ? (groceryBrands[selectedCategory] || []) : (groceryFlavours[selectedCategory] || [])).length === 0) && (
+                                    {getFilteredList(activeTab === 'items' ? currentItems : activeTab === 'brands' ? currentBrands : currentFlavours).length === 0 && (
                                         <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#71717a' }}>No {activeTab} in this category.</div>
                                     )}
                                 </div>
