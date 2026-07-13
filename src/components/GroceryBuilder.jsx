@@ -9,7 +9,7 @@ const QUANTITY_OPTIONS = {
     'Rice/Atta': ['500 g', '1 kg', '2 kg', '5 kg', '10 kg', '25 kg', 'Custom'],
     'Vegetables': ['250 g', '500 g', '1 kg', 'Custom'],
     'Fruits': ['250 g', '500 g', '1 kg', 'Custom'],
-    'Eggs': ['6', '12', '30', 'Custom'],
+    'Non-Veg': ['250 g', '500 g', '1 kg', '6', '12', '30', 'Custom'],
     'default': ['1 pc', '2 pcs', 'Custom']
 };
 
