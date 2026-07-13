@@ -9,6 +9,20 @@ const FinanceContext = createContext();
 
 const API_URL = 'http://127.0.0.1:3000';
 
+export const DEFAULT_GROCERY_CATEGORIES = {
+    'Milk Products': ['Milk', 'Paneer', 'Curd', 'Cheese', 'Butter', 'Ghee'],
+    'Vegetables': ['Onion', 'Potato', 'Tomato', 'Carrot', 'Beans', 'Cabbage', 'Cauliflower', 'Capsicum', 'Green Chilli', 'Garlic', 'Ginger', 'Coriander', 'Lemon'],
+    'Fruits': ['Apple', 'Banana', 'Mango', 'Grapes', 'Orange', 'Papaya', 'Watermelon'],
+    'Dals/Pulses': ['Toor Dal', 'Moong Dal', 'Urad Dal', 'Chana Dal', 'Masoor Dal', 'Rajma', 'Kabuli Chana'],
+    'Rice/Atta': ['Sona Masoori Rice', 'Basmati Rice', 'Brown Rice', 'Wheat Atta', 'Maida', 'Besan', 'Suji/Rava'],
+    'Oils/Ghee': ['Sunflower Oil', 'Groundnut Oil', 'Mustard Oil', 'Olive Oil', 'Sesame Oil'],
+    'Snacks': ['Biscuits', 'Chips', 'Namkeen', 'Chocolates', 'Cookies'],
+    'Cleaning Supplies': ['Detergent Powder', 'Dishwash Liquid', 'Floor Cleaner', 'Toilet Cleaner', 'Glass Cleaner', 'Scrub Pad'],
+    'Personal Care': ['Soap', 'Shampoo', 'Toothpaste', 'Toothbrush', 'Body Wash', 'Face Wash', 'Deodorant', 'Hair Oil'],
+    'Eggs': ['Eggs'],
+    'Others': ['Sugar', 'Salt', 'Tea Powder', 'Coffee Powder', 'Jaggery']
+};
+
 const calculateSalaryStats = (expensesData) => {
     const stats = {};
     if (!expensesData || typeof expensesData !== 'object') return stats;
@@ -48,6 +62,7 @@ export function FinanceProvider({ children }) {
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
     const [hiddenSalaryFields, setHiddenSalaryFields] = useState([]);
     const [categoryRules, setCategoryRules] = useState({});
+    const [groceryCategories, setGroceryCategories] = useState(DEFAULT_GROCERY_CATEGORIES);
     const [isLoading, setIsLoading] = useState(true);
     const [dataError, setDataError] = useState(null);
 
@@ -205,6 +220,9 @@ export function FinanceProvider({ children }) {
                 const loadedFlavours = appData.groceryFlavours || {};
                 setGroceryFlavours(Array.isArray(loadedFlavours) ? {} : loadedFlavours);
                 
+                // Load custom grocery categories or use default
+                setGroceryCategories(appData.groceryCategories && Object.keys(appData.groceryCategories).length > 0 ? appData.groceryCategories : DEFAULT_GROCERY_CATEGORIES);
+                
                 setSnapshots(snapData || []);
                 setSalaryDetails(salaryDetailsData || []);
 
@@ -256,6 +274,22 @@ export function FinanceProvider({ children }) {
             });
         } catch (error) {
             console.error("Failed to save category rules:", error);
+        }
+    };
+
+    const saveGroceryCategories = async (newCategories) => {
+        setGroceryCategories(newCategories);
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryCategories: newCategories })
+            });
+        } catch (error) {
+            console.error("Failed to save grocery categories:", error);
         }
     };
 
@@ -1669,8 +1703,10 @@ export function FinanceProvider({ children }) {
         groceryFlavours,
         addGroceryFlavour,
         removeGroceryFlavour,
-        isLoading,
-        dataError
+        groceryCategories,
+        saveGroceryCategories,
+        dataError,
+        isLoading
     };
 
     return (

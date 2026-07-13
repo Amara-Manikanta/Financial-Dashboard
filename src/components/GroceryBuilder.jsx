@@ -2,20 +2,6 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 
-const CATEGORY_ITEMS = {
-    'Milk Products': ['Milk', 'Paneer', 'Curd', 'Cheese', 'Butter', 'Ghee'],
-    'Vegetables': ['Onion', 'Potato', 'Tomato', 'Carrot', 'Beans', 'Cabbage', 'Cauliflower', 'Capsicum', 'Green Chilli', 'Garlic', 'Ginger', 'Coriander', 'Lemon'],
-    'Fruits': ['Apple', 'Banana', 'Mango', 'Grapes', 'Orange', 'Papaya', 'Watermelon'],
-    'Dals/Pulses': ['Toor Dal', 'Moong Dal', 'Urad Dal', 'Chana Dal', 'Masoor Dal', 'Rajma', 'Kabuli Chana'],
-    'Rice/Atta': ['Sona Masoori Rice', 'Basmati Rice', 'Brown Rice', 'Wheat Atta', 'Maida', 'Besan', 'Suji/Rava'],
-    'Oils/Ghee': ['Sunflower Oil', 'Groundnut Oil', 'Mustard Oil', 'Olive Oil', 'Sesame Oil'],
-    'Snacks': ['Biscuits', 'Chips', 'Namkeen', 'Chocolates', 'Cookies'],
-    'Cleaning Supplies': ['Detergent Powder', 'Dishwash Liquid', 'Floor Cleaner', 'Toilet Cleaner', 'Glass Cleaner', 'Scrub Pad'],
-    'Personal Care': ['Soap', 'Shampoo', 'Toothpaste', 'Toothbrush', 'Body Wash', 'Face Wash', 'Deodorant', 'Hair Oil'],
-    'Eggs': ['Eggs'],
-    'Others': ['Sugar', 'Salt', 'Tea Powder', 'Coffee Powder', 'Jaggery']
-};
-
 const QUANTITY_OPTIONS = {
     'Milk Products': ['250 ml', '500 ml', '1 L', '2 L', 'Custom'],
     'Cleaning Supplies': ['250 ml', '500 ml', '1 L', '2 L', 'Custom'],
@@ -31,7 +17,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [finalBillAmount, setFinalBillAmount] = useState('');
-    const { customGroceryItems = {}, addCustomGroceryItem, groceryBrands = {}, addGroceryBrand, groceryFlavours = {}, addGroceryFlavour } = useFinance();
+    const { customGroceryItems = {}, addCustomGroceryItem, groceryBrands = {}, addGroceryBrand, groceryFlavours = {}, addGroceryFlavour, groceryCategories } = useFinance();
 
     // Extract historical data for autocomplete (brands and custom items)
     const historicalData = useMemo(() => {
@@ -101,7 +87,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
     // Update selected item list based on category
     const availableItems = useMemo(() => {
         if (!selectedCategory) return [];
-        const baseItems = CATEGORY_ITEMS[selectedCategory] || [];
+        const baseItems = groceryCategories[selectedCategory] || [];
         // Mix in historical items that belong to this category but aren't in the base list
         const historicalForCategory = Object.values(historicalData.itemHistory)
             .filter(data => data.subcategory === selectedCategory)

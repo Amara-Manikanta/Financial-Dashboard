@@ -124,9 +124,10 @@ const Layout = () => {
                             label="Expenses" 
                             icon={Wallet} 
                             items={[
-                                { to: '/expenses', label: 'All Expenses', icon: Wallet },
+                                { to: '/expenses', label: 'All Expenses', icon: Receipt },
                                 { to: '/fuel', label: 'Fuel Analytics', icon: Fuel },
-                                { to: '/grocery-analytics', label: 'Grocery Analytics', icon: ShoppingBag }
+                                { to: '/grocery-analytics', label: 'Grocery Analytics', icon: ShoppingBag },
+                                { to: '/grocery-master-list', label: 'Grocery Builder', icon: Edit2 }
                             ]} 
                         />
                         
