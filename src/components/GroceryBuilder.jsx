@@ -143,12 +143,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
     const handleAddItem = () => {
         if (!selectedCategory || !selectedItem) return;
 
-        // Check for duplicates
-        const isDuplicate = items.some(i => i.name.toLowerCase() === selectedItem.toLowerCase());
-        if (isDuplicate) {
-            alert(`${selectedItem} has already been added to the list!`);
-            return;
-        }
+        // Allowed to add duplicates
 
         const history = historicalData.itemHistory[selectedItem.toLowerCase()] || {};
 

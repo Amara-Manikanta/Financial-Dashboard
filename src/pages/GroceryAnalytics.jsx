@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ShoppingBag, TrendingDown, TrendingUp, Search, Calendar, Tags, Package } from 'lucide-react';
+import { ShoppingBag, TrendingDown, TrendingUp, Search, Calendar, Tags, Package, Edit2 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import MasterGroceryEditor from '../components/MasterGroceryEditor';
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
     if (active && payload && payload.length) {
@@ -41,6 +42,8 @@ const GroceryAnalytics = () => {
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [rowsPerPage, setRowsPerPage] = useState(10);
+    
+    const [isEditorOpen, setIsEditorOpen] = useState(false);
 
     React.useEffect(() => {
         setCurrentPage(1);
@@ -164,11 +167,32 @@ const GroceryAnalytics = () => {
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Header */}
-            <div>
-                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <ShoppingBag style={{ color: '#10b981' }} size={32} /> Grocery Analytics
-                </h2>
-                <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track prices and purchase history of your groceries</p>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+                <div>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <ShoppingBag style={{ color: '#10b981' }} size={32} /> Grocery Analytics
+                    </h2>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track prices and purchase history of your groceries</p>
+                </div>
+                <button
+                    onClick={() => setIsEditorOpen(true)}
+                    style={{
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        color: '#34d399',
+                        border: '1px solid rgba(16, 185, 129, 0.2)',
+                        padding: '0.75rem 1.25rem',
+                        borderRadius: '1rem',
+                        fontWeight: 'bold',
+                        fontSize: '0.875rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease'
+                    }}
+                >
+                    <Edit2 size={16} /> Edit Master List
+                </button>
             </div>
 
             {/* Filters */}
@@ -459,6 +483,12 @@ const GroceryAnalytics = () => {
                     )}
                 </div>
             </div>
+
+            {/* Modals */}
+            <MasterGroceryEditor 
+                isOpen={isEditorOpen} 
+                onClose={() => setIsEditorOpen(false)} 
+            />
         </div>
     );
 };

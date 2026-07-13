@@ -339,6 +339,75 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const removeCustomGroceryItem = async (category, itemName) => {
+        if (!category || !itemName) return;
+        const currentList = customGroceryItems[category] || [];
+        const newCustomItems = { 
+            ...customGroceryItems, 
+            [category]: currentList.filter(i => i !== itemName) 
+        };
+        setCustomGroceryItems(newCustomItems);
+        
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, customGroceryItems: newCustomItems })
+            });
+        } catch (error) {
+            console.error("Failed to remove custom grocery item:", error);
+        }
+    };
+
+    const removeGroceryBrand = async (category, brandName) => {
+        if (!category || !brandName) return;
+        const currentList = Array.isArray(groceryBrands) ? [] : (groceryBrands[category] || []);
+        const newBrandsObj = {
+            ...groceryBrands,
+            [category]: currentList.filter(b => b !== brandName)
+        };
+        setGroceryBrands(newBrandsObj);
+
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryBrands: newBrandsObj })
+            });
+        } catch (error) {
+            console.error("Failed to remove grocery brand:", error);
+        }
+    };
+
+    const removeGroceryFlavour = async (category, flavourName) => {
+        if (!category || !flavourName) return;
+        const currentList = Array.isArray(groceryFlavours) ? [] : (groceryFlavours[category] || []);
+        const newFlavoursObj = {
+            ...groceryFlavours,
+            [category]: currentList.filter(f => f !== flavourName)
+        };
+        setGroceryFlavours(newFlavoursObj);
+
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryFlavours: newFlavoursObj })
+            });
+        } catch (error) {
+            console.error("Failed to remove grocery flavour:", error);
+        }
+    };
+
     const formatCurrency = (amount) => {
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
@@ -1593,10 +1662,13 @@ export function FinanceProvider({ children }) {
         addCustomCategory,
         customGroceryItems,
         addCustomGroceryItem,
+        removeCustomGroceryItem,
         groceryBrands,
         addGroceryBrand,
+        removeGroceryBrand,
         groceryFlavours,
         addGroceryFlavour,
+        removeGroceryFlavour,
         isLoading,
         dataError
     };
