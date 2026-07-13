@@ -5,8 +5,8 @@ import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, M
 const GroceryMasterList = () => {
     const { 
         groceryCategories, saveGroceryCategories,
-        groceryBrands, addGroceryBrand, removeGroceryBrand,
-        groceryFlavours, addGroceryFlavour, removeGroceryFlavour,
+        groceryBrands, addGroceryBrand, removeGroceryBrand, saveGroceryBrands,
+        groceryFlavours, addGroceryFlavour, removeGroceryFlavour, saveGroceryFlavours,
         groceryItemBrandMap, groceryItemFlavourMap,
         saveGroceryItemBrandMap, saveGroceryItemFlavourMap,
         mergeGroceryItem
@@ -86,13 +86,29 @@ const GroceryMasterList = () => {
     };
 
     const handleRenameItem = (cat, oldItem) => {
-        if (activeTab !== 'items') return; // Only rename for base items for now
-        const newItem = window.prompt('Enter new item name:', oldItem);
-        if (!newItem || newItem.trim() === '' || newItem === oldItem || groceryCategories[cat].includes(newItem)) return;
+        const newItem = window.prompt(`Enter new ${activeTab.slice(0, -1)} name:`, oldItem);
+        
+        if (!newItem || newItem.trim() === '' || newItem === oldItem) return;
 
-        const updated = { ...groceryCategories };
+        const updated = activeTab === 'items' ? { ...groceryCategories } : activeTab === 'brands' ? { ...groceryBrands } : { ...groceryFlavours };
+        
+        if (updated[cat] && updated[cat].includes(newItem)) {
+            alert('Name already exists!');
+            return;
+        }
+
         updated[cat] = updated[cat].map(i => i === oldItem ? newItem.trim() : i).sort();
-        saveGroceryCategories(updated);
+        
+        if (activeTab === 'items') {
+            saveGroceryCategories(updated);
+        } else if (activeTab === 'brands') {
+            // Need a context function to save brands entirely, but for now we can just save it by adding and deleting.
+            // Wait, we can't easily save the whole object without a saveGroceryBrands function. 
+            // We'll call saveGroceryBrands which we'll add to context.
+            saveGroceryBrands(updated);
+        } else {
+            saveGroceryFlavours(updated);
+        }
     };
 
     const handleMoveItem = (oldCat, item, newCat) => {
@@ -258,15 +274,13 @@ const GroceryMasterList = () => {
                                             />
                                         </div>
 
-                                        {activeTab === 'items' && (
-                                            <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '1rem', maxWidth: '300px' }}>
-                                                <input 
-                                                    type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder="Add new item..." 
-                                                    style={{ width: '150px', padding: '0.75rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.875rem', outline: 'none' }}
-                                                />
-                                                <button type="submit" style={{ backgroundColor: '#10b981', color: 'black', border: 'none', borderRadius: '0.75rem', padding: '0 1rem', cursor: 'pointer' }}><Plus size={16} /></button>
-                                            </form>
-                                        )}
+                                        <form onSubmit={handleAddItem} style={{ display: 'flex', gap: '1rem', maxWidth: '300px' }}>
+                                            <input 
+                                                type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder={`Add new ${activeTab.slice(0, -1)}...`}
+                                                style={{ width: '150px', padding: '0.75rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                            />
+                                            <button type="submit" style={{ backgroundColor: '#10b981', color: 'black', border: 'none', borderRadius: '0.75rem', padding: '0 1rem', cursor: 'pointer' }}><Plus size={16} /></button>
+                                        </form>
                                     </div>
                                 </div>
 
@@ -280,9 +294,9 @@ const GroceryMasterList = () => {
                                                         <>
                                                             <button onClick={() => setMergeState({ active: true, oldItem: item, targetItem: '' })} style={{ background: 'none', border: 'none', color: '#f59e0b', cursor: 'pointer', padding: 0 }} title="Merge Item"><Merge size={16} /></button>
                                                             <button onClick={() => setMappingItem(item)} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: 0 }} title="Map Brands & Flavours"><MapPin size={16} /></button>
-                                                            <button onClick={() => handleRenameItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 0 }} title="Rename Item"><Edit2 size={16} /></button>
                                                         </>
                                                     )}
+                                                    <button onClick={() => handleRenameItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 0 }} title={`Rename ${activeTab.slice(0, -1)}`}><Edit2 size={16} /></button>
                                                     <button onClick={() => handleDeleteItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }} title="Delete"><Trash2 size={16} /></button>
                                                 </div>
                                             </div>

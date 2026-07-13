@@ -416,6 +416,38 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const saveGroceryBrands = async (newBrandsObj) => {
+        setGroceryBrands(newBrandsObj);
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryBrands: newBrandsObj })
+            });
+        } catch (error) {
+            console.error("Failed to save grocery brands:", error);
+        }
+    };
+
+    const saveGroceryFlavours = async (newFlavoursObj) => {
+        setGroceryFlavours(newFlavoursObj);
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryFlavours: newFlavoursObj })
+            });
+        } catch (error) {
+            console.error("Failed to save grocery flavours:", error);
+        }
+    };
+
     const addGroceryBrand = async (category, brandName) => {
         if (!category || !brandName) return;
         const currentList = Array.isArray(groceryBrands) ? [] : (groceryBrands[category] || []);
@@ -1833,9 +1865,11 @@ export function FinanceProvider({ children }) {
         groceryBrands,
         addGroceryBrand,
         removeGroceryBrand,
+        saveGroceryBrands,
         groceryFlavours,
         addGroceryFlavour,
         removeGroceryFlavour,
+        saveGroceryFlavours,
         groceryItemBrandMap,
         groceryItemFlavourMap,
         saveGroceryItemBrandMap,
