@@ -578,11 +578,6 @@ const ExpenseDetails = () => {
             rawTransactions,
             totalExpenses: totalNetExpenses,
             totalGrossExpenses, // Export gross expenses
-            categoryTotals,
-            subcategoryTotals,
-            creditCardStats,
-            carryForwardCCStats,
-            walletStats,
             salary,
             balance,
             expenseCount: items.length,
@@ -591,6 +586,7 @@ const ExpenseDetails = () => {
             trendData,
             totalCreditCardSpend,
             creditCardStats,
+            carryForwardCCStats,
             walletStats,
             mainItems
         };
