@@ -57,6 +57,8 @@ export function FinanceProvider({ children }) {
     const [customGroceryItems, setCustomGroceryItems] = useState({});
     const [groceryBrands, setGroceryBrands] = useState({});
     const [groceryFlavours, setGroceryFlavours] = useState({});
+    const [groceryItemBrandMap, setGroceryItemBrandMap] = useState({});
+    const [groceryItemFlavourMap, setGroceryItemFlavourMap] = useState({});
     const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
@@ -117,6 +119,8 @@ export function FinanceProvider({ children }) {
                 setCustomGroceryItems({});
                 setGroceryBrands({});
                 setGroceryFlavours({});
+                setGroceryItemBrandMap({});
+                setGroceryItemFlavourMap({});
                 return;
             }
             try {
@@ -219,6 +223,9 @@ export function FinanceProvider({ children }) {
                 
                 const loadedFlavours = appData.groceryFlavours || {};
                 setGroceryFlavours(Array.isArray(loadedFlavours) ? {} : loadedFlavours);
+                
+                setGroceryItemBrandMap(appData.groceryItemBrandMap || {});
+                setGroceryItemFlavourMap(appData.groceryItemFlavourMap || {});
                 
                 // Load custom grocery categories or use default
                 setGroceryCategories(appData.groceryCategories && Object.keys(appData.groceryCategories).length > 0 ? appData.groceryCategories : DEFAULT_GROCERY_CATEGORIES);
@@ -422,10 +429,13 @@ export function FinanceProvider({ children }) {
     const removeGroceryFlavour = async (category, flavourName) => {
         if (!category || !flavourName) return;
         const currentList = Array.isArray(groceryFlavours) ? [] : (groceryFlavours[category] || []);
+        if (!currentList.includes(flavourName)) return;
+
         const newFlavoursObj = {
             ...groceryFlavours,
             [category]: currentList.filter(f => f !== flavourName)
         };
+        
         setGroceryFlavours(newFlavoursObj);
 
         if (isGuest) return;
@@ -438,7 +448,39 @@ export function FinanceProvider({ children }) {
                 body: JSON.stringify({ ...currentAppData, groceryFlavours: newFlavoursObj })
             });
         } catch (error) {
-            console.error("Failed to remove grocery flavour:", error);
+            console.error("Failed to save grocery flavour:", error);
+        }
+    };
+
+    const saveGroceryItemBrandMap = async (newMap) => {
+        setGroceryItemBrandMap(newMap);
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryItemBrandMap: newMap })
+            });
+        } catch (error) {
+            console.error("Failed to save grocery item brand map:", error);
+        }
+    };
+
+    const saveGroceryItemFlavourMap = async (newMap) => {
+        setGroceryItemFlavourMap(newMap);
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, groceryItemFlavourMap: newMap })
+            });
+        } catch (error) {
+            console.error("Failed to save grocery item flavour map:", error);
         }
     };
 
@@ -1703,6 +1745,10 @@ export function FinanceProvider({ children }) {
         groceryFlavours,
         addGroceryFlavour,
         removeGroceryFlavour,
+        groceryItemBrandMap,
+        groceryItemFlavourMap,
+        saveGroceryItemBrandMap,
+        saveGroceryItemFlavourMap,
         groceryCategories,
         saveGroceryCategories,
         dataError,

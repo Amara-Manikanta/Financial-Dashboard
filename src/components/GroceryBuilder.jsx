@@ -17,7 +17,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [finalBillAmount, setFinalBillAmount] = useState('');
-    const { customGroceryItems = {}, addCustomGroceryItem, groceryBrands = {}, addGroceryBrand, groceryFlavours = {}, addGroceryFlavour, groceryCategories } = useFinance();
+    const { customGroceryItems = {}, addCustomGroceryItem, groceryBrands = {}, addGroceryBrand, groceryFlavours = {}, addGroceryFlavour, groceryCategories, groceryItemBrandMap = {}, groceryItemFlavourMap = {} } = useFinance();
 
     // Extract historical data for autocomplete (brands and custom items)
     const historicalData = useMemo(() => {
@@ -237,11 +237,13 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                         const isCustomQty = item.quantity === 'Custom';
                         
                         const histBrands = historicalData.brandsByCategory[item.subcategory] || [];
-                        const explicitBrands = Array.isArray(groceryBrands) ? [] : (groceryBrands[item.subcategory] || []);
+                        const mappedBrands = groceryItemBrandMap[item.subcategory]?.[item.name];
+                        const explicitBrands = Array.isArray(groceryBrands) ? [] : (mappedBrands || groceryBrands[item.subcategory] || []);
                         const availableBrands = Array.from(new Set([...histBrands, ...explicitBrands])).sort();
                         
                         const histFlavours = historicalData.flavoursByCategory[item.subcategory] || [];
-                        const explicitFlavours = Array.isArray(groceryFlavours) ? [] : (groceryFlavours[item.subcategory] || []);
+                        const mappedFlavours = groceryItemFlavourMap[item.subcategory]?.[item.name];
+                        const explicitFlavours = Array.isArray(groceryFlavours) ? [] : (mappedFlavours || groceryFlavours[item.subcategory] || []);
                         const availableFlavours = Array.from(new Set([...histFlavours, ...explicitFlavours])).sort();
                         
                         return (

@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X } from 'lucide-react';
 
 const GroceryMasterList = () => {
     const { 
         groceryCategories, saveGroceryCategories,
         groceryBrands, addGroceryBrand, removeGroceryBrand,
-        groceryFlavours, addGroceryFlavour, removeGroceryFlavour
+        groceryFlavours, addGroceryFlavour, removeGroceryFlavour,
+        groceryItemBrandMap, groceryItemFlavourMap,
+        saveGroceryItemBrandMap, saveGroceryItemFlavourMap
     } = useFinance();
     const [selectedCategory, setSelectedCategory] = useState(Object.keys(groceryCategories)[0] || '');
     const [activeTab, setActiveTab] = useState('items'); // items, brands, flavours
+    const [mappingItem, setMappingItem] = useState(null); // Item name currently being mapped
     
     // Add new category
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -90,15 +93,39 @@ const GroceryMasterList = () => {
     };
 
     const handleMoveItem = (oldCat, item, newCat) => {
-        if (oldCat === newCat || !newCat || !groceryCategories[newCat]) return;
-        if (groceryCategories[newCat].includes(item)) {
-            alert(`${item} already exists in ${newCat}`);
-            return;
-        }
+        if (oldCat === newCat) return;
         const updated = { ...groceryCategories };
         updated[oldCat] = updated[oldCat].filter(i => i !== item);
         updated[newCat] = [...updated[newCat], item].sort();
         saveGroceryCategories(updated);
+    };
+
+    const toggleItemMapping = (type, brandOrFlavour) => {
+        if (!mappingItem) return;
+        
+        if (type === 'brand') {
+            const currentMap = { ...groceryItemBrandMap };
+            if (!currentMap[selectedCategory]) currentMap[selectedCategory] = {};
+            
+            const currentList = currentMap[selectedCategory][mappingItem] || [];
+            if (currentList.includes(brandOrFlavour)) {
+                currentMap[selectedCategory][mappingItem] = currentList.filter(b => b !== brandOrFlavour);
+            } else {
+                currentMap[selectedCategory][mappingItem] = [...currentList, brandOrFlavour];
+            }
+            saveGroceryItemBrandMap(currentMap);
+        } else {
+            const currentMap = { ...groceryItemFlavourMap };
+            if (!currentMap[selectedCategory]) currentMap[selectedCategory] = {};
+            
+            const currentList = currentMap[selectedCategory][mappingItem] || [];
+            if (currentList.includes(brandOrFlavour)) {
+                currentMap[selectedCategory][mappingItem] = currentList.filter(f => f !== brandOrFlavour);
+            } else {
+                currentMap[selectedCategory][mappingItem] = [...currentList, brandOrFlavour];
+            }
+            saveGroceryItemFlavourMap(currentMap);
+        }
     };
 
     return (
@@ -213,9 +240,12 @@ const GroceryMasterList = () => {
                                                 <span style={{ color: 'white', fontWeight: 'bold' }}>{item}</span>
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                     {activeTab === 'items' && (
-                                                        <button onClick={() => handleRenameItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 0 }}><Edit2 size={16} /></button>
+                                                        <>
+                                                            <button onClick={() => setMappingItem(item)} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: 0 }} title="Map Brands & Flavours"><MapPin size={16} /></button>
+                                                            <button onClick={() => handleRenameItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 0 }} title="Rename Item"><Edit2 size={16} /></button>
+                                                        </>
                                                     )}
-                                                    <button onClick={() => handleDeleteItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}><Trash2 size={16} /></button>
+                                                    <button onClick={() => handleDeleteItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }} title="Delete"><Trash2 size={16} /></button>
                                                 </div>
                                             </div>
                                             
@@ -244,6 +274,65 @@ const GroceryMasterList = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Mapping Modal */}
+            {mappingItem && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+                    <div style={{ backgroundColor: '#18181b', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.1)', width: '100%', maxWidth: '500px', overflow: 'hidden', display: 'flex', flexDirection: 'column', maxHeight: '90vh' }}>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <MapPin size={20} className="text-emerald-500" /> Map {mappingItem}
+                            </h2>
+                            <button onClick={() => setMappingItem(null)} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+                        
+                        <div style={{ padding: '1.5rem', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            {/* Brands Mapping */}
+                            <div>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Tag size={16} className="text-blue-500" /> Brands</h3>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                    {(groceryBrands[selectedCategory] || []).length === 0 ? (
+                                        <p style={{ color: '#71717a', fontSize: '0.875rem', margin: 0 }}>No brands defined in {selectedCategory}.</p>
+                                    ) : (
+                                        (groceryBrands[selectedCategory] || []).map(brand => {
+                                            const isChecked = (groceryItemBrandMap[selectedCategory]?.[mappingItem] || []).includes(brand);
+                                            return (
+                                                <label key={brand} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 1rem', backgroundColor: isChecked ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isChecked ? 'rgba(59, 130, 246, 0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '2rem', transition: 'all 0.2s' }}>
+                                                    <input type="checkbox" checked={isChecked} onChange={() => toggleItemMapping('brand', brand)} style={{ display: 'none' }} />
+                                                    <span style={{ color: isChecked ? '#60a5fa' : '#e4e4e7', fontSize: '0.875rem', fontWeight: '500' }}>{brand}</span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                            
+                            {/* Flavours Mapping */}
+                            <div>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: 'white', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}><Droplets size={16} className="text-purple-500" /> Flavours</h3>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                    {(groceryFlavours[selectedCategory] || []).length === 0 ? (
+                                        <p style={{ color: '#71717a', fontSize: '0.875rem', margin: 0 }}>No flavours defined in {selectedCategory}.</p>
+                                    ) : (
+                                        (groceryFlavours[selectedCategory] || []).map(flavour => {
+                                            const isChecked = (groceryItemFlavourMap[selectedCategory]?.[mappingItem] || []).includes(flavour);
+                                            return (
+                                                <label key={flavour} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', padding: '0.5rem 1rem', backgroundColor: isChecked ? 'rgba(168, 85, 247, 0.2)' : 'rgba(255,255,255,0.05)', border: `1px solid ${isChecked ? 'rgba(168, 85, 247, 0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '2rem', transition: 'all 0.2s' }}>
+                                                    <input type="checkbox" checked={isChecked} onChange={() => toggleItemMapping('flavour', flavour)} style={{ display: 'none' }} />
+                                                    <span style={{ color: isChecked ? '#c084fc' : '#e4e4e7', fontSize: '0.875rem', fontWeight: '500' }}>{flavour}</span>
+                                                </label>
+                                            );
+                                        })
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                        <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'flex-end' }}>
+                            <button onClick={() => setMappingItem(null)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#10b981', color: 'black', borderRadius: '0.5rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
