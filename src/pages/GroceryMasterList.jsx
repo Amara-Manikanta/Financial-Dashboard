@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X, Search } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X, Search, Merge } from 'lucide-react';
 
 const GroceryMasterList = () => {
     const { 
@@ -8,12 +8,14 @@ const GroceryMasterList = () => {
         groceryBrands, addGroceryBrand, removeGroceryBrand,
         groceryFlavours, addGroceryFlavour, removeGroceryFlavour,
         groceryItemBrandMap, groceryItemFlavourMap,
-        saveGroceryItemBrandMap, saveGroceryItemFlavourMap
+        saveGroceryItemBrandMap, saveGroceryItemFlavourMap,
+        mergeGroceryItem
     } = useFinance();
     const [selectedCategory, setSelectedCategory] = useState(Object.keys(groceryCategories)[0] || '');
     const [activeTab, setActiveTab] = useState('items'); // items, brands, flavours
     const [mappingItem, setMappingItem] = useState(null); // Item name currently being mapped
     const [searchQuery, setSearchQuery] = useState('');
+    const [mergeState, setMergeState] = useState({ active: false, oldItem: null, targetItem: '' });
     
     // Add new category
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -136,6 +138,14 @@ const GroceryMasterList = () => {
     const getFilteredList = (list) => {
         if (!searchQuery) return list;
         return list.filter(item => item.toLowerCase().includes(searchQuery.toLowerCase()));
+    };
+
+    const handleMergeSubmit = async () => {
+        if (!mergeState.targetItem || mergeState.targetItem === mergeState.oldItem) return;
+        if (window.confirm(`Are you sure you want to merge "${mergeState.oldItem}" into "${mergeState.targetItem}"? This will update all historical transactions and cannot be undone.`)) {
+            await mergeGroceryItem(selectedCategory, mergeState.oldItem, mergeState.targetItem);
+            setMergeState({ active: false, oldItem: null, targetItem: '' });
+        }
     };
 
     return (
@@ -268,6 +278,7 @@ const GroceryMasterList = () => {
                                                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                                                     {activeTab === 'items' && (
                                                         <>
+                                                            <button onClick={() => setMergeState({ active: true, oldItem: item, targetItem: '' })} style={{ background: 'none', border: 'none', color: '#f59e0b', cursor: 'pointer', padding: 0 }} title="Merge Item"><Merge size={16} /></button>
                                                             <button onClick={() => setMappingItem(item)} style={{ background: 'none', border: 'none', color: '#10b981', cursor: 'pointer', padding: 0 }} title="Map Brands & Flavours"><MapPin size={16} /></button>
                                                             <button onClick={() => handleRenameItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 0 }} title="Rename Item"><Edit2 size={16} /></button>
                                                         </>
@@ -356,6 +367,59 @@ const GroceryMasterList = () => {
                         </div>
                         <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'flex-end' }}>
                             <button onClick={() => setMappingItem(null)} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#10b981', color: 'black', borderRadius: '0.5rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>Done</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Merge Modal */}
+            {mergeState.active && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '1rem' }}>
+                    <div style={{ backgroundColor: '#18181b', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.1)', width: '100%', maxWidth: '400px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ padding: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h2 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <Merge size={20} className="text-amber-500" /> Merge Item
+                            </h2>
+                            <button onClick={() => setMergeState({ active: false, oldItem: null, targetItem: '' })} style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}><X size={20} /></button>
+                        </div>
+                        
+                        <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>Item to merge and delete:</label>
+                                <div style={{ color: '#ef4444', fontWeight: 'bold', fontSize: '1.125rem', padding: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', borderRadius: '0.75rem', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                    {mergeState.oldItem}
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'center', color: '#71717a' }}>
+                                <ArrowRight size={24} style={{ transform: 'rotate(90deg)' }} />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                <label style={{ color: '#a1a1aa', fontSize: '0.875rem' }}>Merge into (Keep this item):</label>
+                                <select 
+                                    value={mergeState.targetItem}
+                                    onChange={(e) => setMergeState(prev => ({ ...prev, targetItem: e.target.value }))}
+                                    style={{ width: '100%', padding: '0.75rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '1rem', outline: 'none', cursor: 'pointer' }}
+                                >
+                                    <option value="" disabled>Select target item...</option>
+                                    {(groceryCategories[selectedCategory] || [])
+                                        .filter(item => item !== mergeState.oldItem)
+                                        .map(item => (
+                                            <option key={item} value={item}>{item}</option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+
+                            <div style={{ padding: '1rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '0.75rem', fontSize: '0.875rem', color: '#fcd34d' }}>
+                                <strong>Warning:</strong> This will update all past transactions replacing "{mergeState.oldItem}" with the selected item. This cannot be undone.
+                            </div>
+                        </div>
+
+                        <div style={{ padding: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                            <button onClick={() => setMergeState({ active: false, oldItem: null, targetItem: '' })} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'transparent', color: 'white', borderRadius: '0.5rem', fontWeight: 'bold', border: '1px solid rgba(255,255,255,0.1)', cursor: 'pointer' }}>Cancel</button>
+                            <button onClick={handleMergeSubmit} disabled={!mergeState.targetItem} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#f59e0b', color: 'black', borderRadius: '0.5rem', fontWeight: 'bold', border: 'none', cursor: 'pointer', opacity: !mergeState.targetItem ? 0.5 : 1 }}>Confirm Merge</button>
                         </div>
                     </div>
                 </div>

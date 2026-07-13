@@ -300,6 +300,97 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const mergeGroceryItem = async (category, oldItemName, newItemName) => {
+        if (!category || !oldItemName || !newItemName || oldItemName === newItemName) return;
+
+        // 1. Update Master Categories
+        const newCategories = { ...groceryCategories };
+        if (newCategories[category]) {
+            newCategories[category] = newCategories[category].filter(i => i !== oldItemName);
+            if (!newCategories[category].includes(newItemName)) {
+                newCategories[category].push(newItemName);
+            }
+            newCategories[category].sort();
+        }
+
+        // 2. Update Brand/Flavour Maps
+        const newBrandMap = { ...groceryItemBrandMap };
+        if (newBrandMap[category] && newBrandMap[category][oldItemName]) {
+            const oldBrands = newBrandMap[category][oldItemName];
+            if (!newBrandMap[category][newItemName]) newBrandMap[category][newItemName] = [];
+            newBrandMap[category][newItemName] = Array.from(new Set([...newBrandMap[category][newItemName], ...oldBrands])).sort();
+            delete newBrandMap[category][oldItemName];
+        }
+
+        const newFlavourMap = { ...groceryItemFlavourMap };
+        if (newFlavourMap[category] && newFlavourMap[category][oldItemName]) {
+            const oldFlavours = newFlavourMap[category][oldItemName];
+            if (!newFlavourMap[category][newItemName]) newFlavourMap[category][newItemName] = [];
+            newFlavourMap[category][newItemName] = Array.from(new Set([...newFlavourMap[category][newItemName], ...oldFlavours])).sort();
+            delete newFlavourMap[category][oldItemName];
+        }
+
+        // 3. Update Expenses
+        const newExpenses = { ...expenses };
+        let expensesChanged = false;
+        Object.keys(newExpenses).forEach(year => {
+            Object.keys(newExpenses[year]).forEach(month => {
+                if (newExpenses[year][month] && newExpenses[year][month].transactions) {
+                    newExpenses[year][month].transactions = newExpenses[year][month].transactions.map(tx => {
+                        if (tx.groceryItems) {
+                            let txChanged = false;
+                            const newGroceryItems = tx.groceryItems.map(gi => {
+                                if (gi.subcategory === category && gi.name === oldItemName) {
+                                    txChanged = true;
+                                    expensesChanged = true;
+                                    return { ...gi, name: newItemName };
+                                }
+                                return gi;
+                            });
+                            if (txChanged) return { ...tx, groceryItems: newGroceryItems };
+                        }
+                        return tx;
+                    });
+                }
+            });
+        });
+
+        // Update state synchronously
+        setGroceryCategories(newCategories);
+        setGroceryItemBrandMap(newBrandMap);
+        setGroceryItemFlavourMap(newFlavourMap);
+        if (expensesChanged) setExpenses(newExpenses);
+
+        if (isGuest) return;
+
+        // Persist to backend
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ...currentAppData, 
+                    groceryCategories: newCategories,
+                    groceryItemBrandMap: newBrandMap,
+                    groceryItemFlavourMap: newFlavourMap
+                })
+            });
+
+            if (expensesChanged) {
+                await fetch(`${API_URL}/expenses`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newExpenses)
+                });
+            }
+        } catch (error) {
+            console.error("Failed to merge grocery item:", error);
+        }
+    };
+
     const addCustomGroceryItem = async (category, itemName) => {
         if (!category || !itemName) return;
         const currentList = customGroceryItems[category] || [];
@@ -1751,6 +1842,7 @@ export function FinanceProvider({ children }) {
         saveGroceryItemFlavourMap,
         groceryCategories,
         saveGroceryCategories,
+        mergeGroceryItem,
         dataError,
         isLoading
     };
