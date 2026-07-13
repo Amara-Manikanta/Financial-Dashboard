@@ -181,7 +181,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                         className="w-full h-12 bg-white/5 border border-white/10 rounded-xl px-4 text-sm font-bold text-white focus:outline-none focus:border-emerald-500/50 focus:bg-white/10 transition-all appearance-none cursor-pointer"
                     >
                         <option value="" disabled className="bg-gray-900">Select Category...</option>
-                        {Object.keys(CATEGORY_ITEMS).map(cat => (
+                        {Object.keys(groceryCategories).map(cat => (
                             <option key={cat} value={cat} className="bg-gray-900">{cat}</option>
                         ))}
                     </select>
