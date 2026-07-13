@@ -129,6 +129,15 @@ const GroceryMasterList = () => {
         }
     };
 
+    const currentItems = groceryCategories[selectedCategory] || [];
+    const currentBrands = groceryBrands[selectedCategory] || [];
+    const currentFlavours = groceryFlavours[selectedCategory] || [];
+
+    const getFilteredList = (list) => {
+        if (!searchQuery) return list;
+        return list.filter(item => item.toLowerCase().includes(searchQuery.toLowerCase()));
+    };
+
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
