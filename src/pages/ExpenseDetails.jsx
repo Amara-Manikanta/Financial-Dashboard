@@ -534,11 +534,55 @@ const ExpenseDetails = () => {
                 }
             });
 
+        const carryForwardCCStats = {};
+        const targetMonthDate = new Date(`${month} 1, ${year}`);
+        Object.entries(expenses).forEach(([y, yData]) => {
+            Object.entries(yData).forEach(([m, mData]) => {
+                const mDate = new Date(`${m} 1, ${y}`);
+                if (mDate < targetMonthDate && mData.transactions) {
+                    mData.transactions.forEach(t => {
+                        if (t.paymentMode === 'credit_card' && t.creditCardName) {
+                            const card = t.creditCardName;
+                            if (wallets.some(w => w.name === card)) return;
+
+                            const amount = Number(t.amount) || 0;
+                            if (!carryForwardCCStats[card]) carryForwardCCStats[card] = 0;
+
+                            if (t.category && (t.category.toLowerCase() === 'credit card bill' || t.category.toLowerCase() === 'credit card payment')) {
+                                carryForwardCCStats[card] -= amount;
+                                return;
+                            }
+
+                            if (t.isCredited) {
+                                if (t.category && ['food wallet', 'wallet load', 'deposit', 'income'].includes(t.category.toLowerCase())) {
+                                    // Ignored
+                                } else {
+                                    carryForwardCCStats[card] -= amount;
+                                }
+                            } else {
+                                carryForwardCCStats[card] += amount;
+                            }
+                        }
+                    });
+                }
+            });
+        });
+
+        // Clean up 0s
+        Object.keys(carryForwardCCStats).forEach(card => {
+            if (Math.abs(carryForwardCCStats[card]) < 1) delete carryForwardCCStats[card];
+        });
+
         return {
             items,
             rawTransactions,
             totalExpenses: totalNetExpenses,
             totalGrossExpenses, // Export gross expenses
+            categoryTotals,
+            subcategoryTotals,
+            creditCardStats,
+            carryForwardCCStats,
+            walletStats,
             salary,
             balance,
             expenseCount: items.length,
@@ -1042,7 +1086,7 @@ const ExpenseDetails = () => {
                     </div>
 
                     {/* Credit Card Summary */}
-                    {Object.keys(monthDetails.creditCardStats).length > 0 && (
+                    {(Object.keys(monthDetails.creditCardStats).length > 0 || Object.keys(monthDetails.carryForwardCCStats || {}).length > 0) && (
                         <div style={{
                             backgroundColor: 'rgba(168, 85, 247, 0.03)',
                             backdropFilter: 'blur(10px)',
@@ -1069,14 +1113,40 @@ const ExpenseDetails = () => {
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                                {Object.entries(monthDetails.creditCardStats).map(([cardName, amount]) => (
-                                    <div key={cardName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <span style={{ fontSize: '0.875rem', color: '#a1a1aa', fontWeight: 'bold' }}>{cardName}</span>
-                                        <span style={{ fontSize: '0.875rem', color: 'white', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(amount)}</span>
-                                    </div>
-                                ))}
+                                {Array.from(new Set([...Object.keys(monthDetails.creditCardStats), ...Object.keys(monthDetails.carryForwardCCStats || {})])).map(cardName => {
+                                    const currentSpend = monthDetails.creditCardStats[cardName] || 0;
+                                    const carryForward = monthDetails.carryForwardCCStats?.[cardName] || 0;
+                                    const totalDue = currentSpend + carryForward;
+                                    
+                                    return (
+                                        <div key={cardName} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ fontSize: '1rem', color: 'white', fontWeight: 'bold' }}>{cardName}</span>
+                                                <span style={{ fontSize: '1.125rem', color: 'white', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(totalDue)}</span>
+                                            </div>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                    <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Current Spends</span>
+                                                    <span style={{ fontSize: '0.875rem', color: '#e4e4e7', fontFamily: 'monospace' }}>{formatCurrency(currentSpend)}</span>
+                                                </div>
+                                                {carryForward > 0 && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                        <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>Carry Forward Due</span>
+                                                        <span style={{ fontSize: '0.875rem', color: '#fcd34d', fontFamily: 'monospace' }}>{formatCurrency(carryForward)}</span>
+                                                    </div>
+                                                )}
+                                                {carryForward < 0 && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                                                        <span style={{ fontSize: '0.75rem', color: '#10b981' }}>Overpaid</span>
+                                                        <span style={{ fontSize: '0.875rem', color: '#34d399', fontFamily: 'monospace' }}>{formatCurrency(Math.abs(carryForward))}</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(168, 85, 247, 0.1)' }}>
-                                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Credit Spends</span>
+                                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Current Spends</span>
                                     <span style={{ fontSize: '1.125rem', color: 'white', fontWeight: '950', fontFamily: 'monospace' }}>{formatCurrency(monthDetails.totalCreditCardSpend)}</span>
                                 </div>
                             </div>
