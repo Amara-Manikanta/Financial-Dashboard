@@ -103,77 +103,122 @@ const LentDetails = () => {
     }
 
     return (
-        <div className="space-y-6">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Header */}
-            <div className="flex items-center gap-4 mb-8">
-                <button
-                    onClick={() => navigate('/lents-loans')}
-                    className="p-2 bg-white/5 hover:bg-white/10 rounded-xl transition-colors text-gray-400 hover:text-white"
-                >
-                    <ArrowLeft size={20} />
-                </button>
-                <div className="flex-1">
-                    <h1 className="text-2xl font-bold text-white flex items-center gap-3">
-                        {item.name}
-                        {item.isEmi && (
-                            <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 text-xs rounded border border-blue-500/20">
-                                EMI
-                            </span>
-                        )}
-                    </h1>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                    <button
+                        onClick={() => navigate('/lents-loans')}
+                        style={{
+                            padding: '0.5rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.08)',
+                            color: 'white',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        <ArrowLeft size={16} />
+                    </button>
+                    <div>
+                        <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {item.name}
+                            {item.isEmi && (
+                                <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '950', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.2)' }}>
+                                    EMI
+                                </span>
+                            )}
+                        </h2>
+                        <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Manage transactions and schedules for {item.name}.</p>
+                    </div>
                 </div>
-                <div className="flex gap-2">
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button
                         onClick={() => setIsEditModalOpen(true)}
-                        className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                        title="Edit"
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            color: '#34d399',
+                            fontWeight: 'bold',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer'
+                        }}
                     >
-                        <Edit2 size={18} />
+                        Edit Details
                     </button>
                     <button
                         onClick={handleDelete}
-                        className="p-2 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 transition-colors"
-                        title="Delete"
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                            color: '#f87171',
+                            fontWeight: 'bold',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer'
+                        }}
                     >
-                        <Trash2 size={18} />
+                        Delete
                     </button>
                 </div>
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
-                    <p className="text-sm text-gray-500 uppercase font-medium mb-1">Total Principal</p>
-                    <h3 className="text-2xl font-bold text-white">{formatCurrency(netPrincipal)}</h3>
-                    {totalAdditional > 0 && <p className="text-xs text-amber-400 mt-1">Includes +{formatCurrency(totalAdditional)} added</p>}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                <div style={{
+                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '2rem',
+                    padding: '2rem'
+                }}>
+                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Principal</span>
+                    <h3 style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(netPrincipal)}</h3>
+                    {totalAdditional > 0 && <span style={{ fontSize: '10px', color: '#fbbf24', display: 'block', marginTop: '0.25rem' }}>Includes +{formatCurrency(totalAdditional)} added</span>}
                 </div>
-                <div className="p-5 rounded-2xl bg-white/5 border border-white/10">
-                    <p className="text-sm text-gray-500 uppercase font-medium mb-1">Total Repaid</p>
-                    <h3 className="text-2xl font-bold text-emerald-400">{formatCurrency(totalRepaid)}</h3>
-                    {item.isEmi && <p className="text-xs text-gray-400 mt-1">{item.emiDetails?.amountPerMonth ? Math.floor(totalRepaid / item.emiDetails.amountPerMonth) : 0} EMIs paid approx</p>}
+                <div style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.02)',
+                    border: '1px solid rgba(16, 185, 129, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '2rem'
+                }}>
+                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Repaid</span>
+                    <h3 style={{ fontSize: '2rem', fontWeight: '950', color: '#34d399', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(totalRepaid)}</h3>
+                    {item.isEmi && <span style={{ fontSize: '10px', color: '#71717a', display: 'block', marginTop: '0.25rem' }}>{item.emiDetails?.amountPerMonth ? Math.floor(totalRepaid / item.emiDetails.amountPerMonth) : 0} EMIs paid approx</span>}
                 </div>
-                <div className="p-5 rounded-2xl bg-white/5 border border-white/10 relative overflow-hidden">
-                    <div className={`absolute inset-0 opacity-10 ${pendingAmount > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`} />
-                    <p className="text-sm text-gray-500 uppercase font-medium mb-1 relative z-10">Pending Balance</p>
-                    <h3 className={`text-2xl font-bold relative z-10 ${pendingAmount > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                        {formatCurrency(pendingAmount)}
-                    </h3>
+                <div style={{
+                    backgroundColor: pendingAmount > 0 ? 'rgba(239, 68, 68, 0.02)' : 'rgba(16, 185, 129, 0.02)',
+                    border: pendingAmount > 0 ? '1px solid rgba(239, 68, 68, 0.1)' : '1px solid rgba(16, 185, 129, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '2rem'
+                }}>
+                    <span style={{ fontSize: '9px', fontWeight: '900', color: pendingAmount > 0 ? '#f87171' : '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Pending Balance</span>
+                    <h3 style={{ fontSize: '2rem', fontWeight: '950', color: pendingAmount > 0 ? '#f87171' : '#34d399', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(pendingAmount)}</h3>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '2rem' }}>
                 {/* Main Content: Transactions */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className="flex justify-between items-center">
-                        <h2 className="text-lg font-bold text-white">Transaction History</h2>
-                        <div className="flex items-center gap-3">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justify: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>Transaction History</h3>
+                        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                             <select
                                 value={selectedYear}
                                 onChange={(e) => setSelectedYear(e.target.value)}
-                                className="bg-white/5 border border-white/10 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-500/50"
+                                style={{ backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '0.5rem', padding: '0.375rem 0.75rem', outline: 'none', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
                             >
                                 {years.map(year => (
-                                    <option key={year} value={year} className="bg-zinc-900">{year}</option>
+                                    <option key={year} value={year} style={{ backgroundColor: '#18181b' }}>{year}</option>
                                 ))}
                             </select>
                             <button
@@ -181,60 +226,76 @@ const LentDetails = () => {
                                     setEditTransaction(null);
                                     setIsTransactionModalOpen(true);
                                 }}
-                                className="flex items-center gap-2 px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl hover:bg-emerald-500/30 transition-colors text-sm font-medium"
+                                style={{
+                                    padding: '0.375rem 0.75rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: '#c084fc',
+                                    color: 'black',
+                                    fontWeight: 'bold',
+                                    fontSize: '11px',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    cursor: 'pointer',
+                                    border: 'none',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.25rem'
+                                }}
                             >
-                                <Plus size={16} />
-                                Add Transaction
+                                <Plus size={12} /> Add Transaction
                             </button>
                         </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                         {filteredTransactions.length === 0 ? (
-                            <div className="text-center py-10 text-gray-500 bg-white/5 rounded-xl border border-white/10 border-dashed">
+                            <div style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem', border: '2px dashed rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
                                 No transactions found.
                             </div>
                         ) : (
                             filteredTransactions.map(tx => (
-                                <div key={tx.id} className="p-4 rounded-xl bg-white/5 border border-white/10 flex justify-between items-center group">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'repayment'
-                                            ? 'bg-emerald-500/20 text-emerald-400'
-                                            : 'bg-amber-500/20 text-amber-400'
-                                            }`}>
-                                            {tx.type === 'repayment' ? <TrendingDown size={18} /> : <TrendingUp size={18} />}
+                                <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <div style={{
+                                            width: '2.5rem',
+                                            height: '2.5rem',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            backgroundColor: tx.type === 'repayment' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)',
+                                            color: tx.type === 'repayment' ? '#34d399' : '#fbbf24'
+                                        }}>
+                                            {tx.type === 'repayment' ? <TrendingDown size={16} /> : <TrendingUp size={16} />}
                                         </div>
                                         <div>
-                                            <p className="text-white font-medium capitalize">
+                                            <p style={{ color: 'white', fontWeight: 'bold', fontSize: '0.875rem', margin: 0, textTransform: 'capitalize' }}>
                                                 {tx.type === 'repayment' ? (isLent ? 'Repayment Received' : 'You Paid Back') : (isLent ? 'Lent More' : 'Borrowed More')}
                                             </p>
-                                            <p className="text-xs text-gray-500">{new Date(tx.date).toLocaleDateString()}</p>
+                                            <span style={{ fontSize: '10px', color: '#71717a' }}>{new Date(tx.date).toLocaleDateString()}</span>
                                         </div>
                                     </div>
-                                    <div className="flex items-center gap-4">
-                                        <div className="text-right">
-                                            <p className={`font-bold ${tx.type === 'repayment' ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                        <div style={{ textAlign: 'right' }}>
+                                            <p style={{ fontSize: '1rem', fontWeight: 'bold', fontFamily: 'monospace', margin: 0, color: tx.type === 'repayment' ? '#34d399' : '#fbbf24' }}>
                                                 {tx.type === 'repayment' ? '-' : '+'}{formatCurrency(tx.amount)}
                                             </p>
-                                            {tx.description && <p className="text-xs text-gray-500 max-w-[200px] truncate">{tx.description}</p>}
+                                            {tx.description && <span style={{ fontSize: '10px', color: '#71717a', maxWidth: '200px', display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.description}</span>}
                                         </div>
-                                        <button
-                                            onClick={() => handleEditTransaction(tx)}
-                                            className="p-2 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors opacity-0 group-hover:opacity-100"
-                                            title="Edit Transaction"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                handleDeleteTransaction(tx.id);
-                                            }}
-                                            className="p-2 rounded-lg hover:bg-rose-500/10 text-gray-400 hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100 z-10"
-                                            title="Delete Transaction"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
+                                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                            <button
+                                                onClick={() => handleEditTransaction(tx)}
+                                                style={{ padding: '0.25rem', borderRadius: '0.375rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: '#71717a', cursor: 'pointer' }}
+                                            >
+                                                <Edit2 size={12} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); handleDeleteTransaction(tx.id); }}
+                                                style={{ padding: '0.25rem', borderRadius: '0.375rem', border: 'none', backgroundColor: 'rgba(239,68,68,0.05)', color: '#f87171', cursor: 'pointer' }}
+                                            >
+                                                <Trash2 size={12} />
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))
@@ -243,39 +304,41 @@ const LentDetails = () => {
                 </div>
 
                 {/* Sidebar: Details & EMI */}
-                <div className="space-y-6">
-                    <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-4">
-                        <h3 className="text-lg font-bold text-white mb-2">Details</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '2rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                        <h4 style={{ fontSize: '1rem', fontWeight: '900', color: 'white', margin: 0 }}>Details</h4>
                         {item.description && (
                             <div>
-                                <p className="text-xs text-gray-500 uppercase">Notes</p>
-                                <p className="text-gray-300 text-sm mt-1">{item.description}</p>
+                                <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Notes</span>
+                                <p style={{ fontSize: '0.875rem', color: '#a1a1aa', margin: '0.25rem 0 0 0' }}>{item.description}</p>
                             </div>
                         )}
                         <div>
-                            <p className="text-xs text-gray-500 uppercase">Originally Created</p>
-                            <p className="text-gray-300 text-sm mt-1">{new Date(item.created || Date.now()).toLocaleDateString()}</p>
+                            <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Originally Created</span>
+                            <p style={{ fontSize: '0.875rem', color: '#a1a1aa', margin: '0.25rem 0 0 0' }}>{new Date(item.created || Date.now()).toLocaleDateString()}</p>
                         </div>
                     </div>
 
                     {item.isEmi && (
-                        <div className="p-5 rounded-2xl bg-white/5 border border-white/10 space-y-4">
-                            <h3 className="text-lg font-bold text-white flex items-center gap-2">
-                                <Clock size={18} className="text-blue-400" />
-                                EMI Schedule
-                            </h3>
-                            <div className="space-y-2">
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '2rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <h4 style={{ fontSize: '1rem', fontWeight: '900', color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <Clock size={16} className="text-[#818cf8]" /> EMI Schedule
+                            </h4>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                 {emiSchedule.map((emi) => (
-                                    <div key={emi.month} className="flex justify-between items-center text-sm p-2 rounded-lg hover:bg-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <div className={`w-2 h-2 rounded-full ${emi.status === 'paid' ? 'bg-emerald-500' :
-                                                emi.status === 'partial' ? 'bg-amber-500' : 'bg-gray-600'
-                                                }`} />
-                                            <span className="text-gray-300">
+                                    <div key={emi.month} style={{ display: 'flex', justify: 'space-between', alignItems: 'center', padding: '0.5rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.01)' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <div style={{
+                                                width: '6px',
+                                                height: '6px',
+                                                borderRadius: '50%',
+                                                backgroundColor: emi.status === 'paid' ? '#34d399' : emi.status === 'partial' ? '#fbbf24' : '#71717a'
+                                            }} />
+                                            <span style={{ fontSize: '0.875rem', color: '#a1a1aa' }}>
                                                 {emi.dueDate.toLocaleDateString(undefined, { month: 'short', year: '2-digit' })}
                                             </span>
                                         </div>
-                                        <span className={emi.status === 'paid' ? 'text-emerald-400' : 'text-gray-400'}>
+                                        <span style={{ fontSize: '0.875rem', fontWeight: 'bold', fontFamily: 'monospace', color: emi.status === 'paid' ? '#34d399' : '#a1a1aa' }}>
                                             {formatCurrency(emi.amount)}
                                         </span>
                                     </div>

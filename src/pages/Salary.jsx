@@ -377,90 +377,139 @@ const Salary = () => {
     const currentNet = currentGross - currentDeductions;
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto space-y-12">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
-                    <h2 className="text-5xl font-black text-white tracking-tighter mb-4 flex items-center gap-4">
-                        <Briefcase className="text-blue-500" size={40} />
-                        Salary Dashboard
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <Briefcase style={{ color: '#3b82f6' }} size={32} /> Salary Dashboard
                     </h2>
-                    <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs">Track your CTC, Payslips, and Benefits</p>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track your CTC, Payslips, and Benefits</p>
                 </div>
                 
-                <div className="relative group min-w-[200px] z-50">
+                <div style={{
+                    display: 'flex',
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '1rem',
+                    padding: '2px'
+                }}>
                     <select
                         value={selectedYear}
                         onChange={(e) => setSelectedYear(e.target.value)}
-                        style={{ backgroundColor: 'rgba(255,255,255,0.03)' }}
-                        className="w-full appearance-none border border-white/10 text-white py-4 pl-6 pr-12 rounded-2xl font-bold uppercase tracking-widest text-sm focus:outline-none focus:border-blue-500/50 hover:bg-white/[0.05] transition-all cursor-pointer"
+                        style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem 1.5rem', outline: 'none', cursor: 'pointer' }}
                     >
-                        {years.map(y => <option key={y} value={y} style={{ backgroundColor: '#121214' }} className="text-white">{y}</option>)}
+                        {years.map(y => <option key={y} value={y} style={{ backgroundColor: '#121214' }}>{y}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 group-hover:text-white transition-colors pointer-events-none" size={18} />
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
-                <div style={{ backgroundColor: 'rgba(255,255,255,0.02)' }} className="xl:col-span-5 border border-white/5 rounded-[2rem] p-6 lg:p-8 flex flex-col h-full shadow-2xl relative z-10">
-                    <div style={{ backgroundColor: 'rgba(0,0,0,0.4)' }} className="flex gap-2 mb-8 p-1 rounded-2xl border border-white/5">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', lg: { gridTemplateColumns: 'repeat(12, 1fr)' }, gap: '2rem' }}>
+                {/* Inputs Column */}
+                <div style={{
+                    backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(59, 130, 246, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '2rem',
+                    boxShadow: '0 10px 25px -5px rgba(59, 130, 246, 0.05)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '1.5rem'
+                }}>
+                    <div style={{
+                        display: 'flex',
+                        backgroundColor: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '1rem',
+                        padding: '2px',
+                        gap: '2px'
+                    }}>
                         <button
                             onClick={() => { setEntryMode('Monthly'); setIsEditing(false); }}
-                            className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${entryMode === 'Monthly' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                            style={{
+                                flex: 1,
+                                padding: '0.5rem 1rem',
+                                fontSize: '9px',
+                                fontWeight: '900',
+                                letterSpacing: '0.05em',
+                                borderRadius: '0.75rem',
+                                border: 'none',
+                                backgroundColor: entryMode === 'Monthly' ? '#3b82f6' : 'transparent',
+                                color: entryMode === 'Monthly' ? 'white' : '#71717a',
+                                cursor: 'pointer',
+                                textTransform: 'uppercase'
+                            }}
                         >
                             Monthly Payslip
                         </button>
                         <button
                             onClick={() => { setEntryMode('Annual'); setIsEditing(false); }}
-                            className={`flex-1 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${entryMode === 'Annual' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}
+                            style={{
+                                flex: 1,
+                                padding: '0.5rem 1rem',
+                                fontSize: '9px',
+                                fontWeight: '900',
+                                letterSpacing: '0.05em',
+                                borderRadius: '0.75rem',
+                                border: 'none',
+                                backgroundColor: entryMode === 'Annual' ? '#3b82f6' : 'transparent',
+                                color: entryMode === 'Annual' ? 'white' : '#71717a',
+                                cursor: 'pointer',
+                                textTransform: 'uppercase'
+                            }}
                         >
                             Annual CTC
                         </button>
                     </div>
 
-                    <div className="flex justify-between items-center mb-6">
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
                         <div>
-                            <h3 className="text-2xl font-black text-white tracking-tight">{entryMode} Data</h3>
-                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>{entryMode} Data</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '0.25rem' }}>
                                 {entryMode === 'Annual' ? `For Year ${selectedYear}` : 'Select month below'}
                             </p>
                         </div>
                         {entryMode === 'Monthly' && (
-                            <div className="relative group">
+                            <div style={{
+                                display: 'flex',
+                                backgroundColor: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: '1rem',
+                                padding: '2px'
+                            }}>
                                 <select
                                     value={selectedMonth}
                                     onChange={(e) => { setSelectedMonth(e.target.value); setIsEditing(false); }}
-                                    style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
-                                    className="appearance-none border border-white/10 text-white py-2 pl-4 pr-10 rounded-xl font-bold text-sm focus:outline-none cursor-pointer"
+                                    style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem 1rem', outline: 'none', cursor: 'pointer' }}
                                 >
                                     {MONTHS.map(m => <option key={m} value={m} style={{ backgroundColor: '#121214' }}>{m}</option>)}
                                 </select>
-                                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={16} />
                             </div>
                         )}
                     </div>
 
-                    <div className="flex-1 overflow-y-auto pr-2 space-y-8 custom-scrollbar">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                         {entryMode === 'Annual' ? (
-                            <div className="bg-[#121214] border border-white/10 rounded-2xl p-6 shadow-2xl relative">
-                                <div className="border-b border-white/10 pb-4 mb-6">
-                                    <h4 className="text-xl font-black text-white tracking-tight">ANNUAL CTC STRUCTURE</h4>
-                                    <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Financial Year {selectedYear}</p>
+                            <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
+                                    <h4 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>ANNUAL CTC STRUCTURE</h4>
+                                    <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '0.25rem' }}>Financial Year {selectedYear}</p>
                                 </div>
                                 
                                 {['Base', 'Allowances', 'Retirement', 'Insurance & Limits', 'Custom'].map(category => {
                                     const fields = activeAnnualFields.filter(f => (f.category || 'Custom') === category);
                                     if(fields.length === 0 && !isEditing) return null;
-                                    if(fields.length === 0 && isEditing && category !== 'Custom') return null; // Only show Custom add button if empty maybe? Actually let's always show Add button if editing.
+                                    if(fields.length === 0 && isEditing && category !== 'Custom') return null;
 
                                     return (
-                                        <div key={category} className="mb-8 last:mb-0">
-                                            <h5 className="text-[10px] font-black text-blue-400 uppercase tracking-widest border-b border-blue-500/20 pb-2 mb-2">{category}</h5>
-                                            <div className="space-y-1">
+                                        <div key={category} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                            <h5 style={{ fontSize: '9px', fontWeight: '900', color: '#3b82f6', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(59, 130, 246, 0.1)', paddingBottom: '0.25rem', margin: 0 }}>{category}</h5>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                 {fields.map(renderFieldInput)}
                                             </div>
                                             {isEditing && (
-                                                <button onClick={() => handleAddCustomField('annual', category)} className="w-full mt-3 py-2 border border-dashed border-white/10 rounded-lg text-gray-500 hover:text-white hover:border-white/30 hover:bg-white/5 text-[9px] font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all">
-                                                    <Plus size={12} /> Add {category} Field
+                                                <button onClick={() => handleAddCustomField('annual', category)} style={{ width: '100%', padding: '0.5rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '0.5rem', backgroundColor: 'transparent', color: '#71717a', fontSize: '9px', fontWeight: '900', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase' }}>
+                                                    + Add {category} Field
                                                 </button>
                                             )}
                                         </div>
@@ -468,52 +517,51 @@ const Salary = () => {
                                 })}
                             </div>
                         ) : (
-                            <div className="bg-[#121214] border border-white/10 rounded-2xl p-6 shadow-2xl relative">
-                                {/* Decorative header */}
-                                <div className="flex justify-between items-end border-b border-white/10 pb-6 mb-6">
+                            <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '1rem' }}>
                                     <div>
-                                        <h4 className="text-xl font-black text-white tracking-tight">SALARY SLIP</h4>
-                                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">{selectedMonth} {selectedYear}</p>
+                                        <h4 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>SALARY SLIP</h4>
+                                        <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '0.25rem' }}>{selectedMonth} {selectedYear}</p>
                                     </div>
-                                    <div className="text-right">
-                                        <h4 className="text-emerald-400 font-black text-3xl">{formatCurrency(currentNet)}</h4>
-                                        <p className="text-emerald-500/50 text-[9px] font-black uppercase tracking-widest mt-1">Net Take Home</p>
+                                    <div style={{ textAlign: 'right' }}>
+                                        <h4 style={{ fontSize: '1.5rem', fontWeight: '950', color: '#10b981', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(currentNet)}</h4>
+                                        <p style={{ fontSize: '8px', fontWeight: '900', color: 'rgba(16, 185, 129, 0.5)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem', margin: 0 }}>Net Take Home</p>
                                     </div>
                                 </div>
                                 
                                 {isEditing && selectedMonth !== 'January' && (
-                                    <button onClick={handleCopyPreviousMonth} className="w-full mb-6 py-2 bg-blue-500/10 border border-blue-500/20 rounded-lg flex justify-center items-center gap-2 text-[10px] text-blue-400 hover:bg-blue-500/20 font-bold uppercase tracking-wider transition-colors">
-                                        <Copy size={12} /> Copy from Previous Month
+                                    <button onClick={handleCopyPreviousMonth} style={{ width: '100%', padding: '0.5rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)', borderRadius: '0.5rem', color: '#60a5fa', fontSize: '9px', fontWeight: '900', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase' }}>
+                                        Copy from Previous Month
                                     </button>
                                 )}
 
-                                <div className="flex flex-col gap-8">
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
                                     <div>
-                                        <div className="flex justify-between items-end border-b border-emerald-500/20 pb-2 mb-2">
-                                            <h5 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Earnings</h5>
-                                            <span className="text-xs font-black text-emerald-400">{formatCurrency(currentGross)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(16, 185, 129, 0.1)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
+                                            <h5 style={{ fontSize: '9px', fontWeight: '900', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Earnings</h5>
+                                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#34d399', fontFamily: 'monospace' }}>{formatCurrency(currentGross)}</span>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             {activeMonthlyEarnings.map(renderFieldInput)}
                                         </div>
                                         {isEditing && (
-                                            <button onClick={() => handleAddCustomField('monthlyEarnings', null)} className="w-full mt-3 py-2 border border-dashed border-white/10 rounded-lg text-gray-500 hover:text-white hover:border-white/30 hover:bg-white/5 text-[9px] font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all">
-                                                <Plus size={12} /> Add Earning
+                                            <button onClick={() => handleAddCustomField('monthlyEarnings', null)} style={{ width: '100%', padding: '0.5rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '0.5rem', backgroundColor: 'transparent', color: '#71717a', fontSize: '9px', fontWeight: '900', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase', marginTop: '0.75rem' }}>
+                                                + Add Earning
                                             </button>
                                         )}
                                     </div>
                                     
                                     <div>
-                                        <div className="flex justify-between items-end border-b border-rose-500/20 pb-2 mb-2">
-                                            <h5 className="text-[10px] font-black text-rose-500 uppercase tracking-widest">Deductions</h5>
-                                            <span className="text-xs font-black text-rose-400">{formatCurrency(currentDeductions)}</span>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid rgba(239, 68, 68, 0.1)', paddingBottom: '0.25rem', marginBottom: '0.75rem' }}>
+                                            <h5 style={{ fontSize: '9px', fontWeight: '900', color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Deductions</h5>
+                                            <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#f87171', fontFamily: 'monospace' }}>{formatCurrency(currentDeductions)}</span>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                             {activeMonthlyDeductions.map(renderFieldInput)}
                                         </div>
                                         {isEditing && (
-                                            <button onClick={() => handleAddCustomField('monthlyDeductions', null)} className="w-full mt-3 py-2 border border-dashed border-white/10 rounded-lg text-gray-500 hover:text-white hover:border-white/30 hover:bg-white/5 text-[9px] font-bold uppercase tracking-widest flex justify-center items-center gap-2 transition-all">
-                                                <Plus size={12} /> Add Deduction
+                                            <button onClick={() => handleAddCustomField('monthlyDeductions', null)} style={{ width: '100%', padding: '0.5rem', border: '1px dashed rgba(255,255,255,0.1)', borderRadius: '0.5rem', backgroundColor: 'transparent', color: '#71717a', fontSize: '9px', fontWeight: '900', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase', marginTop: '0.75rem' }}>
+                                                + Add Deduction
                                             </button>
                                         )}
                                     </div>
@@ -522,28 +570,28 @@ const Salary = () => {
                         )}
                     </div>
                     
-                    <div className="mt-6 pt-6 border-t border-white/5">
+                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem', marginTop: 'auto' }}>
                         {!isEditing ? (
                             <button
                                 onClick={() => setIsEditing(true)}
-                                className="w-full py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-black text-xs uppercase tracking-widest transition-all"
+                                style={{ width: '100%', padding: '1rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: 'white', fontSize: '11px', fontWeight: '900', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase' }}
                             >
                                 {currentRecord ? 'Edit Record' : 'Add Record'}
                             </button>
                         ) : (
-                            <div className="flex gap-4">
+                            <div style={{ display: 'flex', gap: '1rem' }}>
                                 <button
                                     onClick={() => {
                                         setIsEditing(false);
                                         setFormData(currentRecord ? { ...currentRecord } : {});
                                     }}
-                                    className="flex-1 py-4 rounded-2xl bg-white/5 hover:bg-white/10 text-white font-black text-xs uppercase tracking-widest transition-all"
+                                    style={{ flex: 1, padding: '1rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: 'white', fontSize: '11px', fontWeight: '900', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase' }}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     onClick={handleSave}
-                                    className="flex-1 py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-widest transition-all shadow-xl shadow-blue-900/20"
+                                    style={{ flex: 1, padding: '1rem', borderRadius: '1rem', backgroundColor: '#3b82f6', border: 'none', color: 'white', fontSize: '11px', fontWeight: '900', letterSpacing: '0.05em', cursor: 'pointer', textTransform: 'uppercase' }}
                                 >
                                     Save Record
                                 </button>
@@ -552,13 +600,23 @@ const Salary = () => {
                     </div>
                 </div>
 
-                <div className="xl:col-span-7 flex flex-col gap-8 relative z-0">
+                {/* Charts Column */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
                     {/* Monthly Trend Chart */}
-                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)' }} className="border border-white/5 rounded-[2rem] p-8 shadow-2xl flex flex-col">
-                        <div className="mb-6 flex justify-between items-start">
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '2rem',
+                        padding: '1.5rem',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
                             <div>
-                                <h3 className="text-2xl font-black text-white tracking-tight">Payslip Analysis</h3>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Select fields to compare across {selectedYear}</p>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>Payslip Analysis</h3>
+                                <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '0.25rem' }}>Select fields to compare across {selectedYear}</p>
                             </div>
                             {hasMonthlyData && (
                                 <MultiSelectDropdown 
@@ -572,13 +630,13 @@ const Salary = () => {
 
                         {hasMonthlyData ? (
                             <>
-                                <div className="w-full overflow-x-auto custom-scrollbar pb-4 mt-4">
-                                    <div style={{ minWidth: '800px', height: '400px' }}>
+                                <div style={{ overflowX: 'auto', width: '100%', paddingBottom: '1rem' }}>
+                                    <div style={{ minWidth: '800px', height: 400 }}>
                                         <BarChart width={800} height={400} data={monthlyData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                                            <XAxis dataKey="month" stroke="#ffffff50" axisLine={false} tickLine={false} fontSize={12} dy={10} />
-                                            <YAxis stroke="#ffffff50" axisLine={false} tickLine={false} fontSize={12} tickFormatter={val => `₹${val/1000}k`} />
-                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
+                                            <XAxis dataKey="month" stroke="#71717a" axisLine={false} tickLine={false} fontSize={10} dy={10} />
+                                            <YAxis stroke="#71717a" axisLine={false} tickLine={false} fontSize={10} tickFormatter={val => `₹${val/1000}k`} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff02' }} />
                                             {activeMonthlyFieldsFilter.map((fieldKey, idx) => {
                                                 const field = MONTHLY_ALL_TOGGLES.find(f => f.key === fieldKey);
                                                 if(!field) return null;
@@ -588,38 +646,47 @@ const Salary = () => {
                                     </div>
                                 </div>
                                 
-                                <div className="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-4 pt-6 border-t border-white/5">
-                                    <div style={{ backgroundColor: 'rgba(255,255,255,0.03)' }} className="rounded-2xl p-5 border border-white/5 shadow-lg">
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-1.5">Total Year Gross</p>
-                                        <p className="text-2xl font-black text-white">{formatCurrency(monthlyAggregates.totalGross)}</p>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem', marginTop: '1rem' }}>
+                                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', padding: '1rem' }}>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Year Gross</span>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(monthlyAggregates.totalGross)}</p>
                                     </div>
-                                    <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-5 shadow-lg shadow-emerald-900/10">
-                                        <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest mb-1.5">Total Net Take Home</p>
-                                        <p className="text-2xl font-black text-emerald-400">{formatCurrency(monthlyAggregates.totalNet)}</p>
+                                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.03)', border: '1px solid rgba(16, 185, 129, 0.1)', borderRadius: '1rem', padding: '1rem' }}>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Net Take Home</span>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#34d399', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(monthlyAggregates.totalNet)}</p>
                                     </div>
-                                    <div className="bg-rose-500/10 border border-rose-500/20 rounded-2xl p-5 shadow-lg shadow-rose-900/10">
-                                        <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest mb-1.5">Total Income Tax</p>
-                                        <p className="text-2xl font-black text-rose-400">{formatCurrency(monthlyAggregates.totalIncomeTax)}</p>
+                                    <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.03)', border: '1px solid rgba(239, 68, 68, 0.1)', borderRadius: '1rem', padding: '1rem' }}>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Income Tax</span>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#f87171', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(monthlyAggregates.totalIncomeTax)}</p>
                                     </div>
-                                    <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-5 shadow-lg shadow-blue-900/10">
-                                        <p className="text-[10px] text-blue-400 font-bold uppercase tracking-widest mb-1.5">Total EPF Received</p>
-                                        <p className="text-2xl font-black text-blue-400">{formatCurrency(monthlyAggregates.totalEpf)}</p>
+                                    <div style={{ backgroundColor: 'rgba(59, 130, 246, 0.03)', border: '1px solid rgba(59, 130, 246, 0.1)', borderRadius: '1rem', padding: '1rem' }}>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total EPF Received</span>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#60a5fa', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(monthlyAggregates.totalEpf)}</p>
                                     </div>
                                 </div>
                             </>
                         ) : (
-                            <div style={{ height: '400px' }} className="w-full flex items-center justify-center text-gray-500 font-bold uppercase tracking-widest text-xs border border-white/5 rounded-2xl bg-black/20">
+                            <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyCenter: 'center', color: '#71717a', fontSize: '0.875rem', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '1.5rem', backgroundColor: 'rgba(255,255,255,0.01)', width: '100%', justifyContent: 'center' }}>
                                 No monthly data for {selectedYear}
                             </div>
                         )}
                     </div>
 
                     {/* Annual Trend Chart */}
-                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)' }} className="border border-white/5 rounded-[2rem] p-8 shadow-2xl flex flex-col">
-                        <div className="mb-6 flex justify-between items-start">
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '2rem',
+                        padding: '1.5rem',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
+                        display: 'flex',
+                        flexDirection: 'column'
+                    }}>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
                             <div>
-                                <h3 className="text-2xl font-black text-white tracking-tight">Annual Field Tracking</h3>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Select fields to view historical progression</p>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>Annual Field Tracking</h3>
+                                <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '0.25rem' }}>Select fields to view historical progression</p>
                             </div>
                             {annualData.length > 0 && (
                                 <MultiSelectDropdown 
@@ -633,13 +700,13 @@ const Salary = () => {
 
                         {annualData.length > 0 ? (
                             <>
-                                <div className="w-full overflow-x-auto custom-scrollbar pb-4 mt-4">
-                                    <div style={{ minWidth: '800px', height: '400px' }}>
+                                <div style={{ overflowX: 'auto', width: '100%', paddingBottom: '1rem' }}>
+                                    <div style={{ minWidth: '800px', height: 400 }}>
                                         <BarChart width={800} height={400} data={annualData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
                                             <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                                            <XAxis dataKey="year" stroke="#ffffff50" axisLine={false} tickLine={false} fontSize={12} dy={10} />
-                                            <YAxis stroke="#ffffff50" axisLine={false} tickLine={false} fontSize={12} tickFormatter={val => `₹${val/100000}L`} />
-                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff05' }} />
+                                            <XAxis dataKey="year" stroke="#71717a" axisLine={false} tickLine={false} fontSize={10} dy={10} />
+                                            <YAxis stroke="#71717a" axisLine={false} tickLine={false} fontSize={10} tickFormatter={val => `₹${val/100000}L`} />
+                                            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#ffffff02' }} />
                                             {activeAnnualFieldsFilter.map((fieldKey, idx) => {
                                                 const field = activeAnnualFields.find(f => f.key === fieldKey);
                                                 if(!field) return null;
@@ -650,32 +717,32 @@ const Salary = () => {
                                 </div>
                                 
                                 {comparisonData && (
-                                    <div className="mt-8 pt-6 border-t border-white/5">
-                                        <div className="mb-6">
-                                            <h4 className="text-xl font-black text-white tracking-tight">CTC Realization vs Target</h4>
-                                            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">Difference between actual monthly earnings and {selectedYear} Annual CTC targets</p>
+                                    <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '1.5rem', marginTop: '1.5rem' }}>
+                                        <div style={{ marginBottom: '1rem' }}>
+                                            <h4 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>CTC Realization vs Target</h4>
+                                            <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '0.25rem' }}>Difference between actual monthly earnings and {selectedYear} Annual CTC targets</p>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
                                             {activeMonthlyEarnings.map(field => {
                                                 const data = comparisonData[field.key];
                                                 const isDeficit = data.difference < 0;
                                                 const isSurplus = data.difference > 0;
                                                 return (
-                                                    <div key={field.key} style={{ backgroundColor: 'rgba(255,255,255,0.02)' }} className="rounded-2xl p-5 border border-white/5 shadow-lg">
-                                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mb-4 line-clamp-1" title={field.label}>{field.label}</p>
-                                                        <div className="space-y-2 mb-4">
-                                                            <div className="flex justify-between items-end text-xs">
-                                                                <span className="text-gray-500 font-bold uppercase tracking-wider text-[9px]">Target</span>
-                                                                <span className="text-white font-black">{formatCurrency(data.target)}</span>
+                                                    <div key={field.key} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', padding: '1rem' }}>
+                                                        <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', textOverflow: 'ellipsis', whiteSpace: 'nowrap', overflow: 'hidden' }} title={field.label}>{field.label}</span>
+                                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', marginTop: '0.5rem', marginBottom: '0.5rem' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                                                                <span style={{ color: '#71717a' }}>Target</span>
+                                                                <span style={{ color: 'white', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(data.target)}</span>
                                                             </div>
-                                                            <div className="flex justify-between items-end text-xs">
-                                                                <span className="text-gray-500 font-bold uppercase tracking-wider text-[9px]">Received</span>
-                                                                <span className="text-blue-400 font-black">{formatCurrency(data.received)}</span>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
+                                                                <span style={{ color: '#71717a' }}>Received</span>
+                                                                <span style={{ color: '#60a5fa', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(data.received)}</span>
                                                             </div>
                                                         </div>
-                                                        <div className={`pt-3 border-t ${isDeficit ? 'border-rose-500/20' : isSurplus ? 'border-emerald-500/20' : 'border-white/10'} flex justify-between items-center`}>
-                                                            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">Difference</span>
-                                                            <span className={`text-sm font-black ${isDeficit ? 'text-rose-400' : isSurplus ? 'text-emerald-400' : 'text-gray-300'}`}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.5rem', fontSize: '10px' }}>
+                                                            <span style={{ color: '#71717a' }}>Diff</span>
+                                                            <span style={{ fontWeight: 'bold', fontFamily: 'monospace', color: isDeficit ? '#f87171' : isSurplus ? '#34d399' : '#a1a1aa' }}>
                                                                 {data.difference > 0 ? '+' : ''}{formatCurrency(data.difference)}
                                                             </span>
                                                         </div>
@@ -687,7 +754,7 @@ const Salary = () => {
                                 )}
                             </>
                         ) : (
-                            <div style={{ height: '400px' }} className="w-full flex items-center justify-center text-gray-500 font-bold uppercase tracking-widest text-xs border border-white/5 rounded-2xl bg-black/20">
+                            <div style={{ height: 400, display: 'flex', alignItems: 'center', justifyCenter: 'center', color: '#71717a', fontSize: '0.875rem', border: '1px dashed rgba(255,255,255,0.08)', borderRadius: '1.5rem', backgroundColor: 'rgba(255,255,255,0.01)', width: '100%', justifyContent: 'center' }}>
                                 No annual data available
                             </div>
                         )}

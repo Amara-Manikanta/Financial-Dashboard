@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Landmark, Plus, Edit2, Trash2 } from 'lucide-react';
@@ -18,15 +18,13 @@ const PFDetails = () => {
     const [isEditingUan, setIsEditingUan] = useState(false);
     const [uan, setUan] = useState('');
 
-    const pf = savings.find(s => s.id === id);
+    const pf = useMemo(() => savings.find(s => s.id === id), [savings, id]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (pf && uan === '' && !isEditingUan) {
             setUan(pf.uan || '');
         }
     }, [pf, uan, isEditingUan]);
-
-    if (!pf) return <div>ID not found</div>;
 
     const getFinancialYear = (dateStr) => {
         const date = new Date(dateStr);
@@ -36,6 +34,7 @@ const PFDetails = () => {
     };
 
     const recalculateBalances = (details) => {
+        if (!pf) return [];
         const sorted = [...details].sort((a, b) => new Date(a.date) - new Date(b.date));
         let runningBalance = Number(pf.amount || 0); // Starting opening balance
         return sorted.map(item => {
@@ -46,11 +45,13 @@ const PFDetails = () => {
     };
 
     const handleSaveUan = () => {
+        if (!pf) return;
         updateItem('savings', { ...pf, uan });
         setIsEditingUan(false);
     };
 
     const handleSaveTx = (txData) => {
+        if (!pf) return;
         let updatedDetails = [...(pf.details || [])];
         if (editingIndex !== null) {
             updatedDetails[editingIndex] = txData;
@@ -66,6 +67,7 @@ const PFDetails = () => {
     };
 
     const handleDeleteTx = (originalIndex) => {
+        if (!pf) return;
         if (window.confirm('Delete this transaction?')) {
             const updatedDetails = (pf.details || []).filter((_, i) => i !== originalIndex);
             const detailsWithBalances = recalculateBalances(updatedDetails);
@@ -73,186 +75,501 @@ const PFDetails = () => {
         }
     };
 
-    const details = pf.details || [];
-    const years = ['All', ...new Set(details.map(item => getFinancialYear(item.date)))].sort((a, b) => b.localeCompare(a));
-    const filteredDetails = selectedYear === 'All'
-        ? [...details].sort((a, b) => new Date(b.date) - new Date(a.date))
-        : details.filter(item => getFinancialYear(item.date) === selectedYear).sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Memoize computations for performance
+    const details = useMemo(() => pf?.details || [], [pf]);
+
+    const years = useMemo(() => {
+        return ['All', ...new Set(details.map(item => getFinancialYear(item.date)))].sort((a, b) => b.localeCompare(a));
+    }, [details]);
+
+    const filteredDetails = useMemo(() => {
+        const sorted = [...details].sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (selectedYear === 'All') return sorted;
+        return details.filter(item => getFinancialYear(item.date) === selectedYear).sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [details, selectedYear]);
 
     const itemsPerPage = 6;
-    const totalPages = Math.ceil(filteredDetails.length / itemsPerPage);
-    const paginatedDetails = filteredDetails.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    
-    const openingBalance = Number(pf.amount || 0);
-    const totalInterest = details.reduce((sum, item) => sum + (Number(item.interestEarned) || 0), 0);
-    const totalEmployeeContrib = details.reduce((sum, item) => sum + (Number(item.employeeContribution) || 0), 0);
-    const totalEmployerContrib = details.reduce((sum, item) => sum + (Number(item.employerContribution) || 0), 0);
-    const totalBalance = details.length > 0 ? recalculateBalances(details).slice(-1)[0].balance : openingBalance;
-    
-    const yearlyInterest = details.reduce((acc, item) => {
-        if (item.type === 'Interest' || Number(item.interestEarned) > 0) {
-            const fy = getFinancialYear(item.date);
-            acc[fy] = (acc[fy] || 0) + (Number(item.interestEarned) || 0);
-        }
-        return acc;
-    }, {});
+    const totalPages = useMemo(() => Math.ceil(filteredDetails.length / itemsPerPage), [filteredDetails]);
 
-    const chartData = Object.entries(yearlyInterest)
-        .map(([year, amount]) => ({ year, amount }))
-        .sort((a, b) => a.year.localeCompare(b.year));
+    const paginatedDetails = useMemo(() => {
+        return filteredDetails.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [filteredDetails, currentPage]);
+
+    const openingBalance = useMemo(() => Number(pf?.amount || 0), [pf]);
+
+    const totalInterest = useMemo(() => {
+        return details.reduce((sum, item) => sum + (Number(item.interestEarned) || 0), 0);
+    }, [details]);
+
+    const totalEmployeeContrib = useMemo(() => {
+        return details.reduce((sum, item) => sum + (Number(item.employeeContribution) || 0), 0);
+    }, [details]);
+
+    const totalEmployerContrib = useMemo(() => {
+        return details.reduce((sum, item) => sum + (Number(item.employerContribution) || 0), 0);
+    }, [details]);
+
+    const totalBalance = useMemo(() => {
+        if (!pf) return 0;
+        return details.length > 0 ? recalculateBalances(details).slice(-1)[0].balance : openingBalance;
+    }, [details, pf, openingBalance]);
+
+    const yearlyInterest = useMemo(() => {
+        return details.reduce((acc, item) => {
+            if (item.type === 'Interest' || Number(item.interestEarned) > 0) {
+                const fy = getFinancialYear(item.date);
+                acc[fy] = (acc[fy] || 0) + (Number(item.interestEarned) || 0);
+            }
+            return acc;
+        }, {});
+    }, [details]);
+
+    const chartData = useMemo(() => {
+        return Object.entries(yearlyInterest)
+            .map(([year, amount]) => ({ year, amount }))
+            .sort((a, b) => a.year.localeCompare(b.year));
+    }, [yearlyInterest]);
+
+    if (!pf) return <div style={{ padding: 'var(--spacing-lg)', color: 'white' }}>PF account not found.</div>;
+
+    // Premium styling constants
+    const styles = {
+        breadcrumb: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            color: '#a1a1aa',
+            fontSize: '0.825rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'color 0.2s',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            marginBottom: '1.5rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+        },
+        headerPanel: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginBottom: '2.5rem'
+        },
+        titleContainer: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+        },
+        titleIcon: {
+            padding: '0.75rem',
+            borderRadius: '1rem',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
+            color: '#818cf8',
+            display: 'flex',
+            alignItems: 'center',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            boxShadow: '0 0 15px rgba(99, 102, 241, 0.1)'
+        },
+        titleText: {
+            fontSize: '2rem',
+            fontWeight: '900',
+            color: 'white',
+            margin: 0,
+            letterSpacing: '-0.02em'
+        },
+        subtitle: {
+            color: '#a1a1aa',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            marginTop: '0.25rem',
+            margin: 0
+        },
+        uanTag: {
+            color: 'rgba(255, 255, 255, 0.5)',
+            fontWeight: '800',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            fontSize: '10px',
+            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+            padding: '0.25rem 0.5rem',
+            borderRadius: '0.375rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)'
+        },
+        actionButton: (bg = '#4f46e5', shadowColor = 'rgba(99, 102, 241, 0.3)') => ({
+            padding: '0.75rem 1.5rem',
+            borderRadius: '1rem',
+            backgroundColor: bg,
+            color: 'white',
+            fontWeight: '900',
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s, transform 0.2s, box-shadow 0.2s',
+            border: 'none',
+            boxShadow: `0 10px 20px -3px ${shadowColor}`
+        }),
+        statGrid: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '1.25rem',
+            marginBottom: '2.5rem'
+        },
+        glassCard: (gradientColor = 'rgba(255, 255, 255, 0.02)', borderColor = 'rgba(255, 255, 255, 0.06)', shadowColor = 'rgba(0, 0, 0, 0.25)') => ({
+            background: `linear-gradient(135deg, ${gradientColor} 0%, rgba(255, 255, 255, 0.005) 100%)`,
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            padding: '1.5rem',
+            border: `1px solid ${borderColor}`,
+            boxShadow: `0 8px 32px 0 ${shadowColor}`,
+            transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s'
+        }),
+        chartCard: {
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            padding: '1.5rem',
+            marginBottom: '2.5rem',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.25)'
+        },
+        sectionHeader: {
+            fontSize: '0.875rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: '#71717a',
+            marginBottom: '1.5rem',
+            paddingLeft: '0.25rem',
+            margin: 0
+        },
+        filterBar: {
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+            marginBottom: '1.5rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            paddingBottom: '1rem',
+            overflowX: 'auto'
+        },
+        filterTab: (isActive) => ({
+            padding: '0.625rem 1.25rem',
+            borderRadius: '0.75rem',
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            cursor: 'pointer',
+            transition: 'all 0.3s',
+            border: 'none',
+            backgroundColor: isActive ? '#4f46e5' : 'rgba(255, 255, 255, 0.03)',
+            color: isActive ? 'white' : '#71717a',
+            boxShadow: isActive ? '0 10px 15px -3px rgba(99, 102, 241, 0.3)' : 'none'
+        }),
+        tableContainer: {
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            overflow: 'hidden'
+        },
+        table: {
+            width: '100%',
+            borderCollapse: 'collapse'
+        },
+        th: (align = 'left') => ({
+            padding: '1.125rem 1.5rem',
+            textAlign: align,
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontWeight: '900',
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'rgba(255, 255, 255, 0.02)'
+        }),
+        td: (align = 'left', isBold = false, color = 'var(--text-primary)', size = '13px') => ({
+            padding: '1.125rem 1.5rem',
+            textAlign: align,
+            color: color,
+            fontWeight: isBold ? '900' : '500',
+            fontSize: size,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+        }),
+        actionBtn: (bg, hoverBg, color) => ({
+            padding: '0.5rem',
+            borderRadius: '0.5rem',
+            backgroundColor: bg,
+            color: color,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background-color 0.2s, transform 0.1s'
+        })
+    };
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-colors mb-6 text-sm font-bold uppercase tracking-widest text-gray-500"
-                style={{ cursor: 'pointer' }}
+                style={styles.breadcrumb}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
             >
-                <ArrowLeft size={16} /> Back to Savings
+                <ArrowLeft size={14} style={{ marginRight: '0.25rem' }} /> Back to Savings
             </button>
 
-            <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div style={styles.headerPanel}>
                 <div>
-                    <h2 className="text-4xl font-black mb-2 flex items-center gap-4">
-                        <div className="p-3 bg-indigo-500/10 rounded-2xl border border-indigo-500/20">
-                            <Landmark className="text-indigo-400" size={32} />
+                    <div style={styles.titleContainer}>
+                        <div style={styles.titleIcon}>
+                            <Landmark size={24} />
                         </div>
-                        {pf.title}
-                    </h2>
-                    <p className="text-secondary font-medium">Opening Balance: {formatCurrency(openingBalance)} | Started: {formatDate(pf.date)}</p>
-                    <div className="mt-3 flex items-center gap-3">
-                        <span className="text-gray-400 font-black uppercase tracking-widest text-[10px] bg-white/5 px-2 py-1 rounded-md">UAN</span>
+                        <h2 style={styles.titleText}>{pf.title}</h2>
+                    </div>
+                    <p style={styles.subtitle}>Opening Balance: {formatCurrency(openingBalance)} | Started: {formatDate(pf.date)}</p>
+                    <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <span style={styles.uanTag}>UAN</span>
                         {isEditingUan ? (
-                            <div className="flex items-center gap-2">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <input 
                                     type="text" 
                                     value={uan} 
                                     onChange={e => setUan(e.target.value)} 
-                                    className="bg-black/40 border border-white/10 rounded-md px-3 py-1.5 text-sm text-white font-mono outline-none w-48 focus:border-indigo-500 transition-colors"
+                                    style={{
+                                        backgroundColor: 'rgba(0,0,0,0.3)',
+                                        border: '1px solid rgba(255,255,255,0.15)',
+                                        borderRadius: '0.5rem',
+                                        padding: '0.375rem 0.75rem',
+                                        fontSize: '13px',
+                                        color: 'white',
+                                        fontFamily: 'monospace',
+                                        outline: 'none',
+                                        width: '12rem',
+                                        transition: 'border-color 0.2s'
+                                    }}
                                     placeholder="e.g. 100908765432"
                                     autoFocus
-                                    onKeyDown={(e) => { if (e.key === 'Enter') handleSaveUan(); if (e.key === 'Escape') { setUan(pf.uan || ''); setIsEditingUan(false); } }}
+                                    onKeyDown={(e) => { 
+                                        if (e.key === 'Enter') handleSaveUan(); 
+                                        if (e.key === 'Escape') { setUan(pf.uan || ''); setIsEditingUan(false); } 
+                                    }}
                                 />
-                                <button onClick={handleSaveUan} className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white px-3 py-1.5 rounded-md transition-colors text-xs font-black uppercase tracking-widest">Save</button>
-                                <button onClick={() => { setUan(pf.uan || ''); setIsEditingUan(false); }} className="bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white px-3 py-1.5 rounded-md transition-colors text-xs font-black uppercase tracking-widest">Cancel</button>
+                                <button 
+                                    onClick={handleSaveUan} 
+                                    style={{
+                                        backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: 'none',
+                                        padding: '0.375rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',
+                                        fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.25)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.15)'}
+                                >
+                                    Save
+                                </button>
+                                <button 
+                                    onClick={() => { setUan(pf.uan || ''); setIsEditingUan(false); }} 
+                                    style={{
+                                        backgroundColor: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: 'none',
+                                        padding: '0.375rem 0.75rem', borderRadius: '0.5rem', cursor: 'pointer',
+                                        fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em'
+                                    }}
+                                >
+                                    Cancel
+                                </button>
                             </div>
                         ) : (
-                            <div className="flex items-center gap-3 group cursor-pointer" onClick={() => setIsEditingUan(true)}>
-                                <span className="text-white font-mono text-lg">{pf.uan ? pf.uan : <span className="text-gray-500 italic text-sm">Not specified</span>}</span>
-                                <button className="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 hover:bg-indigo-500/20 rounded-md" title="Edit UAN">
-                                    <Edit2 size={14} />
-                                </button>
+                            <div 
+                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                                onClick={() => setIsEditingUan(true)}
+                            >
+                                <span style={{ color: 'white', fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 'bold' }}>
+                                    {pf.uan ? pf.uan : <span style={{ color: '#71717a', fontStyle: 'italic', fontSize: '0.875rem' }}>Not specified</span>}
+                                </span>
+                                <Edit2 size={12} style={{ color: '#818cf8', opacity: 0.6 }} />
                             </div>
                         )}
                     </div>
                 </div>
                 <button
                     onClick={() => { setEditingTx(null); setEditingIndex(null); setIsModalOpen(true); }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 px-8 rounded-2xl flex items-center gap-2 transition-all shadow-2xl shadow-indigo-900/40 text-xs uppercase tracking-widest active:scale-95"
+                    style={styles.actionButton('#4f46e5', 'rgba(99, 102, 241, 0.4)')}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#4338ca';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 10px 20px -3px rgba(99, 102, 241, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#4f46e5';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 10px 20px -3px rgba(99, 102, 241, 0.3)';
+                    }}
                 >
-                    <Plus size={20} />
+                    <Plus size={16} />
                     Add Transaction
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-                <div className="card bg-gradient-to-br from-indigo-500/10 to-transparent border-white/5 p-6">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Total Balance</p>
-                    <p className="text-3xl font-black text-white">{formatCurrency(totalBalance)}</p>
+            <div style={styles.statGrid}>
+                {/* Total Balance */}
+                <div 
+                    style={styles.glassCard('rgba(99, 102, 241, 0.05)', 'rgba(99, 102, 241, 0.15)', 'rgba(99, 102, 241, 0.1)')}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.15)';
+                    }}
+                >
+                    <p style={{ fontSize: '10px', color: '#818cf8', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total Balance</p>
+                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: 'white', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalBalance)}</p>
                 </div>
-                <div className="card bg-gradient-to-br from-blue-500/10 to-transparent border-white/5 p-6">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">My Contribution</p>
-                    <p className="text-3xl font-black text-blue-400">{formatCurrency(totalEmployeeContrib)}</p>
+                {/* My Contribution */}
+                <div 
+                    style={styles.glassCard('rgba(59, 130, 246, 0.05)', 'rgba(59, 130, 246, 0.15)', 'rgba(59, 130, 246, 0.1)')}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.15)';
+                    }}
+                >
+                    <p style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>My Contribution</p>
+                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#60a5fa', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployeeContrib)}</p>
                 </div>
-                <div className="card bg-gradient-to-br from-teal-500/10 to-transparent border-white/5 p-6">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Employer Contribution</p>
-                    <p className="text-3xl font-black text-teal-400">{formatCurrency(totalEmployerContrib)}</p>
+                {/* Employer Contribution */}
+                <div 
+                    style={styles.glassCard('rgba(20, 184, 166, 0.05)', 'rgba(20, 184, 166, 0.15)', 'rgba(20, 184, 166, 0.1)')}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.15)';
+                    }}
+                >
+                    <p style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Employer Contribution</p>
+                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#2dd4bf', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployerContrib)}</p>
                 </div>
-                <div className="card bg-gradient-to-br from-emerald-500/10 to-transparent border-white/5 p-6">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Total Interest</p>
-                    <p className="text-3xl font-black text-emerald-400">{formatCurrency(totalInterest)}</p>
+                {/* Total Interest */}
+                <div 
+                    style={styles.glassCard('rgba(16, 185, 129, 0.05)', 'rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.1)')}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.15)';
+                    }}
+                >
+                    <p style={{ fontSize: '10px', color: '#34d399', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total Interest</p>
+                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#34d399', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalInterest)}</p>
                 </div>
             </div>
 
-            <div className="card border-white/5 p-6 mb-10 bg-white/[0.02]">
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-6 px-1">Interest Earned By Year</h3>
+            <div style={styles.chartCard}>
+                <h3 style={styles.sectionHeader}>Interest Earned By Year</h3>
                 {chartData.length > 0 ? (
                     <div style={{ width: '100%', height: '350px' }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <XAxis dataKey="year" stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#52525b" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
+                                <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
                                 <Tooltip 
-                                    contentStyle={{ backgroundColor: '#18181b', borderColor: '#27272a', borderRadius: '12px' }}
+                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
                                     itemStyle={{ color: '#34d399', fontWeight: 'bold' }}
                                     formatter={(value) => formatCurrency(value)}
-                                    cursor={{fill: 'rgba(255,255,255,0.05)'}}
+                                    cursor={{fill: 'rgba(255,255,255,0.02)'}}
                                 />
                                 <Bar dataKey="amount" fill="#34d399" radius={[4, 4, 0, 0]} barSize={40} />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
                 ) : (
-                    <div className="h-48 w-full flex items-center justify-center border border-dashed border-white/10 rounded-2xl bg-white/[0.01]">
-                        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No interest recorded yet</p>
+                    <div style={{
+                        height: '12rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: '1px dashed rgba(255, 255, 255, 0.12)', borderRadius: '1rem', backgroundColor: 'transparent'
+                    }}>
+                        <p style={{ color: '#71717a', fontWeight: '800', uppercase: 'true', letterSpacing: '0.08em', fontSize: '11px', margin: 0 }}>No interest recorded yet</p>
                     </div>
                 )}
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-6 border-b border-white/5 pb-4">
+            <div style={styles.filterBar}>
                 {years.map(year => (
                     <button
                         key={year}
                         onClick={() => { setSelectedYear(year); setCurrentPage(1); }}
-                        className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedYear === year
-                            ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/40'
-                            : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
-                            }`}
+                        style={styles.filterTab(selectedYear === year)}
                     >
                         {year}
                     </button>
                 ))}
             </div>
 
-            <div className="card border-white/5 p-0 overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Transactions</h3>
-                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Page {currentPage} of {totalPages || 1}</span>
+            <div style={styles.tableContainer}>
+                <div style={{
+                    padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    backgroundColor: 'rgba(255, 255, 255, 0.015)'
+                }}>
+                    <h3 style={{ fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.6)', margin: 0 }}>Transactions</h3>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: '#71717a', textTransform: 'uppercase' }}>Page {currentPage} of {totalPages || 1}</span>
                 </div>
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse">
+
+                <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
+                    <table style={styles.table}>
                         <thead>
-                            <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
-                                <th className="py-5 px-8">Date</th>
-                                <th className="py-5 px-6">Entry Type</th>
-                                <th className="py-5 px-6 text-right">Amount</th>
-                                <th className="py-5 px-8 text-center">Actions</th>
+                            <tr>
+                                <th style={styles.th('left')}>Date</th>
+                                <th style={styles.th('left')}>Entry Type</th>
+                                <th style={styles.th('right')}>Amount</th>
+                                <th style={styles.th('center')}>Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                             {paginatedDetails.map((item, index) => {
                                 const originalIndex = details.indexOf(item);
                                 const isInterest = item.type === 'Interest';
                                 const txAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.interestEarned) || 0);
-                                
+
                                 return (
-                                    <tr key={index} className="hover:bg-white/[0.03] transition-colors group">
-                                        <td className="py-6 px-8 text-sm font-bold text-gray-300">{formatDate(item.date)}</td>
-                                        <td className="py-6 px-6">
-                                            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${isInterest
-                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
-                                                }`}>
+                                    <tr key={index} style={{ transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <td style={styles.td('left', false, '#d4d4d8')}>{formatDate(item.date)}</td>
+                                        <td style={styles.td('left')}>
+                                            <span style={{
+                                                fontSize: '9px', fontWeight: '900', px: '0.5rem', py: '0.125rem',
+                                                borderRadius: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                                padding: '0.25rem 0.5rem',
+                                                backgroundColor: isInterest ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                                                color: isInterest ? '#34d399' : '#818cf8',
+                                                border: isInterest ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(99, 102, 241, 0.2)'
+                                            }}>
                                                 {item.type || 'Contribution'}
                                             </span>
                                         </td>
-                                        <td className={`py-6 px-6 text-right font-black text-sm ${isInterest ? 'text-emerald-400' : 'text-gray-200'}`}>
-                                            {isInterest ? `+${formatCurrency(txAmount)}` : formatCurrency(txAmount)}
-                                        </td>
-                                        <td className="py-6 px-8 text-center">
-                                            <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button onClick={() => { setEditingTx(item); setEditingIndex(originalIndex); setIsModalOpen(true); }} className="p-2 rounded-xl bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white transition-all transform hover:scale-110"><Edit2 size={16} /></button>
-                                                <button onClick={() => handleDeleteTx(originalIndex)} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all transform hover:scale-110"><Trash2 size={16} /></button>
+                                        <td style={styles.td('right', true, isInterest ? '#34d399' : '#e4e4e7')}><span style={{ fontFamily: 'monospace' }}>{isInterest ? `+${formatCurrency(txAmount)}` : formatCurrency(txAmount)}</span></td>
+                                        <td style={styles.td('center')}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                <button onClick={() => { setEditingTx(item); setEditingIndex(originalIndex); setIsModalOpen(true); }} style={styles.actionBtn('rgba(99, 102, 241, 0.12)', 'rgba(99, 102, 241, 0.25)', '#818cf8')} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}><Edit2 size={14} /></button>
+                                                <button onClick={() => handleDeleteTx(originalIndex)} style={styles.actionBtn('rgba(239, 68, 68, 0.12)', 'rgba(239, 68, 68, 0.25)', '#f87171')} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}><Trash2 size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -261,15 +578,48 @@ const PFDetails = () => {
                         </tbody>
                     </table>
                 </div>
-                {filteredDetails.length === 0 && <div className="text-center py-20 bg-white/[0.02]"><p className="text-gray-500 font-medium tracking-wide">No transactions identified for the selected interval.</p></div>}
-                <div className="p-6 bg-white/[0.02] border-t border-white/5 flex items-center justify-between">
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-6 py-3 rounded-xl bg-white/5 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">Previous</button>
-                    <div className="flex gap-2">
+
+                {filteredDetails.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '3rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <p style={{ color: '#71717a', margin: 0, fontSize: '0.875rem', fontWeight: '500' }}>No transactions identified for the selected interval.</p>
+                    </div>
+                )}
+
+                <div style={{
+                    padding: '1rem 1.5rem', backgroundColor: 'rgba(255, 255, 255, 0.015)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{
+                        padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.03)',
+                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: currentPage === 1 ? '#52525b' : '#a1a1aa',
+                        border: 'none', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                    }} onMouseEnter={(e) => { if (currentPage !== 1) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}>Previous</button>
+
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
                         {[...Array(totalPages)].map((_, i) => (
-                            <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-indigo-600 text-white' : 'bg-white/5 text-gray-600 hover:bg-white/10'}`}>{i + 1}</button>
+                            <button 
+                                key={i} 
+                                onClick={() => setCurrentPage(i + 1)} 
+                                style={{
+                                    width: '2rem', height: '2rem', borderRadius: '0.5rem', fontSize: '11px', fontWeight: '800',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                                    backgroundColor: currentPage === i + 1 ? '#4f46e5' : 'transparent',
+                                    color: currentPage === i + 1 ? 'white' : '#71717a'
+                                }}
+                                onMouseEnter={(e) => { if (currentPage !== i + 1) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                                onMouseLeave={(e) => { if (currentPage !== i + 1) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                            >
+                                {i + 1}
+                            </button>
                         ))}
                     </div>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-6 py-3 rounded-xl bg-white/5 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">Next</button>
+
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} style={{
+                        padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.03)',
+                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: (currentPage === totalPages || totalPages === 0) ? '#52525b' : '#a1a1aa',
+                        border: 'none', cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                    }} onMouseEnter={(e) => { if (currentPage !== totalPages && totalPages !== 0) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}>Next</button>
                 </div>
             </div>
 

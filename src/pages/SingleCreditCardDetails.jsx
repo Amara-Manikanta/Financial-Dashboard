@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit2, Trash2, Plus, Calendar, Award, CheckCircle, XCircle, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
@@ -203,80 +203,144 @@ const SingleCreditCardDetails = () => {
     };
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 pb-20 animate-fade-in">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors group mb-4"
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                    color: '#71717a',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer',
+                    padding: 0
+                }}
             >
-                <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-                Back to Cards
+                ← Back to Cards
             </button>
 
             {/* Header Card */}
-            <div className="bg-gradient-to-br from-[#18181b] to-purple-900/10 border border-white/10 rounded-3xl p-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl -mr-20 -mt-20" />
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(192, 132, 252, 0.1)',
+                borderRadius: '2rem',
+                padding: '2rem',
+                boxShadow: '0 10px 25px -5px rgba(192, 132, 252, 0.05)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '2rem'
+            }}>
+                <div>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0' }}>{card.name}</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>
+                        {card.bankName} • Ending in <span style={{ fontFamily: 'monospace', color: 'white', fontWeight: 'bold' }}>{card.last4Digits}</span>
+                    </p>
+                </div>
 
-                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
-                    <div>
-                        <h1 className="text-4xl font-black text-white mb-2">{card.name}</h1>
-                        <p className="text-gray-400 flex items-center gap-2">
-                            {card.bankName} • Ending in <span className="font-mono text-white">{card.last4Digits}</span>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{
+                        backgroundColor: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        padding: '1rem 1.5rem',
+                        borderRadius: '1rem',
+                        minWidth: '160px'
+                    }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Outstanding</span>
+                        <p style={{ fontSize: '1.5rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>
+                            {formatCurrency(Math.max(0, totalOutstanding))}
                         </p>
                     </div>
-
-                    <div className="flex gap-4">
-                        <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 border border-white/5 min-w-[140px]">
-                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">Total Outstanding</p>
-                            <p className="font-mono font-bold text-2xl text-white flex items-center gap-2">
-                                {formatCurrency(Math.max(0, totalOutstanding))}
-                            </p>
-                        </div>
-                        <div className="bg-black/30 backdrop-blur-sm rounded-xl p-4 border border-white/5 min-w-[140px]">
-                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">Total Points</p>
-                            <p className="font-mono font-bold text-2xl text-amber-400 flex items-center gap-2">
-                                <Award size={20} />
-                                {totalPoints.toLocaleString()}
-                            </p>
-                        </div>
+                    <div style={{
+                        backgroundColor: 'rgba(255,255,255,0.02)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        padding: '1rem 1.5rem',
+                        borderRadius: '1rem',
+                        minWidth: '160px'
+                    }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Points</span>
+                        <p style={{ fontSize: '1.5rem', fontWeight: '950', color: '#fbbf24', fontFamily: 'monospace', margin: '0.25rem 0 0 0', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <Award size={18} /> {totalPoints.toLocaleString()}
+                        </p>
                     </div>
                 </div>
             </div>
 
             {/* Actions & List */}
-            <div className="flex flex-wrap items-center justify-between mt-8 gap-4">
-                <h2 className="text-2xl font-bold text-white">Monthly history</h2>
-                <div className="flex items-center gap-3">
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Monthly History</h3>
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
                     <button
                         onClick={() => setIsImportModalOpen(true)}
-                        className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-lg shadow-indigo-900/40"
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                            border: '1px solid rgba(99, 102, 241, 0.2)',
+                            color: '#818cf8',
+                            fontWeight: 'bold',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                        }}
                     >
-                        <Upload size={18} />
-                        Import Statement
+                        <Upload size={14} /> Import Statement
                     </button>
                     <button
                         onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
-                        className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl transition-all shadow-lg shadow-blue-900/40"
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: '#c084fc',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer',
+                            border: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem'
+                        }}
                     >
-                        <Plus size={18} />
-                        Add Entry
+                        <Plus size={14} /> Add Entry
                     </button>
                 </div>
             </div>
 
-            <div className="bg-[#18181b] border border-white/5 rounded-3xl overflow-hidden shadow-xl mb-12">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
+            {/* Monthly History Table */}
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '2rem',
+                overflow: 'hidden',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+            }}>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr className="bg-white/5 border-b border-white/5">
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Month / Year</th>
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Bill Amount</th>
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Status</th>
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Points Earned</th>
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks</th>
-                                <th className="text-center py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                            <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Month / Year</th>
+                                <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bill Amount</th>
+                                <th style={{ textAlign: 'center', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Status</th>
+                                <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Points</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Remarks</th>
+                                <th style={{ textAlign: 'center', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody style={{ divideY: '1px solid rgba(255,255,255,0.05)' }}>
                             {[...monthlyData]
                                 .sort((a, b) => {
                                     if (b.year !== a.year) return b.year - a.year;
@@ -284,47 +348,47 @@ const SingleCreditCardDetails = () => {
                                     return months.indexOf(b.month) - months.indexOf(a.month);
                                 })
                                 .map((item) => (
-                                    <tr key={item.id} className="hover:bg-white/5 transition-colors group">
-                                        <td className="py-4 px-6 font-medium text-white">
+                                    <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '1rem 1.5rem', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                             {item.month} {item.year}
                                         </td>
-                                        <td className="py-4 px-6 font-mono text-white text-right">
+                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'right', color: 'white', fontFamily: 'monospace', fontSize: '0.875rem', fontWeight: 'bold' }}>
                                             {item.billAmount > 0 ? formatCurrency(item.billAmount) : '—'}
                                         </td>
-                                        <td className="py-4 px-6 text-center">
+                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
                                             {item.billAmount > 0 ? (
                                                 item.isPaid ? (
-                                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-bold border border-emerald-500/20">
-                                                        <CheckCircle size={12} /> Paid {item.paidDate ? `on ${formatDate(item.paidDate)}` : ''}
-                                                    </div>
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#34d399', fontSize: '10px', fontWeight: 'bold' }}>
+                                                        <CheckCircle size={10} /> Paid
+                                                    </span>
                                                 ) : (
-                                                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/10 text-red-400 text-xs font-bold border border-red-500/20">
-                                                        <XCircle size={12} /> Unpaid
-                                                    </div>
+                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171', fontSize: '10px', fontWeight: 'bold' }}>
+                                                        <XCircle size={10} /> Unpaid
+                                                    </span>
                                                 )
                                             ) : (
-                                                <span className="text-gray-600 text-xs">—</span>
+                                                <span style={{ color: '#71717a', fontSize: '0.875rem' }}>—</span>
                                             )}
                                         </td>
-                                        <td className="py-4 px-6 text-right font-mono text-amber-400 font-bold">
+                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'right', color: '#fbbf24', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                             {item.points > 0 ? `+${item.points.toLocaleString()}` : '—'}
                                         </td>
-                                        <td className="py-4 px-6 text-gray-400 text-sm max-w-xs truncate">
+                                        <td style={{ padding: '1rem 1.5rem', color: '#a1a1aa', fontSize: '0.875rem', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                             {item.remarks || '—'}
                                         </td>
-                                        <td className="py-4 px-6 text-center">
-                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
+                                            <div style={{ display: 'flex', gap: '0.375rem', justifyContent: 'center' }}>
                                                 <button
                                                     onClick={() => { setEditingTx(item); setIsModalOpen(true); }}
-                                                    className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                                    style={{ padding: '0.25rem', borderRadius: '0.375rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: '#71717a', cursor: 'pointer' }}
                                                 >
-                                                    <Edit2 size={16} />
+                                                    <Edit2 size={12} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteTransaction(item.id)}
-                                                    className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                    style={{ padding: '0.25rem', borderRadius: '0.375rem', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171', cursor: 'pointer' }}
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={12} />
                                                 </button>
                                             </div>
                                         </td>
@@ -332,7 +396,7 @@ const SingleCreditCardDetails = () => {
                                 ))}
                             {!monthlyData.length && (
                                 <tr>
-                                    <td colSpan="6" className="py-12 text-center text-gray-500">
+                                    <td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem' }}>
                                         No monthly records found. Add one to start tracking.
                                     </td>
                                 </tr>
@@ -343,178 +407,162 @@ const SingleCreditCardDetails = () => {
             </div>
 
             {/* Linked Expenses Section */}
-            <div>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                     <div>
-                        <h2 className="text-2xl font-bold text-white">Recent Transactions (Expenses)</h2>
-                        <p className="text-gray-400 text-sm mt-1">
-                            Net Bill Amount (Selected Period): <span className={`font-mono font-bold ${filteredNetSpend > 0 ? 'text-white' : 'text-emerald-400'}`}>{formatCurrency(filteredNetSpend)}</span>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Recent Transactions (Expenses)</h3>
+                        <p style={{ fontSize: '0.75rem', color: '#71717a', marginTop: '0.25rem' }}>
+                            Net Bill Amount (Selected Period): <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: filteredNetSpend > 0 ? 'white' : '#34d399' }}>{formatCurrency(filteredNetSpend)}</span>
                         </p>
                     </div>
 
-                    <div className="flex bg-[#18181b] p-1 rounded-xl border border-white/10">
-                        {/* Year Filter */}
+                    <div style={{
+                        display: 'flex',
+                        backgroundColor: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '1rem',
+                        padding: '2px',
+                        gap: '2px'
+                    }}>
                         <select
                             value={filterYear}
                             onChange={(e) => { setFilterYear(e.target.value); setCurrentPage(1); }}
-                            className="bg-transparent text-gray-300 text-sm font-medium px-3 py-2 rounded-lg hover:text-white focus:outline-none cursor-pointer"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
                         >
-                            <option value="All" className="bg-[#18181b]">All Years</option>
+                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Years</option>
                             {availableYears.map(year => (
-                                <option key={year} value={year} className="bg-[#18181b]">{year}</option>
+                                <option key={year} value={year} style={{ backgroundColor: '#18181b' }}>{year}</option>
                             ))}
                         </select>
-                        <div className="w-px bg-white/10 my-2" />
-
-                        {/* Month Filter */}
+                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
                         <select
                             value={filterMonth}
                             onChange={(e) => { setFilterMonth(e.target.value); setCurrentPage(1); }}
-                            className="bg-transparent text-gray-300 text-sm font-medium px-3 py-2 rounded-lg hover:text-white focus:outline-none cursor-pointer"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
                         >
-                            <option value="All" className="bg-[#18181b]">All Months</option>
+                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Months</option>
                             {availableMonths.map(month => (
-                                <option key={month} value={month} className="bg-[#18181b]">{month}</option>
+                                <option key={month} value={month} style={{ backgroundColor: '#18181b' }}>{month}</option>
                             ))}
                         </select>
-                        <div className="w-px bg-white/10 my-2" />
-
-                        {/* Type Filter */}
+                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
                         <select
                             value={filterType}
                             onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
-                            className="bg-transparent text-gray-300 text-sm font-medium px-3 py-2 rounded-lg hover:text-white focus:outline-none cursor-pointer"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
                         >
-                            <option value="All" className="bg-[#18181b]">All Types</option>
-                            <option value="debit" className="bg-[#18181b]">Debit</option>
-                            <option value="credit" className="bg-[#18181b]">Credit</option>
+                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Types</option>
+                            <option value="debit" style={{ backgroundColor: '#18181b' }}>Debit</option>
+                            <option value="credit" style={{ backgroundColor: '#18181b' }}>Credit</option>
                         </select>
                     </div>
                 </div>
 
                 {/* Monthly Aggregates Summary */}
                 {chartData.length > 0 && (
-                    <div className="mb-6 bg-[#18181b] border border-white/5 rounded-3xl p-6 shadow-xl relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-                        <h3 className="text-white font-bold mb-6 flex items-center gap-2">
-                            <Calendar size={18} className="text-indigo-400" />
-                            Monthly Expenditure Overview
-                        </h3>
-                        <div className="h-[300px] w-full">
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '2rem',
+                        padding: '1.5rem',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                    }}>
+                        <h4 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <Calendar size={16} style={{ color: '#818cf8' }} /> Monthly Expenditure Overview
+                        </h4>
+                        <div style={{ height: 300, width: '100%' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                    <XAxis 
-                                        dataKey="name" 
-                                        stroke="#71717a" 
-                                        fontSize={12} 
-                                        tickLine={false}
-                                        axisLine={false}
-                                    />
-                                    <YAxis 
-                                        stroke="#71717a" 
-                                        fontSize={12}
-                                        tickLine={false}
-                                        axisLine={false}
-                                        tickFormatter={(value) => `₹${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`}
-                                    />
-                                    <RechartsTooltip content={<CustomTooltip formatCurrency={formatCurrency} />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#a1a1aa' }} />
-                                    <Bar dataKey="debit" name="Debit" fill="#f87171" radius={[4, 4, 0, 0]} />
-                                    <Bar dataKey="credit" name="Credit" fill="#34d399" radius={[4, 4, 0, 0]} />
+                                    <XAxis dataKey="name" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(value) => `₹${value >= 1000 ? (value / 1000).toFixed(0) + 'k' : value}`} />
+                                    <RechartsTooltip content={<CustomTooltip formatCurrency={formatCurrency} />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
+                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
+                                    <Bar dataKey="debit" name="Debit" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                                    <Bar dataKey="credit" name="Credit" fill="#10b981" radius={[4, 4, 0, 0]} />
                                 </BarChart>
                             </ResponsiveContainer>
                         </div>
                     </div>
                 )}
 
-                <div className="bg-[#18181b] border border-white/5 rounded-3xl overflow-hidden shadow-xl">
-                    <table className="w-full">
-                        <thead>
-                            <tr className="bg-white/5 border-b border-white/5">
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                                <th className="text-left py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                                <th className="text-right py-4 px-6 text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-white/5">
-                            {paginatedTransactions.map((tx) => (
-                                    <tr key={tx.id} className="hover:bg-white/5 transition-colors">
-                                        <td className="py-4 px-6 text-gray-400 text-sm whitespace-nowrap">
+                {/* Transactions Table */}
+                <div style={{
+                    backgroundColor: 'rgba(24, 24, 27, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: '2rem',
+                    overflow: 'hidden',
+                    boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                }}>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                            <thead>
+                                <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Description</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
+                                    <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
+                                    <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {paginatedTransactions.map((tx) => (
+                                    <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '1rem 1.5rem', color: '#71717a', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
                                             {formatDate(tx.date)}
                                         </td>
-                                        <td className="py-4 px-6 font-medium text-white">
+                                        <td style={{ padding: '1rem 1.5rem', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                             {tx.title}
                                         </td>
-                                        <td className="py-4 px-6">
-                                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${tx.isCredited ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'}`}>
+                                        <td style={{ padding: '1rem 1.5rem' }}>
+                                            <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: tx.isCredited ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: tx.isCredited ? '#34d399' : '#f87171', border: tx.isCredited ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)' }}>
                                                 {tx.isCredited ? 'Credit' : 'Debit'}
                                             </span>
                                         </td>
-                                        <td className="py-4 px-6">
-                                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/10 text-gray-300 capitalize">
+                                        <td style={{ padding: '1rem 1.5rem' }}>
+                                            <span style={{ display: 'inline-flex', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.03)', color: '#a1a1aa' }}>
                                                 {tx.category}
                                             </span>
                                         </td>
-                                        <td className={`py-4 px-6 text-right font-mono font-bold ${tx.isCredited ? 'text-emerald-400' : 'text-white'}`}>
+                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.875rem', color: tx.isCredited ? '#34d399' : 'white' }}>
                                             {tx.isCredited ? '+' : ''}{formatCurrency(tx.amount)}
                                         </td>
                                     </tr>
                                 ))}
-                            {filteredTransactions.length === 0 && (
-                                <tr>
-                                    <td colSpan="5" className="py-12 text-center text-gray-500">
-                                        No linked expense transactions found matching filters.
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
+                                {filteredTransactions.length === 0 && (
+                                    <tr>
+                                        <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem' }}>
+                                            No linked expense transactions found matching filters.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
 
-                    {/* Pagination Controls */}
+                    {/* Pagination controls */}
                     {filteredTransactions.length > 0 && (
-                        <div className="border-t border-white/5 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#18181b]">
-                            <div className="flex items-center gap-3">
-                                <span className="text-sm text-gray-400">Rows per page:</span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ fontSize: '11px', color: '#71717a' }}>Rows per page:</span>
                                 <select
                                     value={itemsPerPage}
-                                    onChange={(e) => {
-                                        setItemsPerPage(Number(e.target.value));
-                                        setCurrentPage(1);
-                                    }}
-                                    className="bg-black/50 border border-white/10 text-white text-sm rounded-lg px-2 py-1 focus:outline-none focus:border-purple-500"
+                                    onChange={(e) => { setItemsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '0.5rem', padding: '0.25rem', outline: 'none' }}
                                 >
                                     <option value={20}>20</option>
                                     <option value={50}>50</option>
                                     <option value={100}>100</option>
                                 </select>
                             </div>
-                            
-                            <div className="flex items-center gap-4">
-                                <span className="text-sm text-gray-400">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                <span style={{ fontSize: '11px', color: '#71717a' }}>
                                     Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
                                 </span>
-                                
-                                <div className="flex items-center gap-1">
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                        className={`p-2 rounded-lg border ${currentPage === 1 ? 'border-transparent text-gray-600 cursor-not-allowed' : 'border-white/10 text-white hover:bg-white/5'} transition-colors`}
-                                    >
-                                        <ChevronLeft size={18} />
-                                    </button>
-                                    <div className="px-3 py-1 text-sm font-medium text-white">
-                                        {currentPage} / {totalPages}
-                                    </div>
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                        disabled={currentPage === totalPages}
-                                        className={`p-2 rounded-lg border ${currentPage === totalPages ? 'border-transparent text-gray-600 cursor-not-allowed' : 'border-white/10 text-white hover:bg-white/5'} transition-colors`}
-                                    >
-                                        <ChevronRight size={18} />
-                                    </button>
+                                <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === 1 ? 0.3 : 1 }}><ChevronLeft size={16} /></button>
+                                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === totalPages ? 0.3 : 1 }}><ChevronRight size={16} /></button>
                                 </div>
                             </div>
                         </div>

@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, RefreshCcw, Plus, Edit2, Trash2, TrendingUp } from 'lucide-react';
+import { ArrowLeft, RefreshCcw, Plus, Edit2, Trash2 } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import RecurringDepositModal from '../components/RecurringDepositModal';
 
@@ -36,7 +36,6 @@ const RecurringDepositDetails = () => {
         }
 
         // Calculate total amount (sum of installments * duration? Or current value?)
-        // For simplicity, let's sum maturity amounts for now or just keep it 0 as it's tracked individually
         const newTotalAmount = updatedRDs.reduce((sum, d) => sum + (d.maturityAmount || 0), 0);
 
         updateItem('savings', { ...account, recurringDeposits: updatedRDs, amount: newTotalAmount });
@@ -59,29 +58,40 @@ const RecurringDepositDetails = () => {
         return sum + rdTotalPaid;
     }, 0) || 0;
 
+    const glassCardStyle = {
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01))',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.07)',
+        borderRadius: '1.25rem',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+        transition: 'transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease'
+    };
+
     return (
-        <div style={{ padding: 'var(--spacing-lg)' }}>
+        <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-colors mb-6"
-                style={{ cursor: 'pointer', marginBottom: 'var(--spacing-lg)', color: 'white' }}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.08] hover:border-white/[0.1] backdrop-blur-md"
             >
-                <ArrowLeft size={20} /> Back to Savings
+                <ArrowLeft size={14} /> Back to Savings
             </button>
 
-            <div className="mb-8 flex justify-between items-end">
+            <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
                 <div>
-                    <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                        <RefreshCcw className="text-blue-400" size={32} />
+                    <h2 className="text-4xl font-black mb-2 flex items-center gap-4 text-white tracking-tight">
+                        <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.15)]">
+                            <RefreshCcw className="text-blue-400" size={32} />
+                        </div>
                         {account.title}
                     </h2>
-                    <p className="text-secondary">Track your Recurring Deposits.</p>
+                    <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] pl-1">Track your Recurring Deposits</p>
                 </div>
                 <button
                     onClick={() => { setEditingRD(null); setIsModalOpen(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/40"
+                    className="w-full md:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.2)] text-xs uppercase tracking-widest active:scale-95"
                 >
-                    <Plus size={20} />
+                    <Plus size={16} />
                     Add RD
                 </button>
             </div>
@@ -90,87 +100,98 @@ const RecurringDepositDetails = () => {
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: '1.5rem',
-                marginBottom: '2rem'
+                marginBottom: '2.5rem'
             }}>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Total Monthly Installment</p>
-                    <p className="font-bold text-lg text-blue-400">{formatCurrency(totalInstallment)}/mo</p>
+                <div className="card p-6" style={glassCardStyle}>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Total Monthly Installment</p>
+                    <p className="text-2xl font-black text-blue-400">{formatCurrency(totalInstallment)}/mo</p>
                 </div>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Total Current Value</p>
-                    <p className="font-bold text-lg text-blue-400">{formatCurrency(totalCurrentValue)}</p>
+                <div className="card p-6" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02))',
+                    border: '1px solid rgba(59, 130, 246, 0.15)'
+                }}>
+                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Total Current Value</p>
+                    <p className="text-2xl font-black text-white">{formatCurrency(totalCurrentValue)}</p>
                 </div>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Total Maturity Value</p>
-                    <p className="font-bold text-lg text-emerald-400">{formatCurrency(totalMaturity)}</p>
+                <div className="card p-6" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
+                    border: '1px solid rgba(16, 185, 129, 0.15)'
+                }}>
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Total Maturity Value</p>
+                    <p className="text-2xl font-black text-emerald-400">{formatCurrency(totalMaturity)}</p>
                 </div>
             </div>
 
-            <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1000px' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Name/Goal</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Installment</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Rate (%)</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Start Date</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>End Date</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Current Paid</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Maturity Value</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {[...(account.recurringDeposits || [])]
-                            .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
-                            .map((rd) => {
-                                const currentPaid = (rd.installments || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
-                                return (
-                                <tr
-                                    key={rd.id}
-                                    onClick={() => navigate(`/savings/recurring-deposit/${id}/rd/${rd.id}`)}
-                                    style={{
-                                        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-                                        cursor: 'pointer'
-                                    }}
-                                    className="hover:bg-white/5 transition-colors group"
-                                >
-                                    <td style={{ padding: 'var(--spacing-md)', fontWeight: 'bold' }}>{rd.name}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(rd.installmentAmount)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-accent)' }}>{rd.interestRate}%</td>
-                                    <td style={{ padding: 'var(--spacing-md)' }}>{formatDate(rd.startDate)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)' }}>{rd.endDate ? formatDate(rd.endDate) : '-'}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{formatCurrency(currentPaid)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)' }}>{formatCurrency(rd.maturityAmount)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
-                                        <div className="flex items-center justify-center gap-2">
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setEditingRD(rd); setIsModalOpen(true); }}
-                                                className="p-1.5 rounded bg-blue-600 text-white hover:bg-blue-700 transition-colors shadow-sm"
-                                                title="Edit"
-                                            >
-                                                <Edit2 size={14} />
-                                            </button>
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); handleDeleteRD(rd.id); }}
-                                                className="p-1.5 rounded bg-red-600 text-white hover:bg-red-700 transition-colors shadow-sm"
-                                                title="Delete"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
+            <div className="card p-0 overflow-hidden shadow-2xl" style={glassCardStyle}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse" style={{ minWidth: '1000px' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Name/Goal</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Installment</th>
+                                <th className="py-5 px-6 text-center text-zinc-400 text-[10px] font-black uppercase tracking-widest">Rate (%)</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Start Date</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">End Date</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Current Paid</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Maturity Value</th>
+                                <th className="py-5 px-6 text-center text-zinc-400 text-[10px] font-black uppercase tracking-widest">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm font-bold">
+                            {[...(account.recurringDeposits || [])]
+                                .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
+                                .map((rd) => {
+                                    const currentPaid = (rd.installments || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+                                    return (
+                                        <tr
+                                            key={rd.id}
+                                            onClick={() => navigate(`/savings/recurring-deposit/${id}/rd/${rd.id}`)}
+                                            style={{
+                                                borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                                                cursor: 'pointer'
+                                            }}
+                                            className="hover:bg-white/[0.03] transition-colors group"
+                                        >
+                                            <td className="py-5 px-6 text-zinc-200">{rd.name}</td>
+                                            <td className="py-5 px-6 text-right font-mono text-zinc-400">{formatCurrency(rd.installmentAmount)}</td>
+                                            <td className="py-5 px-6 text-center text-blue-400">{rd.interestRate}%</td>
+                                            <td className="py-5 px-6 text-zinc-400">{formatDate(rd.startDate)}</td>
+                                            <td className="py-5 px-6 text-zinc-400">{rd.endDate ? formatDate(rd.endDate) : '-'}</td>
+                                            <td className="py-5 px-6 text-right font-mono text-zinc-300">{formatCurrency(currentPaid)}</td>
+                                            <td className="py-5 px-6 text-right font-mono text-emerald-400">{formatCurrency(rd.maturityAmount)}</td>
+                                            <td className="py-5 px-6 text-center" onClick={e => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => { setEditingRD(rd); setIsModalOpen(true); }}
+                                                        className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-110"
+                                                        title="Edit"
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleDeleteRD(rd.id)}
+                                                        className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all transform hover:scale-110"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            {!account.recurringDeposits?.length && (
+                                <tr>
+                                    <td colSpan="8" className="py-12 text-center text-zinc-500 italic">
+                                        No recurring deposits found.
                                     </td>
                                 </tr>
-                            )})}
-                        {!account.recurringDeposits?.length && (
-                            <tr>
-                                <td colSpan="8" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                    No recurring deposits found.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <RecurringDepositModal

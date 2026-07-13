@@ -105,161 +105,212 @@ const Dashboard = () => {
     }, [savings, metals, assets, calculateItemCurrentValue, calculateItemInvestedValue]);
 
     return (
-        <div className="animate-fade-in space-y-8 pb-12">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Header Section */}
-            <div className="flex justify-between items-center">
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
-                    <h1 className="text-4xl font-black tracking-tight mb-1">Portfolio</h1>
-                    <p className="text-secondary font-medium uppercase text-xs tracking-widest">Global Wealth Overview</p>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Portfolio</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Global Wealth Overview</p>
                 </div>
                 <button
                     onClick={() => setIsModalOpen(true)}
-                    className="group bg-white text-black hover:bg-orange-500 hover:text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 transition-all active:scale-[0.98] shadow-xl shadow-white/5"
+                    style={{
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '1rem',
+                        backgroundColor: '#c084fc',
+                        color: 'black',
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        cursor: 'pointer',
+                        border: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.25rem'
+                    }}
                 >
-                    <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
-                    Record Entry
+                    <Plus size={16} /> Record Entry
                 </button>
             </div>
 
             {/* Net Worth Hero */}
-            <div className="relative overflow-hidden card border-emerald-500/20 bg-emerald-500/5 p-8 md:p-12 flex flex-col md:flex-row justify-between items-center gap-8 shadow-emerald-500/10">
-                {/* Background Glow */}
-                <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 blur-[100px] rounded-full"></div>
-
-                <div className="relative z-10 text-center md:text-left">
-                    <p className="text-emerald-400 font-bold uppercase text-[10px] tracking-[0.2em] mb-3 opacity-80">Total Combined Net Worth</p>
-                    <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-white mb-2">
+            <div style={{
+                position: 'relative',
+                overflow: 'hidden',
+                backgroundColor: 'rgba(16, 185, 129, 0.03)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(16, 185, 129, 0.1)',
+                borderRadius: '2rem',
+                padding: '2.5rem',
+                boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.05)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '2rem'
+            }}>
+                <div>
+                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Combined Net Worth</span>
+                    <h3 style={{ fontSize: '3rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.5rem 0' }}>
                         {formatCurrency(stats.netWorth)}
-                    </h2>
-                    <div className="flex items-center gap-2 text-emerald-400/60 justify-center md:justify-start">
-                        <ShieldCheck size={16} />
-                        <span className="text-xs font-medium uppercase tracking-wider">Assets secured & verified</span>
+                    </h3>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#71717a', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        <ShieldCheck size={14} className="text-emerald-400" /> Secure and Verified Assets
                     </div>
                 </div>
 
-                <div className="relative z-10 grid grid-cols-2 gap-4 w-full md:w-auto">
-                    <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/5 min-w-[140px]">
-                        <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mb-1">Growth Index</p>
-                        <p className={`text-xl font-bold ${stats.growthColor}`}>{stats.growthIndex}</p>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem 1.5rem', borderRadius: '1rem', minWidth: '150px' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Growth Index</span>
+                        <p style={{ fontSize: '1.5rem', fontWeight: '950', fontFamily: 'monospace', margin: '0.25rem 0 0 0', color: stats.growthColor.includes('emerald') ? '#34d399' : stats.growthColor.includes('rose') ? '#f87171' : '#a1a1aa' }}>
+                            {stats.growthIndex}
+                        </p>
                     </div>
-                    <div className="bg-white/5 backdrop-blur-md p-4 rounded-2xl border border-white/5 min-w-[140px]">
-                        <p className="text-gray-400 text-[10px] uppercase font-bold tracking-widest mb-1">Asset Health</p>
-                        <p className={`text-xl font-bold ${stats.healthColor}`}>{stats.assetHealth}</p>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem 1.5rem', borderRadius: '1rem', minWidth: '150px' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asset Health</span>
+                        <p style={{ fontSize: '1.5rem', fontWeight: '950', fontFamily: 'monospace', margin: '0.25rem 0 0 0', color: stats.healthColor.includes('emerald') ? '#34d399' : stats.healthColor.includes('rose') ? '#f87171' : '#a1a1aa' }}>
+                            {stats.assetHealth}
+                        </p>
                     </div>
                 </div>
             </div>
 
             {/* Major Categories */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
                 <div
                     onClick={() => navigate('/savings')}
-                    className="card border-indigo-500/20 bg-indigo-500/5 cursor-pointer hover:border-indigo-500/50 group transition-all"
+                    style={{
+                        backgroundColor: 'rgba(99, 102, 241, 0.02)',
+                        border: '1px solid rgba(99, 102, 241, 0.1)',
+                        borderRadius: '2rem',
+                        padding: '2rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 4px 15px -3px rgba(99, 102, 241, 0.03)'
+                    }}
                 >
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-indigo-500/10 rounded-xl text-indigo-400">
-                            <PiggyBank size={24} />
+                    <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ padding: '0.5rem', borderRadius: '0.75rem', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', display: 'flex', alignItems: 'center' }}>
+                            <PiggyBank size={18} />
                         </div>
-                        <ArrowRight size={18} className="text-gray-600 group-hover:text-indigo-400 group-hover:translate-x-1 transition-all" />
+                        <ArrowRight size={16} style={{ color: '#71717a' }} />
                     </div>
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Total Savings</p>
-                    <h3 className="text-3xl font-black text-white">{formatCurrency(stats.totalSavings)}</h3>
+                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#818cf8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Savings</span>
+                    <h3 style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.totalSavings)}</h3>
                 </div>
 
                 <div
                     onClick={() => navigate('/metals')}
-                    className="card border-orange-500/20 bg-orange-500/5 cursor-pointer hover:border-orange-500/50 group transition-all"
+                    style={{
+                        backgroundColor: 'rgba(245, 158, 11, 0.02)',
+                        border: '1px solid rgba(245, 158, 11, 0.1)',
+                        borderRadius: '2rem',
+                        padding: '2rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 4px 15px -3px rgba(245, 158, 11, 0.03)'
+                    }}
                 >
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-orange-500/10 rounded-xl text-orange-400">
-                            <Gem size={24} />
+                    <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ padding: '0.5rem', borderRadius: '0.75rem', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', display: 'flex', alignItems: 'center' }}>
+                            <Gem size={18} />
                         </div>
-                        <ArrowRight size={18} className="text-gray-600 group-hover:text-orange-400 group-hover:translate-x-1 transition-all" />
+                        <ArrowRight size={16} style={{ color: '#71717a' }} />
                     </div>
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Precious Metals</p>
-                    <h3 className="text-3xl font-black text-white">{formatCurrency(stats.totalMetals)}</h3>
+                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Precious Metals</span>
+                    <h3 style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.totalMetals)}</h3>
                 </div>
 
                 <div
                     onClick={() => navigate('/assets')}
-                    className="card border-emerald-500/20 bg-emerald-500/5 cursor-pointer hover:border-emerald-500/50 group transition-all"
+                    style={{
+                        backgroundColor: 'rgba(16, 185, 129, 0.02)',
+                        border: '1px solid rgba(16, 185, 129, 0.1)',
+                        borderRadius: '2rem',
+                        padding: '2rem',
+                        cursor: 'pointer',
+                        transition: 'all 0.3s ease',
+                        boxShadow: '0 4px 15px -3px rgba(16, 185, 129, 0.03)'
+                    }}
                 >
-                    <div className="flex justify-between items-start mb-4">
-                        <div className="p-3 bg-emerald-500/10 rounded-xl text-emerald-400">
-                            <Layers size={24} />
+                    <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                        <div style={{ padding: '0.5rem', borderRadius: '0.75rem', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#34d399', display: 'flex', alignItems: 'center' }}>
+                            <Layers size={18} />
                         </div>
-                        <ArrowRight size={18} className="text-gray-600 group-hover:text-emerald-400 group-hover:translate-x-1 transition-all" />
+                        <ArrowRight size={16} style={{ color: '#71717a' }} />
                     </div>
-                    <p className="text-gray-400 text-xs font-bold uppercase tracking-widest mb-1">Real Estate Assets</p>
-                    <h3 className="text-3xl font-black text-white">{formatCurrency(stats.totalAssets)}</h3>
+                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Real Estate Assets</span>
+                    <h3 style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.totalAssets)}</h3>
                 </div>
             </div>
 
             {/* Detailed Multi-Grid Breakdown */}
-            <div className="space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                    <Briefcase size={20} className="text-accent-primary" />
-                    <h4 className="text-xl font-bold text-white">Investment Ledger</h4>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0 0.5rem' }}>
+                    <Briefcase size={18} style={{ color: '#c084fc' }} />
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>Investment Ledger</h3>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
                     {/* Savings Items */}
-                    <div className="card p-5 bg-white/[0.02]">
-                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2">Fixed Deposits</p>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.fd)}</p>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Fixed Deposits</span>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.fd)}</p>
                     </div>
-                    <div className="card p-5 bg-white/[0.02]">
-                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2">Equity Stocks</p>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.stocks)}</p>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Equity Stocks</span>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.stocks)}</p>
                     </div>
-                    <div className="card p-5 bg-white/[0.02]">
-                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2">Mutual Funds</p>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.mf)}</p>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mutual Funds</span>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.mf)}</p>
                     </div>
-                    <div className="card p-5 bg-white/[0.02]">
-                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2">Public Provident Fund</p>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.ppf)}</p>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Public Provident Fund</span>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.ppf)}</p>
                     </div>
 
                     {/* Retirements & Bonds */}
-                    <div className="card p-5 bg-white/[0.02]">
-                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2">Retirement (NPS)</p>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.nps)}</p>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Retirement (NPS)</span>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.nps)}</p>
                     </div>
-                    <div className="card p-5 bg-white/[0.02]">
-                        <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-2">Gold Bonds (SGB)</p>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.sgb)}</p>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Gold Bonds (SGB)</span>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.sgb)}</p>
                     </div>
 
                     {/* Physical Metals Quantities */}
-                    <div className="card p-5 bg-yellow-500/5 group">
-                        <div className="flex justify-between items-center mb-1">
-                            <p className="text-yellow-400 text-[10px] font-bold uppercase tracking-wider">Physical Gold</p>
-                            <span className="text-[10px] text-yellow-600 font-bold">{stats.goldGms.toFixed(2)}g</span>
+                    <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.02)', border: '1px solid rgba(245, 158, 11, 0.1)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '8px', fontWeight: '900', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Physical Gold</span>
+                            <span style={{ fontSize: '9px', color: '#fbbf24', fontWeight: 'black', fontFamily: 'monospace' }}>{stats.goldGms.toFixed(2)}g</span>
                         </div>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.goldVal)}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.goldVal)}</p>
                     </div>
-                    <div className="card p-5 bg-gray-500/5 group">
-                        <div className="flex justify-between items-center mb-1">
-                            <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider">Physical Silver</p>
-                            <span className="text-[10px] text-gray-600 font-bold">{stats.silverGms.toFixed(2)}g</span>
+                    <div style={{ backgroundColor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Physical Silver</span>
+                            <span style={{ fontSize: '9px', color: '#71717a', fontWeight: 'black', fontFamily: 'monospace' }}>{stats.silverGms.toFixed(2)}g</span>
                         </div>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.silverVal)}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.silverVal)}</p>
                     </div>
 
                     {/* Collectibles */}
-                    <div className="card p-5 bg-[#8B5A2B]/10 group">
-                        <div className="flex justify-between items-center mb-1">
-                            <p className="text-[#CD853F] text-[10px] font-bold uppercase tracking-wider">Antique Coins</p>
-                            <span className="text-[10px] text-[#8B5A2B] font-bold">{(metals.antique_coins?.length || 0)} Items</span>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Antique Coins</span>
+                            <span style={{ fontSize: '9px', color: '#71717a', fontWeight: 'black', fontFamily: 'monospace' }}>{(metals.antique_coins?.length || 0)} Items</span>
                         </div>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.antiqueCoinsVal)}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.antiqueCoinsVal)}</p>
                     </div>
-                    <div className="card p-5 bg-emerald-500/5 group">
-                        <div className="flex justify-between items-center mb-1">
-                            <p className="text-emerald-400 text-[10px] font-bold uppercase tracking-wider">Currencies</p>
-                            <span className="text-[10px] text-emerald-600 font-bold">{(metals.currencies?.length || 0)} Items</span>
+                    <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.02)', border: '1px solid rgba(16, 185, 129, 0.1)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '8px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Currencies</span>
+                            <span style={{ fontSize: '9px', color: '#34d399', fontWeight: 'black', fontFamily: 'monospace' }}>{(metals.currencies?.length || 0)} Items</span>
                         </div>
-                        <p className="text-lg font-bold text-white">{formatCurrency(stats.currenciesVal)}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.currenciesVal)}</p>
                     </div>
                 </div>
             </div>

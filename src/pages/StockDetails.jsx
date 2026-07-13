@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, X, Save, TrendingDown } from 'lucide-react';
@@ -18,31 +18,35 @@ const StockDetails = () => {
     const [txToDelete, setTxToDelete] = useState(null);
 
     // Find Market and Stock
-    const market = savings.find(s => s.id.toString() === id);
-    const stock = market?.stocks?.find(s => s.id.toString() === stockId);
+    const market = useMemo(() => savings.find(s => s.id.toString() === id), [savings, id]);
+    const stock = useMemo(() => market?.stocks?.find(s => s.id.toString() === stockId), [market, stockId]);
+
+    const transactions = useMemo(() => stock?.transactions || [], [stock]);
+
+    // Synthetic Initial Transaction for Legacy Data
+    const effectiveTransactions = useMemo(() => {
+        const txList = [...transactions];
+        if (txList.length === 0 && stock?.shares > 0) {
+            txList.push({
+                id: 'synthetic-initial',
+                date: '2020-01-01', // Fallback date
+                type: 'buy',
+                quantity: Number(stock.shares),
+                price: Number(stock.avgCost),
+                remarks: 'Initial Balance (Legacy Data)'
+            });
+        }
+        return txList;
+    }, [transactions, stock]);
+
+    // Sorting transactions by date descending
+    const sortedTransactions = useMemo(() => {
+        return [...effectiveTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [effectiveTransactions]);
 
     if (!market || !stock) {
         return <div className="p-8 text-white">Stock not found.</div>;
     }
-
-    const transactions = stock.transactions || [];
-
-    // Synthetic Initial Transaction for Legacy Data
-    // If no transactions exist but we have shares, show an "Initial Balance" entry
-    const effectiveTransactions = [...transactions];
-    if (effectiveTransactions.length === 0 && stock.shares > 0) {
-        effectiveTransactions.push({
-            id: 'synthetic-initial',
-            date: '2020-01-01', // Fallback date
-            type: 'buy',
-            quantity: Number(stock.shares),
-            price: Number(stock.avgCost),
-            remarks: 'Initial Balance (Legacy Data)'
-        });
-    }
-
-    // Sorting transactions by date descending
-    const sortedTransactions = [...effectiveTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const recalculateStockMetrics = (txList) => {
         let currentShares = 0;
@@ -57,7 +61,6 @@ const StockDetails = () => {
             const price = Number(tx.price) || 0;
 
             if (tx.type === 'buy' || tx.type === 'ipo') {
-                // Buy/IPO: Increase shares and total cost
                 if (currentShares === 0) {
                     totalCost = qty * price;
                 } else {
@@ -65,22 +68,18 @@ const StockDetails = () => {
                 }
                 currentShares += qty;
             } else if (tx.type === 'sell' || tx.type === 'buyback') {
-                // Sell/Buyback: Decrease shares, reduce total cost proportionally
                 const avgCost = currentShares > 0 ? totalCost / currentShares : 0;
                 currentShares = Math.max(0, currentShares - qty);
                 totalCost = currentShares * avgCost;
             } else if (tx.type === 'bonus') {
-                // Bonus: Shares increase by quantity
                 currentShares += qty;
             } else if (tx.type === 'split') {
-                // Split: Apply ratio if available, else add quantity
                 if (tx.splitFrom && tx.splitTo) {
                     currentShares = currentShares * (tx.splitTo / tx.splitFrom);
                 } else {
                     currentShares += qty;
                 }
             } else if (tx.type === 'demerger') {
-                // Demerger: Add shares (if any) and reset the Cost Basis to (Shares * New Price)
                 currentShares += qty;
                 totalCost = currentShares * price;
             } else if (tx.type === 'dividend') {
@@ -100,7 +99,6 @@ const StockDetails = () => {
 
         const { shares, avgCost, dividends } = recalculateStockMetrics(updatedTransactions);
 
-        // Update Stock
         const updatedStocks = market.stocks.map(s => {
             if (s.id.toString() === stockId) {
                 return {
@@ -108,12 +106,7 @@ const StockDetails = () => {
                     transactions: updatedTransactions,
                     shares,
                     avgCost,
-                    dividends: { ...s.dividends, ...dividends } // Merge to keep manual edits if needed, or strictly replace? Prioritizing calc.
-                    // Actually, let's strictly replace the calculated years to prevent drift, but keep others?
-                    // User asked for "automatic update". Let's assume transactions are source of truth for these years.
-                    // But we have 5 years. Let's merge carefully.
-                    // If we want FULL automation, we should replace S.dividends with calculatedDividends for those years.
-                    // For now, let's merge: calculated overrides existing for those years.
+                    dividends: { ...s.dividends, ...dividends }
                 };
             }
             return s;
@@ -149,19 +142,18 @@ const StockDetails = () => {
         const updatedMarket = { ...market, stocks: updatedStocks };
         await updateItem('savings', updatedMarket);
         setTxToDelete(null);
+        setIsDeleteModalOpen(false);
     };
 
     const handleUpdateStock = async (updatedStockData) => {
         const updatedStocks = market.stocks.map(s => {
             if (s.id.toString() === stockId) {
-                // Preserve transactions while updating other details
                 return { ...updatedStockData, transactions: s.transactions };
             }
             return s;
         });
         const updatedMarket = { ...market, stocks: updatedStocks };
         await updateItem('savings', updatedMarket);
-        setIsEditStockModalOpen(false);
         setIsEditStockModalOpen(false);
     };
 
@@ -181,178 +173,365 @@ const StockDetails = () => {
         setEditingDividend(null);
     };
 
-    // Summary Calculations
-    const totalBuyValue = transactions.reduce((sum, tx) => {
-        if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
-            return sum + (Number(tx.quantity) * Number(tx.price));
-        }
-        return sum;
-    }, 0);
+    // Summary Calculations optimized via useMemo
+    const metrics = useMemo(() => {
+        const buyVal = transactions.reduce((sum, tx) => {
+            if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+                return sum + (Number(tx.quantity) * Number(tx.price));
+            }
+            return sum;
+        }, 0);
 
-    const totalSellValue = transactions.reduce((sum, tx) => {
-        if (['sell', 'buyback'].includes(tx.type)) {
-            return sum + (Number(tx.quantity) * Number(tx.price));
-        }
-        return sum;
-    }, 0);
+        const sellVal = transactions.reduce((sum, tx) => {
+            if (['sell', 'buyback'].includes(tx.type)) {
+                return sum + (Number(tx.quantity) * Number(tx.price));
+            }
+            return sum;
+        }, 0);
 
-    const totalInvested = stock.shares * stock.avgCost;
-    const currentValue = stock.shares * stock.currentPrice;
-    const unrealizedPL = currentValue - totalInvested;
-    const wholePL = (currentValue + totalSellValue) - totalBuyValue;
-    const isProfit = wholePL >= 0;
-    const dividendEarned = Object.values(stock.dividends || {}).reduce((sum, val) => sum + val, 0);
+        const totalInvested = stock.shares * stock.avgCost;
+        const currentValue = stock.shares * stock.currentPrice;
+        const unrealizedPL = currentValue - totalInvested;
+        const wholePL = (currentValue + sellVal) - buyVal;
+        const isProfit = wholePL >= 0;
+        const dividendEarned = Object.values(stock.dividends || {}).reduce((sum, val) => sum + val, 0);
+
+        return {
+            totalBuyValue: buyVal,
+            totalSellValue: sellVal,
+            totalInvested,
+            currentValue,
+            unrealizedPL,
+            wholePL,
+            isProfit,
+            dividendEarned
+        };
+    }, [transactions, stock]);
 
     const currentYear = new Date().getFullYear();
-    const dividendYears = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
+    const dividendYears = useMemo(() => Array.from({ length: 5 }, (_, i) => (currentYear - i).toString()), [currentYear]);
+
+    // Redesigned premium inline CSS styles
+    const styles = {
+        breadcrumb: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            color: '#a1a1aa',
+            fontSize: '0.825rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'color 0.2s',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            marginBottom: '1.5rem'
+        },
+        headerPanel: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            marginBottom: '2rem'
+        },
+        titleContainer: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '1rem'
+        },
+        titleText: {
+            fontSize: '2rem',
+            fontWeight: '900',
+            color: 'white',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            margin: 0,
+            letterSpacing: '-0.02em'
+        },
+        titleIcon: {
+            padding: '0.5rem',
+            borderRadius: '0.75rem',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
+            color: '#818cf8',
+            display: 'flex',
+            alignItems: 'center',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            boxShadow: '0 0 15px rgba(99, 102, 241, 0.1)'
+        },
+        statGrid: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+            gap: '1rem',
+            marginTop: '1.25rem'
+        },
+        glassCard: (bg = 'rgba(255, 255, 255, 0.02)', border = 'rgba(255, 255, 255, 0.06)', shadow = 'rgba(0,0,0,0.2)') => ({
+            background: `linear-gradient(135deg, ${bg} 0%, rgba(255, 255, 255, 0.005) 100%)`,
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1rem',
+            padding: '1.125rem',
+            border: `1px solid ${border}`,
+            boxShadow: `0 4px 20px ${shadow}`,
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            transition: 'transform 0.2s, border-color 0.2s'
+        }),
+        actionButton: (bg = '#4f46e5', hoverBg = '#4338ca') => ({
+            padding: '0.625rem 1.25rem',
+            borderRadius: '0.75rem',
+            backgroundColor: bg,
+            color: 'white',
+            fontWeight: '700',
+            fontSize: '0.825rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s, transform 0.2s',
+            border: 'none',
+            boxShadow: `0 4px 12px ${bg}25`
+        }),
+        tableContainer: {
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            overflow: 'hidden',
+            marginTop: '2rem'
+        },
+        table: {
+            width: '100%',
+            borderCollapse: 'collapse'
+        },
+        th: (align = 'left') => ({
+            padding: '1rem var(--spacing-lg)',
+            textAlign: align,
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontWeight: '700',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'rgba(255, 255, 255, 0.02)'
+        }),
+        td: (align = 'left', isBold = false, color = 'var(--text-primary)') => ({
+            padding: '1rem var(--spacing-lg)',
+            textAlign: align,
+            color: color,
+            fontWeight: isBold ? '700' : '500',
+            fontSize: '13px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            backgroundColor: 'transparent'
+        }),
+        actionBtnCell: (color) => ({
+            padding: '0.375rem',
+            borderRadius: '0.5rem',
+            border: 'none',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            color: color,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background-color 0.2s, color 0.2s'
+        })
+    };
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-colors mb-6 text-white"
+                style={styles.breadcrumb}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
             >
-                <ArrowLeft size={20} /> Back to Market
+                <ArrowLeft size={16} /> Back to Market
             </button>
 
-            <div className="flex justify-between items-end mb-8">
-                <div>
-                    <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                        <TrendingUp className="text-accent-primary" size={32} />
-                        {stock.name} <span className="text-gray-500 text-lg">({stock.ticker})</span>
+            <div style={styles.headerPanel}>
+                <div style={styles.titleContainer}>
+                    <h2 style={styles.titleText}>
+                        <span style={styles.titleIcon}>
+                            <TrendingUp size={24} />
+                        </span>
+                        {stock.name} <span style={{ color: '#71717a', fontSize: '1.25rem', fontWeight: '500', marginLeft: '0.25rem' }}>({stock.ticker})</span>
                     </h2>
-                    <div className="flex gap-4 mt-4">
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Quantity Held</p>
-                            <p className="text-xl font-bold">{stock.shares}</p>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Avg Price</p>
-                            <p className="text-xl font-bold">{formatCurrency(stock.avgCost)}</p>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Current Price</p>
-                            <p className="text-xl font-bold">{formatCurrency(stock.currentPrice)}</p>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Current Value</p>
-                            <p className="text-xl font-bold text-accent-primary">{formatCurrency(currentValue)}</p>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Total Invested</p>
-                            <p className="text-xl font-bold">{formatCurrency(totalInvested)}</p>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Unrealized P/L</p>
-                            <div className={`text-xl font-bold flex items-center gap-1 ${unrealizedPL >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                {unrealizedPL >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                {formatCurrency(Math.abs(unrealizedPL))}
-                            </div>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Whole P/L</p>
-                            <div className={`text-xl font-bold flex items-center gap-1 ${isProfit ? 'text-green-500' : 'text-red-500'}`}>
-                                {isProfit ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                {formatCurrency(Math.abs(wholePL))}
-                            </div>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Net Invested</p>
-                            <p className="text-xl font-bold">{formatCurrency(totalBuyValue - totalSellValue)}</p>
-                        </div>
-                        <div className="card p-4 min-w-[150px]">
-                            <p className="text-xs text-secondary uppercase font-bold">Dividends Earned</p>
-                            <p className="text-xl font-bold text-green-500">{formatCurrency(dividendEarned)}</p>
-                        </div>
+                    <div style={{ display: 'flex', gap: '0.75rem' }}>
+                        <button
+                            onClick={() => setIsEditStockModalOpen(true)}
+                            style={styles.actionButton('rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.1)')}
+                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)'}
+                        >
+                            <Edit2 size={16} /> Edit Details
+                        </button>
+                        <button
+                            onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
+                            style={styles.actionButton('#4f46e5', '#4338ca')}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#4338ca';
+                                e.currentTarget.style.transform = 'scale(1.02)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#4f46e5';
+                                e.currentTarget.style.transform = 'scale(1)';
+                            }}
+                        >
+                            <Plus size={16} /> Add Transaction
+                        </button>
                     </div>
                 </div>
-                <div className="flex gap-3">
-                    <button
-                        onClick={() => setIsEditStockModalOpen(true)}
-                        className="px-4 py-2 rounded-lg bg-white/10 text-white font-medium hover:bg-white/20 transition-all flex items-center gap-2"
-                    >
-                        <Edit2 size={18} /> Edit Details
-                    </button>
-                    <button
-                        onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
-                        className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-all flex items-center gap-2"
-                    >
-                        <Plus size={18} /> Add Transaction
-                    </button>
+
+                <div style={styles.statGrid}>
+                    <div style={styles.glassCard()}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Quantity Held</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{stock.shares}</p>
+                    </div>
+                    <div style={styles.glassCard()}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Avg Price</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(stock.avgCost)}</p>
+                    </div>
+                    <div style={styles.glassCard()}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Current Price</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(stock.currentPrice)}</p>
+                    </div>
+                    <div style={styles.glassCard('rgba(99, 102, 241, 0.05)', 'rgba(99, 102, 241, 0.15)')}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#818cf8', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Current Value</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(metrics.currentValue)}</p>
+                    </div>
+                    <div style={styles.glassCard()}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Total Invested</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(metrics.totalInvested)}</p>
+                    </div>
+                    <div style={styles.glassCard(
+                        metrics.unrealizedPL >= 0 ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                        metrics.unrealizedPL >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'
+                    )}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: metrics.unrealizedPL >= 0 ? '#34d399' : '#f87171', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Unrealized P/L</p>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.25rem', fontFamily: 'monospace', color: metrics.unrealizedPL >= 0 ? '#34d399' : '#f87171', margin: 0 }}>
+                            {metrics.unrealizedPL >= 0 ? '+' : ''}{formatCurrency(metrics.unrealizedPL)}
+                        </div>
+                    </div>
+                    <div style={styles.glassCard(
+                        metrics.isProfit ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                        metrics.isProfit ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'
+                    )}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: metrics.isProfit ? '#34d399' : '#f87171', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Whole P/L</p>
+                        <div style={{ fontSize: '1.25rem', fontWeight: '900', display: 'flex', alignItems: 'center', gap: '0.25rem', fontFamily: 'monospace', color: metrics.isProfit ? '#34d399' : '#f87171', margin: 0 }}>
+                            {metrics.isProfit ? '+' : ''}{formatCurrency(metrics.wholePL)}
+                        </div>
+                    </div>
+                    <div style={styles.glassCard()}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Net Invested</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(metrics.totalBuyValue - metrics.totalSellValue)}</p>
+                    </div>
+                    <div style={styles.glassCard('rgba(13, 148, 136, 0.05)', 'rgba(13, 148, 136, 0.15)')}>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#2dd4bf', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Dividends</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(metrics.dividendEarned)}</p>
+                    </div>
                 </div>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <div style={styles.tableContainer}>
+                <table style={styles.table}>
                     <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                            <th className="p-4 text-left text-white">Date</th>
-                            <th className="p-4 text-left text-white">Type</th>
-                            <th className="p-4 text-right text-white">Quantity</th>
-                            <th className="p-4 text-right text-white">Price</th>
-                            <th className="p-4 text-right text-white">Total Value</th>
-                            <th className="p-4 text-right text-white">P/L</th>
-                            <th className="p-4 text-center text-white">Actions</th>
+                        <tr>
+                            <th style={styles.th('left')}>Date</th>
+                            <th style={styles.th('left')}>Type</th>
+                            <th style={styles.th('right')}>Quantity</th>
+                            <th style={styles.th('right')}>Price</th>
+                            <th style={styles.th('right')}>Total Value</th>
+                            <th style={styles.th('right')}>P/L (Live)</th>
+                            <th style={styles.th('center')}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {sortedTransactions.length === 0 ? (
-                            <tr><td colSpan={6} className="p-8 text-center text-gray-500">No transactions recorded.</td></tr>
+                            <tr><td colSpan={7} style={{ ...styles.td('center'), color: '#71717a', padding: '3rem' }}>No transactions recorded.</td></tr>
                         ) : (
                             sortedTransactions.map(tx => (
-                                <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <td className="p-4 text-gray-300">
+                                <tr key={tx.id} style={{ transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                    <td style={styles.td('left', false, '#d4d4d8')}>
                                         {new Date(tx.date).toLocaleDateString()}
-                                        {tx.id === 'synthetic-initial' && <span className="ml-2 text-xs text-yellow-500">(Auto-generated)</span>}
+                                        {tx.id === 'synthetic-initial' && <span style={{ marginLeft: '0.5rem', fontSize: '10px', color: '#fbbf24', fontWeight: 'bold' }}>(Auto-generated)</span>}
                                     </td>
-                                    <td className="p-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? 'bg-green-500/20 text-green-400' :
-                                            ['sell', 'buyback'].includes(tx.type) ? 'bg-red-500/20 text-red-400' :
-                                                tx.type === 'demerger' ? 'bg-yellow-500/20 text-yellow-400' :
-                                                    'bg-blue-500/20 text-blue-400'
-                                            }`}>
+                                    <td style={styles.td('left')}>
+                                        <span style={{
+                                            px: '0.5rem',
+                                            py: '0.125rem',
+                                            borderRadius: '0.375rem',
+                                            fontSize: '10px',
+                                            fontWeight: '800',
+                                            padding: '0.25rem 0.5rem',
+                                            letterSpacing: '0.05em',
+                                            backgroundColor: ['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? 'rgba(16, 185, 129, 0.12)' :
+                                                ['sell', 'buyback'].includes(tx.type) ? 'rgba(239, 68, 68, 0.12)' :
+                                                    tx.type === 'demerger' ? 'rgba(245, 158, 11, 0.12)' :
+                                                        'rgba(59, 130, 246, 0.12)',
+                                            color: ['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? '#34d399' :
+                                                ['sell', 'buyback'].includes(tx.type) ? '#f87171' :
+                                                    tx.type === 'demerger' ? '#fbbf24' :
+                                                        '#60a5fa',
+                                            border: `1px solid ${
+                                                ['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? 'rgba(16, 185, 129, 0.2)' :
+                                                ['sell', 'buyback'].includes(tx.type) ? 'rgba(239, 68, 68, 0.2)' :
+                                                tx.type === 'demerger' ? 'rgba(245, 158, 11, 0.2)' :
+                                                'rgba(59, 130, 246, 0.2)'
+                                            }`
+                                        }}>
                                             {tx.type.toUpperCase()}
                                         </span>
                                     </td>
-                                    <td className="p-4 text-right font-mono">
-                                        {tx.type === 'dividend' || tx.type === 'demerger' ? '-' :
-                                            tx.type === 'split' && tx.splitFrom && tx.splitTo ? `${tx.splitFrom}:${tx.splitTo}` :
-                                                tx.quantity}
+                                    <td style={styles.td('right', false, 'white')}>
+                                        <span style={{ fontFamily: 'monospace' }}>
+                                            {tx.type === 'dividend' || tx.type === 'demerger' ? '-' :
+                                                tx.type === 'split' && tx.splitFrom && tx.splitTo ? `${tx.splitFrom}:${tx.splitTo}` :
+                                                    tx.quantity}
+                                        </span>
                                     </td>
-                                    <td className="p-4 text-right font-mono">{['dividend', 'bonus', 'split'].includes(tx.type) ? '-' : formatCurrency(tx.price)}</td>
-                                    <td className="p-4 text-right font-mono font-bold">
-                                        {tx.type === 'dividend' ? formatCurrency(tx.price) :
-                                            ['bonus', 'split'].includes(tx.type) ? '-' :
-                                                tx.type === 'demerger' ? 'Adjusted' :
-                                                    formatCurrency(tx.quantity * tx.price)}
+                                    <td style={styles.td('right', false, 'white')}>
+                                        <span style={{ fontFamily: 'monospace' }}>
+                                            {['dividend', 'bonus', 'split'].includes(tx.type) ? '-' : formatCurrency(tx.price)}
+                                        </span>
                                     </td>
-                                    <td className="p-4 text-right font-mono font-bold">
+                                    <td style={styles.td('right', true, 'white')}>
+                                        <span style={{ fontFamily: 'monospace' }}>
+                                            {tx.type === 'dividend' ? formatCurrency(tx.price) :
+                                                ['bonus', 'split'].includes(tx.type) ? '-' :
+                                                    tx.type === 'demerger' ? 'Adjusted' :
+                                                        formatCurrency(tx.quantity * tx.price)}
+                                        </span>
+                                    </td>
+                                    <td style={styles.td('right')}>
                                         {tx.type === 'buy' ? (
                                             (() => {
                                                 const pl = (stock.currentPrice - tx.price) * tx.quantity;
                                                 const isProfitable = pl >= 0;
                                                 return (
-                                                    <span className={isProfitable ? 'text-green-500' : 'text-red-500'}>
-                                                        {formatCurrency(pl)}
+                                                    <span style={{ fontFamily: 'monospace', fontWeight: '700', color: isProfitable ? '#34d399' : '#f87171' }}>
+                                                        {isProfitable ? '+' : ''}{formatCurrency(pl)}
                                                     </span>
                                                 );
                                             })()
                                         ) : (
-                                            <span className="text-gray-500">-</span>
+                                            <span style={{ color: '#71717a' }}>-</span>
                                         )}
                                     </td>
-                                    <td className="p-4 text-center">
-                                        <div className="flex justify-center gap-2">
+                                    <td style={styles.td('center')}>
+                                        <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
                                             <button onClick={() => {
-                                                // If editing synthetic, we treat it as adding a new one filled with data
                                                 if (tx.id === 'synthetic-initial') {
                                                     setEditingTx({ ...tx, id: undefined, date: new Date().toISOString().split('T')[0] });
                                                 } else {
                                                     setEditingTx(tx);
                                                 }
                                                 setIsModalOpen(true);
-                                            }} className="p-1.5 rounded hover:bg-white/10 text-blue-400">
-                                                <Edit2 size={16} />
+                                            }} style={styles.actionBtnCell('#60a5fa')} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.12)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}>
+                                                <Edit2 size={14} />
                                             </button>
                                             {tx.id !== 'synthetic-initial' && (
                                                 <button
@@ -360,9 +539,11 @@ const StockDetails = () => {
                                                         e.stopPropagation();
                                                         handleDeleteTransaction(tx.id);
                                                     }}
-                                                    className="p-1.5 rounded hover:bg-white/10 text-red-400"
+                                                    style={styles.actionBtnCell('#f87171')}
+                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
                                                 >
-                                                    <Trash2 size={16} />
+                                                    <Trash2 size={14} />
                                                 </button>
                                             )}
                                         </div>
@@ -374,21 +555,35 @@ const StockDetails = () => {
                 </table>
             </div>
 
-
-            <div className="mt-8">
-                <h3 className="text-2xl font-bold mb-4 text-white">Dividends History</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div style={{ marginTop: '2.5rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'white', marginBottom: '1rem', paddingLeft: '0.25rem' }}>Dividends History</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
                     {dividendYears.map(year => (
                         <div
                             key={year}
-                            className="card p-4 bg-[#1e1e1e] border border-white/5 cursor-pointer hover:bg-white/10 transition-all group relative"
+                            style={{
+                                ...styles.glassCard(),
+                                padding: '1rem',
+                                cursor: 'pointer',
+                                transition: 'all 0.3s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)';
+                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)';
+                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
+                            }}
                             onClick={() => setEditingDividend({ year, amount: stock.dividends?.[year] || 0 })}
                         >
-                            <p className="text-sm text-gray-400 mb-1 flex justify-between items-center">
+                            <p style={{ fontSize: '0.825rem', color: '#a1a1aa', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                                 {year}
-                                <Edit2 size={12} className="opacity-0 group-hover:opacity-100 text-indigo-400" />
+                                <Edit2 size={12} style={{ color: '#818cf8', opacity: 0.5 }} />
                             </p>
-                            <p className="text-lg font-bold text-green-400">{formatCurrency(stock.dividends?.[year] || 0)}</p>
+                            <p style={{ fontSize: '1.125rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>
+                                {formatCurrency(stock.dividends?.[year] || 0)}
+                            </p>
                         </div>
                     ))}
                 </div>
@@ -402,32 +597,43 @@ const StockDetails = () => {
                     backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1100,
                     backdropFilter: 'blur(4px)'
                 }} onClick={() => setEditingDividend(null)}>
-                    <div className="bg-[#18181b] border border-white/10 rounded-xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold text-white mb-4">Edit {editingDividend.year} Dividend</h3>
+                    <div style={{
+                        background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(10, 10, 15, 0.95) 100%)',
+                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        borderRadius: '1.25rem',
+                        padding: '1.5rem',
+                        width: '100%',
+                        maxWidth: '24rem',
+                        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+                    }} onClick={e => e.stopPropagation()}>
+                        <h3 style={{ fontSize: '1.125rem', fontWeight: '700', color: 'white', marginBottom: '1rem', marginTop: 0 }}>Edit {editingDividend.year} Dividend</h3>
                         <form onSubmit={(e) => {
                             e.preventDefault();
-                            // If we switch to transaction-based dividends, this manual override might conflict or be overwritten.
-                            // But user asked for "Add Transactions", so we should encourage that. 
-                            // However, let's keep this manual edit for quick fixes, maybe treating it as a 'correction' or just updating the source?
-                            // If we update here, next recalculate will overwrite it unless we also ADD a transaction!
-                            // Creating a manual correction transaction might be clever?
-                            // For simplicty, let's just update the db.json directly like before, acknowledging it might be reset if a transaction is added later.
                             handleSaveDividend(editingDividend.year, e.target.amount.value);
                         }}>
-                            <div className="mb-4">
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Amount</label>
+                            <div style={{ marginBottom: '1.25rem' }}>
+                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Amount</label>
                                 <input
                                     name="amount"
                                     type="number"
                                     step="0.01"
                                     defaultValue={editingDividend.amount}
                                     autoFocus
-                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500"
+                                    style={{
+                                        width: '100%',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        borderRadius: '0.75rem',
+                                        padding: '0.625rem 1rem',
+                                        color: 'white',
+                                        outline: 'none',
+                                        fontSize: '0.875rem'
+                                    }}
                                 />
                             </div>
-                            <div className="flex gap-2">
-                                <button type="button" onClick={() => setEditingDividend(null)} className="flex-1 py-2 rounded-lg bg-gray-700 text-white font-medium hover:bg-gray-600">Cancel</button>
-                                <button type="submit" className="flex-1 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700">Save</button>
+                            <div style={{ display: 'flex', gap: '0.75rem' }}>
+                                <button type="button" onClick={() => setEditingDividend(null)} style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', color: '#a1a1aa', fontWeight: '600', cursor: 'pointer' }}>Cancel</button>
+                                <button type="submit" style={{ flex: 1, padding: '0.625rem', borderRadius: '0.5rem', backgroundColor: '#4f46e5', border: 'none', color: 'white', fontWeight: '700', cursor: 'pointer' }}>Save</button>
                             </div>
                         </form>
                     </div>
@@ -472,13 +678,13 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [splitFrom, setSplitFrom] = useState('');
     const [splitTo, setSplitTo] = useState('');
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (isOpen) {
             if (initialData) {
                 setDate(initialData.date);
                 setType(initialData.type);
-                setQuantity(initialData.quantity);
-                setPrice(initialData.price);
+                setQuantity(initialData.quantity || '');
+                setPrice(initialData.price || '');
                 setSplitFrom(initialData.splitFrom || '');
                 setSplitTo(initialData.splitTo || '');
             } else {
@@ -514,19 +720,27 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
             backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1000,
             backdropFilter: 'blur(4px)'
         }} onClick={onClose}>
-            <div className="bg-[#18181b] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-xl font-bold text-white">{initialData ? 'Edit' : 'Add'} Transaction</h3>
-                    <button onClick={onClose}><X className="text-gray-400 hover:text-white" size={20} /></button>
+            <div style={{
+                background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(10, 10, 15, 0.95) 100%)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '1.25rem',
+                padding: '1.5rem',
+                width: '100%',
+                maxWidth: '24rem',
+                boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+            }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifycontent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'white', margin: 0 }}>{initialData ? 'Edit' : 'Add'} Transaction</h3>
+                    <button onClick={onClose} style={{ color: '#a1a1aa', border: 'none', background: 'none', cursor: 'pointer' }}><X size={20} /></button>
                 </div>
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Date</label>
-                        <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" />
+                        <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Date</label>
+                        <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} />
                     </div>
                     <div>
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Type</label>
-                        <select value={type} onChange={e => setType(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500">
+                        <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Type</label>
+                        <select value={type} onChange={e => setType(e.target.value)} style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }}>
                             <option value="buy">Buy</option>
                             <option value="sell">Sell</option>
                             <option value="dividend">Dividend</option>
@@ -538,34 +752,34 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                         </select>
                     </div>
                     {type === 'split' ? (
-                        <div className="flex gap-4 items-center">
-                            <div className="flex-1">
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Ratio From.</label>
-                                <input type="number" required={type === 'split'} value={splitFrom} onChange={e => setSplitFrom(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" placeholder="1" />
+                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Ratio From</label>
+                                <input type="number" required={type === 'split'} value={splitFrom} onChange={e => setSplitFrom(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="1" />
                             </div>
-                            <span className="text-xl font-bold text-gray-400 mt-4">:</span>
-                            <div className="flex-1">
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Ratio To.</label>
-                                <input type="number" required={type === 'split'} value={splitTo} onChange={e => setSplitTo(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" placeholder="10" />
+                            <span style={{ fontSize: '1.25rem', fontWeight: '700', color: '#71717a', marginTop: '1.25rem' }}>:</span>
+                            <div style={{ flex: 1 }}>
+                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Ratio To</label>
+                                <input type="number" required={type === 'split'} value={splitTo} onChange={e => setSplitTo(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="10" />
                             </div>
                         </div>
                     ) : (type !== 'dividend') && (
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>
                                 {type === 'demerger' ? 'Shares Received' : 'Quantity'}
                             </label>
-                            <input type="number" required value={quantity} onChange={e => setQuantity(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" placeholder="0" />
+                            <input type="number" required value={quantity} onChange={e => setQuantity(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="0" />
                         </div>
                     )}
                     {['buy', 'sell', 'ipo', 'buyback', 'dividend', 'demerger'].includes(type) && (
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>
                                 {type === 'dividend' ? 'Total Dividend Amount' : type === 'demerger' ? 'New Average Price' : 'Price per share'}
                             </label>
-                            <input type="number" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white outline-none focus:border-indigo-500" placeholder="0.00" />
+                            <input type="number" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="0.00" />
                         </div>
                     )}
-                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl transition-colors mt-2">
+                    <button type="submit" style={{ width: '100%', backgroundColor: '#4f46e5', color: 'white', fontWeight: '700', padding: '0.75rem', borderRadius: '0.75rem', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginTop: '0.5rem' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4338ca'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'}>
                         Save Transaction
                     </button>
                 </form>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2 } from 'lucide-react';
@@ -14,10 +14,9 @@ const PPFDetails = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
     const [editingIndex, setEditingIndex] = useState(null);
+    const [showFYSelector, setShowFYSelector] = useState(false);
 
-    const ppf = savings.find(s => s.id === id);
-
-    if (!ppf) return <div>ID not found</div>;
+    const ppf = useMemo(() => savings.find(s => s.id === id), [savings, id]);
 
     const getFinancialYear = (dateStr) => {
         const date = new Date(dateStr);
@@ -27,33 +26,21 @@ const PPFDetails = () => {
     };
 
     const calculateYearlyInterest = (fy) => {
+        if (!ppf) return 0;
         const [startYear] = fy.split('-').map(Number);
         const startDate = new Date(`${startYear}-04-01`);
-        const endDate = new Date(`${startYear + 1}-03-31`);
         const rate = 0.071; // Standard PPF Rate
-
-        // 1. Get all transactions up to the end of the financial year, sorted by date
-        const sortedAll = [...ppf.details]
-            .filter(d => d.type !== 'interest' || new Date(d.date) < startDate) // Exclude current FY interest
-            .sort((a, b) => new Date(a.date) - new Date(b.date));
 
         const monthlyInterests = [];
 
-        // 2. Iterate through each month of the financial year (April to March)
         for (let m = 0; m < 12; m++) {
             const currentMonth = (3 + m) % 12; // April is 3
             const currentYear = startYear + (m >= 9 ? 1 : 0);
-
-            // Monthly min balance rule: Lowest balance between 5th and end of month
-            // We need the balance *after* all transactions up to the 5th
-            const monthEndDate = new Date(currentYear, currentMonth + 1, 0);
             const cutoffDate = new Date(currentYear, currentMonth, 5);
 
-            let balanceOn5th = 0;
             const txsUpTo5th = ppf.details.filter(d => new Date(d.date) <= cutoffDate);
-            balanceOn5th = txsUpTo5th.reduce((sum, d) => sum + (d.amount || 0) + (d.interestEarned || 0), 0);
+            const balanceOn5th = txsUpTo5th.reduce((sum, d) => sum + (d.amount || 0) + (d.interestEarned || 0), 0);
 
-            // Monthly interest = min balance * rate / 12
             monthlyInterests.push(Math.floor(balanceOn5th * rate / 12));
         }
 
@@ -70,6 +57,7 @@ const PPFDetails = () => {
     };
 
     const handleSaveTx = (txData) => {
+        if (!ppf) return;
         let updatedDetails = [...ppf.details];
         if (editingIndex !== null) {
             updatedDetails[editingIndex] = txData;
@@ -87,6 +75,7 @@ const PPFDetails = () => {
     };
 
     const handleAddInterest = (fy) => {
+        if (!ppf) return;
         const amount = calculateYearlyInterest(fy);
         const [startYear] = fy.split('-').map(Number);
         const date = `${startYear + 1}-03-31`;
@@ -108,6 +97,7 @@ const PPFDetails = () => {
     };
 
     const handleDeleteTx = (originalIndex) => {
+        if (!ppf) return;
         if (window.confirm('Delete this transaction?')) {
             const updatedDetails = ppf.details.filter((_, i) => i !== originalIndex);
             const detailsWithBalances = recalculateBalances(updatedDetails);
@@ -116,9 +106,7 @@ const PPFDetails = () => {
         }
     };
 
-    const [showFYSelector, setShowFYSelector] = useState(false);
-
-    const generatePossibleFYs = () => {
+    const possibleFYs = useMemo(() => {
         const currentYear = new Date().getFullYear();
         const fys = [];
         for (let i = -5; i <= 1; i++) {
@@ -126,96 +114,392 @@ const PPFDetails = () => {
             fys.push(`${y}-${(y + 1).toString().slice(-2)}`);
         }
         return fys;
-    };
+    }, []);
 
-    // Extract unique financial years
-    const years = ['All', ...new Set(ppf.details.map(item => getFinancialYear(item.date)))].sort((a, b) => b.localeCompare(a));
-    const filteredDetails = selectedYear === 'All'
-        ? [...ppf.details].sort((a, b) => new Date(b.date) - new Date(a.date))
-        : ppf.details.filter(item => getFinancialYear(item.date) === selectedYear).sort((a, b) => new Date(b.date) - new Date(a.date));
+    // Memoize stats and filtered/paginated details
+    const ppfDetails = useMemo(() => ppf?.details || [], [ppf]);
+
+    const years = useMemo(() => {
+        return ['All', ...new Set(ppfDetails.map(item => getFinancialYear(item.date)))].sort((a, b) => b.localeCompare(a));
+    }, [ppfDetails]);
+
+    const filteredDetails = useMemo(() => {
+        const sorted = [...ppfDetails].sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (selectedYear === 'All') return sorted;
+        return ppfDetails.filter(item => getFinancialYear(item.date) === selectedYear).sort((a, b) => new Date(b.date) - new Date(a.date));
+    }, [ppfDetails, selectedYear]);
 
     const itemsPerPage = 6;
-    const totalPages = Math.ceil(filteredDetails.length / itemsPerPage);
-    const paginatedDetails = filteredDetails.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-    const totalInterest = ppf.details.reduce((sum, item) => sum + (item.interestEarned || 0), 0);
-    const totalBalance = ppf.details.length > 0 ? recalculateBalances(ppf.details).slice(-1)[0].balance : 0;
-    const yearlyInterest = ppf.details.reduce((acc, item) => {
-        const fy = getFinancialYear(item.date);
-        acc[fy] = (acc[fy] || 0) + (item.interestEarned || 0);
-        return acc;
-    }, {});
+    const totalPages = useMemo(() => Math.ceil(filteredDetails.length / itemsPerPage), [filteredDetails]);
+
+    const paginatedDetails = useMemo(() => {
+        return filteredDetails.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+    }, [filteredDetails, currentPage]);
+
+    const totalInterest = useMemo(() => {
+        return ppfDetails.reduce((sum, item) => sum + (item.interestEarned || 0), 0);
+    }, [ppfDetails]);
+
+    const totalBalance = useMemo(() => {
+        if (ppfDetails.length === 0) return 0;
+        const balList = recalculateBalances(ppfDetails);
+        return balList[balList.length - 1].balance;
+    }, [ppfDetails]);
+
+    const yearlyInterest = useMemo(() => {
+        return ppfDetails.reduce((acc, item) => {
+            const fy = getFinancialYear(item.date);
+            acc[fy] = (acc[fy] || 0) + (item.interestEarned || 0);
+            return acc;
+        }, {});
+    }, [ppfDetails]);
+
+    if (!ppf) return <div style={{ padding: 'var(--spacing-lg)', color: 'white' }}>PPF account not found.</div>;
+
+    // Premium styling constants
+    const styles = {
+        breadcrumb: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            color: '#a1a1aa',
+            fontSize: '0.825rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'color 0.2s',
+            background: 'none',
+            border: 'none',
+            padding: 0,
+            marginBottom: '1.5rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em'
+        },
+        headerPanel: {
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-end',
+            flexWrap: 'wrap',
+            gap: '1rem',
+            marginBottom: '2.5rem'
+        },
+        titleContainer: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+        },
+        titleIcon: {
+            padding: '0.75rem',
+            borderRadius: '1rem',
+            backgroundColor: 'rgba(59, 130, 246, 0.12)',
+            color: '#60a5fa',
+            display: 'flex',
+            alignItems: 'center',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            boxShadow: '0 0 15px rgba(59, 130, 246, 0.1)'
+        },
+        titleText: {
+            fontSize: '2rem',
+            fontWeight: '900',
+            color: 'white',
+            margin: 0,
+            letterSpacing: '-0.02em'
+        },
+        subtitle: {
+            color: '#a1a1aa',
+            fontSize: '0.875rem',
+            fontWeight: '500',
+            marginTop: '0.25rem',
+            margin: 0
+        },
+        actionButton: (bg = '#3b82f6', shadowColor = 'rgba(59, 130, 246, 0.3)') => ({
+            padding: '0.75rem 1.5rem',
+            borderRadius: '1rem',
+            backgroundColor: bg,
+            color: 'white',
+            fontWeight: '900',
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s, transform 0.2s, box-shadow 0.2s',
+            border: 'none',
+            boxShadow: `0 10px 20px -3px ${shadowColor}`
+        }),
+        statGrid: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1.5rem',
+            marginBottom: '2.5rem'
+        },
+        glassCard: (gradientColor = 'rgba(255, 255, 255, 0.02)', borderColor = 'rgba(255, 255, 255, 0.06)', shadowColor = 'rgba(0, 0, 0, 0.25)') => ({
+            background: `linear-gradient(135deg, ${gradientColor} 0%, rgba(255, 255, 255, 0.005) 100%)`,
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            padding: '1.5rem',
+            border: `1px solid ${borderColor}`,
+            boxShadow: `0 8px 32px 0 ${shadowColor}`,
+            transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s'
+        }),
+        sectionHeader: {
+            fontSize: '0.875rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: '#71717a',
+            marginBottom: '1rem',
+            paddingLeft: '0.25rem'
+        },
+        yearCard: {
+            position: 'relative',
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+            backdropFilter: 'blur(12px)',
+            borderRadius: '1rem',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            padding: '1rem',
+            transition: 'all 0.3s ease',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center'
+        },
+        recalcBtn: {
+            position: 'absolute',
+            top: '0.5rem',
+            right: '0.5rem',
+            padding: '0.25rem',
+            borderRadius: '0.375rem',
+            backgroundColor: 'rgba(255,255,255,0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            color: '#34d399',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background-color 0.2s, color 0.2s'
+        },
+        filterBar: {
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.5rem',
+            marginBottom: '1.5rem',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            paddingBottom: '1rem',
+            overflowX: 'auto'
+        },
+        filterTab: (isActive) => ({
+            padding: '0.625rem 1.25rem',
+            borderRadius: '0.75rem',
+            fontSize: '0.75rem',
+            fontWeight: '900',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            cursor: 'pointer',
+            transition: 'all 0.3s',
+            border: 'none',
+            backgroundColor: isActive ? '#2563eb' : 'rgba(255, 255, 255, 0.03)',
+            color: isActive ? 'white' : '#71717a',
+            boxShadow: isActive ? '0 10px 15px -3px rgba(37, 99, 235, 0.3)' : 'none'
+        }),
+        tableContainer: {
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            overflow: 'hidden'
+        },
+        table: {
+            width: '100%',
+            borderCollapse: 'collapse'
+        },
+        th: (align = 'left') => ({
+            padding: '1.125rem 1.5rem',
+            textAlign: align,
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontWeight: '900',
+            fontSize: '10px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: 'rgba(255, 255, 255, 0.02)'
+        }),
+        td: (align = 'left', isBold = false, color = 'var(--text-primary)', size = '13px') => ({
+            padding: '1.125rem 1.5rem',
+            textAlign: align,
+            color: color,
+            fontWeight: isBold ? '900' : '500',
+            fontSize: size,
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+        }),
+        actionBtn: (bg, hoverBg, color) => ({
+            padding: '0.5rem',
+            borderRadius: '0.5rem',
+            backgroundColor: bg,
+            color: color,
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background-color 0.2s, transform 0.1s'
+        })
+    };
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-colors mb-6 text-sm font-bold uppercase tracking-widest text-gray-500"
-                style={{ cursor: 'pointer' }}
+                style={styles.breadcrumb}
+                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
             >
-                <ArrowLeft size={16} /> Back to Savings
+                <ArrowLeft size={14} style={{ marginRight: '0.25rem' }} /> Back to Savings
             </button>
 
-            <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+            <div style={styles.headerPanel}>
                 <div>
-                    <h2 className="text-4xl font-black mb-2 flex items-center gap-4">
-                        <div className="p-3 bg-blue-500/10 rounded-2xl border border-blue-500/20">
-                            <PiggyBank className="text-blue-400" size={32} />
+                    <div style={styles.titleContainer}>
+                        <div style={styles.titleIcon}>
+                            <PiggyBank size={24} />
                         </div>
-                        {ppf.name}
-                    </h2>
-                    <p className="text-secondary font-medium">Account: {ppf.accountNo} | Bank: {ppf.bank}</p>
+                        <h2 style={styles.titleText}>{ppf.name}</h2>
+                    </div>
+                    <p style={styles.subtitle}>Account: {ppf.accountNo} | Bank: {ppf.bank}</p>
                 </div>
                 <button
                     onClick={() => { setEditingTx(null); setEditingIndex(null); setIsModalOpen(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-8 rounded-2xl flex items-center gap-2 transition-all shadow-2xl shadow-blue-900/40 text-xs uppercase tracking-widest active:scale-95"
+                    style={styles.actionButton()}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#2563eb';
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.boxShadow = '0 10px 20px -3px rgba(37, 99, 235, 0.4)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#3b82f6';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 10px 20px -3px rgba(59, 130, 246, 0.3)';
+                    }}
                 >
-                    <Plus size={20} />
+                    <Plus size={16} />
                     Add Transaction
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                <div className="card bg-gradient-to-br from-blue-500/10 to-transparent border-white/5 p-6">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Portfolio Balance</p>
-                    <p className="text-3xl font-black text-white">{formatCurrency(totalBalance)}</p>
+            <div style={styles.statGrid}>
+                {/* Balance Card */}
+                <div 
+                    style={styles.glassCard('rgba(59, 130, 246, 0.05)', 'rgba(59, 130, 246, 0.15)', 'rgba(59, 130, 246, 0.1)')}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.15)';
+                    }}
+                >
+                    <p style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Portfolio Balance</p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: '900', color: 'white', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalBalance)}</p>
                 </div>
-                <div className="card bg-gradient-to-br from-emerald-500/10 to-transparent border-white/5 p-6">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Accumulated Interest</p>
-                    <p className="text-3xl font-black text-emerald-400">{formatCurrency(totalInterest)}</p>
+                {/* Interest Card */}
+                <div 
+                    style={styles.glassCard('rgba(16, 185, 129, 0.05)', 'rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.1)')}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.transform = 'translateY(-2px)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.15)';
+                    }}
+                >
+                    <p style={{ fontSize: '10px', color: '#34d399', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Accumulated Interest</p>
+                    <p style={{ fontSize: '1.75rem', fontWeight: '900', color: '#34d399', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalInterest)}</p>
                 </div>
             </div>
 
-            <div className="mb-10">
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-500 mb-4 px-1">Yearly Interest Summary</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            <div style={{ marginBottom: '2.5rem' }}>
+                <h3 style={styles.sectionHeader}>Yearly Interest Summary</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
                     {Object.entries(yearlyInterest).sort((a, b) => b[0].localeCompare(a[0])).map(([year, interest]) => (
-                        <div key={year} className="card border-white/5 p-4 bg-white/[0.02] hover:bg-white/[0.04] transition-colors relative group">
-                            <p className="text-[9px] font-black text-gray-600 uppercase mb-1">{year}</p>
-                            <p className="text-sm font-bold text-emerald-500">{formatCurrency(interest)}</p>
+                        <div 
+                            key={year} 
+                            style={styles.yearCard}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)';
+                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
+                            }}
+                        >
+                            <p style={{ fontSize: '10px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', marginBottom: '0.25rem', margin: 0 }}>{year}</p>
+                            <p style={{ fontSize: '1rem', fontWeight: '800', color: '#10b981', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(interest)}</p>
                             <button
                                 onClick={() => handleAddInterest(year)}
-                                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 p-1 bg-white/5 rounded-md hover:bg-emerald-500/20 text-emerald-400 transition-all border border-white/10"
+                                style={styles.recalcBtn}
+                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.15)'}
+                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
                                 title="Recalculate Interest"
                             >
                                 <Plus size={12} />
                             </button>
                         </div>
                     ))}
-                    <div className="relative">
+                    <div style={{ position: 'relative' }}>
                         <button
                             onClick={() => setShowFYSelector(!showFYSelector)}
-                            className="card border-dashed border-white/10 p-4 bg-transparent hover:bg-white/5 transition-colors flex flex-col items-center justify-center text-gray-500 hover:text-white group w-full h-full"
+                            style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                width: '100%',
+                                height: '100%',
+                                minHeight: '80px',
+                                background: 'transparent',
+                                border: '1px dashed rgba(255, 255, 255, 0.12)',
+                                borderRadius: '1rem',
+                                color: '#71717a',
+                                cursor: 'pointer',
+                                transition: 'color 0.2s, border-color 0.2s, background-color 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+                                e.currentTarget.style.color = 'white';
+                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                                e.currentTarget.style.color = '#71717a';
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                            }}
                         >
-                            <Plus size={16} className="mb-1 group-hover:scale-110 transition-transform" />
-                            <span className="text-[9px] font-black uppercase">Add Interest</span>
+                            <Plus size={16} style={{ marginBottom: '0.25rem' }} />
+                            <span style={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Add Interest</span>
                         </button>
                         {showFYSelector && (
-                            <div className="absolute top-full left-0 mt-2 w-48 bg-[#18181b] border border-white/10 rounded-xl shadow-2xl z-50 p-2 max-h-48 overflow-y-auto custom-scrollbar">
-                                {generatePossibleFYs().map(fy => (
+                            <div style={{
+                                position: 'absolute', top: '105%', left: 0, width: '12rem',
+                                backgroundColor: '#121225', border: '1px solid rgba(255, 255, 255, 0.08)',
+                                borderRadius: '0.75rem', boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                zIndex: 50, padding: '0.5rem', maxHeight: '12rem', overflowY: 'auto'
+                            }} className="custom-scrollbar">
+                                {possibleFYs.map(fy => (
                                     <button
                                         key={fy}
                                         onClick={() => { handleAddInterest(fy); setShowFYSelector(false); }}
-                                        className="w-full text-left px-4 py-2 text-xs font-bold text-gray-400 hover:bg-white/5 hover:text-white rounded-lg transition-colors"
+                                        style={{
+                                            width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem',
+                                            fontSize: '11px', fontWeight: '700', color: '#a1a1aa',
+                                            backgroundColor: 'transparent', border: 'none', borderRadius: '0.5rem',
+                                            cursor: 'pointer', transition: 'background-color 0.2s, color 0.2s'
+                                        }}
+                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'white'; }}
+                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#a1a1aa'; }}
                                     >
                                         FY {fy}
                                     </button>
@@ -226,59 +510,65 @@ const PPFDetails = () => {
                 </div>
             </div>
 
-            <div className="flex flex-wrap gap-2 mb-6 border-b border-white/5 pb-4">
+            <div style={styles.filterBar}>
                 {years.map(year => (
                     <button
                         key={year}
                         onClick={() => { setSelectedYear(year); setCurrentPage(1); }}
-                        className={`px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${selectedYear === year
-                            ? 'bg-blue-600 text-white shadow-xl shadow-blue-900/40'
-                            : 'bg-white/5 text-gray-500 hover:bg-white/10 hover:text-gray-300'
-                            }`}
+                        style={styles.filterTab(selectedYear === year)}
                     >
                         {year}
                     </button>
                 ))}
             </div>
 
-            <div className="card border-white/5 p-0 overflow-hidden shadow-2xl">
-                <div className="p-6 border-b border-white/5 bg-white/[0.01] flex items-center justify-between">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">Transactions</h3>
-                    <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Page {currentPage} of {totalPages || 1}</span>
+            <div style={styles.tableContainer}>
+                <div style={{
+                    padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    backgroundColor: 'rgba(255, 255, 255, 0.015)'
+                }}>
+                    <h3 style={{ fontSize: '11px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'rgba(255,255,255,0.6)', margin: 0 }}>Transactions</h3>
+                    <span style={{ fontSize: '10px', fontWeight: '700', color: '#71717a', textTransform: 'uppercase' }}>Page {currentPage} of {totalPages || 1}</span>
                 </div>
-                <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse">
+
+                <div style={{ overflowX: 'auto' }} className="custom-scrollbar">
+                    <table style={styles.table}>
                         <thead>
-                            <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
-                                <th className="py-5 px-8">Date</th>
-                                <th className="py-5 px-6">Entry Type</th>
-                                <th className="py-5 px-6 text-right">Contribution</th>
-                                <th className="py-5 px-6 text-right">Yield</th>
-                                <th className="py-5 px-6 text-right">Balance</th>
-                                <th className="py-5 px-8 text-center">Actions</th>
+                            <tr>
+                                <th style={styles.th('left')}>Date</th>
+                                <th style={styles.th('left')}>Entry Type</th>
+                                <th style={styles.th('right')}>Contribution</th>
+                                <th style={styles.th('right')}>Yield</th>
+                                <th style={styles.th('right')}>Balance</th>
+                                <th style={styles.th('center')}>Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                             {paginatedDetails.map((item, index) => {
                                 const originalIndex = ppf.details.indexOf(item);
                                 return (
-                                    <tr key={index} className="hover:bg-white/[0.03] transition-colors group">
-                                        <td className="py-6 px-8 text-sm font-bold text-gray-300">{formatDate(item.date)}</td>
-                                        <td className="py-6 px-6">
-                                            <span className={`text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest ${item.type === 'interest'
-                                                ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                                                : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                                                }`}>
+                                    <tr key={index} style={{ transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                        <td style={styles.td('left', false, '#d4d4d8')}>{formatDate(item.date)}</td>
+                                        <td style={styles.td('left')}>
+                                            <span style={{
+                                                fontSize: '9px', fontWeight: '900', px: '0.5rem', py: '0.125rem',
+                                                borderRadius: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                                padding: '0.25rem 0.5rem',
+                                                backgroundColor: item.type === 'interest' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(59, 130, 246, 0.12)',
+                                                color: item.type === 'interest' ? '#34d399' : '#60a5fa',
+                                                border: item.type === 'interest' ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(59, 130, 246, 0.2)'
+                                            }}>
                                                 {item.type}
                                             </span>
                                         </td>
-                                        <td className="py-6 px-6 text-right font-black text-sm text-gray-200">{item.amount > 0 ? formatCurrency(item.amount) : '—'}</td>
-                                        <td className="py-6 px-6 text-right text-emerald-400 font-black text-sm">{item.interestEarned > 0 ? `+${formatCurrency(item.interestEarned)}` : '—'}</td>
-                                        <td className="py-6 px-6 text-right font-black text-base text-white tracking-tight">{formatCurrency(item.balance)}</td>
-                                        <td className="py-6 px-8 text-center">
-                                            <div className="flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-all">
-                                                <button onClick={() => { setEditingTx(item); setEditingIndex(originalIndex); setIsModalOpen(true); }} className="p-2 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-110"><Edit2 size={16} /></button>
-                                                <button onClick={() => handleDeleteTx(originalIndex)} className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all transform hover:scale-110"><Trash2 size={16} /></button>
+                                        <td style={styles.td('right', true, '#e4e4e7')}><span style={{ fontFamily: 'monospace' }}>{item.amount > 0 ? formatCurrency(item.amount) : '—'}</span></td>
+                                        <td style={styles.td('right', true, '#34d399')}><span style={{ fontFamily: 'monospace' }}>{item.interestEarned > 0 ? `+${formatCurrency(item.interestEarned)}` : '—'}</span></td>
+                                        <td style={styles.td('right', true, 'white', '14px')}><span style={{ fontFamily: 'monospace' }}>{formatCurrency(item.balance)}</span></td>
+                                        <td style={styles.td('center')}>
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                <button onClick={() => { setEditingTx(item); setEditingIndex(originalIndex); setIsModalOpen(true); }} style={styles.actionBtn('rgba(59, 130, 246, 0.12)', 'rgba(59, 130, 246, 0.25)', '#60a5fa')} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}><Edit2 size={14} /></button>
+                                                <button onClick={() => handleDeleteTx(originalIndex)} style={styles.actionBtn('rgba(239, 68, 68, 0.12)', 'rgba(239, 68, 68, 0.25)', '#f87171')} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}><Trash2 size={14} /></button>
                                             </div>
                                         </td>
                                     </tr>
@@ -287,15 +577,48 @@ const PPFDetails = () => {
                         </tbody>
                     </table>
                 </div>
-                {filteredDetails.length === 0 && <div className="text-center py-20 bg-white/[0.02]"><p className="text-gray-500 font-medium tracking-wide">No transactions identified for the selected interval.</p></div>}
-                <div className="p-6 bg-white/[0.02] border-t border-white/5 flex items-center justify-between">
-                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-6 py-3 rounded-xl bg-white/5 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">Previous</button>
-                    <div className="flex gap-2">
+
+                {filteredDetails.length === 0 && (
+                    <div style={{ textAlign: 'center', padding: '3rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                        <p style={{ color: '#71717a', margin: 0, fontSize: '0.875rem', fontWeight: '500' }}>No transactions identified for the selected interval.</p>
+                    </div>
+                )}
+
+                <div style={{
+                    padding: '1rem 1.5rem', backgroundColor: 'rgba(255, 255, 255, 0.015)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                    <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{
+                        padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.03)',
+                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: currentPage === 1 ? '#52525b' : '#a1a1aa',
+                        border: 'none', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                    }} onMouseEnter={(e) => { if (currentPage !== 1) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}>Previous</button>
+                    
+                    <div style={{ display: 'flex', gap: '0.25rem' }}>
                         {[...Array(totalPages)].map((_, i) => (
-                            <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-10 h-10 rounded-xl text-xs font-black transition-all ${currentPage === i + 1 ? 'bg-blue-600 text-white' : 'bg-white/5 text-gray-600 hover:bg-white/10'}`}>{i + 1}</button>
+                            <button 
+                                key={i} 
+                                onClick={() => setCurrentPage(i + 1)} 
+                                style={{
+                                    width: '2rem', height: '2rem', borderRadius: '0.5rem', fontSize: '11px', fontWeight: '800',
+                                    border: 'none', cursor: 'pointer', transition: 'all 0.2s',
+                                    backgroundColor: currentPage === i + 1 ? '#2563eb' : 'transparent',
+                                    color: currentPage === i + 1 ? 'white' : '#71717a'
+                                }}
+                                onMouseEnter={(e) => { if (currentPage !== i + 1) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; }}
+                                onMouseLeave={(e) => { if (currentPage !== i + 1) e.currentTarget.style.backgroundColor = 'transparent'; }}
+                            >
+                                {i + 1}
+                            </button>
                         ))}
                     </div>
-                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} className="px-6 py-3 rounded-xl bg-white/5 text-xs font-black uppercase tracking-widest text-gray-500 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">Next</button>
+
+                    <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages || totalPages === 0} style={{
+                        padding: '0.5rem 1rem', borderRadius: '0.5rem', backgroundColor: 'rgba(255,255,255,0.03)',
+                        fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', color: (currentPage === totalPages || totalPages === 0) ? '#52525b' : '#a1a1aa',
+                        border: 'none', cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
+                    }} onMouseEnter={(e) => { if (currentPage !== totalPages && totalPages !== 0) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}>Next</button>
                 </div>
             </div>
 

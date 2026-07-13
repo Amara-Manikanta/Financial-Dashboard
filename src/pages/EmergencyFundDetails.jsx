@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Shield } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import MutualFundTransactionModal from '../components/MutualFundTransactionModal';
-import MutualFundEditModal from '../components/MutualFundEditModal';
 
 const EmergencyFundDetails = () => {
     const { id } = useParams();
@@ -120,98 +119,122 @@ const EmergencyFundDetails = () => {
         });
     }
 
+    const glassCardStyle = {
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01))',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.07)',
+        borderRadius: '1.25rem',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+        transition: 'transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease'
+    };
+
     return (
-        <div style={{ padding: 'var(--spacing-lg)' }}>
+        <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-colors mb-6"
-                style={{ cursor: 'pointer', marginBottom: 'var(--spacing-lg)', color: 'white' }}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.08] hover:border-white/[0.1] backdrop-blur-md"
             >
-                <ArrowLeft size={20} /> Back to Savings
+                <ArrowLeft size={14} /> Back to Savings
             </button>
 
-            <div className="mb-8">
-                <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-3xl font-bold flex items-center gap-3">
+            <div className="mb-10">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+                    <h2 className="text-4xl font-black flex items-center gap-4 text-white tracking-tight">
+                        <div className="p-3 bg-emerald-500/10 rounded-2xl border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.15)]">
+                            <Shield className="text-emerald-400" size={32} />
+                        </div>
                         {fund.title}
                     </h2>
 
                     <button
                         onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/40"
+                        className="w-full md:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.2)] text-xs uppercase tracking-widest active:scale-95"
                     >
-                        <Plus size={20} />
+                        <Plus size={16} />
                         Add Transaction
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    <div className="card">
-                        <p className="text-secondary text-sm mb-1">Current Balance</p>
-                        <p className="font-bold text-3xl text-emerald-400">{formatCurrency(fund.amount)}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                    <div className="card p-6" style={{
+                        ...glassCardStyle,
+                        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
+                        border: '1px solid rgba(16, 185, 129, 0.15)'
+                    }}>
+                        <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Current Balance</p>
+                        <p className="font-black text-3xl text-white">{formatCurrency(fund.amount)}</p>
                     </div>
                 </div>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Date</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Type</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Amount</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Remarks</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {transactionsWithCalcs.map((tx, index) => (
-                            <tr key={index} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} className="hover:bg-white/5 transition-colors group">
-                                <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-primary)' }}>{formatDate(tx.date)}</td>
-                                <td style={{ padding: 'var(--spacing-md)' }}>
-                                    <span style={{
-                                        color: tx.isWithdraw ? 'var(--color-danger)' : 'var(--color-success)',
-                                        backgroundColor: tx.isWithdraw ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
-                                        padding: '2px 8px',
-                                        borderRadius: '4px',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 'bold',
-                                        textTransform: 'uppercase'
-                                    }}>
-                                        {tx.typeDisplay}
-                                    </span>
-                                </td>
-                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(tx.displayAmount)}</td>
-                                <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>{tx.remarks || '-'}</td>
-                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
-                                    <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={() => { setEditingTx(tx); setIsTxModalOpen(true); }}
-                                            className="p-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
-                                            title="Edit"
-                                        >
-                                            <Edit2 size={14} />
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteTransaction(tx.id)}
-                                            className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-                                            title="Delete"
-                                        >
-                                            <Trash2 size={14} />
-                                        </button>
-                                    </div>
-                                </td>
+            <div className="card p-0 overflow-hidden shadow-2xl" style={glassCardStyle}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Date</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Type</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Amount</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Remarks</th>
+                                <th className="py-5 px-6 text-center text-zinc-400 text-[10px] font-black uppercase tracking-widest">Actions</th>
                             </tr>
-                        ))}
-                        {!transactionsWithCalcs.length && (
-                            <tr>
-                                <td colSpan="5" style={{ padding: 'var(--spacing-xl)', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                    No transactions found.
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="text-sm font-bold">
+                            {transactionsWithCalcs.map((tx, index) => (
+                                <tr 
+                                    key={index} 
+                                    style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} 
+                                    className="hover:bg-white/[0.03] transition-colors group"
+                                >
+                                    <td className="py-5 px-6 text-zinc-300">{formatDate(tx.date)}</td>
+                                    <td className="py-5 px-6">
+                                        <span style={{
+                                            color: tx.isWithdraw ? '#f87171' : '#34d399',
+                                            backgroundColor: tx.isWithdraw ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                                            border: tx.isWithdraw ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)',
+                                            padding: '4px 10px',
+                                            borderRadius: '8px',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '900',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em'
+                                        }}>
+                                            {tx.typeDisplay}
+                                        </span>
+                                    </td>
+                                    <td className="py-5 px-6 text-right font-mono text-zinc-200">{formatCurrency(tx.displayAmount)}</td>
+                                    <td className="py-5 px-6 text-zinc-400 font-medium">{tx.remarks || '-'}</td>
+                                    <td className="py-5 px-6 text-center">
+                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                onClick={() => { setEditingTx(tx); setIsTxModalOpen(true); }}
+                                                className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Edit2 size={14} />
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteTransaction(tx.id)}
+                                                className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                title="Delete"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {!transactionsWithCalcs.length && (
+                                <tr>
+                                    <td colSpan="5" className="py-12 text-center text-zinc-500 font-medium italic">
+                                        No transactions found.
+                                    </td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             {/* Reuse MutualFundTransactionModal - Users can just ignore NAV/Units if we hide them or auto-fill */}

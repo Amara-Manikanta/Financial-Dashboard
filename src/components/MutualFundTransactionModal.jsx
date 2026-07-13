@@ -5,13 +5,15 @@ import CurrencyInput from './CurrencyInput';
 
 // Reuse similar styles to TransactionModal for consistency
 const inputStyle = {
-    backgroundColor: '#27272a',
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
     color: 'white',
-    border: '1px solid #3f3f46',
-    borderRadius: '0.75rem',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '1rem',
     padding: '0.75rem 1rem 0.75rem 2.5rem',
     width: '100%',
-    outline: 'none'
+    outline: 'none',
+    transition: 'all 0.3s ease',
+    fontSize: '0.875rem'
 };
 
 const iconStyle = {
@@ -20,9 +22,9 @@ const iconStyle = {
     transform: 'translateY(-50%)',
     left: '0.75rem',
     pointerEvents: 'none',
-    color: '#9ca3af',
-    width: '18px',
-    height: '18px'
+    color: '#71717a',
+    width: '16px',
+    height: '16px'
 };
 
 const MutualFundTransactionModal = ({ isOpen, onClose, onSave, initialData, isEmergencyFund }) => {
@@ -95,53 +97,55 @@ const MutualFundTransactionModal = ({ isOpen, onClose, onSave, initialData, isEm
         <div style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 1000,
-            backdropFilter: 'blur(4px)'
+            backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 1000,
+            backdropFilter: 'blur(10px)'
         }} onClick={onClose}>
             <div style={{
-                backgroundColor: '#18181b', border: '1px solid #27272a',
-                borderRadius: '1rem', width: '100%', maxWidth: '400px',
-                position: 'relative', overflow: 'hidden'
+                background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.98), rgba(18, 18, 18, 0.98))',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '2rem', width: '100%', maxWidth: '420px',
+                position: 'relative', overflow: 'hidden',
+                boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)'
             }} onClick={e => e.stopPropagation()}>
 
-                <div className="flex items-center justify-between p-4 border-b border-gray-800">
-                    <h3 className="text-lg font-bold text-white">{initialData ? 'Edit Transaction' : 'Add Transaction'}</h3>
-                    <button onClick={onClose}><X size={20} className="text-gray-400" /></button>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>{initialData ? 'Edit Transaction' : 'Add Transaction'}</h3>
+                    <button onClick={onClose} style={{ padding: '0.5rem', borderRadius: '0.75rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <X size={16} />
+                    </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-4 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="relative">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Type</label>
-                            <select value={type} onChange={e => setType(e.target.value)} style={{ ...inputStyle, paddingLeft: '1rem', appearance: 'none' }}>
+                <form onSubmit={handleSubmit} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Type</label>
+                            <select value={type} onChange={e => setType(e.target.value)} style={{ ...inputStyle, paddingLeft: '1rem', appearance: 'none', backgroundColor: 'rgba(30, 30, 32, 0.95)' }}>
                                 <option value="buy">{isEmergencyFund ? 'Deposit' : 'Buy'}</option>
                                 <option value="sell">{isEmergencyFund ? 'Withdraw' : 'Sell'}</option>
                                 {!isEmergencyFund && <option value="sip">SIP</option>}
                             </select>
                         </div>
-                        <div className="relative">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Date</label>
-                            <div className="relative">
+                        <div>
+                            <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Date</label>
+                            <div style={{ position: 'relative' }}>
                                 <input type="date" required value={date} onChange={e => setDate(e.target.value)} style={inputStyle} />
                                 <Calendar style={iconStyle} />
                             </div>
                         </div>
                     </div>
 
-                    <div className={isEmergencyFund ? "grid grid-cols-1 gap-4" : "grid grid-cols-2 gap-4"}>
-                        <div className="relative">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Amount</label>
-                            <div className="relative">
-                                <CurrencyInput required value={amount} onChange={(e) => {
-                                    handleAmountChange(e);
-                                }} style={inputStyle} placeholder="0.00" />
-                                <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: isEmergencyFund ? '1fr' : '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Amount</label>
+                            <div style={{ position: 'relative' }}>
+                                <CurrencyInput required value={amount} onChange={handleAmountChange} style={inputStyle} placeholder="0.00" />
+                                <div style={iconStyle}><span style={{ fontSize: '0.875rem', fontWeight: 'bold' }}>₹</span></div>
                             </div>
                         </div>
                         {!isEmergencyFund && (
-                            <div className="relative">
-                                <label className="block text-xs font-bold text-gray-400 uppercase mb-1">NAV</label>
-                                <div className="relative">
+                            <div>
+                                <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>NAV</label>
+                                <div style={{ position: 'relative' }}>
                                     <input type="number" step="0.0001" required value={nav} onChange={handleNavChange} style={inputStyle} placeholder="NAV" />
                                     <Hash style={iconStyle} />
                                 </div>
@@ -150,24 +154,41 @@ const MutualFundTransactionModal = ({ isOpen, onClose, onSave, initialData, isEm
                     </div>
 
                     {!isEmergencyFund && (
-                        <div className="relative">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Units (Calculated)</label>
-                            <div className="relative">
+                        <div>
+                            <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Units (Calculated)</label>
+                            <div style={{ position: 'relative' }}>
                                 <input type="number" step="0.001" required value={units} onChange={handleUnitsChange} style={inputStyle} placeholder="Units" />
                                 <Hash style={iconStyle} />
                             </div>
                         </div>
                     )}
 
-                    <div className="relative">
-                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Remarks</label>
-                        <div className="relative">
+                    <div>
+                        <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Remarks</label>
+                        <div style={{ position: 'relative' }}>
                             <input type="text" value={remarks} onChange={e => setRemarks(e.target.value)} style={inputStyle} placeholder="Optional" />
                             <FileText style={iconStyle} />
                         </div>
                     </div>
 
-                    <button type="submit" className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition-colors mt-2">
+                    <button
+                        type="submit"
+                        style={{
+                            width: '100%',
+                            padding: '1rem',
+                            borderRadius: '1.25rem',
+                            backgroundColor: '#c084fc',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            fontSize: '11px',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer',
+                            border: 'none',
+                            transition: 'all 0.3s ease',
+                            marginTop: '0.5rem'
+                        }}
+                    >
                         Save Transaction
                     </button>
                 </form>

@@ -93,35 +93,62 @@ const CreditCardDetails = () => {
     }, 0), [creditCards, expenses]);
 
     return (
-        <div className="space-y-8 animate-fade-in pb-20">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
-                    <h1 className="text-4xl font-black text-white tracking-tight">
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
                         Credit Cards
-                        <span className="text-purple-500">.</span>
-                    </h1>
-                    <p className="text-secondary mt-2">Manage your credit cards, billing cycles, and reward points.</p>
+                    </h2>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Manage your credit cards, billing cycles, and reward points.</p>
                 </div>
-                <div className="flex items-center gap-4">
-                    <div className="bg-red-500/10 border border-red-500/20 px-6 py-3 rounded-2xl flex flex-col items-end">
-                        <span className="text-xs text-red-300 font-bold uppercase tracking-wider">Total Est. Due</span>
-                        <span className="text-2xl font-black text-red-400">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{
+                        backgroundColor: 'rgba(239, 68, 68, 0.03)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(239, 68, 68, 0.1)',
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '1rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        boxShadow: '0 4px 15px -3px rgba(239, 68, 68, 0.05)'
+                    }}>
+                        <span style={{ fontSize: '9px', fontWeight: '900', color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Est. Due</span>
+                        <span style={{ fontSize: '1.5rem', fontWeight: '950', color: '#f87171', fontFamily: 'monospace' }}>
                             {formatCurrency(totalDue)}
                         </span>
                     </div>
                     <button
                         onClick={() => { setEditingCard(null); setIsModalOpen(true); }}
-                        className="flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-2xl transition-all shadow-lg shadow-purple-900/40 hover:scale-105 active:scale-95"
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '1rem',
+                            backgroundColor: '#c084fc',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                            cursor: 'pointer',
+                            border: 'none',
+                            boxShadow: '0 4px 10px -2px rgba(192, 132, 252, 0.2)'
+                        }}
                     >
-                        <Plus size={20} />
-                        <span>Add New Card</span>
+                        <Plus size={16} /> Add New Card
                     </button>
                 </div>
             </div>
 
             {/* Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '2rem'
+            }}>
                 {creditCards.map((card) => {
                     const totalPoints = (card.monthlyData || []).reduce((sum, m) => sum + (Number(m.points) || 0), 0);
                     const pendingAmount = (card.monthlyData || [])
@@ -134,15 +161,15 @@ const CreditCardDetails = () => {
 
                     const getBankConfig = (name) => {
                         const n = (name || '').toLowerCase();
-                        if (n.includes('icici')) return { gradient: 'from-[#f37e10] to-[#d84e0e]', initials: 'ICICI' }; // ICICI Orange
-                        if (n.includes('federal')) return { gradient: 'from-[#E1A400] to-[#B8860B]', initials: 'FED' }; // Federal Gold
-                        if (n.includes('hdfc')) return { gradient: 'from-[#004c8f] to-[#003366]', initials: 'HDFC' }; // HDFC Blue
-                        if (n.includes('sbi')) return { gradient: 'from-[#0092dd] to-[#005a8b]', initials: 'SBI' }; // SBI Blue
-                        if (n.includes('axis')) return { gradient: 'from-[#97144d] to-[#7f1141]', initials: 'AXIS' }; // Axis Burgundy
-                        if (n.includes('kotak')) return { gradient: 'from-[#ed1c24] to-[#c4161c]', initials: 'KOTAK' }; // Kotak Red
-                        if (n.includes('idfc')) return { gradient: 'from-[#9f2536] to-[#7d1d2b]', initials: 'IDFC' }; // IDFC Red
-                        if (n.includes('amex')) return { gradient: 'from-[#2671b9] to-[#1e5a94]', initials: 'AMEX' }; // Amex Blue
-                        return { gradient: 'from-gray-700 to-gray-800', initials: <CreditCard className="text-white/80" size={24} /> };
+                        if (n.includes('icici')) return { gradient: 'from-[#f37e10] to-[#d84e0e]', initials: 'ICICI', accent: '#f37e10' };
+                        if (n.includes('federal')) return { gradient: 'from-[#E1A400] to-[#B8860B]', initials: 'FED', accent: '#E1A400' };
+                        if (n.includes('hdfc')) return { gradient: 'from-[#004c8f] to-[#003366]', initials: 'HDFC', accent: '#004c8f' };
+                        if (n.includes('sbi')) return { gradient: 'from-[#0092dd] to-[#005a8b]', initials: 'SBI', accent: '#0092dd' };
+                        if (n.includes('axis')) return { gradient: 'from-[#97144d] to-[#7f1141]', initials: 'AXIS', accent: '#97144d' };
+                        if (n.includes('kotak')) return { gradient: 'from-[#ed1c24] to-[#c4161c]', initials: 'KOTAK', accent: '#ed1c24' };
+                        if (n.includes('idfc')) return { gradient: 'from-[#9f2536] to-[#7d1d2b]', initials: 'IDFC', accent: '#9f2536' };
+                        if (n.includes('amex')) return { gradient: 'from-[#2671b9] to-[#1e5a94]', initials: 'AMEX', accent: '#2671b9' };
+                        return { gradient: 'from-gray-700 to-gray-800', initials: <CreditCard style={{ color: 'rgba(255,255,255,0.8)' }} size={20} />, accent: '#a855f7' };
                     };
 
                     const bankParams = getBankConfig(card.bankName);
@@ -151,104 +178,167 @@ const CreditCardDetails = () => {
                         <div
                             key={card.id}
                             onClick={() => navigate(`/credit-cards/${card.id}`)}
-                            className="bg-[#18181b] border border-white/5 rounded-3xl p-6 relative overflow-hidden group hover:border-purple-500/30 transition-all cursor-pointer shadow-xl"
+                            style={{
+                                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                                backdropFilter: 'blur(10px)',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: '2rem',
+                                padding: '1.75rem',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                height: '280px',
+                                cursor: 'pointer',
+                                transition: 'transform 0.2s, border-color 0.2s',
+                                boxShadow: `0 10px 20px -5px rgba(192, 132, 252, 0.05)`,
+                                position: 'relative'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-4px)';
+                                e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.3)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'none';
+                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)';
+                            }}
                         >
-                            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${bankParams.gradient} opacity-10 rounded-full blur-3xl -mr-16 -mt-16 transition-all group-hover:opacity-20`} />
-
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${bankParams.gradient} flex items-center justify-center border border-white/10 group-hover:scale-110 transition-transform shadow-lg`}>
-                                        {typeof bankParams.initials === 'string' ? (
-                                            <span className="font-black text-white text-[10px] tracking-wider">{bankParams.initials}</span>
-                                        ) : (
-                                            bankParams.initials
-                                        )}
-                                    </div>
-                                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button
-                                            onClick={(e) => handleEdit(e, card)}
-                                            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-colors"
-                                        >
-                                            <Edit2 size={16} />
-                                        </button>
-                                        <button
-                                            onClick={(e) => handleDelete(e, card.id)}
-                                            className="p-2 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
-                                        >
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{
+                                    width: '2.5rem',
+                                    height: '2.5rem',
+                                    borderRadius: '1rem',
+                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.05)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '9px',
+                                    fontWeight: '900',
+                                    color: 'white',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    {bankParams.initials}
                                 </div>
+                                <div style={{ display: 'flex', gap: '0.375rem' }} className="card-actions">
+                                    <button
+                                        onClick={(e) => handleEdit(e, card)}
+                                        style={{
+                                            padding: '0.375rem',
+                                            borderRadius: '0.5rem',
+                                            border: 'none',
+                                            backgroundColor: 'rgba(255,255,255,0.03)',
+                                            color: '#71717a',
+                                            cursor: 'pointer'
+                                        }}
+                                        onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
+                                        onMouseLeave={(e) => e.currentTarget.style.color = '#71717a'}
+                                    >
+                                        <Edit2 size={14} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDelete(e, card.id)}
+                                        style={{
+                                            padding: '0.375rem',
+                                            borderRadius: '0.5rem',
+                                            border: 'none',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            color: '#f87171',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <Trash2 size={14} />
+                                    </button>
+                                </div>
+                            </div>
 
-                                <h3 className="text-xl font-bold text-white mb-1 group-hover:text-purple-400 transition-colors">{card.name}</h3>
+                            <div style={{ margin: '1rem 0' }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.25rem 0' }}>{card.name}</h3>
                                 {card.bankName && (
-                                    <div className="flex items-center gap-1.5 text-sm text-gray-400 mb-4">
-                                        <Building size={14} />
-                                        {card.bankName}
-                                    </div>
+                                    <p style={{ fontSize: '0.75rem', color: '#71717a', margin: 0, display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        <Building size={12} /> {card.bankName}
+                                    </p>
                                 )}
+                            </div>
 
-                                {card.type === 'wallet' ? (
-                                    <div className="grid grid-cols-2 gap-4 my-6">
-                                        <div className="bg-emerald-500/10 rounded-xl p-3 border border-emerald-500/20">
-                                            <p className="text-xs text-emerald-400/70 uppercase tracking-wider mb-1">Available</p>
-                                            <p className="font-mono font-bold text-emerald-400">{formatCurrency(getWalletBalance(card))}</p>
-                                        </div>
-                                        {card.autoCredit ? (
-                                            <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                                                <p className="text-xs text-secondary uppercase tracking-wider mb-1">Auto-Load</p>
-                                                <p className="font-mono font-bold text-white">{formatCurrency(card.autoCredit.amount)} <span className="text-[10px] text-gray-500 font-sans font-normal">(Day {card.autoCredit.dayOfMonth})</span></p>
-                                            </div>
-                                        ) : (
-                                            <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                                                <p className="text-xs text-secondary uppercase tracking-wider mb-1">Wallet</p>
-                                                <p className="font-mono font-bold text-gray-400">Manual</p>
-                                            </div>
-                                        )}
+                            {card.type === 'wallet' ? (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Available</span>
+                                        <p style={{ fontSize: '1rem', fontWeight: '950', color: '#34d399', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(getWalletBalance(card))}</p>
                                     </div>
-                                ) : (
-                                    <div className="grid grid-cols-2 gap-4 my-6">
-                                        <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">Limit</p>
-                                            <p className="font-mono font-bold text-white">{formatCurrency(card.creditLimit)}</p>
-                                        </div>
-                                        <div className="bg-black/20 rounded-xl p-3 border border-white/5">
-                                            <p className="text-xs text-secondary uppercase tracking-wider mb-1">{isUnbilled ? 'Unbilled' : 'To Pay'}</p>
-                                            <p className={`font-mono font-bold flex items-center gap-1 ${displayDue > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
-                                                {formatCurrency(displayDue)}
-                                            </p>
-                                        </div>
+                                    <div>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Auto-Load</span>
+                                        <p style={{ fontSize: '1rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>
+                                            {card.autoCredit ? formatCurrency(card.autoCredit.amount) : 'Manual'}
+                                        </p>
                                     </div>
-                                )}
-
-                                <div className="flex items-center justify-between text-sm pt-4 border-t border-white/5">
-                                    <div className="flex items-center gap-2 text-gray-400">
-                                        <div className="font-mono bg-white/5 px-2 py-1 rounded">
-                                            {card.type === 'wallet' ? 'Wallet' : card.last4Digits ? `•••• ${card.last4Digits}` : 'Card'}
-                                        </div>
-                                    </div>
-                                    {card.type !== 'wallet' && (
-                                        <div className="flex items-center gap-1.5 text-purple-400">
-                                            <Calendar size={14} />
-                                            <span>Due: {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} {new Date().toLocaleString('default', { month: 'short' })}</span>
-                                        </div>
-                                    )}
                                 </div>
+                            ) : (
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <div>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Limit</span>
+                                        <p style={{ fontSize: '1rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(card.creditLimit)}</p>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: displayDue > 0 ? '#f87171' : '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{isUnbilled ? 'Unbilled' : 'To Pay'}</span>
+                                        <p style={{ fontSize: '1rem', fontWeight: '950', color: displayDue > 0 ? '#f87171' : '#34d399', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(displayDue)}</p>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.05)', fontSize: '11px', color: '#71717a' }}>
+                                <span style={{ fontFamily: 'monospace', backgroundColor: 'rgba(255,255,255,0.03)', padding: '0.125rem 0.375rem', borderRadius: '0.25rem' }}>
+                                    {card.type === 'wallet' ? 'Wallet' : card.last4Digits ? `•••• ${card.last4Digits}` : 'Card'}
+                                </span>
+                                {card.type !== 'wallet' && (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#c084fc', fontWeight: 'bold' }}>
+                                        <Calendar size={12} /> Due: {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()} {new Date().toLocaleString('default', { month: 'short' })}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     );
                 })}
 
-                {/* Add New Card Blank State if empty */}
+                {/* Add New Card Blank State */}
                 {creditCards.length === 0 && (
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-[#18181b] border-2 border-dashed border-white/10 rounded-3xl p-8 flex flex-col items-center justify-center gap-4 text-gray-500 hover:text-purple-400 hover:border-purple-500/50 hover:bg-purple-500/5 transition-all group h-[300px]"
+                        style={{
+                            backgroundColor: 'rgba(24, 24, 27, 0.2)',
+                            border: '2px dashed rgba(255, 255, 255, 0.08)',
+                            borderRadius: '2rem',
+                            height: '280px',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '1rem',
+                            color: '#71717a',
+                            cursor: 'pointer',
+                            outline: 'none'
+                        }}
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.borderColor = 'rgba(192, 132, 252, 0.5)';
+                            e.currentTarget.style.color = '#c084fc';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                            e.currentTarget.style.color = '#71717a';
+                        }}
                     >
-                        <div className="w-16 h-16 rounded-full bg-white/5 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <Plus size={32} />
+                        <div style={{
+                            width: '3.5rem',
+                            height: '3.5rem',
+                            borderRadius: '50%',
+                            backgroundColor: 'rgba(255,255,255,0.03)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Plus size={24} />
                         </div>
-                        <p className="font-medium">Add your first credit card</p>
+                        <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 'bold' }}>Add your first credit card</p>
                     </button>
                 )}
             </div>
@@ -267,7 +357,7 @@ const CreditCardDetails = () => {
                 message="Are you sure you want to delete this credit card? All associated data will be lost."
                 confirmText="Delete"
             />
-        </div >
+        </div>
     );
 };
 

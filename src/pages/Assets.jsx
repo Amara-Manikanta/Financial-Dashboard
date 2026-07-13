@@ -9,10 +9,28 @@ const Assets = () => {
 
     const getIcon = (id) => {
         switch (id) {
-            case 'plots': return <Layers size={32} className="text-emerald-400" />;
-            case 'apartments': return <Home size={32} className="text-blue-400" />;
-            case 'other_assets': return <PieChart size={32} className="text-purple-400" />;
-            default: return <Layers size={32} className="text-gray-400" />;
+            case 'plots': return <Layers size={24} style={{ color: '#34d399' }} />;
+            case 'apartments': return <Home size={24} style={{ color: '#60a5fa' }} />;
+            case 'other_assets': return <PieChart size={24} style={{ color: '#c084fc' }} />;
+            default: return <Layers size={24} style={{ color: '#a1a1aa' }} />;
+        }
+    };
+
+    const getGlowColor = (id) => {
+        switch (id) {
+            case 'plots': return 'rgba(52, 211, 153, 0.15)';
+            case 'apartments': return 'rgba(96, 165, 250, 0.15)';
+            case 'other_assets': return 'rgba(192, 132, 252, 0.15)';
+            default: return 'rgba(255, 255, 255, 0.05)';
+        }
+    };
+
+    const getBorderColor = (id) => {
+        switch (id) {
+            case 'plots': return 'rgba(52, 211, 153, 0.2)';
+            case 'apartments': return 'rgba(96, 165, 250, 0.2)';
+            case 'other_assets': return 'rgba(192, 132, 252, 0.2)';
+            default: return 'rgba(255, 255, 255, 0.1)';
         }
     };
 
@@ -21,40 +39,75 @@ const Assets = () => {
     };
 
     return (
-        <div>
-            <div className="mb-8">
-                <h2 className="text-3xl font-bold mb-2">Assets</h2>
-                <p className="text-secondary">Track and manage your real estate and other valuable assets.</p>
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+            <div style={{ marginBottom: '2.5rem' }}>
+                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0' }}>Assets</h2>
+                <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>Track and manage your real estate and other valuable assets.</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {assets.map(category => (
-                    <div
-                        key={category.id}
-                        onClick={() => navigate(`/assets/${category.id}`)}
-                        className="card group hover:scale-[1.02] transition-all cursor-pointer bg-white/5 border border-white/10 hover:border-blue-500/50 p-6 rounded-xl"
-                    >
-                        <div className="flex items-start justify-between mb-6">
-                            <div className="p-3 bg-white/5 rounded-lg group-hover:bg-white/10 transition-colors">
-                                {getIcon(category.id)}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '2rem'
+            }}>
+                {assets.map(category => {
+                    const totalValue = calculateTotalValue(category.items);
+                    const glowColor = getGlowColor(category.id);
+                    const borderColor = getBorderColor(category.id);
+                    return (
+                        <div
+                            key={category.id}
+                            onClick={() => navigate(`/assets/${category.id}`)}
+                            style={{
+                                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                                backdropFilter: 'blur(10px)',
+                                border: `1px solid ${borderColor}`,
+                                borderRadius: '2rem',
+                                padding: '1.75rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                justifyContent: 'space-between',
+                                height: '220px',
+                                boxShadow: `0 10px 20px -5px ${glowColor}`,
+                                transition: 'transform 0.2s, border-color 0.2s',
+                                position: 'relative'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-4px)';
+                                e.currentTarget.style.borderColor = 'white';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.transform = 'none';
+                                e.currentTarget.style.borderColor = borderColor;
+                            }}
+                        >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{
+                                    padding: '0.75rem',
+                                    borderRadius: '1rem',
+                                    backgroundColor: glowColor,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    {getIcon(category.id)}
+                                </div>
+                                <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    {category.items.length} items
+                                </span>
+                            </div>
+
+                            <div style={{ marginTop: '1.5rem' }}>
+                                <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0' }}>{category.title}</h3>
+                                <div>
+                                    <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Total Valuation</p>
+                                    <p style={{ fontSize: '1.75rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(totalValue)}</p>
+                                </div>
                             </div>
                         </div>
-
-                        <h3 className="text-xl font-bold mb-2">{category.title}</h3>
-
-                        <div className="space-y-1">
-                            <p className="text-sm text-secondary">Total Value</p>
-                            <p className="text-2xl font-bold text-white group-hover:text-blue-400 transition-colors">
-                                {formatCurrency(calculateTotalValue(category.items))}
-                            </p>
-                        </div>
-
-                        <div className="mt-4 pt-4 border-t border-white/10 flex justify-between text-sm text-secondary">
-                            <span>{category.items.length} Items</span>
-                            <span className="group-hover:translate-x-1 transition-transform">View Details →</span>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
             </div>
         </div>
     );

@@ -148,62 +148,128 @@ const Expenses = () => {
     };
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto relative">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', position: 'relative' }}>
             {notification && (
-                <div className={`fixed top-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3 rounded-2xl flex items-center gap-3 shadow-2xl animate-in slide-in-from-top-4 ${
-                    notification.type === 'error' ? 'bg-red-500/10 border border-red-500/20 text-red-400' :
-                    notification.type === 'success' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' :
-                    'bg-blue-500/10 border border-blue-500/20 text-blue-400'
-                }`}>
-                    <span className="font-bold text-sm tracking-wide">{notification.message}</span>
-                    <button onClick={() => setNotification(null)} className="opacity-50 hover:opacity-100 transition-opacity">
+                <div style={{
+                    position: 'fixed',
+                    top: '2rem',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    zIndex: 50,
+                    padding: '0.75rem 1.5rem',
+                    borderRadius: '1rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.5)',
+                    backgroundColor: notification.type === 'error' ? 'rgba(239,68,68,0.1)' : notification.type === 'success' ? 'rgba(16,185,129,0.1)' : 'rgba(59,130,246,0.1)',
+                    border: notification.type === 'error' ? '1px solid rgba(239,68,68,0.2)' : notification.type === 'success' ? '1px solid rgba(16,185,129,0.2)' : '1px solid rgba(59,130,246,0.2)',
+                    color: notification.type === 'error' ? '#f87171' : notification.type === 'success' ? '#34d399' : '#60a5fa'
+                }}>
+                    <span style={{ fontWeight: 'bold', fontSize: '0.875rem', letterSpacing: '0.025em' }}>{notification.message}</span>
+                    <button onClick={() => setNotification(null)} style={{ opacity: 0.5, border: 'none', backgroundColor: 'transparent', color: 'currentColor', cursor: 'pointer', padding: 0 }}>
                         <X size={16} />
                     </button>
                 </div>
             )}
             
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6">
-                <div>
-                    <h2 className="text-5xl font-black text-white tracking-tighter mb-4">Expenses History</h2>
-                    <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs">Track and analyze your spending over time</p>
-                </div>
-                <div className="flex items-center gap-4 w-full lg:w-auto">
-                    <input 
-                        type="file" 
-                        accept=".xlsx, .xls, .csv" 
-                        ref={fileInputRef} 
-                        style={{ display: 'none' }} 
-                        onChange={handleImportStatement} 
-                    />
-                    <button 
-                        onClick={() => fileInputRef.current?.click()} 
-                        disabled={isImporting}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white/[0.03] hover:bg-white/[0.08] text-white font-black py-4 px-8 rounded-2xl border border-white/5 transition-all active:scale-95 text-xs uppercase tracking-widest disabled:opacity-50"
-                    >
-                        {isImporting ? <Loader2 size={18} className="animate-spin text-gray-400" /> : <Upload size={18} className="text-emerald-400" />}
-                        <span>{isImporting ? 'Importing...' : 'Import Statement'}</span>
-                    </button>
-                    <button
-                        onClick={() => setIsAddYearModalOpen(true)}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-white/[0.03] hover:bg-white/[0.08] text-white font-black py-4 px-8 rounded-2xl border border-white/5 transition-all active:scale-95 text-xs uppercase tracking-widest"
-                    >
-                        <Plus size={18} className="text-blue-400" />
-                        <span>Add Year</span>
-                    </button>
-                    <button
-                        onClick={() => navigate('/analytics')}
-                        className="flex-1 lg:flex-none flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-8 rounded-2xl border border-blue-500 transition-all shadow-2xl shadow-blue-900/20 active:scale-95 text-xs uppercase tracking-widest"
-                    >
-                        <BarChart3 size={18} />
-                        <span>Analytics</span>
-                    </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem' }}>
+                    <div>
+                        <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0' }}>Expenses History</h2>
+                        <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Track and analyze your spending over time</p>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        <input 
+                            type="file" 
+                            accept=".xlsx, .xls, .csv" 
+                            ref={fileInputRef} 
+                            style={{ display: 'none' }} 
+                            onChange={handleImportStatement} 
+                        />
+                        <button 
+                            onClick={() => fileInputRef.current?.click()} 
+                            disabled={isImporting}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '1rem',
+                                backgroundColor: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                color: 'white',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                cursor: 'pointer',
+                                opacity: isImporting ? 0.5 : 1
+                            }}
+                        >
+                            {isImporting ? <Loader2 size={16} className="animate-spin text-gray-400" /> : <Upload size={16} className="text-emerald-400" />}
+                            <span>{isImporting ? 'Importing...' : 'Import Statement'}</span>
+                        </button>
+
+                        <button
+                            onClick={() => setIsAddYearModalOpen(true)}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '1rem',
+                                backgroundColor: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                color: 'white',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            <Plus size={16} className="text-blue-400" />
+                            <span>Add Year</span>
+                        </button>
+
+                        <button
+                            onClick={() => navigate('/analytics')}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '1rem',
+                                backgroundColor: '#2563eb',
+                                color: 'white',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                cursor: 'pointer',
+                                border: 'none',
+                                boxShadow: '0 4px 10px -2px rgba(37, 99, 235, 0.2)'
+                            }}
+                        >
+                            <BarChart3 size={16} />
+                            <span>Analytics</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {years.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 bg-white/[0.02] border border-dashed border-white/10 rounded-3xl">
-                    <Calendar size={48} className="text-gray-700 mb-4" />
-                    <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No expenses recorded yet</p>
+                <div style={{
+                    textAlign: 'center',
+                    padding: '4rem 1.5rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: '1.5rem',
+                    border: '1px dashed rgba(255, 255, 255, 0.1)'
+                }}>
+                    <Calendar size={48} style={{ color: '#71717a', marginBottom: '1rem' }} />
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>No expenses recorded yet</p>
                 </div>
             ) : (
                 years.map(year => {
@@ -214,34 +280,68 @@ const Expenses = () => {
                     const yearlySalary = salaryStats[year]?.total || 0;
 
                     return (
-                        <div key={year} className="mb-10">
+                        <div key={year} style={{ marginBottom: '2.5rem' }}>
                             <div
                                 onClick={() => toggleYear(year)}
-                                className="group flex flex-col md:flex-row items-start md:items-center justify-between p-6 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.04] transition-all cursor-pointer mb-6"
+                                style={{
+                                    backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                                    backdropFilter: 'blur(10px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    borderRadius: '1.5rem',
+                                    padding: '1.25rem 1.5rem',
+                                    display: 'flex',
+                                    flexWrap: 'wrap',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    cursor: 'pointer',
+                                    marginBottom: '1.5rem',
+                                    boxShadow: '0 4px 20px -2px rgba(0,0,0,0.3)'
+                                }}
                             >
-                                <div className="flex items-center gap-6 mb-4 md:mb-0">
-                                    <div className="flex items-center justify-center w-12 h-12 bg-white/5 rounded-2xl group-hover:bg-blue-600/10 transition-colors">
-                                        {isCollapsed ? <ChevronDown size={20} className="text-gray-500" /> : <ChevronUp size={20} className="text-blue-400" />}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div style={{
+                                        padding: '0.5rem',
+                                        borderRadius: '0.75rem',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                        color: isCollapsed ? '#71717a' : '#2563eb',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}>
+                                        {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
                                     </div>
-                                    <h3 className="text-4xl font-black text-white tracking-tighter">{year}</h3>
+                                    <h3 style={{ fontSize: '2rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>{year}</h3>
                                 </div>
-                                <div className="flex gap-8 w-full md:w-auto">
-                                    <div className="flex-1 md:flex-none">
-                                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Income</p>
-                                        <p className="text-xl font-black text-emerald-400 tracking-tight">{formatCurrency(yearlySalary)}</p>
+
+                                <div style={{ display: 'flex', gap: '2rem' }}>
+                                    <div>
+                                        <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Income</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#10b981', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(yearlySalary)}</p>
                                     </div>
-                                    <div className="flex-1 md:flex-none border-l border-white/5 pl-8">
-                                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Expenses</p>
-                                        <p className="text-xl font-black text-rose-400 tracking-tight">{formatCurrency(yearlyTotalExpenses)}</p>
+                                    <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.05)', paddingLeft: '2rem' }}>
+                                        <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Expenses</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#ef4444', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(yearlyTotalExpenses)}</p>
                                     </div>
                                 </div>
                             </div>
 
                             {!isCollapsed && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 px-2">
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                                    gap: '1.5rem',
+                                    padding: '0 0.5rem'
+                                }}>
                                     {(!expenseGroups[year] || Object.keys(expenseGroups[year]).length === 0) ? (
-                                        <div className="col-span-full py-12 text-center border border-dashed border-white/5 rounded-3xl bg-white/[0.01]">
-                                            <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No data for this year</p>
+                                        <div style={{
+                                            gridColumn: '1 / -1',
+                                            padding: '3rem 1.5rem',
+                                            textAlign: 'center',
+                                            border: '1px dashed rgba(255, 255, 255, 0.05)',
+                                            borderRadius: '1.5rem',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.01)'
+                                        }}>
+                                            <p style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>No data for this year</p>
                                         </div>
                                     ) : Object.entries(expenseGroups[year])
                                         .sort(([a], [b]) => Number(a) - Number(b))
@@ -257,56 +357,62 @@ const Expenses = () => {
                                             return (
                                                 <div
                                                     key={index}
-                                                    className="group relative overflow-hidden p-6 bg-white/[0.02] border border-white/5 rounded-3xl hover:bg-white/[0.05] hover:border-white/10 transition-all cursor-pointer active:scale-[0.98]"
                                                     onClick={() => navigate(`/expenses/${year}/${data.name}`)}
+                                                    style={{
+                                                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                                                        backdropFilter: 'blur(10px)',
+                                                        borderRadius: '1.5rem',
+                                                        border: isDeficit ? '1px solid rgba(239, 68, 68, 0.15)' : '1px solid rgba(16, 185, 129, 0.15)',
+                                                        padding: '1.25rem',
+                                                        cursor: 'pointer',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        justifyContent: 'space-between',
+                                                        height: '240px',
+                                                        boxShadow: isDeficit ? '0 4px 20px -2px rgba(239, 68, 68, 0.02)' : '0 4px 20px -2px rgba(16, 185, 129, 0.02)'
+                                                    }}
                                                 >
-                                                    <div className="flex justify-between items-center mb-6">
-                                                        <h3 className="text-xl font-black text-white tracking-tight group-hover:text-blue-400 transition-colors">{data.name}</h3>
-                                                        <div className="p-2 bg-white/5 rounded-xl text-gray-500 group-hover:text-blue-400 transition-colors">
-                                                            <Calendar size={16} />
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>{data.name}</h3>
+                                                        <div style={{ color: isDeficit ? '#ef4444' : '#10b981' }}>
+                                                            <Calendar size={18} />
                                                         </div>
                                                     </div>
 
-                                                    <div className="space-y-4">
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                                         <div>
-                                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#71717a', marginBottom: '0.25rem' }}>
                                                                 <span>Income</span>
-                                                                <span className="text-emerald-400">{formatCurrency(monthlySalary)}</span>
+                                                                <span style={{ color: '#10b981', fontFamily: 'monospace' }}>{formatCurrency(monthlySalary)}</span>
                                                             </div>
-                                                            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
-                                                                <div 
-                                                                    className="bg-emerald-500 h-full transition-all duration-1000" 
-                                                                    style={{ width: `${incomePercent}%` }} 
-                                                                />
+                                                            <div style={{ width: '100%', height: '3px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '1.5px', overflow: 'hidden' }}>
+                                                                <div style={{ height: '100%', width: `${incomePercent}%`, backgroundColor: '#10b981' }}></div>
                                                             </div>
                                                         </div>
 
                                                         <div>
-                                                            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-gray-500 mb-1">
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#71717a', marginBottom: '0.25rem' }}>
                                                                 <span>Expense</span>
-                                                                <span className="text-rose-400">{formatCurrency(data.total)}</span>
+                                                                <span style={{ color: '#ef4444', fontFamily: 'monospace' }}>{formatCurrency(data.total)}</span>
                                                             </div>
-                                                            <div className="w-full bg-white/5 h-1 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className="bg-rose-500 h-full transition-all duration-1000"
-                                                                    style={{ width: `${expensePercent}%` }}
-                                                                />
+                                                            <div style={{ width: '100%', height: '3px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '1.5px', overflow: 'hidden' }}>
+                                                                <div style={{ height: '100%', width: `${expensePercent}%`, backgroundColor: '#ef4444' }}></div>
                                                             </div>
                                                         </div>
+                                                    </div>
 
-                                                        <div className="pt-4 border-t border-white/5 flex justify-between items-end">
-                                                            <div>
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 mb-1">
-                                                                    {isDeficit ? 'Deficit' : 'Savings'}
-                                                                </p>
-                                                                <p className={`text-lg font-black tracking-tight ${isDeficit ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                                    {formatCurrency(Math.abs(balance))}
-                                                                </p>
-                                                            </div>
-                                                            <span className="text-[10px] font-black text-gray-600 bg-white/5 px-2 py-1 rounded-lg uppercase">
-                                                                {data.count} Categories
-                                                            </span>
+                                                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '0.5rem' }}>
+                                                        <div>
+                                                            <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>
+                                                                {isDeficit ? 'Deficit' : 'Savings'}
+                                                            </p>
+                                                            <p style={{ fontSize: '1.125rem', fontWeight: '950', color: isDeficit ? '#ef4444' : '#10b981', fontFamily: 'monospace', margin: 0 }}>
+                                                                {formatCurrency(Math.abs(balance))}
+                                                            </p>
                                                         </div>
+                                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            {data.count} categories
+                                                        </span>
                                                     </div>
                                                 </div>
                                             );
@@ -319,7 +425,6 @@ const Expenses = () => {
                 })
             )}
 
-            {/* Add Year Modal */}
             {isAddYearModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
                     <div className="bg-[#121214] border border-white/5 w-full max-w-md rounded-[2rem] overflow-hidden shadow-2xl">

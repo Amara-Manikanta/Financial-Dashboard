@@ -162,21 +162,28 @@ const GroceryAnalytics = () => {
     const paginatedData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
     return (
-        <div className="max-w-6xl mx-auto space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h2 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
-                        <ShoppingBag className="text-emerald-500" size={28} />
-                        Grocery Analytics
-                    </h2>
-                    <p className="text-sm text-gray-400 mt-1">Track prices and purchase history of your groceries</p>
-                </div>
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+            {/* Header */}
+            <div>
+                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <ShoppingBag style={{ color: '#10b981' }} size={32} /> Grocery Analytics
+                </h2>
+                <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track prices and purchase history of your groceries</p>
             </div>
 
             {/* Filters */}
-            <div className="bg-[#18181b] border border-white/5 p-4 rounded-3xl grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Category</label>
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '2rem',
+                padding: '1.5rem',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '1.5rem'
+            }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</label>
                     <select
                         value={selectedCategory}
                         onChange={(e) => {
@@ -185,15 +192,15 @@ const GroceryAnalytics = () => {
                             setSelectedBrand('All');
                             setSelectedFlavour('All');
                         }}
-                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm font-medium text-white focus:border-emerald-500/50 focus:outline-none transition-colors appearance-none cursor-pointer"
+                        style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', color: 'white', fontSize: '0.875rem', outline: 'none', cursor: 'pointer' }}
                     >
-                        <option value="All">All Categories</option>
-                        {filterOptions.categories.map(c => <option key={c} value={c}>{c}</option>)}
+                        <option value="All" style={{ backgroundColor: '#18181b' }}>All Categories</option>
+                        {filterOptions.categories.map(c => <option key={c} value={c} style={{ backgroundColor: '#18181b' }}>{c}</option>)}
                     </select>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Product</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Product</label>
                     <select
                         value={selectedItem}
                         onChange={(e) => {
@@ -201,78 +208,138 @@ const GroceryAnalytics = () => {
                             setSelectedBrand('All');
                             setSelectedFlavour('All');
                         }}
-                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm font-medium text-white focus:border-emerald-500/50 focus:outline-none transition-colors appearance-none cursor-pointer"
+                        style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', color: 'white', fontSize: '0.875rem', outline: 'none', cursor: 'pointer' }}
                     >
-                        <option value="All">All Products</option>
-                        {filterOptions.items.map(i => <option key={i} value={i}>{i}</option>)}
+                        <option value="All" style={{ backgroundColor: '#18181b' }}>All Products</option>
+                        {filterOptions.items.map(i => <option key={i} value={i} style={{ backgroundColor: '#18181b' }}>{i}</option>)}
                     </select>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Brand</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Brand</label>
                     <select
                         value={selectedBrand}
                         onChange={(e) => {
                             setSelectedBrand(e.target.value);
                             setSelectedFlavour('All');
                         }}
-                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm font-medium text-white focus:border-emerald-500/50 focus:outline-none transition-colors appearance-none cursor-pointer disabled:opacity-50"
                         disabled={filterOptions.brands.length === 0}
+                        style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', color: 'white', fontSize: '0.875rem', outline: 'none', cursor: 'pointer', opacity: filterOptions.brands.length === 0 ? 0.3 : 1 }}
                     >
-                        <option value="All">All Brands</option>
-                        {filterOptions.brands.map(b => <option key={b} value={b}>{b}</option>)}
+                        <option value="All" style={{ backgroundColor: '#18181b' }}>All Brands</option>
+                        {filterOptions.brands.map(b => <option key={b} value={b} style={{ backgroundColor: '#18181b' }}>{b}</option>)}
                     </select>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 ml-1">Flavour / Variant</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Flavour / Variant</label>
                     <select
                         value={selectedFlavour}
                         onChange={(e) => setSelectedFlavour(e.target.value)}
-                        className="w-full bg-white/5 border border-white/5 rounded-xl px-4 py-3 text-sm font-medium text-white focus:border-emerald-500/50 focus:outline-none transition-colors appearance-none cursor-pointer disabled:opacity-50"
                         disabled={filterOptions.flavours.length === 0}
+                        style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', color: 'white', fontSize: '0.875rem', outline: 'none', cursor: 'pointer', opacity: filterOptions.flavours.length === 0 ? 0.3 : 1 }}
                     >
-                        <option value="All">All Flavours</option>
-                        {filterOptions.flavours.map(f => <option key={f} value={f}>{f}</option>)}
+                        <option value="All" style={{ backgroundColor: '#18181b' }}>All Flavours</option>
+                        {filterOptions.flavours.map(f => <option key={f} value={f} style={{ backgroundColor: '#18181b' }}>{f}</option>)}
                     </select>
                 </div>
             </div>
 
             {/* Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[#18181b] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
-                        <ShoppingBag size={64} className="text-emerald-500" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                <div style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.03)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(16, 185, 129, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.05)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <div style={{
+                            padding: '0.5rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            color: '#34d399',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <ShoppingBag size={18} />
+                        </div>
+                        <span style={{ fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Spent</span>
                     </div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Total Spent</p>
-                    <p className="text-3xl font-black text-white">{formatCurrency(stats.totalSpent)}</p>
+                    <p style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>
+                        {formatCurrency(stats.totalSpent)}
+                    </p>
                 </div>
-                <div className="bg-[#18181b] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
-                        <Package size={64} className="text-blue-500" />
+
+                <div style={{
+                    backgroundColor: 'rgba(59, 130, 246, 0.03)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(59, 130, 246, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.05)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <div style={{
+                            padding: '0.5rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            color: '#60a5fa',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Package size={18} />
+                        </div>
+                        <span style={{ fontSize: '9px', fontWeight: '900', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Items Bought</span>
                     </div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Items Bought</p>
-                    <p className="text-3xl font-black text-white">{stats.totalItems}</p>
+                    <p style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>
+                        {stats.totalItems}
+                    </p>
                 </div>
-                <div className="bg-[#18181b] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 p-6 opacity-20 group-hover:scale-110 group-hover:rotate-12 transition-transform duration-500">
-                        <Tags size={64} className="text-purple-500" />
+
+                <div style={{
+                    backgroundColor: 'rgba(168, 85, 247, 0.03)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(168, 85, 247, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(168, 85, 247, 0.05)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <div style={{
+                            padding: '0.5rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                            color: '#c084fc',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Tags size={18} />
+                        </div>
+                        <span style={{ fontSize: '9px', fontWeight: '900', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg. Price / Item</span>
                     </div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Avg. Price / Item</p>
-                    <p className="text-3xl font-black text-white">{formatCurrency(stats.avgPrice)}</p>
+                    <p style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>
+                        {formatCurrency(stats.avgPrice)}
+                    </p>
                 </div>
             </div>
 
             {/* Price History Chart */}
-            <div className="bg-[#18181b] border border-white/5 p-6 rounded-3xl">
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h3 className="text-lg font-bold text-white">Price History</h3>
-                        <p className="text-sm text-gray-400 mt-1">Cost trend over time for selected items</p>
-                    </div>
-                </div>
-
-                <div className="h-[300px] w-full">
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '2rem',
+                padding: '1.5rem',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+            }}>
+                <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0' }}>Price History</h3>
+                <div style={{ height: 300, width: '100%' }}>
                     {chartData.length > 1 ? (
                         <ResponsiveContainer width="100%" height="100%">
                             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
@@ -283,83 +350,65 @@ const GroceryAnalytics = () => {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" vertical={false} />
-                                <XAxis 
-                                    dataKey="date" 
-                                    stroke="#ffffff40" 
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                />
-                                <YAxis 
-                                    stroke="#ffffff40" 
-                                    fontSize={12}
-                                    tickLine={false}
-                                    axisLine={false}
-                                    tickFormatter={(val) => `₹${val}`}
-                                />
+                                <XAxis dataKey="date" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val}`} />
                                 <RechartsTooltip content={<CustomTooltip formatCurrency={formatCurrency} />} />
-                                <Area 
-                                    type="monotone" 
-                                    dataKey="Total Price" 
-                                    stroke="#10b981" 
-                                    strokeWidth={3}
-                                    fillOpacity={1} 
-                                    fill="url(#colorPrice)" 
-                                    activeDot={{ r: 6, fill: '#10b981', stroke: '#09090b', strokeWidth: 2 }}
-                                />
+                                <Area type="monotone" dataKey="Total Price" stroke="#10b981" strokeWidth={3} fillOpacity={1} fill="url(#colorPrice)" activeDot={{ r: 6, fill: '#10b981', stroke: '#09090b', strokeWidth: 2 }} />
                             </AreaChart>
                         </ResponsiveContainer>
                     ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-gray-500">
-                            <TrendingUp size={48} className="mb-4 opacity-20" />
-                            <p className="font-medium">Not enough data to chart price history.</p>
-                            <p className="text-sm mt-1">Try selecting a broader filter or add more transactions.</p>
+                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#71717a', fontSize: '0.875rem' }}>
+                            <TrendingUp size={32} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                            <p style={{ margin: 0 }}>Not enough data to chart price history.</p>
                         </div>
                     )}
                 </div>
             </div>
 
             {/* Transactions Table */}
-            <div className="bg-[#18181b] border border-white/5 rounded-3xl overflow-hidden mt-6">
-                <div className="p-6 border-b border-white/5 flex items-center justify-between">
-                    <div>
-                        <h3 className="text-lg font-bold text-white">Purchase Log</h3>
-                        <p className="text-sm text-gray-400 mt-1">Detailed history of selected groceries</p>
-                    </div>
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '2rem',
+                overflow: 'hidden',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+            }}>
+                <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>Purchase Log</h3>
                 </div>
 
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm text-gray-300">
-                        <thead className="text-xs uppercase bg-black/40 text-gray-500">
-                            <tr>
-                                <th className="px-6 py-4 font-black tracking-widest">Date</th>
-                                <th className="px-6 py-4 font-black tracking-widest">Item Details</th>
-                                <th className="px-6 py-4 font-black tracking-widest text-right">Quantity</th>
-                                <th className="px-6 py-4 font-black tracking-widest text-right">Price</th>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item Details</th>
+                                <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quantity</th>
+                                <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price</th>
                             </tr>
                         </thead>
                         <tbody>
                             {paginatedData.map((gi, idx) => (
-                                <tr key={`${gi.transactionId}-${idx}`} className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer" onClick={() => navigate(`/expenses/${gi.year}/${gi.month}?highlightTxId=${gi.transactionId}`)}>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center gap-2">
-                                            <Calendar size={14} className="text-gray-500" />
-                                            <span className="font-medium">{gi.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                                <tr key={`${gi.transactionId}-${idx}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer' }} onClick={() => navigate(`/expenses/${gi.year}/${gi.month}?highlightTxId=${gi.transactionId}`)}>
+                                    <td style={{ padding: '1rem 1.5rem', color: '#a1a1aa', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                            <Calendar size={12} style={{ color: '#71717a' }} />
+                                            <span>{gi.date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4">
-                                        <div className="font-bold text-white">{gi.name}</div>
-                                        <div className="text-[10px] text-gray-500 uppercase tracking-widest mt-0.5">
+                                    <td style={{ padding: '1rem 1.5rem' }}>
+                                        <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>{gi.name}</div>
+                                        <div style={{ fontSize: '9px', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>
                                             {gi.subcategory}
                                             {gi.brand && ` • ${gi.brand}`}
                                             {gi.flavour && ` • ${gi.flavour}`}
                                         </div>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-medium">
+                                    <td style={{ padding: '1rem 1.5rem', textAlign: 'right', color: 'white', fontSize: '0.875rem', fontWeight: 'bold' }}>
                                         {gi.quantity}
                                     </td>
-                                    <td className="px-6 py-4 text-right">
-                                        <span className="font-bold text-white bg-white/10 px-2 py-1 rounded-lg">
+                                    <td style={{ padding: '1rem 1.5rem', textAlign: 'right' }}>
+                                        <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: 'white', backgroundColor: 'rgba(255,255,255,0.03)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                                             {formatCurrency(gi.price)}
                                         </span>
                                     </td>
@@ -367,9 +416,9 @@ const GroceryAnalytics = () => {
                             ))}
                             {paginatedData.length === 0 && (
                                 <tr>
-                                    <td colSpan="4" className="px-6 py-12 text-center text-gray-500">
-                                        <ShoppingBag size={32} className="mx-auto mb-3 opacity-20" />
-                                        <p className="font-medium">No grocery items found</p>
+                                    <td colSpan="4" style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem' }}>
+                                        <ShoppingBag size={24} style={{ color: '#71717a', marginBottom: '1rem', opacity: 0.5 }} />
+                                        <p style={{ margin: 0 }}>No grocery items found</p>
                                     </td>
                                 </tr>
                             )}
@@ -378,18 +427,17 @@ const GroceryAnalytics = () => {
                 </div>
 
                 {/* Pagination Controls */}
-                <div className="p-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4 bg-black/20">
-                    <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-500">
-                            Showing <span className="font-bold text-white">{filteredData.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1}</span> to <span className="font-bold text-white">{Math.min(currentPage * rowsPerPage, filteredData.length)}</span> of <span className="font-bold text-white">{filteredData.length}</span> entries
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <span style={{ fontSize: '11px', color: '#71717a' }}>
+                            Showing {filteredData.length === 0 ? 0 : (currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, filteredData.length)} of {filteredData.length} entries
                         </span>
-                        
-                        <div className="flex items-center gap-2">
-                            <span className="text-xs text-gray-500 font-bold uppercase tracking-widest">Rows:</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <span style={{ fontSize: '11px', color: '#71717a' }}>Rows:</span>
                             <select
                                 value={rowsPerPage}
                                 onChange={(e) => setRowsPerPage(Number(e.target.value))}
-                                className="bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-sm font-medium text-white focus:outline-none focus:border-emerald-500/50 cursor-pointer"
+                                style={{ backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '0.5rem', padding: '0.25rem', outline: 'none', cursor: 'pointer' }}
                             >
                                 <option value={10}>10</option>
                                 <option value={20}>20</option>
@@ -401,24 +449,12 @@ const GroceryAnalytics = () => {
                     </div>
                     
                     {totalPages > 1 && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 text-sm font-medium transition-colors text-white"
-                            >
-                                Prev
-                            </button>
-                            <span className="text-sm text-gray-400 font-medium px-2">
+                        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === 1 ? 0.3 : 1, fontSize: '10px', fontWeight: 'bold' }}>Prev</button>
+                            <span style={{ fontSize: '11px', color: '#71717a', fontFamily: 'monospace', padding: '0 0.5rem' }}>
                                 {currentPage} / {totalPages}
                             </span>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-50 text-sm font-medium transition-colors text-white"
-                            >
-                                Next
-                            </button>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === totalPages ? 0.3 : 1, fontSize: '10px', fontWeight: 'bold' }}>Next</button>
                         </div>
                     )}
                 </div>

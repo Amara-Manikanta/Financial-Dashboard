@@ -15,35 +15,68 @@ const DebtCard = ({ item, navigate, formatCurrency }) => {
     }, 0);
 
     const pendingAmount = amount + totalTransactions;
+    const accentColor = isLent ? '#10b981' : '#ef4444';
+    const glowColor = isLent ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)';
+    const borderColor = isLent ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)';
 
     return (
         <div
             onClick={() => navigate(`/lents-loans/${item.id}`)}
-            className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:bg-white/10 transition-all cursor-pointer group"
+            style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: `1px solid ${borderColor}`,
+                borderRadius: '2rem',
+                padding: '1.5rem',
+                cursor: 'pointer',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'space-between',
+                height: '220px',
+                boxShadow: `0 10px 15px -3px ${glowColor}`,
+                position: 'relative'
+            }}
         >
-            <div className="flex justify-between items-start mb-4">
-                <div className={`p-3 rounded-xl ${isLent ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                    {isLent ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{
+                    padding: '0.5rem',
+                    borderRadius: '0.75rem',
+                    backgroundColor: isLent ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                    color: accentColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                }}>
+                    {isLent ? <ArrowUpRight size={18} /> : <ArrowDownLeft size={18} />}
                 </div>
                 {item.isEmi && (
-                    <span className="px-2 py-1 bg-blue-500/20 text-blue-400 text-xs rounded-lg border border-blue-500/20">
+                    <span style={{
+                        fontSize: '9px',
+                        fontWeight: '900',
+                        color: '#60a5fa',
+                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                        border: '1px solid rgba(96, 165, 250, 0.2)',
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '0.5rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em'
+                    }}>
                         EMI
                     </span>
                 )}
             </div>
 
-            <h3 className="text-lg font-semibold text-white mb-1 group-hover:text-amber-400 transition-colors">
-                {item.name}
-            </h3>
-            <p className="text-gray-400 text-sm mb-4 line-clamp-1">{item.description || 'No description'}</p>
-
-            <div className="flex flex-col gap-1">
-                <span className="text-xs text-gray-500 uppercase tracking-wider">
-                    {isLent ? 'Pending Amount' : 'Outstanding Balance'}
-                </span>
-                <span className={`text-2xl font-bold ${isLent ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {formatCurrency(pendingAmount)}
-                </span>
+            <div style={{ marginTop: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.25rem 0' }}>{item.name}</h3>
+                <p style={{ fontSize: '0.75rem', color: '#71717a', margin: '0 0 1rem 0', display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{item.description || 'No description'}</p>
+                <div>
+                    <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>
+                        {isLent ? 'Pending Amount' : 'Outstanding Balance'}
+                    </p>
+                    <p style={{ fontSize: '1.5rem', fontWeight: '950', color: accentColor, fontFamily: 'monospace', margin: 0 }}>
+                        {formatCurrency(pendingAmount)}
+                    </p>
+                </div>
             </div>
         </div>
     );
@@ -82,85 +115,173 @@ const LentsAndLoans = () => {
     });
 
     return (
-        <div className="space-y-8 animate-fade-in pb-12 max-w-7xl mx-auto p-6">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
-                    <h1 className="text-4xl font-black bg-gradient-to-r from-emerald-400 via-blue-500 to-rose-400 bg-clip-text text-transparent tracking-tight">
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
                         Loans & Lents
-                    </h1>
-                    <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-2">Manage peer-to-peer debts</p>
+                    </h2>
+                    <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '0.25rem' }}>
+                        Manage peer-to-peer debts
+                    </p>
                 </div>
                 <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl font-bold text-white transition-all text-sm uppercase tracking-widest"
+                    style={{
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '1rem',
+                        backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                        cursor: 'pointer'
+                    }}
                 >
-                    <Plus size={18} />
-                    Add Record
+                    <Plus size={16} /> Add Record
                 </button>
             </div>
 
             {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="p-8 rounded-3xl bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border border-emerald-500/20 relative overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
-                                <ArrowUpRight size={24} strokeWidth={2.5} />
-                            </div>
-                            <span className="text-emerald-200/60 font-black uppercase tracking-widest text-xs">Total Wait to Receive</span>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+                <div style={{
+                    backgroundColor: 'rgba(16, 185, 129, 0.03)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(16, 185, 129, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.05)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <div style={{
+                            padding: '0.5rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            color: '#34d399',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <ArrowUpRight size={18} />
                         </div>
-                        <div className="text-5xl font-black text-emerald-400 tracking-tighter">
-                            {formatCurrency(totalLent)}
-                        </div>
+                        <span style={{ fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Wait to Receive</span>
                     </div>
+                    <p style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>
+                        {formatCurrency(totalLent)}
+                    </p>
                 </div>
 
-                <div className="p-8 rounded-3xl bg-gradient-to-br from-rose-500/10 to-pink-500/5 border border-rose-500/20 relative overflow-hidden">
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="p-3 bg-rose-500/20 rounded-xl text-rose-400">
-                                <ArrowDownLeft size={24} strokeWidth={2.5} />
-                            </div>
-                            <span className="text-rose-200/60 font-black uppercase tracking-widest text-xs">Total Need to Pay</span>
+                <div style={{
+                    backgroundColor: 'rgba(239, 68, 68, 0.03)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(239, 68, 68, 0.1)',
+                    borderRadius: '2rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 10px 15px -3px rgba(239, 68, 68, 0.05)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+                        <div style={{
+                            padding: '0.5rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            color: '#f87171',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <ArrowDownLeft size={18} />
                         </div>
-                        <div className="text-5xl font-black text-rose-400 tracking-tighter">
-                            {formatCurrency(totalBorrowed)}
-                        </div>
+                        <span style={{ fontSize: '9px', fontWeight: '900', color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Need to Pay</span>
                     </div>
+                    <p style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>
+                        {formatCurrency(totalBorrowed)}
+                    </p>
                 </div>
             </div>
 
             {/* Controls */}
-            <div className="flex flex-col md:flex-row gap-4">
-                <div className="relative flex-1">
-                    <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none z-10">
-                        <Search className="text-gray-500" size={18} />
-                    </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '260px' }}>
+                    <Search style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} size={16} />
                     <input
                         type="text"
                         placeholder="Search debts..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-white/30 transition-colors font-medium"
+                        style={{
+                            width: '100%',
+                            padding: '0.75rem 1rem 0.75rem 2.5rem',
+                            backgroundColor: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            borderRadius: '1rem',
+                            color: 'white',
+                            fontSize: '0.875rem',
+                            outline: 'none'
+                        }}
                     />
                 </div>
-                <div className="flex bg-white/5 border border-white/10 rounded-2xl p-1 overflow-hidden shrink-0">
+                <div style={{
+                    display: 'flex',
+                    backgroundColor: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '1rem',
+                    padding: '2px',
+                    gap: '2px'
+                }}>
                     <button
                         onClick={() => setFilterType('all')}
-                        className={`px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${filterType === 'all' ? 'bg-white text-black' : 'text-gray-400 hover:text-white'}`}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            fontSize: '9px',
+                            fontWeight: '900',
+                            letterSpacing: '0.05em',
+                            borderRadius: '0.75rem',
+                            border: 'none',
+                            backgroundColor: filterType === 'all' ? 'white' : 'transparent',
+                            color: filterType === 'all' ? 'black' : '#71717a',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase'
+                        }}
                     >
                         All
                     </button>
                     <button
                         onClick={() => setFilterType('lent')}
-                        className={`px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${filterType === 'lent' ? 'bg-emerald-500 text-white' : 'text-gray-400 hover:text-emerald-400'}`}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            fontSize: '9px',
+                            fontWeight: '900',
+                            letterSpacing: '0.05em',
+                            borderRadius: '0.75rem',
+                            border: 'none',
+                            backgroundColor: filterType === 'lent' ? '#10b981' : 'transparent',
+                            color: filterType === 'lent' ? 'white' : '#71717a',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase'
+                        }}
                     >
                         Lent
                     </button>
                     <button
                         onClick={() => setFilterType('borrowed')}
-                        className={`px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${filterType === 'borrowed' ? 'bg-rose-500 text-white' : 'text-gray-400 hover:text-rose-400'}`}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            fontSize: '9px',
+                            fontWeight: '900',
+                            letterSpacing: '0.05em',
+                            borderRadius: '0.75rem',
+                            border: 'none',
+                            backgroundColor: filterType === 'borrowed' ? '#ef4444' : 'transparent',
+                            color: filterType === 'borrowed' ? 'white' : '#71717a',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase'
+                        }}
                     >
                         Borrowed
                     </button>
@@ -168,7 +289,11 @@ const LentsAndLoans = () => {
             </div>
 
             {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+                gap: '2rem'
+            }}>
                 {filteredItems.map(item => (
                     <DebtCard
                         key={item.id}
@@ -180,12 +305,28 @@ const LentsAndLoans = () => {
             </div>
 
             {filteredItems.length === 0 && (
-                <div className="text-center py-24 bg-white/5 rounded-3xl border border-white/10 border-dashed">
-                    <div className="w-20 h-20 bg-white/5 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <RefreshCcw size={32} className="text-gray-500" />
+                <div style={{
+                    textAlign: 'center',
+                    padding: '4rem 2rem',
+                    border: '1px dashed rgba(255,255,255,0.08)',
+                    borderRadius: '2rem',
+                    backgroundColor: 'rgba(255,255,255,0.01)',
+                    width: '100%'
+                }}>
+                    <div style={{
+                        width: '3.5rem',
+                        height: '3.5rem',
+                        backgroundColor: 'rgba(255,255,255,0.03)',
+                        borderRadius: '1rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        margin: '0 auto 1.5rem auto'
+                    }}>
+                        <RefreshCcw size={24} style={{ color: '#71717a' }} />
                     </div>
-                    <p className="text-white text-2xl font-black mb-2 tracking-tight">No records found</p>
-                    <p className="text-gray-500 text-sm font-medium">Add a new record to start tracking peer-to-peer debts</p>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 0.5rem 0' }}>No records found</h3>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>Add a new record to start tracking peer-to-peer debts</p>
                 </div>
             )}
 

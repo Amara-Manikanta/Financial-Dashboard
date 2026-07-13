@@ -20,7 +20,19 @@ const GoldBondDetails = () => {
 
     const sgb = savings.find(s => s.id === id);
 
-    if (!sgb) return <div>ID not found</div>;
+    if (!sgb) {
+        return (
+            <div style={{ padding: 'var(--spacing-lg)' }}>
+                <p>Gold Bond Account not found.</p>
+                <button
+                    onClick={() => navigate(-1)}
+                    className="text-primary hover:underline mt-4"
+                >
+                    Back to Savings
+                </button>
+            </div>
+        );
+    }
 
     const handleSaveHolding = (holdingData) => {
         let updatedHoldings = [...sgb.holdings];
@@ -84,34 +96,44 @@ const GoldBondDetails = () => {
     const totalCurrentValue = sgb.holdings.reduce((sum, item) => sum + (item.units * item.currentPrice), 0);
     const totalGain = totalCurrentValue - totalInvested;
     const gainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
+    const isProfit = totalGain >= 0;
 
     const totalInterestReceived = (sgb.interestTransactions || []).reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
+    const glassCardStyle = {
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01))',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.07)',
+        borderRadius: '1.25rem',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+        transition: 'transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease'
+    };
+
     return (
-        <div style={{ padding: 'var(--spacing-lg)' }}>
+        <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-colors mb-6"
-                style={{ cursor: 'pointer', marginBottom: 'var(--spacing-lg)', color: 'white' }}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.08] hover:border-white/[0.1] backdrop-blur-md"
             >
-                <ArrowLeft size={20} /> Back to Savings
+                <ArrowLeft size={14} /> Back to Savings
             </button>
 
-            <div className="mb-8 flex justify-between items-end">
-                <div className="flex items-end gap-6">
-                    <div>
-                        <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                            <ScrollText className="text-accent-primary" size={32} />
-                            {sgb.name}
-                        </h2>
-                        <p className="text-secondary">Sovereign Gold Bonds</p>
-                    </div>
+            <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
+                <div>
+                    <h2 className="text-4xl font-black mb-2 flex items-center gap-4 text-white tracking-tight">
+                        <div className="p-3 bg-amber-500/10 rounded-2xl border border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.15)]">
+                            <ScrollText className="text-amber-400" size={32} />
+                        </div>
+                        {sgb.name}
+                    </h2>
+                    <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[10px] pl-1">Sovereign Gold Bonds</p>
                 </div>
                 <button
                     onClick={() => { setEditingHolding(null); setEditingIndex(null); setIsModalOpen(true); }}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-blue-900/40"
+                    className="w-full md:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.2)] text-xs uppercase tracking-widest active:scale-95"
                 >
-                    <Plus size={20} />
+                    <Plus size={16} />
                     Add Holding
                 </button>
             </div>
@@ -120,103 +142,119 @@ const GoldBondDetails = () => {
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
                 gap: '1.5rem',
-                marginBottom: '2rem'
+                marginBottom: '2.5rem'
             }}>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Total Gold Units</p>
-                    <p className="font-bold text-lg">{totalUnits} g</p>
+                <div className="card p-6" style={glassCardStyle}>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Total Gold Units</p>
+                    <p className="text-2xl font-black text-white">{totalUnits} g</p>
                 </div>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Total Invested</p>
-                    <p className="font-bold text-lg">{formatCurrency(totalInvested)}</p>
+                <div className="card p-6" style={glassCardStyle}>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Total Invested</p>
+                    <p className="text-2xl font-black text-white">{formatCurrency(totalInvested)}</p>
                 </div>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Current Value</p>
-                    <p className="font-bold text-lg">{formatCurrency(totalCurrentValue)}</p>
+                <div className="card p-6" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02))',
+                    border: '1px solid rgba(59, 130, 246, 0.15)'
+                }}>
+                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Current Value</p>
+                    <p className="text-2xl font-black text-white">{formatCurrency(totalCurrentValue)}</p>
                 </div>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Total Gains</p>
-                    <div className="flex items-end gap-2">
-                        <p className={`text-3xl font-bold ${totalGain >= 0 ? 'text-green-500' : 'text-red-500'}`} style={{ fontSize: '1.125rem', lineHeight: '1.75rem' }}>
+                <div className="card p-6" style={{
+                    ...glassCardStyle,
+                    background: isProfit 
+                        ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))'
+                        : 'linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02))',
+                    border: isProfit 
+                        ? '1px solid rgba(16, 185, 129, 0.15)'
+                        : '1px solid rgba(239, 68, 68, 0.15)'
+                }}>
+                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Total Gains</p>
+                    <div className="flex items-center gap-2">
+                        <p className={`text-2xl font-black ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
                             {formatCurrency(totalGain)}
                         </p>
-                        <p className={`text-sm mb-0 flex items-center ${totalGain >= 0 ? 'text-green-500' : 'text-red-500'}`} style={{ marginBottom: '2px' }}>
-                            ({gainPercentage.toFixed(2)}%)
-                        </p>
+                        <span className={`text-xs font-bold ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
+                            ({isProfit ? '+' : ''}{gainPercentage.toFixed(2)}%)
+                        </span>
                     </div>
                 </div>
-                <div className="card">
-                    <p className="text-secondary text-sm mb-1">Interest Received</p>
-                    <div className="flex items-end gap-2">
-                        <p className="text-3xl font-bold text-emerald-500" style={{ fontSize: '1.125rem', lineHeight: '1.75rem' }}>
-                            {formatCurrency(totalInterestReceived)}
-                        </p>
-                    </div>
+                <div className="card p-6" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
+                    border: '1px solid rgba(16, 185, 129, 0.15)'
+                }}>
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Interest Received</p>
+                    <p className="text-2xl font-black text-emerald-400">{formatCurrency(totalInterestReceived)}</p>
                 </div>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Series Name</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Issue Date</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Units (g)</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Issue Price</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Current Price</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Current Value</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Maturity</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sgb.holdings.map((item, index) => {
-                            const gain = (item.currentPrice - item.issuePrice) * item.units;
-                            return (
-                                <tr key={index} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} className="group hover:bg-white/5 transition-colors">
-                                    <td style={{ padding: 'var(--spacing-md)', fontFamily: 'monospace', color: 'var(--text-primary)' }}>{item.series}</td>
-                                    <td style={{ padding: 'var(--spacing-md)' }}>{formatDate(item.date)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{item.units}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{formatCurrency(item.issuePrice)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text-secondary)' }}>{formatCurrency(item.currentPrice)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>
-                                        <div style={{ fontWeight: 'bold' }}>{formatCurrency(item.units * item.currentPrice)}</div>
-                                        <div style={{ fontSize: '0.75rem', color: gain >= 0 ? 'var(--color-success)' : 'var(--color-danger)', marginTop: '2px' }}>
-                                            {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
-                                        </div>
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>
-                                        {formatDate(item.maturityDate)}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
-                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={() => { setEditingHolding(item); setEditingIndex(index); setIsModalOpen(true); }}
-                                                className="p-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
-                                                title="Edit"
-                                            >
-                                                <Edit2 size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteHolding(index)}
-                                                className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    </td>
-                                </tr>
-                            )
-                        })}
-                    </tbody>
-                </table>
+            <div className="card p-0 overflow-hidden shadow-2xl mb-12" style={glassCardStyle}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Series Name</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Issue Date</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Units (g)</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Issue Price</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Current Price</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Current Value</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Maturity</th>
+                                <th className="py-5 px-6 text-center text-zinc-400 text-[10px] font-black uppercase tracking-widest">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm font-bold">
+                            {sgb.holdings.map((item, index) => {
+                                const gain = (item.currentPrice - item.issuePrice) * item.units;
+                                return (
+                                    <tr 
+                                        key={index} 
+                                        style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} 
+                                        className="group hover:bg-white/[0.03] transition-colors"
+                                    >
+                                        <td className="py-5 px-6 font-mono text-zinc-200">{item.series}</td>
+                                        <td className="py-5 px-6 text-zinc-400">{formatDate(item.date)}</td>
+                                        <td className="py-5 px-6 text-right font-mono text-zinc-300">{item.units}</td>
+                                        <td className="py-5 px-6 text-right font-mono text-zinc-500">{formatCurrency(item.issuePrice)}</td>
+                                        <td className="py-5 px-6 text-right font-mono text-zinc-500">{formatCurrency(item.currentPrice)}</td>
+                                        <td className="py-5 px-6 text-right font-mono">
+                                            <div className="text-zinc-200">{formatCurrency(item.units * item.currentPrice)}</div>
+                                            <div className="text-[10px] font-semibold" style={{ color: gain >= 0 ? '#10b981' : '#ef4444', marginTop: '2px' }}>
+                                                {gain >= 0 ? '+' : ''}{formatCurrency(gain)}
+                                            </div>
+                                        </td>
+                                        <td className="py-5 px-6 text-zinc-400">{formatDate(item.maturityDate)}</td>
+                                        <td className="py-5 px-6 text-center">
+                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => { setEditingHolding(item); setEditingIndex(index); setIsModalOpen(true); }}
+                                                    className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-110"
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteHolding(index)}
+                                                    className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all transform hover:scale-110"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={14} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <div className="mb-8 flex justify-between items-end mt-12">
                 <div className="flex items-end gap-6">
                     <div>
-                        <h2 className="text-2xl font-bold mb-2 flex items-center gap-3">
+                        <h2 className="text-2xl font-bold flex items-center gap-3 text-white tracking-tight">
                             <Coins className="text-emerald-400" size={24} />
                             Interest History
                         </h2>
@@ -224,59 +262,65 @@ const GoldBondDetails = () => {
                 </div>
                 <button
                     onClick={() => { setEditingInterest(null); setIsInterestModalOpen(true); }}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl flex items-center gap-2 transition-colors shadow-lg shadow-emerald-900/40"
+                    className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-black py-3 px-5 rounded-2xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] text-xs uppercase tracking-widest active:scale-95"
                 >
-                    <Plus size={20} />
+                    <Plus size={16} />
                     Add Interest
                 </button>
             </div>
 
-            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Date</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'var(--text-secondary)' }}>Remarks</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'var(--text-secondary)' }}>Amount</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'var(--text-secondary)' }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {(sgb.interestTransactions || []).length === 0 ? (
-                            <tr>
-                                <td colSpan="4" className="text-center py-8 text-gray-500 italic">No interest records found</td>
+            <div className="card p-0 overflow-hidden shadow-2xl" style={glassCardStyle}>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Date</th>
+                                <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Remarks</th>
+                                <th className="py-4 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Amount</th>
+                                <th className="py-4 px-6 text-center text-zinc-400 text-[10px] font-black uppercase tracking-widest">Actions</th>
                             </tr>
-                        ) : (
-                            (sgb.interestTransactions || []).map((item, index) => (
-                                <tr key={item.id || index} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} className="group hover:bg-white/5 transition-colors">
-                                    <td style={{ padding: 'var(--spacing-md)' }}>{formatDate(item.date)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>{item.remarks || '-'}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                                        {formatCurrency(item.amount)}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'center' }}>
-                                        <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                onClick={() => { setEditingInterest(item); setIsInterestModalOpen(true); }}
-                                                className="p-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
-                                                title="Edit"
-                                            >
-                                                <Edit2 size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleDeleteInterest(item.id)}
-                                                className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
-                                                title="Delete"
-                                            >
-                                                <Trash2 size={14} />
-                                            </button>
-                                        </div>
-                                    </td>
+                        </thead>
+                        <tbody className="text-sm font-bold">
+                            {(sgb.interestTransactions || []).length === 0 ? (
+                                <tr>
+                                    <td colSpan="4" className="text-center py-8 text-zinc-500 italic">No interest records found</td>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            ) : (
+                                (sgb.interestTransactions || []).map((item, index) => (
+                                    <tr 
+                                        key={item.id || index} 
+                                        style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} 
+                                        className="group hover:bg-white/[0.03] transition-colors"
+                                    >
+                                        <td className="py-4 px-6 text-zinc-300">{formatDate(item.date)}</td>
+                                        <td className="py-4 px-6 text-zinc-400">{item.remarks || '-'}</td>
+                                        <td className="py-4 px-6 text-right font-mono text-emerald-400">
+                                            {formatCurrency(item.amount)}
+                                        </td>
+                                        <td className="py-4 px-6 text-center">
+                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button
+                                                    onClick={() => { setEditingInterest(item); setIsInterestModalOpen(true); }}
+                                                    className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all"
+                                                    title="Edit"
+                                                >
+                                                    <Edit2 size={12} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleDeleteInterest(item.id)}
+                                                    className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 size={12} />
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
 
             <SGBTransactionModal

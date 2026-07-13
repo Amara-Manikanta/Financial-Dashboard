@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, Archive } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -16,18 +16,18 @@ const StockTreemapContent = (props) => {
 
     let fillColor = '#1e1e1e';
     if (percentage > 0) {
-        if (percentage > 10) fillColor = '#14532d';
-        else if (percentage > 5) fillColor = '#166534';
-        else if (percentage > 2) fillColor = '#15803d';
-        else fillColor = '#22c55e';
+        if (percentage > 10) fillColor = 'rgba(16, 185, 129, 0.45)';
+        else if (percentage > 5) fillColor = 'rgba(16, 185, 129, 0.35)';
+        else if (percentage > 2) fillColor = 'rgba(16, 185, 129, 0.25)';
+        else fillColor = 'rgba(16, 185, 129, 0.15)';
     } else if (percentage < 0) {
         const abs = Math.abs(percentage);
-        if (abs > 10) fillColor = '#7f1d1d';
-        else if (abs > 5) fillColor = '#991b1b';
-        else if (abs > 2) fillColor = '#b91c1c';
-        else fillColor = '#ef4444';
+        if (abs > 10) fillColor = 'rgba(239, 68, 68, 0.45)';
+        else if (abs > 5) fillColor = 'rgba(239, 68, 68, 0.35)';
+        else if (abs > 2) fillColor = 'rgba(239, 68, 68, 0.25)';
+        else fillColor = 'rgba(239, 68, 68, 0.15)';
     } else {
-        fillColor = '#3f3f46';
+        fillColor = 'rgba(63, 63, 70, 0.2)';
     }
 
     const showText = width > 30 && height > 20;
@@ -40,18 +40,20 @@ const StockTreemapContent = (props) => {
                 width={width}
                 height={height}
                 fill={fillColor}
-                stroke="#18181b"
-                strokeWidth={2}
+                stroke="rgba(255, 255, 255, 0.08)"
+                strokeWidth={1}
+                rx={4}
+                ry={4}
                 style={{ transition: 'all 0.3s ease' }}
             />
             {showText && (
                 <foreignObject x={x + 4} y={y + 4} width={Math.max(0, width - 8)} height={Math.max(0, height - 8)} style={{ pointerEvents: 'none' }}>
                     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ color: '#ffffff', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {ticker || name}
                         </span>
                         {percentage !== undefined && height > 35 && (
-                            <span style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span style={{ color: percentage >= 0 ? '#34d399' : '#f87171', fontSize: '9px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {percentage > 0 ? '+' : ''}{percentage.toFixed(2)}%
                             </span>
                         )}
@@ -69,7 +71,12 @@ const DividendTreemapContent = (props) => {
     if (props.children) return null;
     if (width < 1 || height < 1) return null;
 
-    const colors = ['#059669', '#10b981', '#34d399', '#047857'];
+    const colors = [
+        'rgba(13, 148, 136, 0.4)',
+        'rgba(20, 184, 166, 0.3)',
+        'rgba(45, 212, 191, 0.2)',
+        'rgba(13, 148, 136, 0.2)'
+    ];
     const fillColor = colors[index % colors.length];
 
     const showText = width > 30 && height > 20;
@@ -82,18 +89,20 @@ const DividendTreemapContent = (props) => {
                 width={width}
                 height={height}
                 fill={fillColor}
-                stroke="#18181b"
-                strokeWidth={2}
+                stroke="rgba(255, 255, 255, 0.08)"
+                strokeWidth={1}
+                rx={4}
+                ry={4}
                 style={{ transition: 'all 0.3s ease' }}
             />
             {showText && (
                 <foreignObject x={x + 4} y={y + 4} width={Math.max(0, width - 8)} height={Math.max(0, height - 8)} style={{ pointerEvents: 'none' }}>
                     <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <span style={{ color: '#ffffff', fontSize: '11px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        <span style={{ color: '#ffffff', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {ticker || name}
                         </span>
                         {value !== undefined && height > 35 && (
-                            <span style={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '10px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            <span style={{ color: '#2dd4bf', fontSize: '9px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 ₹{value.toLocaleString('en-IN')}
                             </span>
                         )}
@@ -107,10 +116,8 @@ const DividendTreemapContent = (props) => {
 const StockMarketDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { savings, formatCurrency, updateItem, refreshStockPrices } = useFinance();
+    const { savings, formatCurrency, updateItem } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const [refreshMessage, setRefreshMessage] = useState({ type: '', text: '' });
     const [editingStock, setEditingStock] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [sortOrder, setSortOrder] = useState('desc'); // 'desc' | 'asc' | null
@@ -121,8 +128,127 @@ const StockMarketDetails = () => {
     const [stockToDelete, setStockToDelete] = useState(null);
     const [isDeleteColumnModalOpen, setIsDeleteColumnModalOpen] = useState(false);
     const [columnToDelete, setColumnToDelete] = useState(null);
+    const [activeTab, setActiveTab] = useState('holdings'); // 'holdings' | 'analytics' | 'archive'
+    const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+    const [showPendingOnly, setShowPendingOnly] = useState(false);
 
-    const market = savings.find(s => s.id.toString() === id);
+    const market = useMemo(() => savings.find(s => s.id.toString() === id), [savings, id]);
+
+    const stocks = useMemo(() => market?.stocks || [], [market]);
+    const customColumns = useMemo(() => market?.customColumns || [], [market]);
+
+    // Filter and Separating Stocks
+    const filteredStocks = useMemo(() => {
+        return stocks.filter(stock =>
+            stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            stock.ticker.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+    }, [stocks, searchTerm]);
+
+    const activeStocks = useMemo(() => filteredStocks.filter(stock => !stock.isArchived && stock.shares > 0), [filteredStocks]);
+    const archivedStocks = useMemo(() => filteredStocks.filter(stock => stock.isArchived || stock.shares === 0), [filteredStocks]);
+
+    const currentYear = new Date().getFullYear();
+
+    // Calculate aggregate stats and processed rows
+    const { stockRows, totalInvested, currentTotalValue } = useMemo(() => {
+        let invested = 0;
+        let currentVal = 0;
+
+        const rows = activeStocks.map(stock => {
+            const investedValue = stock.shares * stock.avgCost;
+            const currentValue = stock.shares * stock.currentPrice;
+            const unrealisedPL = currentValue - investedValue;
+            const unrealisedPercent = investedValue > 0 ? (unrealisedPL / investedValue) * 100 : 0;
+
+            invested += investedValue;
+            currentVal += currentValue;
+
+            return {
+                ...stock,
+                investedValue,
+                currentValue,
+                unrealisedPL,
+                unrealisedPercent
+            };
+        });
+
+        return {
+            stockRows: rows,
+            totalInvested: invested,
+            currentTotalValue: currentVal
+        };
+    }, [activeStocks]);
+
+    // Filter display rows based on pending dividend status
+    const displayStockRows = useMemo(() => {
+        return stockRows.filter(stock => {
+            if (!showPendingOnly) return true;
+            const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+            return isDividendPending;
+        });
+    }, [stockRows, showPendingOnly, currentYear]);
+
+    const totalProfitLoss = useMemo(() => currentTotalValue - totalInvested, [currentTotalValue, totalInvested]);
+    const isTotalProfit = totalProfitLoss >= 0;
+
+    // Sort rows based on profit
+    const sortedStockRows = useMemo(() => {
+        return [...displayStockRows].sort((a, b) => {
+            if (!sortOrder) return 0;
+            return sortOrder === 'desc'
+                ? b.unrealisedPL - a.unrealisedPL
+                : a.unrealisedPL - b.unrealisedPL;
+        });
+    }, [displayStockRows, sortOrder]);
+
+    const pendingDividendsCount = useMemo(() => {
+        return activeStocks.filter(stock => {
+            return stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+        }).length;
+    }, [activeStocks, currentYear]);
+
+    // Calculate Active Dividends
+    const activeDividendsData = useMemo(() => {
+        const data = activeStocks.reduce((acc, stock) => {
+            const stockDividends = stock.dividends || {};
+            Object.entries(stockDividends).forEach(([year, amount]) => {
+                acc.total += Number(amount);
+                acc.yearly[year] = (acc.yearly[year] || 0) + Number(amount);
+            });
+            return acc;
+        }, { total: 0, yearly: {} });
+
+        data.total = Number(data.total.toFixed(2));
+        return data;
+    }, [activeStocks]);
+
+    const dividendGraphData = useMemo(() => {
+        return Object.entries(activeDividendsData.yearly)
+            .map(([year, amount]) => ({ year, amount: Number(amount.toFixed(2)) }))
+            .sort((a, b) => a.year.localeCompare(b.year)); // Sort by year ascending
+    }, [activeDividendsData]);
+
+    const stockTreemapData = useMemo(() => {
+        return stockRows.map(stock => ({
+            name: stock.name,
+            ticker: stock.ticker,
+            value: stock.currentValue,
+            percentage: stock.unrealisedPercent
+        })).filter(item => item.value > 0);
+    }, [stockRows]);
+
+    const dividendTreemapData = useMemo(() => {
+        return activeStocks.map(stock => {
+            const stockDividends = stock.dividends || {};
+            const totalStockDividend = Object.values(stockDividends).reduce((sum, amount) => sum + Number(amount), 0);
+            return {
+                name: stock.name,
+                ticker: stock.ticker,
+                value: totalStockDividend
+            };
+        }).filter(item => item.value > 0);
+    }, [activeStocks]);
 
     if (!market) {
         return (
@@ -138,87 +264,6 @@ const StockMarketDetails = () => {
         );
     }
 
-    const stocks = market.stocks || [];
-    const customColumns = market.customColumns || [];
-
-    // Filter and Separating Stocks
-    const filteredStocks = stocks.filter(stock =>
-        stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        stock.ticker.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    const activeStocks = filteredStocks.filter(stock => !stock.isArchived && stock.shares > 0);
-    const archivedStocks = filteredStocks.filter(stock => stock.isArchived || stock.shares === 0);
-
-    // Calculate aggregate stats
-    let totalInvested = 0;
-    let currentTotalValue = 0;
-
-    const currentYear = new Date().getFullYear();
-
-    const stockRows = activeStocks.map(stock => {
-        const investedValue = stock.shares * stock.avgCost;
-        const currentValue = stock.shares * stock.currentPrice;
-        const unrealisedPL = currentValue - investedValue;
-        const unrealisedPercent = investedValue > 0 ? (unrealisedPL / investedValue) * 100 : 0;
-
-        totalInvested += investedValue;
-        currentTotalValue += currentValue;
-
-        return {
-            ...stock,
-            investedValue,
-            currentValue,
-            unrealisedPL,
-            unrealisedPercent
-        };
-    });
-
-    const totalProfitLoss = currentTotalValue - totalInvested;
-    const isTotalProfit = totalProfitLoss >= 0;
-
-    // Sort rows based on profit
-    const sortedStockRows = [...stockRows].sort((a, b) => {
-        if (!sortOrder) return 0;
-        return sortOrder === 'desc'
-            ? b.unrealisedPL - a.unrealisedPL
-            : a.unrealisedPL - b.unrealisedPL;
-    });
-
-    // Calculate Active Dividends
-    const activeDividendsData = activeStocks.reduce((acc, stock) => {
-        const stockDividends = stock.dividends || {};
-        Object.entries(stockDividends).forEach(([year, amount]) => {
-            acc.total += Number(amount);
-            acc.yearly[year] = (acc.yearly[year] || 0) + Number(amount);
-        });
-        return acc;
-    }, { total: 0, yearly: {} });
-
-    // Round total
-    activeDividendsData.total = Number(activeDividendsData.total.toFixed(2));
-
-    const dividendGraphData = Object.entries(activeDividendsData.yearly)
-        .map(([year, amount]) => ({ year, amount: Number(amount.toFixed(2)) }))
-        .sort((a, b) => a.year.localeCompare(b.year)); // Sort by year ascending
-
-    const stockTreemapData = stockRows.map(stock => ({
-        name: stock.name,
-        ticker: stock.ticker,
-        value: stock.currentValue,
-        percentage: stock.unrealisedPercent
-    })).filter(item => item.value > 0);
-
-    const dividendTreemapData = activeStocks.map(stock => {
-        const stockDividends = stock.dividends || {};
-        const totalStockDividend = Object.values(stockDividends).reduce((sum, amount) => sum + Number(amount), 0);
-        return {
-            name: stock.name,
-            ticker: stock.ticker,
-            value: totalStockDividend
-        };
-    }).filter(item => item.value > 0);
-
     const handleSaveStock = async (stockData) => {
         let updatedStocks;
         const existingStockIndex = stocks.findIndex(s => s.id === stockData.id);
@@ -233,7 +278,6 @@ const StockMarketDetails = () => {
         } else {
             // New stock: Create initial transaction if shares > 0
             let initialTransactions = [];
-            // Preserve manual fields for archived stocks
             const stockToSave = {
                 ...stockData,
                 manualInvestedAmount: stockData.manualInvestedAmount,
@@ -294,7 +338,6 @@ const StockMarketDetails = () => {
 
         setNewColumnName('');
         setIsAddColumnModalOpen(false);
-        setIsAddColumnModalOpen(false);
     };
 
     const handleMoveColumn = async (index, direction) => {
@@ -323,359 +366,967 @@ const StockMarketDetails = () => {
         setIsDeleteColumnModalOpen(false);
     };
 
+    // Premium CSS styles for glassmorphism
+    const styles = {
+        breadcrumb: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            color: '#a1a1aa',
+            fontSize: '0.825rem',
+            fontWeight: '600',
+            cursor: 'pointer',
+            transition: 'color 0.2s',
+            background: 'none',
+            border: 'none',
+            padding: 0
+        },
+        headerContainer: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: '1.5rem',
+            flexWrap: 'wrap',
+            gap: '1rem'
+        },
+        titleIcon: {
+            padding: '0.5rem',
+            borderRadius: '0.75rem',
+            backgroundColor: 'rgba(99, 102, 241, 0.12)',
+            color: '#818cf8',
+            display: 'flex',
+            alignItems: 'center',
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            boxShadow: '0 0 15px rgba(99, 102, 241, 0.1)'
+        },
+        statGrid: {
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+            gap: '1.25rem',
+            marginBottom: '2rem'
+        },
+        glassCard: (gradientColor = 'rgba(255, 255, 255, 0.03)', borderColor = 'rgba(255, 255, 255, 0.08)', shadowColor = 'rgba(0, 0, 0, 0.25)') => ({
+            background: `linear-gradient(135deg, ${gradientColor} 0%, rgba(255, 255, 255, 0.01) 100%)`,
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            padding: '1.5rem',
+            border: `1px solid ${borderColor}`,
+            boxShadow: `0 8px 32px 0 ${shadowColor}`,
+            position: 'relative',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s, box-shadow 0.3s'
+        }),
+        tabBar: {
+            display: 'flex',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            marginBottom: '1.5rem',
+            gap: '1.5rem',
+            position: 'relative',
+            overflowX: 'auto',
+            whiteSpace: 'nowrap'
+        },
+        tabButton: (isActive) => ({
+            paddingBottom: '0.875rem',
+            paddingLeft: '0.5rem',
+            paddingRight: '0.5rem',
+            fontWeight: '700',
+            fontSize: '0.875rem',
+            cursor: 'pointer',
+            position: 'relative',
+            color: isActive ? '#818cf8' : '#71717a',
+            border: 'none',
+            background: 'none',
+            borderBottom: isActive ? '2px solid #6366f1' : '2px solid transparent',
+            transition: 'color 0.3s, border-color 0.3s'
+        }),
+        filterPanel: {
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            marginBottom: '1.5rem',
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255, 255, 255, 0.06)',
+            padding: '1.25rem',
+            borderRadius: '1.25rem',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)'
+        },
+        controlsWrapper: {
+            display: 'flex',
+            flexWrap: 'wrap',
+            alignItems: 'center',
+            gap: '0.75rem',
+            justifyContent: 'space-between'
+        },
+        inputWrapper: {
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center'
+        },
+        searchInput: {
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            color: 'white',
+            padding: '0.5rem 1rem 0.5rem 2.25rem',
+            borderRadius: '0.75rem',
+            outline: 'none',
+            width: '240px',
+            fontSize: '0.875rem',
+            transition: 'border-color 0.3s, box-shadow 0.3s'
+        },
+        checkboxLabel: {
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            fontSize: '0.75rem',
+            color: '#d4d4d8',
+            cursor: 'pointer',
+            backgroundColor: 'rgba(16, 185, 129, 0.04)',
+            border: '1px solid rgba(16, 185, 129, 0.15)',
+            padding: '0.5rem 0.875rem',
+            borderRadius: '0.75rem',
+            userSelect: 'none',
+            transition: 'background-color 0.2s, border-color 0.2s'
+        },
+        toggleGroup: {
+            display: 'flex',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '0.75rem',
+            padding: '0.2rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)'
+        },
+        toggleButton: (isActive) => ({
+            padding: '0.375rem 0.5rem',
+            borderRadius: '0.5rem',
+            backgroundColor: isActive ? '#4f46e5' : 'transparent',
+            color: isActive ? 'white' : '#a1a1aa',
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s, color 0.2s',
+            border: 'none'
+        }),
+        actionButton: (bg = '#4f46e5', hoverBg = '#4338ca') => ({
+            padding: '0.5rem 1rem',
+            borderRadius: '0.75rem',
+            backgroundColor: bg,
+            color: 'white',
+            fontWeight: '700',
+            fontSize: '0.825rem',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.375rem',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s, transform 0.2s, box-shadow 0.2s',
+            border: 'none',
+            boxShadow: `0 4px 12px ${bg}25`
+        }),
+        iconButton: (bg = 'rgba(255, 255, 255, 0.03)', color = '#a1a1aa', border = 'rgba(255, 255, 255, 0.08)') => ({
+            padding: '0.5rem',
+            borderRadius: '0.75rem',
+            backgroundColor: bg,
+            border: `1px solid ${border}`,
+            color: color,
+            display: 'flex',
+            alignItems: 'center',
+            cursor: 'pointer',
+            transition: 'background-color 0.2s, color 0.2s, border-color 0.2s',
+            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+        }),
+        tableContainer: {
+            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            borderRadius: '1.25rem',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+            overflow: 'auto',
+            padding: 0
+        },
+        table: {
+            width: '100%',
+            borderCollapse: 'collapse',
+            minWidth: '1500px'
+        },
+        th: (align = 'left', stickyRight = false) => ({
+            padding: '1rem var(--spacing-md)',
+            textAlign: align,
+            color: 'rgba(255, 255, 255, 0.6)',
+            fontWeight: '700',
+            fontSize: '11px',
+            textTransform: 'uppercase',
+            letterSpacing: '0.05em',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
+            backgroundColor: stickyRight ? '#121225' : 'rgba(255, 255, 255, 0.02)',
+            position: stickyRight ? 'sticky' : 'static',
+            right: stickyRight ? 0 : 'auto',
+            zIndex: stickyRight ? 10 : 1
+        }),
+        td: (align = 'left', isBold = false, color = 'var(--text-primary)', stickyRight = false, isDividendPending = false) => ({
+            padding: '1rem var(--spacing-md)',
+            textAlign: align,
+            color: color,
+            fontWeight: isBold ? '700' : '500',
+            fontSize: '13px',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+            backgroundColor: stickyRight ? '#121225' : (isDividendPending ? 'rgba(16, 185, 129, 0.03)' : 'transparent'),
+            position: stickyRight ? 'sticky' : 'static',
+            right: stickyRight ? 0 : 'auto',
+            boxShadow: stickyRight ? '-5px 0 10px rgba(0,0,0,0.15)' : 'none',
+            zIndex: stickyRight ? 9 : 1
+        }),
+        actionBtnCell: {
+            padding: '0.375rem',
+            borderRadius: '0.5rem',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            transition: 'background-color 0.2s, color 0.2s'
+        }
+    };
+
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
-            <button
-                onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-colors mb-6"
-                style={{ cursor: 'pointer', marginBottom: 'var(--spacing-lg)', color: 'white' }}
-            >
-                <ArrowLeft size={20} /> Back to Savings
-            </button>
+            {/* Elegant Header Breadcrumb */}
+            <div style={styles.headerContainer}>
+                <button
+                    onClick={() => navigate(-1)}
+                    style={styles.breadcrumb}
+                    onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
+                    onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
+                >
+                    <ArrowLeft size={16} style={{ marginRight: '0.25rem' }} />
+                    <span>Savings</span>
+                    <span style={{ color: '#52525b', margin: '0 0.5rem' }}>/</span>
+                    <span style={{ color: '#d4d4d8', fontWeight: 'normal' }}>{market.title}</span>
+                </button>
+            </div>
 
-            <div className="mb-8 flex flex-col md:flex-row justify-between items-end gap-6">
+            {/* Dashboard Title Panel */}
+            <div style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <h2 style={{
+                    fontSize: '2rem',
+                    fontWeight: '900',
+                    color: 'white',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    margin: 0,
+                    letterSpacing: '-0.02em'
+                }}>
+                    <span style={styles.titleIcon}>
+                        <TrendingUp size={24} />
+                    </span>
+                    {market.title}
+                </h2>
+                <p style={{ fontSize: '0.875rem', color: '#a1a1aa', margin: 0 }}>Portfolio overview, custom tracking & real-time analytics</p>
+            </div>
+
+            {/* Modern Premium Stat Cards */}
+            <div style={styles.statGrid}>
+                {/* Total Invested */}
+                <div style={styles.glassCard('rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)')}
+                     onMouseEnter={(e) => {
+                         e.currentTarget.style.transform = 'translateY(-2px)';
+                         e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                     }}
+                     onMouseLeave={(e) => {
+                         e.currentTarget.style.transform = 'translateY(0)';
+                         e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
+                     }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.75rem', opacity: 0.05, color: 'white' }}>
+                        <ArrowUpRight size={48} />
+                    </div>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#71717a', marginBottom: '0.25rem', margin: 0 }}>Total Invested</p>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(totalInvested)}</h3>
+                    </div>
+                    <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }}>
+                        <Info size={12} style={{ color: '#71717a' }} /> Live cost basis of active positions
+                    </p>
+                </div>
+
+                {/* Current Value */}
+                <div style={styles.glassCard('rgba(99, 102, 241, 0.05)', 'rgba(99, 102, 241, 0.15)', 'rgba(99, 102, 241, 0.15)')}
+                     onMouseEnter={(e) => {
+                         e.currentTarget.style.transform = 'translateY(-2px)';
+                         e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
+                     }}
+                     onMouseLeave={(e) => {
+                         e.currentTarget.style.transform = 'translateY(0)';
+                         e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.15)';
+                     }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.75rem', opacity: 0.1, color: '#818cf8' }}>
+                        <TrendingUp size={48} />
+                    </div>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#818cf8', marginBottom: '0.25rem', margin: 0 }}>Current Value</p>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(currentTotalValue)}</h3>
+                    </div>
+                    <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.375rem', margin: 0 }}>
+                        <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#6366f1' }}></span>
+                        Live market portfolio evaluation
+                    </p>
+                </div>
+
+                {/* Total Profit/Loss */}
+                <div style={styles.glassCard(
+                    isTotalProfit ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                    isTotalProfit ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    isTotalProfit ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'
+                )}
+                     onMouseEnter={(e) => {
+                         e.currentTarget.style.transform = 'translateY(-2px)';
+                         e.currentTarget.style.borderColor = isTotalProfit ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)';
+                     }}
+                     onMouseLeave={(e) => {
+                         e.currentTarget.style.transform = 'translateY(0)';
+                         e.currentTarget.style.borderColor = isTotalProfit ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)';
+                     }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.75rem', opacity: 0.1, color: isTotalProfit ? '#34d399' : '#f87171' }}>
+                        {isTotalProfit ? <TrendingUp size={48} /> : <TrendingDown size={48} />}
+                    </div>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: isTotalProfit ? '#34d399' : '#f87171', marginBottom: '0.25rem', margin: 0 }}>
+                            Total Unrealised P/L
+                        </p>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: isTotalProfit ? '#34d399' : '#f87171', fontFamily: 'monospace', margin: 0 }}>
+                            {isTotalProfit ? '+' : ''}{formatCurrency(totalProfitLoss)}
+                        </h3>
+                    </div>
+                    <span style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '0.25rem',
+                        fontSize: '0.625rem',
+                        fontWeight: 'bold',
+                        marginTop: '1rem',
+                        padding: '0.125rem 0.5rem',
+                        borderRadius: '0.375rem',
+                        width: 'fit-content',
+                        backgroundColor: isTotalProfit ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                        color: isTotalProfit ? '#34d399' : '#f87171',
+                        border: isTotalProfit ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
+                    }}>
+                        {isTotalProfit ? '▲' : '▼'} {totalInvested > 0 ? ((totalProfitLoss / totalInvested) * 100).toFixed(2) : '0.00'}% Net Return
+                    </span>
+                </div>
+
+                {/* Dividends Summary */}
+                <div style={styles.glassCard('rgba(13, 148, 136, 0.05)', 'rgba(13, 148, 136, 0.15)', 'rgba(13, 148, 136, 0.1)')}
+                     onMouseEnter={(e) => {
+                         e.currentTarget.style.transform = 'translateY(-2px)';
+                         e.currentTarget.style.borderColor = 'rgba(13, 148, 136, 0.25)';
+                     }}
+                     onMouseLeave={(e) => {
+                         e.currentTarget.style.transform = 'translateY(0)';
+                         e.currentTarget.style.borderColor = 'rgba(13, 148, 136, 0.15)';
+                     }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.75rem', opacity: 0.1, color: '#2dd4bf' }}>
+                        <Award size={48} />
+                    </div>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#2dd4bf', marginBottom: '0.25rem', margin: 0 }}>Dividends (Active)</p>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(activeDividendsData.total)}</h3>
+                    </div>
+                    <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.375rem', margin: 0 }}>
+                        {pendingDividendsCount > 0 ? (
+                            <>
+                                <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#f59e0b', boxShadow: '0 0 8px #f59e0b' }}></span>
+                                <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{pendingDividendsCount} pending this year</span>
+                            </>
+                        ) : (
+                            <>
+                                <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#0d9488' }}></span>
+                                <span>No pending dividends for {currentYear}</span>
+                            </>
+                        )}
+                    </p>
+                </div>
+            </div>
+
+            {/* Dashboard Tabs Switched Controls */}
+            <div style={styles.tabBar}>
+                <button
+                    onClick={() => setActiveTab('holdings')}
+                    style={styles.tabButton(activeTab === 'holdings')}
+                >
+                    Active Holdings ({activeStocks.length})
+                </button>
+                <button
+                    onClick={() => setActiveTab('analytics')}
+                    style={styles.tabButton(activeTab === 'analytics')}
+                >
+                    Analytics & Allocations
+                </button>
+                <button
+                    onClick={() => setActiveTab('archive')}
+                    style={styles.tabButton(activeTab === 'archive')}
+                >
+                    Archive / History ({archivedStocks.length})
+                </button>
+            </div>
+
+            {/* TABS RENDER */}
+
+            {/* 1. HOLDINGS TAB */}
+            {activeTab === 'holdings' && (
                 <div>
-                    <h2 className="text-3xl font-bold mb-2 flex items-center gap-3">
-                        <TrendingUp className="text-accent-primary" size={32} />
-                        {market.title}
-                    </h2>
-                    <p className="text-secondary">Portfolio Performance Overview</p>
-                </div>
+                    {/* Modern Filter Panel */}
+                    <div style={styles.filterPanel}>
+                        <div style={styles.controlsWrapper}>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+                                {/* Search */}
+                                <div style={styles.inputWrapper}>
+                                    <input
+                                        type="text"
+                                        placeholder="Search stock or ticker..."
+                                        value={searchTerm}
+                                        onChange={(e) => setSearchTerm(e.target.value)}
+                                        style={styles.searchInput}
+                                        onFocus={(e) => {
+                                            e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                                            e.currentTarget.style.boxShadow = '0 0 10px rgba(99, 102, 241, 0.15)';
+                                        }}
+                                        onBlur={(e) => {
+                                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+                                            e.currentTarget.style.boxShadow = 'none';
+                                        }}
+                                    />
+                                    <Search style={{ position: 'absolute', left: '0.75rem', color: '#71717a' }} size={16} />
+                                </div>
 
-                <div className="flex gap-4 items-center">
-                    <div className="relative group">
-                        <input
-                            type="text"
-                            placeholder="Search stocks..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-white/5 border border-white/10 text-white px-4 py-2 pl-10 rounded-lg focus:outline-none focus:border-indigo-500 w-64 transition-all"
-                        />
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-indigo-400 transition-colors" size={18} />
-                    </div>
+                                {/* Pending Dividends Quick Filter */}
+                                <label
+                                    style={styles.checkboxLabel}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.08)';
+                                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.3)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.04)';
+                                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.15)';
+                                    }}
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={showPendingOnly}
+                                        onChange={(e) => setShowPendingOnly(e.target.checked)}
+                                        style={{ cursor: 'pointer', accentColor: '#10b981' }}
+                                    />
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontWeight: '700', color: '#34d399' }}>
+                                        <AlertCircle size={14} /> Pending Dividends ({pendingDividendsCount})
+                                    </span>
+                                </label>
+                            </div>
 
-                    <div className="flex bg-white/5 rounded-lg p-1 border border-white/10">
-                        <button
-                            onClick={() => setIsManageColumnsModalOpen(true)}
-                            className="px-3 py-2 rounded-md text-sm font-medium text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                            title="Manage Columns"
-                        >
-                            <Settings size={16} />
-                        </button>
-                        <div className="w-[1px] bg-white/10 my-1 mx-1"></div>
-                        <button
-                            onClick={() => setSortOrder('desc')}
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${sortOrder === 'desc' ? 'bg-white/20 text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
-                        >
-                            <TrendingUp size={16} />
-                        </button>
-                        <button
-                            onClick={() => setSortOrder('asc')}
-                            className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${sortOrder === 'asc' ? 'bg-white/20 text-white' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
-                        >
-                            <TrendingDown size={16} />
-                        </button>
-                    </div>
-
-                    <button
-                        onClick={() => setIsAddColumnModalOpen(true)}
-                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-medium hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2"
-                    >
-                        <Plus size={18} />
-                        <span>Add Column</span>
-                    </button>
-
-                    <button
-                        onClick={() => {
-                            setEditingStock(null);
-                            setIsModalOpen(true);
-                        }}
-                        className="px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
-                    >
-                        <Plus size={18} />
-                        <span>Add Stock</span>
-                    </button>
-                </div>
-            </div>
-
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '2rem'
-            }}>
-                <div className="card">
-                    <p className="text-white text-sm mb-1">Total Invested Amount</p>
-                    <p className="font-bold text-lg">{formatCurrency(totalInvested)}</p>
-                </div>
-                <div className="card">
-                    <p className="text-white text-sm mb-1">Current Value</p>
-                    <p className="font-bold text-lg">{formatCurrency(currentTotalValue)}</p>
-                </div>
-                <div className="card">
-                    <p className="text-white text-sm mb-1">Total Profit/Loss</p>
-                    <div className={`font-bold text-lg flex items-center gap-2 ${isTotalProfit ? 'text-success' : 'text-danger'}`}>
-                        {isTotalProfit ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
-                        {formatCurrency(Math.abs(totalProfitLoss))}
-                    </div>
-                </div>
-            </div>
-
-            <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1500px' }}>
-                    <thead>
-                        <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'white' }}>Company Name</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'white' }}>Ticker</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Shares Held</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Avg Cost</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Invested Value</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Current Price</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Current Value</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Unrealised P/L</th>
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'white' }}>Unrealised %</th>
-
-                            {/* Custom Columns Headers */}
-                            {customColumns.map((col, idx) => (
-                                <th key={idx} style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: '#a78bfa' }}>{col}</th>
-                            ))}
-
-                            <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'white', position: 'sticky', right: 0, backgroundColor: '#1e1e1e', zIndex: 10 }}>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {sortedStockRows.map((stock) => {
-                            const isProfit = stock.unrealisedPL >= 0;
-                            return (
-                                <tr key={stock.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
-                                    <td
-                                        style={{ padding: 'var(--spacing-md)', color: 'var(--text-primary)', fontWeight: 'bold', cursor: 'pointer', textDecoration: 'underline' }}
-                                        onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
+                                {/* View Mode Toggle */}
+                                <div style={styles.toggleGroup}>
+                                    <button
+                                        onClick={() => setViewMode('grid')}
+                                        style={styles.toggleButton(viewMode === 'grid')}
+                                        title="Grid View"
                                     >
-                                        {stock.name}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-md)', fontFamily: 'monospace' }}>{stock.ticker}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{stock.shares}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(stock.investedValue)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(stock.currentPrice)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatCurrency(stock.currentValue)}</td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: isProfit ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                        {formatCurrency(stock.unrealisedPL)}
-                                    </td>
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: isProfit ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                        {stock.unrealisedPercent.toFixed(2)}%
-                                    </td>
+                                        <LayoutGrid size={16} />
+                                    </button>
+                                    <button
+                                        onClick={() => setViewMode('table')}
+                                        style={styles.toggleButton(viewMode === 'table')}
+                                        title="Table View"
+                                    >
+                                        <Table size={16} />
+                                    </button>
+                                </div>
 
-                                    {/* Custom Columns Cells */}
-                                    {customColumns.map((col, idx) => (
-                                        <td key={idx} style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)' }}>
-                                            {stock.customValues?.[col] || '-'}
-                                        </td>
-                                    ))}
+                                {/* Sort Actions */}
+                                <div style={styles.toggleGroup}>
+                                    <button
+                                        onClick={() => setSortOrder('desc')}
+                                        style={{
+                                            ...styles.toggleButton(sortOrder === 'desc'),
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700',
+                                            padding: '0.375rem 0.75rem',
+                                            borderRadius: '0.5rem'
+                                        }}
+                                    >
+                                        Profit High
+                                    </button>
+                                    <button
+                                        onClick={() => setSortOrder('asc')}
+                                        style={{
+                                            ...styles.toggleButton(sortOrder === 'asc'),
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700',
+                                            padding: '0.375rem 0.75rem',
+                                            borderRadius: '0.5rem'
+                                        }}
+                                    >
+                                        Profit Low
+                                    </button>
+                                </div>
 
-                                    <td style={{ padding: 'var(--spacing-md)', textAlign: 'center', position: 'sticky', right: 0, backgroundColor: '#1e1e1e', boxShadow: '-5px 0 10px rgba(0,0,0,0.1)' }}>
-                                        <div className="flex items-center justify-center gap-2">
+                                {/* Manage Columns */}
+                                <button
+                                    onClick={() => setIsManageColumnsModalOpen(true)}
+                                    style={styles.iconButton()}
+                                    title="Manage Columns"
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
+                                        e.currentTarget.style.color = '#fff';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.03)';
+                                        e.currentTarget.style.color = '#a1a1aa';
+                                    }}
+                                >
+                                    <Settings size={16} />
+                                </button>
+
+                                {/* Add Column */}
+                                <button
+                                    onClick={() => setIsAddColumnModalOpen(true)}
+                                    style={styles.actionButton('#059669', '#047857')}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#047857';
+                                        e.currentTarget.style.transform = 'scale(1.02)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#059669';
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                >
+                                    <Plus size={16} />
+                                    <span>Add Column</span>
+                                </button>
+
+                                {/* Add Stock */}
+                                <button
+                                    onClick={() => {
+                                        setEditingStock(null);
+                                        setIsModalOpen(true);
+                                    }}
+                                    style={styles.actionButton('#4f46e5', '#4338ca')}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#4338ca';
+                                        e.currentTarget.style.transform = 'scale(1.02)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#4f46e5';
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                >
+                                    <Plus size={16} />
+                                    <span>Add Stock</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Stock list empty state or content */}
+                    {sortedStockRows.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '4rem 1.5rem',
+                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: '1.25rem',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            margin: '1.5rem 0'
+                        }}>
+                            <Info style={{ margin: '0 auto 0.75rem auto', color: '#71717a' }} size={40} />
+                            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: 'white', marginBottom: '0.25rem' }}>No active positions matching your criteria</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#71717a' }}>Check search text, dividend filters, or add a new stock to your portfolio.</p>
+                        </div>
+                    ) : viewMode === 'grid' ? (
+                        /* GRID VIEW */
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                            gap: '1.25rem'
+                        }}>
+                            {sortedStockRows.map((stock) => {
+                                const isProfit = stock.unrealisedPL >= 0;
+                                const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+
+                                return (
+                                    <div
+                                        key={stock.id}
+                                        style={{
+                                            position: 'relative',
+                                            background: isDividendPending 
+                                                ? 'linear-gradient(135deg, rgba(16, 185, 129, 0.06) 0%, rgba(255, 255, 255, 0.01) 100%)' 
+                                                : 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+                                            backdropFilter: 'blur(16px)',
+                                            WebkitBackdropFilter: 'blur(16px)',
+                                            borderRadius: '1.25rem',
+                                            border: isDividendPending ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(255, 255, 255, 0.06)',
+                                            boxShadow: isDividendPending ? '0 8px 32px rgba(16, 185, 129, 0.05), inset 0 0 16px rgba(16, 185, 129, 0.03)' : '0 8px 32px 0 rgba(0, 0, 0, 0.25)',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            overflow: 'hidden',
+                                            transition: 'transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), border-color 0.3s',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(-3px)';
+                                            e.currentTarget.style.borderColor = isDividendPending ? 'rgba(16, 185, 129, 0.4)' : 'rgba(99, 102, 241, 0.25)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.transform = 'translateY(0)';
+                                            e.currentTarget.style.borderColor = isDividendPending ? 'rgba(16, 185, 129, 0.25)' : 'rgba(255, 255, 255, 0.06)';
+                                        }}
+                                    >
+                                        {/* Pending Div Tag */}
+                                        {isDividendPending && (
+                                            <div style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                right: 0,
+                                                backgroundColor: 'rgba(16, 185, 129, 0.25)',
+                                                color: '#34d399',
+                                                borderLeft: '1px solid rgba(16, 185, 129, 0.3)',
+                                                borderBottom: '1px solid rgba(16, 185, 129, 0.3)',
+                                                padding: '0.25rem 0.75rem',
+                                                borderRadius: '0 0 0 0.75rem',
+                                                fontSize: '9px',
+                                                fontWeight: '900',
+                                                textTransform: 'uppercase',
+                                                letterSpacing: '0.05em'
+                                            }}>
+                                                Pending Div
+                                            </div>
+                                        )}
+
+                                        <div style={{ padding: '1.25rem', flex: 1 }}>
+                                            {/* Header */}
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <span style={{
+                                                    padding: '0.125rem 0.5rem',
+                                                    borderRadius: '0.375rem',
+                                                    backgroundColor: 'rgba(99, 102, 241, 0.12)',
+                                                    color: '#818cf8',
+                                                    fontFamily: 'monospace',
+                                                    fontSize: '10px',
+                                                    fontWeight: '800',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.1em',
+                                                    border: '1px solid rgba(99, 102, 241, 0.2)'
+                                                }}>
+                                                    {stock.ticker}
+                                                </span>
+                                                <h4
+                                                    onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
+                                                    style={{
+                                                        fontSize: '1.05rem',
+                                                        fontWeight: '700',
+                                                        color: 'white',
+                                                        marginTop: '0.5rem',
+                                                        cursor: 'pointer',
+                                                        whiteSpace: 'nowrap',
+                                                        overflow: 'hidden',
+                                                        textOverflow: 'ellipsis',
+                                                        textDecoration: 'none',
+                                                        transition: 'color 0.2s'
+                                                    }}
+                                                    onMouseEnter={(e) => e.currentTarget.style.color = '#818cf8'}
+                                                    onMouseLeave={(e) => e.currentTarget.style.color = '#white'}
+                                                >
+                                                    {stock.name}
+                                                </h4>
+                                            </div>
+
+                                            {/* Values */}
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                                                <div>
+                                                    <span style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', display: 'block', marginBottom: '0.125rem' }}>Current Value</span>
+                                                    <span style={{ fontSize: '0.875rem', fontWeight: '900', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(stock.currentValue)}</span>
+                                                </div>
+                                                <div>
+                                                    <span style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', display: 'block', marginBottom: '0.125rem' }}>Invested Value</span>
+                                                    <span style={{ fontSize: '0.875rem', fontWeight: '700', color: '#d4d4d8', fontFamily: 'monospace' }}>{formatCurrency(stock.investedValue)}</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Details Info bar */}
+                                            <div style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center',
+                                                backgroundColor: 'rgba(0,0,0,0.2)',
+                                                borderRadius: '0.75rem',
+                                                padding: '0.5rem 0.75rem',
+                                                fontSize: '0.75rem',
+                                                color: '#a1a1aa',
+                                                marginBottom: '1rem',
+                                                border: '1px solid rgba(255,255,255,0.06)'
+                                            }}>
+                                                <div>Shares: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{stock.shares}</span></div>
+                                                <div>Avg: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span></div>
+                                            </div>
+
+                                            {/* P&L Status Indicator */}
+                                            <div style={{ marginBottom: '1rem' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#71717a', marginBottom: '0.25rem' }}>
+                                                    <span>Unrealised P&L</span>
+                                                    <span style={{ fontWeight: '700', color: isProfit ? '#10b981' : '#ef4444' }}>
+                                                        {isProfit ? '+' : ''}{stock.unrealisedPercent.toFixed(2)}%
+                                                    </span>
+                                                </div>
+                                                <div style={{ width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: '9999px', height: '6px', overflow: 'hidden' }}>
+                                                    <div
+                                                        style={{
+                                                            height: '100%',
+                                                            borderRadius: '9999px',
+                                                            background: isProfit ? 'linear-gradient(to right, #10b981, #34d399)' : 'linear-gradient(to right, #ef4444, #f87171)',
+                                                            width: `${Math.min(100, Math.max(8, (stock.currentValue / Math.max(1, stock.investedValue)) * 50))}%`
+                                                        }}
+                                                    />
+                                                </div>
+                                                <span style={{ fontSize: '11px', fontWeight: '700', display: 'block', marginTop: '0.375rem', fontFamily: 'monospace', color: isProfit ? '#34d399' : '#f87171' }}>
+                                                    {isProfit ? '+' : ''}{formatCurrency(stock.unrealisedPL)}
+                                                </span>
+                                            </div>
+
+                                            {/* Custom Columns Values */}
+                                            {customColumns.length > 0 && (
+                                                <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)', paddingTop: '0.75rem', marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                                                    {customColumns.map(col => (
+                                                        <div key={col} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem' }}>
+                                                            <span style={{ color: '#71717a' }}>{col}</span>
+                                                            <span style={{ fontWeight: '600', color: '#d4d4d8' }}>{stock.customValues?.[col] || '-'}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        {/* Card Actions Footer */}
+                                        <div style={{ padding: '0.75rem 1.25rem', backgroundColor: 'rgba(0,0,0,0.15)', borderTop: '1px solid rgba(255, 255, 255, 0.06)', display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     setEditingStock(stock);
                                                     setIsModalOpen(true);
                                                 }}
-                                                className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                                style={{
+                                                    ...styles.actionBtnCell,
+                                                    backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                                                    color: '#60a5fa'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.25)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.12)'}
                                                 title="Edit"
                                             >
-                                                <Edit2 size={16} />
+                                                <Edit2 size={14} />
                                             </button>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleArchiveToggle(stock.id, true);
                                                 }}
-                                                className="p-1.5 rounded-lg bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-white transition-colors"
+                                                style={{
+                                                    ...styles.actionBtnCell,
+                                                    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                                    color: '#fbbf24'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.25)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.12)'}
                                                 title="Archive Stock"
                                             >
-                                                <Archive size={16} />
+                                                <Archive size={14} />
                                             </button>
                                             <button
                                                 onClick={(e) => {
                                                     e.stopPropagation();
                                                     handleDeleteStock(stock.id);
                                                 }}
-                                                className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                style={{
+                                                    ...styles.actionBtnCell,
+                                                    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                    color: '#f87171'
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.25)'}
+                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)'}
                                                 title="Delete"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={14} />
                                             </button>
                                         </div>
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                        {sortedStockRows.length === 0 && (
-                            <tr>
-                                <td colSpan={17} className="text-center py-8 text-gray-500">
-                                    No stocks found. Add one to get started!
-                                </td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
-            </div>
-
-            {/* Archived Stocks Table */}
-            {archivedStocks.length > 0 && (() => {
-                // Calculate Archived Totals
-                const archivedTotals = archivedStocks.reduce((totals, stock) => {
-                    const transactions = stock.transactions || [];
-                    let invested = 0;
-                    let pl = 0;
-
-                    if (transactions.length > 0) {
-                        const totalBuyValue = transactions.reduce((sum, tx) => {
-                            if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
-                                return sum + (Number(tx.quantity) * Number(tx.price));
-                            }
-                            return sum;
-                        }, 0);
-
-                        const totalSellValue = transactions.reduce((sum, tx) => {
-                            if (['sell', 'buyback'].includes(tx.type)) {
-                                return sum + (Number(tx.quantity) * Number(tx.price));
-                            }
-                            return sum;
-                        }, 0);
-
-                        invested = totalBuyValue;
-                        pl = totalSellValue - totalBuyValue;
-                    } else {
-                        invested = stock.manualInvestedAmount || 0;
-                        pl = stock.realisedPL || 0;
-                    }
-
-                    return {
-                        invested: totals.invested + invested,
-                        pl: totals.pl + pl
-                    };
-                }, { invested: 0, pl: 0 });
-
-                return (
-                    <div className="mt-12 mb-6">
-                        <div className="flex items-center justify-between mb-6">
-                            <h3 className="text-xl font-bold text-gray-400 flex items-center gap-2">
-                                <TrendingDown className="text-gray-500" size={24} />
-                                Archived / Sold Stocks
-                            </h3>
+                                    </div>
+                                );
+                            })}
                         </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                            <div className="card p-4 bg-[#1e1e1e] border border-white/5">
-                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Total Capital Deployed</p>
-                                <p className="text-2xl font-bold text-white">{formatCurrency(archivedTotals.invested)}</p>
-                            </div>
-                            <div className="card p-4 bg-[#1e1e1e] border border-white/5">
-                                <p className="text-xs text-gray-500 uppercase font-bold mb-1">Total P/L Booked</p>
-                                <div className={`text-2xl font-bold flex items-center gap-2 ${archivedTotals.pl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                                    {archivedTotals.pl >= 0 ? <TrendingUp size={24} /> : <TrendingDown size={24} />}
-                                    {formatCurrency(Math.abs(archivedTotals.pl))}
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="card" style={{ padding: 0, overflow: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    ) : (
+                        /* TABLE VIEW (SLEEK REFACTOR) */
+                        <div style={styles.tableContainer}>
+                            <table style={styles.table}>
                                 <thead>
-                                    <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.1)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
-                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'gray' }}>Company Name</th>
-                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'left', color: 'gray' }}>Ticker</th>
-                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'gray' }}>Invested Value</th>
-                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'right', color: 'gray' }}>Profit/Loss Booked</th>
-                                        <th style={{ padding: 'var(--spacing-md)', textAlign: 'center', color: 'gray', position: 'sticky', right: 0, backgroundColor: '#1e1e1e', zIndex: 10 }}>Actions</th>
+                                    <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.015)' }}>
+                                        <th style={styles.th('left')}>Company Name</th>
+                                        <th style={styles.th('left')}>Ticker</th>
+                                        <th style={styles.th('right')}>Shares Held</th>
+                                        <th style={styles.th('right')}>Avg Cost</th>
+                                        <th style={styles.th('right')}>Invested Value</th>
+                                        <th style={styles.th('right')}>Current Price</th>
+                                        <th style={styles.th('right')}>Current Value</th>
+                                        <th style={styles.th('right')}>Unrealised P/L</th>
+                                        <th style={styles.th('right')}>Unrealised %</th>
+
+                                        {/* Custom Columns Headers */}
+                                        {customColumns.map((col, idx) => (
+                                            <th key={idx} style={styles.th('left')}>{col}</th>
+                                        ))}
+
+                                        <th style={styles.th('center', true)}>Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {archivedStocks.map((stock) => {
-                                        // Calculate metrics from transactions if available
-                                        const transactions = stock.transactions || [];
-                                        let calculatedInvested = 0;
-                                        let calculatedPL = 0;
-                                        let hasTransactions = transactions.length > 0;
-
-                                        if (hasTransactions) {
-                                            const totalBuyValue = transactions.reduce((sum, tx) => {
-                                                if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
-                                                    return sum + (Number(tx.quantity) * Number(tx.price));
-                                                }
-                                                return sum;
-                                            }, 0);
-
-                                            const totalSellValue = transactions.reduce((sum, tx) => {
-                                                if (['sell', 'buyback'].includes(tx.type)) {
-                                                    return sum + (Number(tx.quantity) * Number(tx.price));
-                                                }
-                                                return sum;
-                                            }, 0);
-
-                                            calculatedInvested = totalBuyValue;
-                                            // For fully sold stocks, P/L is Sell Value - Buy Value
-                                            calculatedPL = totalSellValue - totalBuyValue;
-                                        }
-
-                                        // Use calculated values if transactions exist, else fallback to manual
-                                        const finalInvested = hasTransactions ? calculatedInvested : (stock.manualInvestedAmount || 0);
-                                        const finalPL = hasTransactions ? calculatedPL : (stock.realisedPL || 0);
-                                        const isProfit = finalPL >= 0;
+                                    {sortedStockRows.map((stock) => {
+                                        const isProfit = stock.unrealisedPL >= 0;
+                                        const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
 
                                         return (
-                                            <tr key={stock.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)', opacity: 0.7 }}>
+                                            <tr 
+                                                key={stock.id} 
+                                                style={{ 
+                                                    backgroundColor: isDividendPending ? 'rgba(16, 185, 129, 0.03)' : 'transparent',
+                                                    transition: 'background-color 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    e.currentTarget.style.backgroundColor = isDividendPending ? 'rgba(16, 185, 129, 0.06)' : 'rgba(255, 255, 255, 0.02)';
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    e.currentTarget.style.backgroundColor = isDividendPending ? 'rgba(16, 185, 129, 0.03)' : 'transparent';
+                                                }}
+                                            >
                                                 <td
-                                                    style={{ padding: 'var(--spacing-md)', color: 'var(--text-secondary)', cursor: 'pointer', textDecoration: 'underline' }}
-                                                    onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
+                                                    style={styles.td('left', true, 'var(--text-primary)', false, isDividendPending)}
                                                 >
-                                                    {stock.name}
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <span 
+                                                            onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
+                                                            style={{ textDecoration: 'underline', cursor: 'pointer' }}
+                                                        >
+                                                            {stock.name}
+                                                        </span>
+                                                        {isDividendPending && (
+                                                            <span style={{
+                                                                padding: '0.125rem 0.375rem',
+                                                                borderRadius: '0.25rem',
+                                                                fontSize: '9px',
+                                                                fontWeight: '900',
+                                                                textTransform: 'uppercase',
+                                                                letterSpacing: '0.15em',
+                                                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                                                color: '#34d399',
+                                                                border: '1px solid rgba(16, 185, 129, 0.3)'
+                                                            }} title={`Pending dividend for ${currentYear}`}>
+                                                                Pending Div
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                 </td>
-                                                <td style={{ padding: 'var(--spacing-md)', fontFamily: 'monospace', color: 'gray' }}>{stock.ticker}</td>
-                                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: 'gray' }}>
-                                                    {formatCurrency(finalInvested)}
-                                                    {hasTransactions && <span className="ml-1 text-[10px] text-blue-400" title="Calculated from transactions">(Auto)</span>}
+                                                <td style={styles.td('left', false, 'var(--text-secondary)', false, isDividendPending)}>
+                                                    <span style={{
+                                                        padding: '0.125rem 0.375rem',
+                                                        borderRadius: '0.25rem',
+                                                        backgroundColor: 'rgba(255,255,255,0.05)',
+                                                        color: '#d4d4d8',
+                                                        fontSize: '0.725rem',
+                                                        fontWeight: '700',
+                                                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                                                        fontFamily: 'monospace'
+                                                    }}>
+                                                        {stock.ticker}
+                                                    </span>
                                                 </td>
-                                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'right', fontFamily: 'monospace', color: isProfit ? 'var(--color-success)' : 'var(--color-danger)' }}>
-                                                    {formatCurrency(finalPL)}
+                                                <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
+                                                    <span style={{ fontFamily: 'monospace' }}>{stock.shares}</span>
                                                 </td>
-                                                <td style={{ padding: 'var(--spacing-md)', textAlign: 'center', position: 'sticky', right: 0, backgroundColor: '#1e1e1e' }}>
-                                                    <div className="flex items-center justify-center gap-2">
+                                                <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
+                                                    <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span>
+                                                </td>
+                                                <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
+                                                    <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.investedValue)}</span>
+                                                </td>
+                                                <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
+                                                    <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.currentPrice)}</span>
+                                                </td>
+                                                <td style={styles.td('right', true, 'var(--text-primary)', false, isDividendPending)}>
+                                                    <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.currentValue)}</span>
+                                                </td>
+                                                <td style={styles.td('right', true, isProfit ? 'var(--color-success)' : 'var(--color-danger)', false, isDividendPending)}>
+                                                    <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.unrealisedPL)}</span>
+                                                </td>
+                                                <td style={styles.td('right', true, isProfit ? 'var(--color-success)' : 'var(--color-danger)', false, isDividendPending)}>
+                                                    <span style={{ fontFamily: 'monospace' }}>{stock.unrealisedPercent.toFixed(2)}%</span>
+                                                </td>
+
+                                                {/* Custom Columns Cells */}
+                                                {customColumns.map((col, idx) => (
+                                                    <td key={idx} style={styles.td('left', false, 'var(--text-secondary)', false, isDividendPending)}>
+                                                        {stock.customValues?.[col] || '-'}
+                                                    </td>
+                                                ))}
+
+                                                <td style={styles.td('center', false, 'var(--text-primary)', true, isDividendPending)}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 setEditingStock(stock);
                                                                 setIsModalOpen(true);
                                                             }}
-                                                            className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
-                                                            title="Edit Details"
+                                                            style={{
+                                                                ...styles.actionBtnCell,
+                                                                backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                                                                color: '#60a5fa'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.25)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.12)'}
+                                                            title="Edit"
                                                         >
-                                                            <Edit2 size={16} />
+                                                            <Edit2 size={14} />
                                                         </button>
-                                                        {stock.isArchived && stock.shares > 0 && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleArchiveToggle(stock.id, false);
-                                                                }}
-                                                                className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors"
-                                                                title="Unarchive Stock"
-                                                            >
-                                                                <RefreshCw size={16} />
-                                                            </button>
-                                                        )}
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleArchiveToggle(stock.id, true);
+                                                            }}
+                                                            style={{
+                                                                ...styles.actionBtnCell,
+                                                                backgroundColor: 'rgba(245, 158, 11, 0.12)',
+                                                                color: '#fbbf24'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.25)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(245, 158, 11, 0.12)'}
+                                                            title="Archive Stock"
+                                                        >
+                                                            <Archive size={14} />
+                                                        </button>
                                                         <button
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
                                                                 handleDeleteStock(stock.id);
                                                             }}
-                                                            className="p-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                            style={{
+                                                                ...styles.actionBtnCell,
+                                                                backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                                color: '#f87171'
+                                                            }}
+                                                            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.25)'}
+                                                            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)'}
                                                             title="Delete"
                                                         >
-                                                            <Trash2 size={16} />
+                                                            <Trash2 size={14} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -685,125 +1336,355 @@ const StockMarketDetails = () => {
                                 </tbody>
                             </table>
                         </div>
-                    </div>
-                );
-            })()}
+                    )}
+                </div>
+            )}
 
-            {/* Total Dividend Earned Section */}
-            {activeStocks.length > 0 && (
-                <div className="mt-12 mb-6">
-                    <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-xl font-bold text-gray-400 flex items-center gap-2">
-                            <BarChartIcon className="text-emerald-500" size={24} />
-                            Dividend Performance (Active Stocks)
-                        </h3>
-                    </div>
+            {/* 2. ANALYTICS & ALLOCATIONS TAB */}
+            {activeTab === 'analytics' && (
+                <div>
+                    {activeStocks.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '4rem 1.5rem',
+                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: '1.25rem',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            margin: '1.5rem 0'
+                        }}>
+                            <Info style={{ margin: '0 auto 0.75rem auto', color: '#71717a' }} size={40} />
+                            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: 'white', marginBottom: '0.25rem' }}>No active stocks for analytics</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#71717a' }}>Analytics will generate automatically once you add holdings.</p>
+                        </div>
+                    ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            {/* Dividend Performance Section */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
+                                {/* Dividend Overview Summary Card */}
+                                <div style={{
+                                    ...styles.glassCard('rgba(13, 148, 136, 0.06)', 'rgba(13, 148, 136, 0.15)', 'rgba(13, 148, 136, 0.15)'),
+                                    minHeight: '220px'
+                                }}>
+                                    <div>
+                                        <p style={{ fontSize: '10px', color: '#2dd4bf', textTransform: 'uppercase', fontWeight: '900', letterSpacing: '0.05em', marginBottom: '0.5rem', margin: 0 }}>Dividend Portfolio Earnings</p>
+                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
+                                            <h3 style={{ fontSize: '2.25rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(activeDividendsData.total)}</h3>
+                                            <span style={{ fontSize: '0.75rem', color: '#71717a' }}>lifetime</span>
+                                        </div>
+                                    </div>
+                                    <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                                        <p style={{ fontSize: '0.75rem', color: '#a1a1aa', lineHeight: 1.5, margin: 0 }}>
+                                            This metric aggregates all recorded dividend payments for stocks currently active in your portfolio. To add new dividends, add a transaction to the stock's page.
+                                        </p>
+                                    </div>
+                                </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                        {/* Summary Card */}
-                        <div className="card p-6 bg-[#1e1e1e] border border-white/5 flex flex-col justify-center">
-                            <p className="text-sm text-gray-500 uppercase font-bold mb-2">Total Dividends Earned</p>
-                            <div className="flex items-baseline gap-2">
-                                <p className="text-4xl font-bold text-emerald-400">{formatCurrency(activeDividendsData.total)}</p>
-                                <span className="text-sm text-gray-500">lifetime</span>
+                                {/* Dividends by Year Bar Chart */}
+                                <div style={{
+                                    ...styles.glassCard('rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)'),
+                                    height: '320px',
+                                    gridColumn: 'span 2'
+                                }}>
+                                    <p style={{ fontSize: '10px', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', marginBottom: '1.25rem', margin: 0 }}>Dividends History by Calendar Year</p>
+                                    <div style={{ width: '100%', height: '85%' }}>
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={dividendGraphData}>
+                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                                                <XAxis
+                                                    dataKey="year"
+                                                    tick={{ fill: '#71717a', fontSize: 11 }}
+                                                    axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
+                                                    tickLine={false}
+                                                />
+                                                <YAxis
+                                                    tick={{ fill: '#71717a', fontSize: 11 }}
+                                                    axisLine={false}
+                                                    tickLine={false}
+                                                    tickFormatter={(value) => `₹${value}`}
+                                                />
+                                                <Tooltip
+                                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
+                                                    itemStyle={{ color: '#fff' }}
+                                                    formatter={(value) => [`₹${value}`, 'Dividends']}
+                                                    cursor={{ fill: 'rgba(255,255,255,0.02)' }}
+                                                />
+                                                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                                                    {dividendGraphData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill="#0d9488" />
+                                                    ))}
+                                                </Bar>
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </div>
                             </div>
-                            <div className="mt-4 pt-4 border-t border-white/5">
-                                <p className="text-xs text-gray-500">
-                                    Includes all dividends recorded for currently active stocks.
-                                </p>
+
+                            {/* Treemap Allocations (Side-by-side) */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '2rem' }}>
+                                {/* Stocks by Value Allocation */}
+                                {stockTreemapData.length > 0 && (
+                                    <div style={{
+                                        ...styles.glassCard('rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)'),
+                                        height: '420px'
+                                    }}>
+                                        <p style={{ fontSize: '10px', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', marginBottom: '1.25rem', margin: 0 }}>Portfolio Allocation (Current Value)</p>
+                                        <div style={{ width: '100%', height: '85%' }}>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <Treemap
+                                                    data={stockTreemapData}
+                                                    dataKey="value"
+                                                    aspectRatio={4 / 3}
+                                                    stroke="#121225"
+                                                    fill="#4f46e5"
+                                                    content={<StockTreemapContent />}
+                                                >
+                                                    <Tooltip
+                                                        formatter={(value, name, props) => [
+                                                            `₹${value.toLocaleString('en-IN')}`, 
+                                                            props.payload.ticker || props.payload.name
+                                                        ]}
+                                                        contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
+                                                        itemStyle={{ color: '#fff' }}
+                                                    />
+                                                </Treemap>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Stocks by Total Dividends Allocation */}
+                                {dividendTreemapData.length > 0 && (
+                                    <div style={{
+                                        ...styles.glassCard('rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)'),
+                                        height: '420px'
+                                    }}>
+                                        <p style={{ fontSize: '10px', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', marginBottom: '1.25rem', margin: 0 }}>Dividends Received Allocation</p>
+                                        <div style={{ width: '100%', height: '85%' }}>
+                                            <ResponsiveContainer width="100%" height="100%">
+                                                <Treemap
+                                                    data={dividendTreemapData}
+                                                    dataKey="value"
+                                                    aspectRatio={4 / 3}
+                                                    stroke="#121225"
+                                                    fill="#0d9488"
+                                                    content={<DividendTreemapContent />}
+                                                >
+                                                    <Tooltip
+                                                        formatter={(value, name, props) => [
+                                                            `₹${value.toLocaleString('en-IN')}`, 
+                                                            props.payload.ticker || props.payload.name
+                                                        ]}
+                                                        contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
+                                                        itemStyle={{ color: '#fff' }}
+                                                    />
+                                                </Treemap>
+                                            </ResponsiveContainer>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
+                    )}
+                </div>
+            )}
 
-                        {/* Graph */}
-                        <div className="lg:col-span-2 card p-6 bg-[#1e1e1e] border border-white/5 h-[300px]">
-                            <p className="text-sm text-gray-500 uppercase font-bold mb-4">Dividends by Year</p>
-                            <ResponsiveContainer width="100%" height="90%">
-                                <BarChart data={dividendGraphData}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                                    <XAxis
-                                        dataKey="year"
-                                        tick={{ fill: '#9ca3af', fontSize: 12 }}
-                                        axisLine={{ stroke: '#333' }}
-                                        tickLine={false}
-                                    />
-                                    <YAxis
-                                        tick={{ fill: '#9ca3af', fontSize: 12 }}
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tickFormatter={(value) => `₹${value}`}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
-                                        itemStyle={{ color: '#fff' }}
-                                        formatter={(value) => [`₹${value}`, 'Dividends']}
-                                        cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                                    />
-                                    <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                                        {dividendGraphData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill="#10b981" />
-                                        ))}
-                                    </Bar>
-                                </BarChart>
-                            </ResponsiveContainer>
+            {/* 3. ARCHIVE TAB */}
+            {activeTab === 'archive' && (
+                <div>
+                    {archivedStocks.length === 0 ? (
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '4rem 1.5rem',
+                            background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+                            backdropFilter: 'blur(12px)',
+                            borderRadius: '1.25rem',
+                            border: '1px solid rgba(255, 255, 255, 0.06)',
+                            margin: '1.5rem 0'
+                        }}>
+                            <Info style={{ margin: '0 auto 0.75rem auto', color: '#71717a' }} size={40} />
+                            <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: 'white', marginBottom: '0.25rem' }}>Archive is empty</h3>
+                            <p style={{ fontSize: '0.75rem', color: '#71717a' }}>Fully sold out positions or manually archived stocks will show up here.</p>
                         </div>
-                    </div>
+                    ) : (() => {
+                        // Calculate Archived Totals
+                        const archivedTotals = archivedStocks.reduce((totals, stock) => {
+                            const transactions = stock.transactions || [];
+                            let invested = 0;
+                            let pl = 0;
 
-                    {/* Local Heatmaps */}
-                    <div className="grid grid-cols-1 xl:grid-cols-2 gap-8 mt-6">
-                        {/* Current Stocks Heatmap */}
-                        {stockTreemapData.length > 0 && (
-                            <div className="card bg-[#1e1e1e] border border-white/5 w-full p-6" style={{ height: '400px' }}>
-                                <p className="text-sm text-gray-500 uppercase font-bold mb-4">Stocks by Current Value</p>
-                                <ResponsiveContainer width="100%" height="90%">
-                                        <Treemap
-                                            data={stockTreemapData}
-                                            dataKey="value"
-                                            aspectRatio={4 / 3}
-                                            stroke="#fff"
-                                            fill="#8884d8"
-                                            content={<StockTreemapContent />}
-                                        >
-                                            <Tooltip
-                                                formatter={(value, name, props) => [
-                                                    `₹${value.toLocaleString('en-IN')}`, 
-                                                    props.payload.ticker || props.payload.name
-                                                ]}
-                                                contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
-                                                itemStyle={{ color: '#fff' }}
-                                            />
-                                        </Treemap>
-                                </ResponsiveContainer>
-                            </div>
-                        )}
+                            if (transactions.length > 0) {
+                                const totalBuyValue = transactions.reduce((sum, tx) => {
+                                    if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+                                        return sum + (Number(tx.quantity) * Number(tx.price));
+                                    }
+                                    return sum;
+                                }, 0);
 
-                        {/* Dividend Heatmap */}
-                        {dividendTreemapData.length > 0 && (
-                            <div className="card bg-[#1e1e1e] border border-white/5 w-full p-6" style={{ height: '400px' }}>
-                                <p className="text-sm text-gray-500 uppercase font-bold mb-4 flex justify-between items-center">
-                                    <span>Stocks by Total Dividends</span>
-                                </p>
-                                <ResponsiveContainer width="100%" height="90%">
-                                        <Treemap
-                                            data={dividendTreemapData}
-                                            dataKey="value"
-                                            aspectRatio={4 / 3}
-                                            stroke="#fff"
-                                            fill="#10b981"
-                                            content={<DividendTreemapContent />}
-                                        >
-                                            <Tooltip
-                                                formatter={(value, name, props) => [
-                                                    `₹${value.toLocaleString('en-IN')}`, 
-                                                    props.payload.ticker || props.payload.name
-                                                ]}
-                                                contentStyle={{ backgroundColor: '#18181b', borderColor: '#333', color: '#fff' }}
-                                                itemStyle={{ color: '#fff' }}
-                                            />
-                                        </Treemap>
-                                </ResponsiveContainer>
+                                const totalSellValue = transactions.reduce((sum, tx) => {
+                                    if (['sell', 'buyback'].includes(tx.type)) {
+                                        return sum + (Number(tx.quantity) * Number(tx.price));
+                                    }
+                                    return sum;
+                                }, 0);
+
+                                invested = totalBuyValue;
+                                pl = totalSellValue - totalBuyValue;
+                            } else {
+                                invested = stock.manualInvestedAmount || 0;
+                                pl = stock.realisedPL || 0;
+                            }
+
+                            return {
+                                invested: totals.invested + invested,
+                                pl: totals.pl + pl
+                            };
+                        }, { invested: 0, pl: 0 });
+
+                        return (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
+                                    <div style={styles.glassCard('rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)')}>
+                                        <p style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', fontWeight: '900', letterSpacing: '0.05em', marginBottom: '0.25rem', margin: 0 }}>Total Archived Invested Capital</p>
+                                        <p style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(archivedTotals.invested)}</p>
+                                    </div>
+                                    <div style={styles.glassCard(
+                                        archivedTotals.pl >= 0 ? 'rgba(16, 185, 129, 0.05)' : 'rgba(239, 68, 68, 0.05)',
+                                        archivedTotals.pl >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'
+                                    )}>
+                                        <p style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', fontWeight: '900', letterSpacing: '0.05em', marginBottom: '0.25rem', margin: 0 }}>Total P/L Booked (Realised)</p>
+                                        <div style={{ fontSize: '1.5rem', fontWeight: '950', display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: 'monospace', color: archivedTotals.pl >= 0 ? '#34d399' : '#f87171', margin: 0 }}>
+                                            {archivedTotals.pl >= 0 ? <TrendingUp size={22} /> : <TrendingDown size={22} />}
+                                            {formatCurrency(Math.abs(archivedTotals.pl))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style={styles.tableContainer}>
+                                    <table style={styles.table}>
+                                        <thead>
+                                            <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.015)' }}>
+                                                <th style={styles.th('left')}>Company Name</th>
+                                                <th style={styles.th('left')}>Ticker</th>
+                                                <th style={styles.th('right')}>Invested Value</th>
+                                                <th style={styles.th('right')}>Profit/Loss Booked</th>
+                                                <th style={styles.th('center', true)}>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {archivedStocks.map((stock) => {
+                                                const transactions = stock.transactions || [];
+                                                let calculatedInvested = 0;
+                                                let calculatedPL = 0;
+                                                let hasTransactions = transactions.length > 0;
+
+                                                if (hasTransactions) {
+                                                    const totalBuyValue = transactions.reduce((sum, tx) => {
+                                                        if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+                                                            return sum + (Number(tx.quantity) * Number(tx.price));
+                                                        }
+                                                        return sum;
+                                                    }, 0);
+
+                                                    const totalSellValue = transactions.reduce((sum, tx) => {
+                                                        if (['sell', 'buyback'].includes(tx.type)) {
+                                                            return sum + (Number(tx.quantity) * Number(tx.price));
+                                                        }
+                                                        return sum;
+                                                    }, 0);
+
+                                                    calculatedInvested = totalBuyValue;
+                                                    calculatedPL = totalSellValue - totalBuyValue;
+                                                }
+
+                                                const finalInvested = hasTransactions ? calculatedInvested : (stock.manualInvestedAmount || 0);
+                                                const finalPL = hasTransactions ? calculatedPL : (stock.realisedPL || 0);
+                                                const isProfit = finalPL >= 0;
+
+                                                return (
+                                                    <tr key={stock.id} style={{ opacity: 0.8, transition: 'background-color 0.2s' }}>
+                                                        <td
+                                                            style={styles.td('left', true, 'var(--text-secondary)')}
+                                                        >
+                                                            <span 
+                                                                onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
+                                                                style={{ textDecoration: 'underline', cursor: 'pointer' }}
+                                                            >
+                                                                {stock.name}
+                                                            </span>
+                                                        </td>
+                                                        <td style={styles.td('left', false, '#71717a')}><span style={{ fontFamily: 'monospace' }}>{stock.ticker}</span></td>
+                                                        <td style={styles.td('right', false, '#71717a')}>
+                                                            <span style={{ fontFamily: 'monospace' }}>{formatCurrency(finalInvested)}</span>
+                                                            {hasTransactions && <span style={{ marginLeft: '0.25rem', fontSize: '9px', color: '#60a5fa' }} title="Calculated from transactions">(Auto)</span>}
+                                                        </td>
+                                                        <td style={styles.td('right', true, isProfit ? 'var(--color-success)' : 'var(--color-danger)')}>
+                                                            <span style={{ fontFamily: 'monospace' }}>{formatCurrency(finalPL)}</span>
+                                                        </td>
+                                                        <td style={styles.td('center', false, 'var(--text-primary)', true)}>
+                                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setEditingStock(stock);
+                                                                        setIsModalOpen(true);
+                                                                    }}
+                                                                    style={{
+                                                                        ...styles.actionBtnCell,
+                                                                        backgroundColor: 'rgba(59, 130, 246, 0.12)',
+                                                                        color: '#60a5fa'
+                                                                    }}
+                                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.25)'}
+                                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.12)'}
+                                                                    title="Edit Details"
+                                                                >
+                                                                    <Edit2 size={14} />
+                                                                </button>
+                                                                {stock.isArchived && stock.shares > 0 && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            handleArchiveToggle(stock.id, false);
+                                                                        }}
+                                                                        style={{
+                                                                            ...styles.actionBtnCell,
+                                                                            backgroundColor: 'rgba(16, 185, 129, 0.12)',
+                                                                            color: '#34d399'
+                                                                        }}
+                                                                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.25)'}
+                                                                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.12)'}
+                                                                        title="Unarchive Stock"
+                                                                    >
+                                                                        <RefreshCw size={14} />
+                                                                    </button>
+                                                                )}
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteStock(stock.id);
+                                                                    }}
+                                                                    style={{
+                                                                        ...styles.actionBtnCell,
+                                                                        backgroundColor: 'rgba(239, 68, 68, 0.12)',
+                                                                        color: '#f87171'
+                                                                    }}
+                                                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.25)'}
+                                                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(239, 68, 68, 0.12)'}
+                                                                    title="Delete"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
                             </div>
-                        )}
-                    </div>
+                        );
+                    })()}
                 </div>
             )}
 
@@ -842,30 +1723,66 @@ const StockMarketDetails = () => {
                     <div style={{
                         position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 100
+                        backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 100,
+                        backdropFilter: 'blur(4px)'
                     }}>
-                        <div className="bg-[#18181b] p-6 rounded-2xl border border-white/10 w-96 shadow-2xl">
-                            <h3 className="text-xl font-bold text-white mb-4">Add Custom Column</h3>
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(10, 10, 15, 0.95) 100%)',
+                            padding: '1.5rem',
+                            borderRadius: '1.25rem',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            width: '24rem',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
+                        }}>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'white', marginBottom: '1rem' }}>Add Custom Column</h3>
                             <form onSubmit={handleAddColumn}>
                                 <input
                                     type="text"
                                     placeholder="Column Name (e.g. PE Ratio)"
                                     value={newColumnName}
                                     onChange={(e) => setNewColumnName(e.target.value)}
-                                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white mb-4 focus:outline-none focus:border-indigo-500"
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.75rem 1rem',
+                                        borderRadius: '0.75rem',
+                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        color: 'white',
+                                        marginBottom: '1rem',
+                                        outline: 'none',
+                                        fontSize: '0.875rem'
+                                    }}
                                     autoFocus
                                 />
-                                <div className="flex justify-end gap-3">
+                                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem' }}>
                                     <button
                                         type="button"
                                         onClick={() => setIsAddColumnModalOpen(false)}
-                                        className="px-4 py-2 rounded-lg text-gray-400 hover:text-white"
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '0.5rem',
+                                            color: '#a1a1aa',
+                                            fontWeight: '600',
+                                            cursor: 'pointer',
+                                            fontSize: '0.875rem',
+                                            border: 'none',
+                                            background: 'none'
+                                        }}
                                     >
                                         Cancel
                                     </button>
                                     <button
                                         type="submit"
-                                        className="px-4 py-2 rounded-lg bg-emerald-600 text-white font-bold hover:bg-emerald-700"
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: '#10b981',
+                                            color: 'white',
+                                            fontWeight: '700',
+                                            cursor: 'pointer',
+                                            fontSize: '0.875rem',
+                                            border: 'none'
+                                        }}
                                     >
                                         Add Column
                                     </button>
@@ -885,40 +1802,87 @@ const StockMarketDetails = () => {
                         backgroundColor: 'rgba(0, 0, 0, 0.75)', zIndex: 2147483647,
                         backdropFilter: 'blur(4px)'
                     }}>
-                        <div className="bg-[#18181b] rounded-2xl border border-white/10 w-96 shadow-2xl flex flex-col max-h-[80vh]" onClick={(e) => e.stopPropagation()}>
-                            <div className="flex items-center justify-between p-6 border-b border-gray-800">
-                                <h3 className="text-xl font-bold text-white">Manage Columns</h3>
-                                <button onClick={() => setIsManageColumnsModalOpen(false)} className="text-gray-400 hover:text-white">
+                        <div style={{
+                            background: 'linear-gradient(135deg, rgba(24, 24, 27, 0.95) 0%, rgba(10, 10, 15, 0.95) 100%)',
+                            borderRadius: '1.25rem',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            width: '24rem',
+                            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            maxHeight: '80vh'
+                        }} onClick={(e) => e.stopPropagation()}>
+                            <div style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '1.5rem',
+                                borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'white', margin: 0 }}>Manage Columns</h3>
+                                <button onClick={() => setIsManageColumnsModalOpen(false)} style={{ color: '#a1a1aa', cursor: 'pointer', border: 'none', background: 'none' }}>
                                     <X size={20} />
                                 </button>
                             </div>
 
-                            <div className="p-4 overflow-y-auto flex-1 custom-scrollbar">
+                            <div style={{ padding: '1rem', overflowY: 'auto', flex: 1 }} className="custom-scrollbar">
                                 {customColumns.length === 0 ? (
-                                    <p className="text-gray-500 text-center py-4">No custom columns added.</p>
+                                    <p style={{ color: '#71717a', textAlign: 'center', padding: '1rem 0', margin: 0 }}>No custom columns added.</p>
                                 ) : (
-                                    <div className="space-y-2">
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         {customColumns.map((col, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/5">
-                                                <span className="text-white font-medium">{col}</span>
-                                                <div className="flex items-center gap-1">
+                                            <div key={idx} style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '0.75rem',
+                                                borderRadius: '0.5rem',
+                                                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                                border: '1px solid rgba(255, 255, 255, 0.05)'
+                                            }}>
+                                                <span style={{ color: 'white', fontWeight: '500' }}>{col}</span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                                     <button
                                                         onClick={() => handleMoveColumn(idx, -1)}
                                                         disabled={idx === 0}
-                                                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30"
+                                                        style={{
+                                                            padding: '0.25rem',
+                                                            borderRadius: '0.25rem',
+                                                            color: '#a1a1aa',
+                                                            cursor: 'pointer',
+                                                            opacity: idx === 0 ? 0.3 : 1,
+                                                            border: 'none',
+                                                            background: 'none'
+                                                        }}
                                                     >
                                                         <ChevronUp size={16} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleMoveColumn(idx, 1)}
                                                         disabled={idx === customColumns.length - 1}
-                                                        className="p-1 rounded hover:bg-white/10 text-gray-400 hover:text-white disabled:opacity-30"
+                                                        style={{
+                                                            padding: '0.25rem',
+                                                            borderRadius: '0.25rem',
+                                                            color: '#a1a1aa',
+                                                            cursor: 'pointer',
+                                                            opacity: idx === customColumns.length - 1 ? 0.3 : 1,
+                                                            border: 'none',
+                                                            background: 'none'
+                                                        }}
                                                     >
                                                         <ChevronDown size={16} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteCustomColumn(idx)}
-                                                        className="p-1 rounded hover:bg-red-500/20 text-red-400 hover:text-red-300 ml-2"
+                                                        style={{
+                                                            padding: '0.25rem',
+                                                            borderRadius: '0.25rem',
+                                                            color: '#f87171',
+                                                            cursor: 'pointer',
+                                                            marginLeft: '0.5rem',
+                                                            border: 'none',
+                                                            background: 'none'
+                                                        }}
                                                     >
                                                         <Trash2 size={16} />
                                                     </button>
@@ -938,4 +1902,3 @@ const StockMarketDetails = () => {
 };
 
 export default StockMarketDetails;
-

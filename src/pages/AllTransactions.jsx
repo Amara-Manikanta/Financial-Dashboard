@@ -96,19 +96,30 @@ const AllTransactions = () => {
     };
 
     return (
-        <div className="container pb-12 animate-fade-in mx-auto max-w-7xl">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
-                    <h1 className="text-4xl font-black text-white tracking-tight mb-2">Transaction History</h1>
-                    <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">
-                        {filteredTransactions.length} Total Transactions
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Transaction History</h2>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>
+                        {filteredTransactions.length.toLocaleString()} Total Transactions
                     </p>
                 </div>
-                <div className="flex items-center gap-3">
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
                     {hasActiveFilters && (
                         <button
                             onClick={handleClearFilters}
-                            className="px-4 py-3 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white rounded-xl font-bold text-sm transition-all border border-white/5"
+                            style={{
+                                padding: '0.5rem 1rem',
+                                borderRadius: '0.75rem',
+                                backgroundColor: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                                color: '#a1a1aa',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                cursor: 'pointer'
+                            }}
                         >
                             Clear Filters
                         </button>
@@ -116,138 +127,157 @@ const AllTransactions = () => {
                     <button
                         onClick={handleExport}
                         disabled={filteredTransactions.length === 0}
-                        className="px-6 py-3 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 rounded-xl font-bold flex items-center gap-2 transition-all border border-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed"
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                            color: '#34d399',
+                            fontWeight: 'bold',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                            opacity: filteredTransactions.length === 0 ? 0.3 : 1
+                        }}
                     >
-                        <Download size={18} />
-                        Export to Excel
+                        <Download size={14} /> Export to Excel
                     </button>
                 </div>
             </div>
 
             {/* Filters Bar */}
-            <div className="bg-[#121214] border border-white/5 p-4 rounded-2xl mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
-                <div className="relative w-full md:w-96">
-                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '2rem',
+                padding: '1.5rem',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '1.5rem'
+            }}>
+                <div style={{ position: 'relative', width: '100%', maxWidth: '380px' }}>
+                    <Search style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }} size={16} />
                     <input
                         type="text"
                         placeholder="Search by title or category..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full bg-[#0c0c0e] border border-white/10 rounded-xl pl-12 pr-4 py-3 text-white font-medium focus:outline-none focus:border-orange-500/50 transition-all placeholder:text-gray-600"
+                        style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '1rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
                     />
                 </div>
 
-                <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                    <div className="relative group">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
+                    <div style={{
+                        display: 'flex',
+                        backgroundColor: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '1rem',
+                        padding: '2px',
+                        gap: '2px'
+                    }}>
                         <select
                             value={typeFilter}
                             onChange={(e) => setTypeFilter(e.target.value)}
-                            className="appearance-none bg-[#0c0c0e] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 cursor-pointer min-w-[120px]"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
                         >
-                            <option value="all" className="bg-[#0c0c0e] text-white">All Types</option>
-                            <option value="credit" className="bg-[#0c0c0e] text-white">Credit (Income)</option>
-                            <option value="debit" className="bg-[#0c0c0e] text-white">Debit (Expense)</option>
+                            <option value="all" style={{ backgroundColor: '#18181b' }}>All Types</option>
+                            <option value="credit" style={{ backgroundColor: '#18181b' }}>Credit (Income)</option>
+                            <option value="debit" style={{ backgroundColor: '#18181b' }}>Debit (Expense)</option>
                         </select>
-                        <ArrowDownCircle size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                    </div>
-
-                    <div className="relative group">
+                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
                         <select
                             value={yearFilter}
                             onChange={(e) => setYearFilter(e.target.value)}
-                            className="appearance-none bg-[#0c0c0e] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 cursor-pointer min-w-[100px]"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
                         >
-                            <option value="all" className="bg-[#0c0c0e] text-white">All Years</option>
-                            {years.map(y => <option key={y} value={y} className="bg-[#0c0c0e] text-white">{y}</option>)}
+                            <option value="all" style={{ backgroundColor: '#18181b' }}>All Years</option>
+                            {years.map(y => <option key={y} value={y} style={{ backgroundColor: '#18181b' }}>{y}</option>)}
                         </select>
-                        <Calendar size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
-                    </div>
-
-                    <div className="relative group">
+                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
                         <select
                             value={monthFilter}
                             onChange={(e) => setMonthFilter(e.target.value)}
-                            className="appearance-none bg-[#0c0c0e] border border-white/10 rounded-xl px-4 py-3 pr-10 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 cursor-pointer min-w-[120px]"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
                         >
-                            <option value="all" className="bg-[#0c0c0e] text-white">All Months</option>
-                            {months.map(m => <option key={m} value={m} className="bg-[#0c0c0e] text-white">{m}</option>)}
+                            <option value="all" style={{ backgroundColor: '#18181b' }}>All Months</option>
+                            {months.map(m => <option key={m} value={m} style={{ backgroundColor: '#18181b' }}>{m}</option>)}
                         </select>
-                        <Filter size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
                     </div>
                 </div>
             </div>
 
             {/* Transactions Table */}
-            <div className="bg-[#121214] border border-white/5 rounded-3xl overflow-hidden shadow-2xl">
-                <div className="overflow-x-auto">
-                    <table className="w-full">
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                borderRadius: '2rem',
+                overflow: 'hidden',
+                boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+            }}>
+                <div style={{ overflowX: 'auto' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr className="bg-white/5 border-b border-white/5">
-                                <th className="text-left py-4 px-6 text-[10px] uppercase tracking-widest font-black text-gray-500">Date</th>
-                                <th className="text-left py-4 px-6 text-[10px] uppercase tracking-widest font-black text-gray-500">Details</th>
-                                <th className="text-left py-4 px-6 text-[10px] uppercase tracking-widest font-black text-gray-500">Category</th>
-                                <th className="text-left py-4 px-6 text-[10px] uppercase tracking-widest font-black text-gray-500">Payment Mode</th>
-                                <th className="text-right py-4 px-6 text-[10px] uppercase tracking-widest font-black text-gray-500">Amount</th>
+                            <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Details</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
+                                <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Payment Mode</th>
+                                <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody>
                             {displayedTransactions.length > 0 ? (
                                 displayedTransactions.map((t) => (
-                                    <tr key={t.id || `${t.date}-${t.amount}-${t.title}`} className="hover:bg-white/[0.02] transition-colors group">
-                                        <td className="py-4 px-6 whitespace-nowrap">
-                                            <div className="font-bold text-white text-sm">
+                                    <tr key={t.id || `${t.date}-${t.amount}-${t.title}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <td style={{ padding: '1rem 1.5rem', color: '#a1a1aa', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
+                                            <div style={{ color: 'white', fontWeight: 'bold' }}>
                                                 {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                                             </div>
-                                            <div className="text-[10px] text-gray-500 uppercase font-bold mt-1">{t.month}</div>
+                                            <div style={{ fontSize: '9px', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>{t.month}</div>
                                         </td>
-                                        <td className="py-4 px-6">
-                                            <div className="font-bold text-white text-sm">{t.title}</div>
+                                        <td style={{ padding: '1rem 1.5rem' }}>
+                                            <div style={{ color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>{t.title}</div>
                                             {t.creditCardName && (
-                                                <span className="inline-block mt-1 px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/20">
+                                                <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '950', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'rgba(99, 102, 241, 0.1)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.2)', marginTop: '0.25rem' }}>
                                                     {t.creditCardName}
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="py-4 px-6">
-                                            <span className="px-3 py-1 rounded-lg text-xs font-bold bg-white/5 text-gray-300 uppercase tracking-wider border border-white/5 group-hover:border-white/10 transition-colors">
+                                        <td style={{ padding: '1rem 1.5rem' }}>
+                                            <span style={{ display: 'inline-flex', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.03)', color: '#a1a1aa' }}>
                                                 {t.mainCategory ? `${t.mainCategory} • ${t.category}` : t.category}
                                             </span>
                                         </td>
-                                        <td className="py-4 px-6">
-                                            <div className="flex items-center gap-2">
+                                        <td style={{ padding: '1rem 1.5rem' }}>
+                                            <div style={{ display: 'flex', alignItems: 'center' }}>
                                                 {t.paymentMode === 'credit_card' ? (
-                                                    <div className="w-8 h-5 rounded bg-gradient-to-br from-indigo-600 to-purple-700 flex items-center justify-center shadow-lg">
-                                                        <div className="w-5 h-0.5 bg-white/30 rounded-full" />
-                                                    </div>
+                                                    <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '950', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'rgba(129, 140, 248, 0.1)', color: '#818cf8', border: '1px solid rgba(129, 140, 248, 0.2)' }}>CARD</span>
                                                 ) : t.paymentMode === 'direct' || t.paymentMode === 'upi' ? (
-                                                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-                                                        <span className="text-[10px] font-black text-emerald-500">UPI</span>
-                                                    </div>
+                                                    <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '950', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.2)' }}>UPI</span>
                                                 ) : t.paymentMode === 'cash' ? (
-                                                    <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                                                        <span className="text-[10px] font-black text-amber-500">CASH</span>
-                                                    </div>
+                                                    <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '950', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.2)' }}>CASH</span>
                                                 ) : t.paymentMode === 'bank_transfer' || t.paymentMode === 'neft' || t.paymentMode === 'imps' ? (
-                                                    <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20">
-                                                        <span className="text-[10px] font-black text-blue-400">BANK</span>
-                                                    </div>
+                                                    <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '950', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.2)' }}>BANK</span>
                                                 ) : (
-                                                    <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
-                                                        <span className="text-[10px] font-black text-gray-400">{(t.paymentMode || 'N/A').slice(0,4).toUpperCase()}</span>
-                                                    </div>
+                                                    <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '950', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: 'rgba(255,255,255,0.03)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.05)' }}>{(t.paymentMode || 'N/A').toUpperCase()}</span>
                                                 )}
                                             </div>
                                         </td>
-                                        <td className="py-4 px-6 text-right">
-                                            <div className={`font-black text-lg ${t.isCredited ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                {t.isCredited ? '+' : '-'} {formatCurrency(t.amount)}
-                                            </div>
+                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', fontSize: '1rem', fontWeight: 'bold', color: t.isCredited ? '#34d399' : '#f87171' }}>
+                                            {t.isCredited ? '+' : '-'} {formatCurrency(t.amount)}
                                         </td>
                                     </tr>
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan="5" className="py-12 text-center text-gray-500 font-medium">
+                                    <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem' }}>
                                         No transactions found matching your filters.
                                     </td>
                                 </tr>
@@ -258,39 +288,30 @@ const AllTransactions = () => {
 
                 {/* Pagination Footer */}
                 {totalPages > 1 && (
-                    <div className="p-4 border-t border-white/5 flex items-center justify-between bg-black/20">
-                        <div className="flex items-center gap-4">
-                            <div className="text-xs font-bold text-gray-500">
+                    <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                            <span style={{ fontSize: '11px', color: '#71717a' }}>
                                 Showing {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
-                            </div>
-                            <select
-                                value={itemsPerPage}
-                                onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                                className="bg-white/5 border border-white/10 text-white text-xs font-bold rounded-lg px-2 py-1 focus:outline-none"
-                            >
-                                <option value={20}>20 / page</option>
-                                <option value={50}>50 / page</option>
-                                <option value={100}>100 / page</option>
-                            </select>
-                        </div>
-                        <div className="flex gap-2">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-white"
-                            >
-                                <ChevronLeft size={16} />
-                            </button>
-                            <span className="flex items-center px-4 rounded-lg bg-white/5 text-xs font-bold text-white">
-                                Page {currentPage} of {totalPages}
                             </span>
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="p-2 rounded-lg bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all text-white"
-                            >
-                                <ChevronRight size={16} />
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                <span style={{ fontSize: '11px', color: '#71717a' }}>Rows:</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
+                                    style={{ backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '0.5rem', padding: '0.25rem', outline: 'none', cursor: 'pointer' }}
+                                >
+                                    <option value={20}>20</option>
+                                    <option value={50}>50</option>
+                                    <option value={100}>100</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === 1 ? 0.3 : 1, fontSize: '10px', fontWeight: 'bold' }}>Prev</button>
+                            <span style={{ fontSize: '11px', color: '#71717a', fontFamily: 'monospace', padding: '0 0.5rem' }}>
+                                Page {currentPage} / {totalPages}
+                            </span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === totalPages ? 0.3 : 1, fontSize: '10px', fontWeight: 'bold' }}>Next</button>
                         </div>
                     </div>
                 )}

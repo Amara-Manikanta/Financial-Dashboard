@@ -9,25 +9,37 @@ import ConfirmModal from '../components/ConfirmModal';
 const COLORS = ['#FF8C00', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B'];
 
 const SummaryCard = ({ title, subtitle, amount, percentage, color }) => (
-    <div className="card relative overflow-hidden flex items-center justify-between p-4 group hover:bg-white/5 transition-colors duration-300">
-        <div className="flex flex-col">
-            <h3 className="text-gray-300 text-sm font-medium mb-1">{title}</h3>
-            <p className="text-[10px] text-gray-500 mb-2 font-medium">{subtitle}</p>
-            <p className="text-2xl font-bold text-white tracking-tight">{amount}</p>
+    <div style={{
+        backgroundColor: '#18181b',
+        border: `1px solid ${color}20`,
+        borderRadius: '1.25rem',
+        padding: '1.25rem',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        boxShadow: `0 10px 15px -3px ${color}05`,
+        position: 'relative',
+        overflow: 'hidden'
+    }}>
+        <div>
+            <h3 style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#71717a', margin: '0 0 0.25rem 0' }}>{title}</h3>
+            <p style={{ fontSize: '0.625rem', color: '#52525b', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.75rem 0', fontWeight: 'bold' }}>{subtitle}</p>
+            <p style={{ fontSize: '1.5rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{amount}</p>
         </div>
 
-        <div
-            className="flex items-center justify-center w-14 h-14 rounded-xl transition-transform duration-300 group-hover:scale-105"
-            style={{
-                borderWidth: '2px',
-                borderStyle: 'solid',
-                borderColor: color,
-                color: color,
-                boxShadow: `0 0 15px ${color}15`,
-                backgroundColor: `${color}08`
-            }}
-        >
-            <span className="text-[10px] font-black">{percentage}</span>
+        <div style={{
+            width: '3.5rem',
+            height: '3.5rem',
+            borderRadius: '1rem',
+            border: `2px solid ${color}`,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: color,
+            backgroundColor: `${color}08`,
+            boxShadow: `0 0 15px ${color}15`
+        }}>
+            <span style={{ fontSize: '0.75rem', fontWeight: '900' }}>{percentage}</span>
         </div>
     </div>
 );
@@ -40,14 +52,12 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
         ? `${item.mainCategory} • ${item.category}` 
         : item.category;
 
-    // Construct subtitle parts based on what is available and requested
     const subtitleParts = [];
     if (fullCategoryString) {
-        subtitleParts.push(fullCategoryString); // Always show category in subtitle
+        subtitleParts.push(fullCategoryString);
     }
     if (!hideDate) subtitleParts.push(new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
 
-    // For Statement Info (showActions=true), explicitly add Credit/Debit and Payment Mode
     if (showActions) {
         const type = item.isCredited ? 'Credit' : 'Debit';
         let paymentType = '';
@@ -66,102 +76,166 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
         }
     }
 
-    // Join with bullet point
     const subtitle = subtitleParts.join(' • ');
-
     const isCredit = item.isCredited;
+    const catColor = COLORS[Math.abs((item.category || '').length) % COLORS.length];
 
     return (
         <div 
             id={`tx-${item.id}`}
             onClick={onClick}
-            className={`group flex items-center justify-between ${compact ? 'p-2' : 'p-3'} rounded-xl transition-all duration-200 border relative ${
-                onClick ? 'cursor-pointer' : ''
-            } ${
-                isHighlighted 
-                    ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.1)]' 
-                    : isDimmed 
-                        ? 'opacity-30 border-transparent grayscale-[50%]' 
-                        : 'hover:bg-white/5 border-transparent hover:border-white/5'
-            }`}
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                padding: compact ? '0.75rem' : '1rem',
+                borderRadius: '1rem',
+                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                border: isHighlighted 
+                    ? '1px solid rgba(16, 185, 129, 0.3)' 
+                    : `1px solid rgba(255, 255, 255, 0.05)`,
+                opacity: isDimmed ? 0.3 : 1,
+                cursor: onClick ? 'pointer' : 'default',
+                position: 'relative',
+                boxShadow: isHighlighted ? '0 4px 15px rgba(16, 185, 129, 0.05)' : 'none',
+                gap: '0.5rem'
+            }}
         >
-            <div className="flex items-center justify-between w-full">
-            <div className="flex items-center gap-3 overflow-hidden flex-1">
-                <div className={`${compact ? 'p-1.5' : 'p-2'} rounded-lg bg-opacity-20 flex-shrink-0 flex items-center justify-center`} style={{ backgroundColor: `${COLORS[Math.abs((item.category || '').length) % COLORS.length]}20`, color: COLORS[Math.abs((item.category || '').length) % COLORS.length] }}>
-                    <IconComponent size={compact ? 14 : 18} />
-                </div>
-                <div className="overflow-hidden flex-1 min-w-0">
-                    <h4 className={`text-white font-medium ${compact ? 'text-xs' : 'text-sm'} capitalize truncate`}>
-                        {item.title || fullCategoryString || 'Untitled'}
-                    </h4>
-                    {subtitle && (
-                        <p className="text-gray-500 text-[10px] mt-0.5 truncate flex items-center gap-1">
-                            {subtitle}
-                            {showActions && (
-                                <span className={`w-1.5 h-1.5 rounded-full ${isCredit ? 'bg-emerald-500' : 'bg-red-500/50'}`}></span>
-                            )}
-                        </p>
-                    )}
-                </div>
-            </div>
-
-            <div className="flex items-center gap-3 flex-shrink-0 ml-2">
-                {/* Actions - Always visible on larger screens or cleaner hover effect */}
-                {showActions && (
-                    <div className="flex items-center gap-1 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all duration-200">
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-blue-400 hover:bg-blue-500/10 transition-colors"
-                            title="Edit"
-                        >
-                            <Edit2 size={12} />
-                        </button>
-                        <button
-                            onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                            title="Delete"
-                        >
-                            <Trash2 size={12} />
-                        </button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', overflow: 'hidden', flex: 1 }}>
+                    <div style={{
+                        padding: compact ? '0.375rem' : '0.5rem',
+                        borderRadius: '0.5rem',
+                        backgroundColor: `${catColor}20`,
+                        color: catColor,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0
+                    }}>
+                        <IconComponent size={compact ? 14 : 18} />
                     </div>
-                )}
+                    <div style={{ overflow: 'hidden', flex: 1 }}>
+                        <h4 style={{ fontSize: compact ? '0.75rem' : '0.875rem', fontWeight: 'bold', color: 'white', textTransform: 'capitalize', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {item.title || fullCategoryString || 'Untitled'}
+                        </h4>
+                        {subtitle && (
+                            <p style={{ fontSize: '9px', color: '#71717a', margin: '0.125rem 0 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                {subtitle}
+                                {showActions && (
+                                    <span style={{ width: '4px', height: '4px', borderRadius: '50%', backgroundColor: isCredit ? '#10b981' : '#ef4444' }}></span>
+                                )}
+                            </p>
+                        )}
+                    </div>
+                </div>
 
-                <div className="text-right">
-                    <p className={`font-bold ${compact ? 'text-xs' : 'text-sm'} ${showActions && isCredit ? 'text-emerald-400' : 'text-white'}`}>
-                        {isCredit ? '+' : ''}{formatCurrency(item.amount)}
-                    </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0, marginLeft: '0.5rem' }}>
+                    {showActions && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+                                style={{
+                                    padding: '0.25rem',
+                                    borderRadius: '0.375rem',
+                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    color: '#71717a',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Edit"
+                            >
+                                <Edit2 size={12} />
+                            </button>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
+                                style={{
+                                    padding: '0.25rem',
+                                    borderRadius: '0.375rem',
+                                    border: 'none',
+                                    backgroundColor: 'transparent',
+                                    color: '#71717a',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title="Delete"
+                            >
+                                <Trash2 size={12} />
+                            </button>
+                        </div>
+                    )}
+
+                    <div style={{ textAlign: 'right' }}>
+                        <p style={{
+                            fontSize: compact ? '0.75rem' : '0.875rem',
+                            fontWeight: 'bold',
+                            color: showActions && isCredit ? '#10b981' : 'white',
+                            fontFamily: 'monospace',
+                            margin: 0
+                        }}>
+                            {isCredit ? '+' : ''}{formatCurrency(item.amount)}
+                        </p>
+                    </div>
                 </div>
             </div>
-            
-            {/* Grocery Items Expansion */}
+
             {item.groceryItems && item.groceryItems.length > 0 && isExpanded && (
-                <div className="w-full mt-4 bg-black/40 rounded-xl border border-white/5 p-4 animate-fade-in">
-                    <h5 className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-3">Detailed Receipt</h5>
-                    <div className="space-y-2">
+                <div style={{
+                    marginTop: '0.5rem',
+                    backgroundColor: 'rgba(0,0,0,0.2)',
+                    borderRadius: '0.75rem',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    padding: '0.75rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                }}>
+                    <h5 style={{ fontSize: '8px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#10b981', margin: '0 0 0.25rem 0' }}>Detailed Receipt</h5>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                         {item.groceryItems.map((gi, idx) => (
-                            <div key={idx} className="flex justify-between items-center text-xs">
-                                <div className="flex flex-col">
-                                    <span className="text-white font-medium">{gi.name} <span className="text-gray-500 text-[10px] ml-1">({gi.quantity || gi.customQuantity})</span></span>
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ color: 'white', fontWeight: 'medium' }}>
+                                        {gi.name} <span style={{ color: '#71717a', fontSize: '9px', marginLeft: '0.25rem' }}>({gi.quantity || gi.customQuantity})</span>
+                                    </span>
                                     {(gi.brand || gi.flavour) && (
-                                        <span className="text-gray-500 text-[9px]">
+                                        <span style={{ color: '#52525b', fontSize: '8px' }}>
                                             {gi.brand} {gi.brand && gi.flavour ? '•' : ''} {gi.flavour}
                                         </span>
                                     )}
                                 </div>
-                                <span className="text-gray-400 font-medium">₹{Number(gi.price || 0).toFixed(2)}</span>
+                                <span style={{ color: '#a1a1aa', fontFamily: 'monospace' }}>₹{Number(gi.price || 0).toFixed(2)}</span>
                             </div>
                         ))}
                     </div>
                 </div>
             )}
-            </div>
-            
+
             {item.groceryItems && item.groceryItems.length > 0 && (
                 <button
                     onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-                    className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-[#18181b] border border-white/10 rounded-full p-1 text-gray-500 hover:text-emerald-400 hover:border-emerald-500/50 transition-colors z-10"
+                    style={{
+                        position: 'absolute',
+                        bottom: '-0.625rem',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        backgroundColor: '#18181b',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '50%',
+                        width: '1.25rem',
+                        height: '1.25rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        color: '#71717a',
+                        cursor: 'pointer',
+                        padding: 0,
+                        zIndex: 10
+                    }}
                 >
-                    <ChevronDown size={14} className={`transform transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                    <ChevronDown size={10} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }} />
                 </button>
             )}
         </div>
@@ -583,73 +657,201 @@ const ExpenseDetails = () => {
     }
 
     return (
-        <div className="container pb-12 animate-fade-in">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8 mt-4">
-                <div>
-                    <button onClick={() => navigate('/expenses')} className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-2 text-sm">
-                        <ArrowLeft size={14} /> All Expenses
-                    </button>
-                    <div className="flex items-center gap-4">
-                        <h1 className="text-4xl font-black tracking-tight">{month} <span className="opacity-30">{year}</span></h1>
-                        <div className="flex items-center gap-2 ml-4">
-                            <button onClick={handlePrevMonth} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all" title={`Go to ${prevMonth} ${prevYear}`}>
-                                <ChevronLeft size={20} />
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.5rem',
+                marginBottom: '2.5rem'
+            }}>
+                <button
+                    onClick={() => navigate('/expenses')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        color: '#71717a',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer',
+                        padding: 0
+                    }}
+                >
+                    ← All Expenses
+                </button>
+
+                <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '1.5rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
+                            {month} <span style={{ color: '#71717a' }}>{year}</span>
+                        </h2>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button
+                                onClick={handlePrevMonth}
+                                style={{
+                                    padding: '0.5rem',
+                                    borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    color: '#71717a',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title={`Go to ${prevMonth} ${prevYear}`}
+                            >
+                                <ChevronLeft size={16} />
                             </button>
-                            <button onClick={handleNextMonth} className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all" title={`Go to ${nextMonth} ${nextYear}`}>
-                                <ChevronRight size={20} />
+                            <button
+                                onClick={handleNextMonth}
+                                style={{
+                                    padding: '0.5rem',
+                                    borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                                    color: '#71717a',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center'
+                                }}
+                                title={`Go to ${nextMonth} ${nextYear}`}
+                            >
+                                <ChevronRight size={16} />
                             </button>
                         </div>
                     </div>
+
+                    <button
+                        onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }}
+                        style={{
+                            padding: '0.75rem 1.5rem',
+                            borderRadius: '1rem',
+                            backgroundColor: '#eab308',
+                            color: 'black',
+                            fontWeight: 'bold',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                            cursor: 'pointer',
+                            border: 'none',
+                            boxShadow: '0 4px 10px -2px rgba(234, 179, 8, 0.2)'
+                        }}
+                    >
+                        <Plus size={16} /> Add Expense
+                    </button>
                 </div>
-                <button onClick={() => { setEditingTransaction(null); setIsModalOpen(true); }} className="px-6 py-3 rounded-2xl bg-orange-500 text-white font-bold hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/20 flex items-center gap-2">
-                    <Plus size={20} /> Add Expense
-                </button>
             </div>
 
             {/* Summaries */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '1.5rem',
+                marginBottom: '2.5rem'
+            }}>
                 <SummaryCard title="Monthly Salary" subtitle="Income Source" amount={formatCurrency(monthDetails.salary)} percentage="100%" color="#10B981" />
-                <SummaryCard title="Total Spends" subtitle={`${monthDetails.expenseCount} Categories`} amount={formatCurrency(monthDetails.totalGrossExpenses)} percentage={`-${monthDetails.expensePercentage}%`} color="#EF4444" />
-                <SummaryCard title="Net Savings" subtitle="Current Balance" amount={formatCurrency(monthDetails.balance)} percentage={`${monthDetails.balancePercentage}%`} color="#3B82F6" />
+                <SummaryCard title="Total Spends" subtitle={`${monthDetails.expenseCount} Categories`} amount={formatCurrency(monthDetails.totalGrossExpenses)} percentage={`-${monthDetails.expensePercentage}%`} color="#ef4444" />
+                <SummaryCard title="Net Savings" subtitle="Current Balance" amount={formatCurrency(monthDetails.balance)} percentage={`${monthDetails.balancePercentage}%`} color="#3b82f6" />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            {/* Content Body Grid */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr',
+                gap: '2rem'
+            }} className="lg:grid-cols-12">
                 {/* Main Content Area */}
-                <div className="lg:col-span-8 flex flex-col gap-8">
-                    {/* Graphs Section */}
-                    <div className="card !bg-slate-900/50 border border-white/5">
-                        <div className="flex items-center justify-between mb-8">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }} className="lg:col-span-8">
+                    {/* Spending Velocity */}
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '2rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        padding: '1.5rem',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
                             <div>
-                                <h3 className="text-xl font-bold">Spending Velocity</h3>
-                                <p className="text-xs text-gray-500 mt-1">Daily simulation of your spending habits</p>
+                                <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 0.25rem 0' }}>Spending Velocity</h3>
+                                <p style={{ fontSize: '0.75rem', color: '#71717a', margin: 0 }}>Daily simulation of your spending habits</p>
                             </div>
-                            <div className="flex bg-slate-800 rounded-xl p-1 border border-white/5">
-                                <button onClick={() => setGraphType('bar')} className={`px-4 py-2 text-xs font-black rounded-lg transition-all ${graphType === 'bar' ? 'bg-orange-500 text-white shadow-lg' : 'text-gray-400'}`}>BAR</button>
-                                <button onClick={() => setGraphType('line')} className={`px-4 py-2 text-xs font-black rounded-lg transition-all ${graphType === 'line' ? 'bg-orange-500 text-white shadow-lg' : 'text-gray-400'}`}>LINE</button>
+                            <div style={{
+                                display: 'flex',
+                                backgroundColor: 'rgba(255,255,255,0.03)',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: '0.75rem',
+                                padding: '2px'
+                            }}>
+                                <button
+                                    onClick={() => setGraphType('bar')}
+                                    style={{
+                                        padding: '0.375rem 0.75rem',
+                                        fontSize: '9px',
+                                        fontWeight: '900',
+                                        letterSpacing: '0.05em',
+                                        borderRadius: '0.5rem',
+                                        border: 'none',
+                                        backgroundColor: graphType === 'bar' ? '#eab308' : 'transparent',
+                                        color: graphType === 'bar' ? 'black' : '#71717a',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    BAR
+                                </button>
+                                <button
+                                    onClick={() => setGraphType('line')}
+                                    style={{
+                                        padding: '0.375rem 0.75rem',
+                                        fontSize: '9px',
+                                        fontWeight: '900',
+                                        letterSpacing: '0.05em',
+                                        borderRadius: '0.5rem',
+                                        border: 'none',
+                                        backgroundColor: graphType === 'line' ? '#eab308' : 'transparent',
+                                        color: graphType === 'line' ? 'black' : '#71717a',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    LINE
+                                </button>
                             </div>
                         </div>
 
-                        <div className="w-full mt-4 relative" style={{ height: 320 }}>
+                        <div style={{ width: '100%', height: 320, position: 'relative' }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 {graphType === 'bar' ? (
                                     <BarChart key={`bar-${monthDetails.totalExpenses}`} data={monthDetails.trendData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10 }} dy={10} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} domain={[0, 'auto']} />
+                                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} domain={[0, 'auto']} />
                                         <Tooltip
                                             cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                                            contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }}
+                                            contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: 'white' }}
                                         />
-                                        <Bar dataKey="amount" fill="#f97316" radius={[4, 4, 0, 0]} barSize={16} />
+                                        <Bar dataKey="amount" fill="#eab308" radius={[4, 4, 0, 0]} barSize={16} />
                                     </BarChart>
                                 ) : (
                                     <LineChart key={`line-${monthDetails.totalExpenses}`} data={monthDetails.trendData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10 }} dy={10} />
-                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#475569', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} domain={[0, 'auto']} />
-                                        <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px' }} />
-                                        <Line type="monotone" dataKey="cumulative" stroke="#f97316" strokeWidth={3} dot={false} activeDot={{ r: 4, fill: '#f97316' }} />
+                                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} dy={10} />
+                                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} domain={[0, 'auto']} />
+                                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: 'white' }} />
+                                        <Line type="monotone" dataKey="cumulative" stroke="#eab308" strokeWidth={3} dot={false} activeDot={{ r: 4, fill: '#eab308' }} />
                                     </LineChart>
                                 )}
                             </ResponsiveContainer>
@@ -657,15 +859,20 @@ const ExpenseDetails = () => {
                     </div>
 
                     {/* Main Category Breakdown Area */}
-                    <div className="card border border-white/5 mb-6">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-xl font-bold">Main Category Breakdown</h3>
-                        </div>
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '2rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        padding: '1.5rem',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                    }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0' }}>Main Category Breakdown</h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                             {monthDetails.mainItems
                                 .slice((currentMainPage - 1) * ITEMS_PER_PAGE, currentMainPage * ITEMS_PER_PAGE)
-                                .map((item, index) => (
+                                .map((item) => (
                                     <TransactionItem
                                         key={item.id}
                                         item={item}
@@ -686,26 +893,31 @@ const ExpenseDetails = () => {
 
                         {/* Pagination */}
                         {monthDetails.mainItems.length > ITEMS_PER_PAGE && (
-                            <div className="flex items-center justify-between mt-10 pt-6 border-t border-white/5">
-                                <span className="text-xs font-medium text-gray-500">Page {currentMainPage} of {Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE)}</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setCurrentMainPage(p => Math.max(1, p - 1))} disabled={currentMainPage === 1} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronLeft size={18} /></button>
-                                    <button onClick={() => setCurrentMainPage(p => Math.min(Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE), p + 1))} disabled={currentMainPage === Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronRight size={18} /></button>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                <span style={{ fontSize: '11px', color: '#71717a' }}>Page {currentMainPage} of {Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE)}</span>
+                                <div style={{ display: 'flex', gap: '0.375rem' }}>
+                                    <button onClick={() => setCurrentMainPage(p => Math.max(1, p - 1))} disabled={currentMainPage === 1} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer' }}><ChevronLeft size={16} /></button>
+                                    <button onClick={() => setCurrentMainPage(p => Math.min(Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE), p + 1))} disabled={currentMainPage === Math.ceil(monthDetails.mainItems.length / ITEMS_PER_PAGE)} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer' }}><ChevronRight size={16} /></button>
                                 </div>
                             </div>
                         )}
                     </div>
 
                     {/* Sub Category Breakdown Area */}
-                    <div className="card border border-white/5">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-xl font-bold">Sub Category Breakdown</h3>
-                        </div>
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '2rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        padding: '1.5rem',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                    }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0' }}>Sub Category Breakdown</h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
                             {monthDetails.items
                                 .slice((currentSubPage - 1) * ITEMS_PER_PAGE, currentSubPage * ITEMS_PER_PAGE)
-                                .map((item, index) => (
+                                .map((item) => (
                                     <TransactionItem
                                         key={item.id}
                                         item={item}
@@ -726,11 +938,11 @@ const ExpenseDetails = () => {
 
                         {/* Pagination */}
                         {monthDetails.items.length > ITEMS_PER_PAGE && (
-                            <div className="flex items-center justify-between mt-10 pt-6 border-t border-white/5">
-                                <span className="text-xs font-medium text-gray-500">Page {currentSubPage} of {Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)}</span>
-                                <div className="flex gap-2">
-                                    <button onClick={() => setCurrentSubPage(p => Math.max(1, p - 1))} disabled={currentSubPage === 1} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronLeft size={18} /></button>
-                                    <button onClick={() => setCurrentSubPage(p => Math.min(Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE), p + 1))} disabled={currentSubPage === Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)} className="p-2 rounded-xl bg-white/5 hover:bg-white/10 disabled:opacity-20 transition-all"><ChevronRight size={18} /></button>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1.5rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                <span style={{ fontSize: '11px', color: '#71717a' }}>Page {currentSubPage} of {Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)}</span>
+                                <div style={{ display: 'flex', gap: '0.375rem' }}>
+                                    <button onClick={() => setCurrentSubPage(p => Math.max(1, p - 1))} disabled={currentSubPage === 1} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer' }}><ChevronLeft size={16} /></button>
+                                    <button onClick={() => setCurrentSubPage(p => Math.min(Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE), p + 1))} disabled={currentSubPage === Math.ceil(monthDetails.items.length / ITEMS_PER_PAGE)} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer' }}><ChevronRight size={16} /></button>
                                 </div>
                             </div>
                         )}
@@ -738,34 +950,51 @@ const ExpenseDetails = () => {
                 </div>
 
                 {/* Right Sidebar */}
-                <div className="lg:col-span-4 flex flex-col gap-8">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }} className="lg:col-span-4">
                     {/* Statement Info Ledger */}
-                    {/* Statement Info Ledger */}
-                    <div className="card bg-indigo-500/5 border border-indigo-500/10 flex flex-col h-full">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-400">
-                                <CreditCard size={20} />
+                    <div style={{
+                        backgroundColor: 'rgba(99, 102, 241, 0.03)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '2rem',
+                        border: '1px solid rgba(99, 102, 241, 0.1)',
+                        padding: '1.5rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.5rem'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{
+                                    padding: '0.5rem',
+                                    borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(99, 102, 241, 0.1)',
+                                    color: '#818cf8',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <CreditCard size={18} />
+                                </div>
+                                <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>Statement Info</h3>
                             </div>
-                            <div className="flex-1 flex justify-between items-center">
-                                <h3 className="text-lg font-bold text-white">Statement Info</h3>
-                                <span className="text-[10px] font-bold bg-indigo-500/20 text-indigo-300 px-2 py-1 rounded-lg">
-                                    {displayTransactions.length} Total
-                                </span>
-                            </div>
+                            <span style={{ fontSize: '9px', fontWeight: '900', color: '#818cf8', backgroundColor: 'rgba(99, 102, 241, 0.1)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem' }}>
+                                {displayTransactions.length} Total
+                            </span>
                         </div>
 
-                        <div className="flex-1 space-y-2 min-h-[300px]">
-                            <div className="flex justify-between items-center mb-4 ml-1">
-                                <p className="text-[10px] font-black text-indigo-400/50 uppercase tracking-widest">Latest Transactions</p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: '300px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <p style={{ fontSize: '8px', fontWeight: '950', color: 'rgba(129, 140, 248, 0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Latest Transactions</p>
                                 {selectedCategoryHighlight && (
                                     <button 
                                         onClick={() => setSelectedCategoryHighlight(null)}
-                                        className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold bg-emerald-500/10 px-2 py-1 rounded-md transition-colors"
+                                        style={{ fontSize: '9px', fontWeight: 'bold', border: 'none', backgroundColor: 'rgba(16,185,129,0.1)', color: '#34d399', padding: '0.25rem 0.5rem', borderRadius: '0.375rem', cursor: 'pointer' }}
                                     >
                                         Clear Filter
                                     </button>
                                 )}
                             </div>
+
                             {displayTransactions.length > 0 ? (
                                 displayTransactions
                                     .slice((statementPage - 1) * STATEMENT_ITEMS_PER_PAGE, statementPage * STATEMENT_ITEMS_PER_PAGE)
@@ -782,31 +1011,31 @@ const ExpenseDetails = () => {
                                         />
                                     ))
                             ) : (
-                                <div className="py-8 text-center">
-                                    <p className="text-xs text-gray-600">No transactions match the selected category.</p>
+                                <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+                                    <p style={{ fontSize: '11px', color: '#71717a', margin: 0 }}>No transactions match selection.</p>
                                 </div>
                             )}
                         </div>
 
                         {/* Statement Pagination */}
                         {displayTransactions.length > STATEMENT_ITEMS_PER_PAGE && (
-                            <div className="mt-6 pt-4 border-t border-indigo-500/10 flex justify-between items-center">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(99, 102, 241, 0.1)' }}>
                                 <button
                                     onClick={() => setStatementPage(p => Math.max(1, p - 1))}
                                     disabled={statementPage === 1}
-                                    className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(99, 102, 241, 0.05)', color: '#818cf8', cursor: 'pointer', opacity: statementPage === 1 ? 0.3 : 1 }}
                                 >
-                                    <ChevronLeft size={16} />
+                                    <ChevronLeft size={14} />
                                 </button>
-                                <span className="text-xs font-bold text-indigo-300">
+                                <span style={{ fontSize: '11px', color: '#818cf8', fontWeight: 'bold' }}>
                                     Page {statementPage} of {Math.ceil(displayTransactions.length / STATEMENT_ITEMS_PER_PAGE)}
                                 </span>
                                 <button
                                     onClick={() => setStatementPage(p => Math.min(Math.ceil(displayTransactions.length / STATEMENT_ITEMS_PER_PAGE), p + 1))}
                                     disabled={statementPage === Math.ceil(displayTransactions.length / STATEMENT_ITEMS_PER_PAGE)}
-                                    className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                                    style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(99, 102, 241, 0.05)', color: '#818cf8', cursor: 'pointer', opacity: statementPage === Math.ceil(displayTransactions.length / STATEMENT_ITEMS_PER_PAGE) ? 0.3 : 1 }}
                                 >
-                                    <ChevronRight size={16} />
+                                    <ChevronRight size={14} />
                                 </button>
                             </div>
                         )}
@@ -814,28 +1043,41 @@ const ExpenseDetails = () => {
 
                     {/* Credit Card Summary */}
                     {Object.keys(monthDetails.creditCardStats).length > 0 && (
-                        <div className="card bg-purple-500/5 border border-purple-500/10">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-400">
-                                    <CreditCard size={20} />
+                        <div style={{
+                            backgroundColor: 'rgba(168, 85, 247, 0.03)',
+                            backdropFilter: 'blur(10px)',
+                            borderRadius: '2rem',
+                            border: '1px solid rgba(168, 85, 247, 0.1)',
+                            padding: '1.5rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1.5rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{
+                                    padding: '0.5rem',
+                                    borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                                    color: '#c084fc',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <CreditCard size={18} />
                                 </div>
-                                <h3 className="text-lg font-bold text-white">Credit Card Summary</h3>
+                                <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>Credit Card Summary</h3>
                             </div>
-                            <div className="space-y-4">
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {Object.entries(monthDetails.creditCardStats).map(([cardName, amount]) => (
-                                    <div key={cardName} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-5 rounded bg-gradient-to-br from-gray-700 to-gray-900 border border-white/10 flex items-center justify-center">
-                                                <div className="w-4 h-3 bg-white/10 rounded-sm" />
-                                            </div>
-                                            <span className="text-sm font-medium text-gray-300">{cardName}</span>
-                                        </div>
-                                        <span className="text-sm font-black text-white">{formatCurrency(amount)}</span>
+                                    <div key={cardName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <span style={{ fontSize: '0.875rem', color: '#a1a1aa', fontWeight: 'bold' }}>{cardName}</span>
+                                        <span style={{ fontSize: '0.875rem', color: 'white', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(amount)}</span>
                                     </div>
                                 ))}
-                                <div className="pt-4 border-t border-purple-500/10 flex justify-between items-center">
-                                    <span className="text-xs text-purple-400 font-bold uppercase tracking-wider">Total Credit</span>
-                                    <span className="text-lg font-black text-white">{formatCurrency(monthDetails.totalCreditCardSpend)}</span>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(168, 85, 247, 0.1)' }}>
+                                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Credit Spends</span>
+                                    <span style={{ fontSize: '1.125rem', color: 'white', fontWeight: '950', fontFamily: 'monospace' }}>{formatCurrency(monthDetails.totalCreditCardSpend)}</span>
                                 </div>
                             </div>
                         </div>
@@ -843,28 +1085,41 @@ const ExpenseDetails = () => {
 
                     {/* Wallet Summary */}
                     {Object.keys(monthDetails.walletStats).length > 0 && (
-                        <div className="card bg-emerald-500/5 border border-emerald-500/10">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
-                                    <Wallet size={20} />
+                        <div style={{
+                            backgroundColor: 'rgba(16, 185, 129, 0.03)',
+                            backdropFilter: 'blur(10px)',
+                            borderRadius: '2rem',
+                            border: '1px solid rgba(16, 185, 129, 0.1)',
+                            padding: '1.5rem',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '1.5rem'
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <div style={{
+                                    padding: '0.5rem',
+                                    borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    color: '#34d399',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center'
+                                }}>
+                                    <Wallet size={18} />
                                 </div>
-                                <h3 className="text-lg font-bold text-white">Wallets Summary</h3>
+                                <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>Wallets Summary</h3>
                             </div>
-                            <div className="space-y-4">
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                                 {Object.entries(monthDetails.walletStats).map(([walletName, amount]) => (
-                                    <div key={walletName} className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-5 rounded bg-gradient-to-br from-emerald-700 to-emerald-900 border border-white/10 flex items-center justify-center">
-                                                <div className="w-4 h-3 bg-white/10 rounded-sm" />
-                                            </div>
-                                            <span className="text-sm font-medium text-gray-300">{walletName}</span>
-                                        </div>
-                                        <span className="text-sm font-black text-emerald-400">{formatCurrency(amount)}</span>
+                                    <div key={walletName} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.75rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <span style={{ fontSize: '0.875rem', color: '#a1a1aa', fontWeight: 'bold' }}>{walletName}</span>
+                                        <span style={{ fontSize: '0.875rem', color: '#34d399', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(amount)}</span>
                                     </div>
                                 ))}
-                                <div className="pt-4 border-t border-emerald-500/10 flex justify-between items-center">
-                                    <span className="text-xs text-emerald-400 font-bold uppercase tracking-wider">Total Available</span>
-                                    <span className="text-lg font-black text-white">
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '1rem', borderTop: '1px solid rgba(16, 185, 129, 0.1)' }}>
+                                    <span style={{ fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Wallet Value</span>
+                                    <span style={{ fontSize: '1.125rem', color: 'white', fontWeight: '950', fontFamily: 'monospace' }}>
                                         {formatCurrency(Object.values(monthDetails.walletStats).reduce((a, b) => a + b, 0))}
                                     </span>
                                 </div>
@@ -873,14 +1128,33 @@ const ExpenseDetails = () => {
                     )}
 
                     {/* Financial Tasks */}
-                    <div className="card border border-white/5">
-                        <div className="flex items-center gap-3 mb-6">
-                            <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
-                                <MessageSquare size={20} />
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '2rem',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        padding: '1.5rem',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '1.5rem'
+                    }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <div style={{
+                                padding: '0.5rem',
+                                borderRadius: '0.75rem',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                color: '#34d399',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}>
+                                <MessageSquare size={18} />
                             </div>
-                            <h3 className="text-lg font-bold">Financial Tasks</h3>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>Financial Tasks</h3>
                         </div>
-                        <div className="space-y-2">
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                             <ReminderItem title="Review Monthly Budget" />
                             <ReminderItem title="Update Savings Target" />
                             <ReminderItem title="Pay House Rent" />

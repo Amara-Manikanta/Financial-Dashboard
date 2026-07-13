@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2 } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, ArrowUpRight, Info, Award } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import SavingsItemModal from '../components/SavingsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -71,6 +71,9 @@ const Savings = () => {
 
     const savingsOnly = savings.filter(item => item.type !== 'mutual_fund' && item.type !== 'stock_market');
     const totalPortfolioValue = savingsOnly.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
+    const totalInvestedValue = savingsOnly.reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
+    const totalProfitLoss = totalPortfolioValue - totalInvestedValue;
+    const isTotalProfit = totalProfitLoss >= 0;
 
     let pieData = [];
     savingsOnly.forEach(item => {
@@ -105,42 +108,157 @@ const Savings = () => {
     };
 
     return (
-        <div className="p-8 max-w-[1600px] mx-auto">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-12 gap-8">
-                <div>
-                    <h2 className="text-5xl font-black text-white tracking-tighter mb-4">Savings & Investments</h2>
-                    <p className="text-gray-500 font-bold uppercase tracking-[0.2em] text-xs">Track your financial goals and portfolios</p>
-                </div>
-                <div className="flex items-center gap-6 w-full lg:w-auto">
-                    <div className="bg-white/[0.02] border border-white/5 p-6 rounded-2xl text-left flex-1 lg:flex-none lg:min-w-[280px]">
-                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Total Portfolio Value</p>
-                        <p className="text-3xl font-black text-white tracking-tight">
-                            {formatCurrency(totalPortfolioValue)}
-                        </p>
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+            {/* Header Title Panel */}
+            <div style={{ marginBottom: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Savings & Assets</h2>
+                <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Track your savings accounts, fixed deposits, and policies</p>
+            </div>
+
+            {/* Modern Premium Stat Cards */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '1.5rem',
+                marginBottom: '2.5rem'
+            }}>
+                {/* Total Valuation */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(24, 24, 27, 0.9) 100%)',
+                    border: '1px solid rgba(59, 130, 246, 0.15)',
+                    borderRadius: '1rem',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    boxShadow: '0 10px 15px -3px rgba(59, 130, 246, 0.05)'
+                }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.75rem', opacity: 0.1, color: '#60a5fa' }}>
+                        <Landmark size={48} />
                     </div>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#60a5fa', marginBottom: '0.25rem', margin: 0 }}>Total Savings Valuation</p>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(totalPortfolioValue)}</h3>
+                    </div>
+                    <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }}>
+                        <Info size={12} /> Combined value of all savings accounts & deposits
+                    </p>
+                </div>
+
+                {/* Total Interest / Yield */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(24, 24, 27, 0.9) 100%)',
+                    border: '1px solid rgba(16, 185, 129, 0.15)',
+                    borderRadius: '1rem',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.05)'
+                }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.75rem', opacity: 0.1, color: '#34d399' }}>
+                        <TrendingUp size={48} />
+                    </div>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#34d399', marginBottom: '0.25rem', margin: 0 }}>Accumulated Growth / Interest</p>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#34d399', fontFamily: 'monospace', margin: 0 }}>
+                            {totalProfitLoss >= 0 ? '+' : ''}{formatCurrency(totalProfitLoss)}
+                        </h3>
+                    </div>
+                    <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }}>
+                        <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#10b981' }}></span>
+                        {totalInvestedValue > 0 ? ((totalProfitLoss / totalInvestedValue) * 100).toFixed(2) : '0.00'}% ROI on invested principal
+                    </p>
+                </div>
+
+                {/* Holdings Summary */}
+                <div style={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: '1rem',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ position: 'absolute', top: 0, right: 0, padding: '0.75rem', opacity: 0.1, color: 'white' }}>
+                        <Shield size={48} />
+                    </div>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#71717a', marginBottom: '0.25rem', margin: 0 }}>Active Savings Holdings</p>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', margin: 0 }}>{savingsOnly.length} Accounts / Deposits</h3>
+                    </div>
+                    <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }}>
+                        <Award size={12} /> Diversified low-risk assets portfolio
+                    </p>
+                </div>
+
+                {/* Add Savings Account Card */}
+                <div style={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: '1rem',
+                    padding: '1rem 1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center'
+                }}>
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="flex items-center justify-center gap-3 bg-blue-600 hover:bg-blue-700 text-white font-black py-5 px-10 rounded-2xl transition-all shadow-2xl shadow-blue-900/40 active:scale-95 text-xs uppercase tracking-widest"
+                        style={{
+                            width: '100%',
+                            padding: '0.875rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: '#2563eb',
+                            color: 'white',
+                            fontWeight: 'bold',
+                            fontSize: '0.875rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '0.5rem',
+                            cursor: 'pointer',
+                            boxShadow: '0 4px 6px -1px rgba(37, 99, 235, 0.2)'
+                        }}
                     >
-                        <Plus size={20} />
-                        <span>Add Account</span>
+                        <Plus size={16} />
+                        <span>Add Savings Account</span>
                     </button>
                 </div>
             </div>
 
+            {/* Split Allocation Panel */}
             {pieData.length > 0 && (
-                <div className="mb-12 card p-8 bg-white/[0.02] border-white/5 flex flex-col md:flex-row items-center justify-center" style={{ gap: '4rem' }}>
-                    <div style={{ width: '300px', height: '300px', position: 'relative', flexShrink: 0 }}>
+                <div style={{
+                    backgroundColor: 'rgba(24, 24, 27, 0.2)',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: '1.5rem',
+                    padding: '2rem',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '3rem',
+                    marginBottom: '2.5rem'
+                }}>
+                    {/* Pie Chart Column */}
+                    <div style={{ width: '260px', height: '260px', position: 'relative', flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
                             <PieChart>
                                 <Pie
                                     data={pieData}
                                     cx="50%"
                                     cy="50%"
-                                    outerRadius={120}
+                                    outerRadius={100}
                                     dataKey="value"
-                                    stroke="rgba(255,255,255,0.1)"
-                                    strokeWidth={1}
+                                    stroke="#18181b"
+                                    strokeWidth={2}
                                     labelLine={false}
                                     label={renderCustomizedLabel}
                                 >
@@ -150,20 +268,32 @@ const Savings = () => {
                                 </Pie>
                                 <Tooltip 
                                     formatter={(value) => formatCurrency(value)} 
-                                    contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                                    contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
                                     itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                                 />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                    <div className="flex flex-col" style={{ gap: '1.25rem' }}>
+
+                    {/* Progress Indicator Column */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1, minWidth: '280px' }}>
+                        <h4 style={{ fontSize: '0.875rem', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Asset Value Allocation</h4>
                         {pieData.map((entry, index) => {
                             const percentage = ((entry.value / totalPortfolioValue) * 100).toFixed(1);
                             return (
-                                <div key={entry.name} className="flex items-center gap-4">
-                                    <div className="rounded shadow-sm" style={{ width: '40px', height: '20px', backgroundColor: PIE_COLORS[index % PIE_COLORS.length], flexShrink: 0 }} />
-                                    <span className="font-bold text-gray-300" style={{ fontSize: '1.25rem' }}>{entry.name}</span>
-                                    <span className="font-black text-white ml-2" style={{ fontSize: '1.25rem' }}>{percentage}%</span>
+                                <div key={entry.name} style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
+                                        <span style={{ fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}></span>
+                                            {entry.name}
+                                        </span>
+                                        <span style={{ fontFamily: 'monospace', color: '#a1a1aa' }}>
+                                            {formatCurrency(entry.value)} ({percentage}%)
+                                        </span>
+                                    </div>
+                                    <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                        <div style={{ height: '100%', width: `${percentage}%`, backgroundColor: PIE_COLORS[index % PIE_COLORS.length] }}></div>
+                                    </div>
                                 </div>
                             );
                         })}
@@ -171,132 +301,187 @@ const Savings = () => {
                 </div>
             )}
 
+            {/* Savings Accounts Listings */}
             {savingsOnly.length === 0 ? (
-                <div className="card p-12 flex flex-col items-center justify-center text-center bg-white/[0.02] border-white/5 border-dashed mb-8">
-                    <Target size={48} className="text-gray-600 mb-6" />
-                    <h3 className="text-2xl font-black text-white mb-2">No Savings Yet</h3>
-                    <p className="text-gray-500 max-w-md mx-auto mb-6">Start tracking your financial goals by adding your first savings account or deposit.</p>
+                <div style={{
+                    textAlign: 'center',
+                    padding: '4rem 1.5rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                    borderRadius: '1.5rem',
+                    border: '1px dashed rgba(255, 255, 255, 0.1)',
+                    marginBottom: '2rem'
+                }}>
+                    <Target style={{ color: '#71717a', marginBottom: '1.5rem' }} size={48} />
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', marginBottom: '0.5rem' }}>No Savings Yet</h3>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>Start tracking your financial goals by adding your first savings account or deposit.</p>
                     <button
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-xl transition-all"
+                        style={{
+                            padding: '0.625rem 1.5rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: '#2563eb',
+                            color: 'white',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                        }}
                     >
                         Add Account
                     </button>
                 </div>
             ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {savingsOnly.map(item => {
-                    const progress = item.goal > 0 ? Math.min((item.amount / item.goal) * 100, 100) : 0;
-                    const isStockMarket = item.type === 'stock_market';
-                    const isMutualFund = item.type === 'mutual_fund';
-                    const isFixedDeposit = item.type === 'fixed_deposit';
-                    const isSavingsAccount = item.type === 'savings_account';
-                    const isRecurringDeposit = item.type === 'recurring_deposit';
-                    const isPolicy = item.type === 'policy' || item.type === 'Policy';
-                    const isPPF = item.type === 'ppf';
-                    const isNPS = item.type === 'nps';
-                    const isSGB = item.type === 'sgb';
-                    const isLiquid = item.type === 'liquid';
-                    const isPF = item.type === 'pf';
-                    const isClickable = true;
-                    const style = getStyle(item.type);
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                    gap: '2rem'
+                }}>
+                    {savingsOnly.map(item => {
+                        const progress = item.goal > 0 ? Math.min((item.amount / item.goal) * 100, 100) : 0;
+                        const isStockMarket = item.type === 'stock_market';
+                        const isMutualFund = item.type === 'mutual_fund';
+                        const isFixedDeposit = item.type === 'fixed_deposit';
+                        const isSavingsAccount = item.type === 'savings_account';
+                        const isRecurringDeposit = item.type === 'recurring_deposit';
+                        const isPolicy = item.type === 'policy' || item.type === 'Policy';
+                        const isPPF = item.type === 'ppf';
+                        const isNPS = item.type === 'nps';
+                        const isSGB = item.type === 'sgb';
+                        const isLiquid = item.type === 'liquid';
+                        const isPF = item.type === 'pf';
 
-                    const displayAmount = calculateItemCurrentValue(item);
-                    const showProgress = item.goal > 0 && !isStockMarket && !isPolicy && !isFixedDeposit && !isLiquid && !isPPF && !isNPS && !isSGB && !isSavingsAccount && !isRecurringDeposit && !isPF;
+                        const style = getStyle(item.type);
+                        const displayAmount = calculateItemCurrentValue(item);
+                        const showProgress = item.goal > 0 && !isStockMarket && !isPolicy && !isFixedDeposit && !isLiquid && !isPPF && !isNPS && !isSGB && !isSavingsAccount && !isRecurringDeposit && !isPF;
 
-                    const handleClick = () => {
-                        if (isMutualFund) { navigate(`/savings/mutual-fund/${item.id}`); }
-                        else if (isFixedDeposit) { navigate(`/savings/fixed-deposit/${item.id}`); }
-                        else if (isPolicy) { navigate(`/savings/policy/${item.id}`); }
-                        else if (isStockMarket) { navigate(`/savings/stock-market/${item.id}`); }
-                        else if (isPPF) { navigate(`/savings/ppf/${item.id}`); }
-                        else if (isNPS) { navigate(`/savings/nps/${item.id}`); }
-                        else if (isSGB) { navigate(`/savings/sgb/${item.id}`); }
-                        else if (isLiquid) { navigate(`/savings/emergency-fund/${item.id}`); }
-                        else if (isSavingsAccount) { navigate(`/savings/savings-account/${item.id}`); }
-                        else if (isRecurringDeposit) { navigate(`/savings/recurring-deposit/${item.id}`); }
-                        else if (isPF) { navigate(`/savings/pf/${item.id}`); }
-                    };
+                        const handleClick = () => {
+                            if (isMutualFund) { navigate(`/savings/mutual-fund/${item.id}`); }
+                            else if (isFixedDeposit) { navigate(`/savings/fixed-deposit/${item.id}`); }
+                            else if (isPolicy) { navigate(`/savings/policy/${item.id}`); }
+                            else if (isStockMarket) { navigate(`/savings/stock-market/${item.id}`); }
+                            else if (isPPF) { navigate(`/savings/ppf/${item.id}`); }
+                            else if (isNPS) { navigate(`/savings/nps/${item.id}`); }
+                            else if (isSGB) { navigate(`/savings/sgb/${item.id}`); }
+                            else if (isLiquid) { navigate(`/savings/emergency-fund/${item.id}`); }
+                            else if (isSavingsAccount) { navigate(`/savings/savings-account/${item.id}`); }
+                            else if (isRecurringDeposit) { navigate(`/savings/recurring-deposit/${item.id}`); }
+                            else if (isPF) { navigate(`/savings/pf/${item.id}`); }
+                        };
 
-                    return (
-                        <div
-                            key={item.id}
-                            className="card group relative overflow-hidden p-8 bg-white/[0.02] border-white/5 hover:bg-white/[0.05] transition-all cursor-pointer active:scale-[0.98]"
-                            onClick={handleClick}
-                        >
-                            <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-all group-hover:scale-110">
-                                {getIcon(item.type)}
-                            </div>
+                        // Decide border color based on category
+                        let borderStyle = '1px solid rgba(255, 255, 255, 0.05)';
+                        if (isPF || isPPF || isNPS) { borderStyle = '1px solid rgba(99, 102, 241, 0.15)'; } // indigo
+                        else if (isFixedDeposit || isRecurringDeposit || isSavingsAccount) { borderStyle = '1px solid rgba(59, 130, 246, 0.15)'; } // blue
+                        else if (isPolicy) { borderStyle = '1px solid rgba(245, 158, 11, 0.15)'; } // orange
+                        else { borderStyle = '1px solid rgba(16, 185, 129, 0.15)'; } // green
 
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-10">
-                                    <div>
-                                        <h3 className={`text-2xl font-black text-white tracking-tight mb-2 ${isClickable ? 'group-hover:text-blue-400 transition-colors' : ''}`}>{item.title}</h3>
-                                        <span className={`text-[9px] px-3 py-1.5 rounded-full font-black uppercase tracking-widest border ${style.bg} ${style.text} border-white/5`}>
+                        return (
+                            <div
+                                key={item.id}
+                                onClick={handleClick}
+                                style={{
+                                    backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                                    backdropFilter: 'blur(10px)',
+                                    borderRadius: '1.5rem',
+                                    border: borderStyle,
+                                    padding: '1.5rem',
+                                    position: 'relative',
+                                    overflow: 'hidden',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    justifyContent: 'space-between',
+                                    height: '220px',
+                                    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)'
+                                }}
+                            >
+                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.05, color: '#a1a1aa' }}>
+                                    {getIcon(item.type)}
+                                </div>
+
+                                <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>{item.title}</h3>
+                                        <span style={{
+                                            fontSize: '9px',
+                                            padding: '0.125rem 0.5rem',
+                                            borderRadius: '9999px',
+                                            fontWeight: '800',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.1em',
+                                            width: 'fit-content',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                            color: '#a1a1aa'
+                                        }}>
                                             {item.type.replace('_', ' ')}
                                         </span>
                                     </div>
-                                </div>
 
+                                    <div style={{ marginTop: 'auto' }}>
+                                        <p style={{ fontSize: '10px', color: '#71717a', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Current Balance</p>
+                                        <p style={{ fontSize: '1.75rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(displayAmount)}</p>
 
-                                <div className="mb-2">
-                                    <p className="text-4xl font-black text-white tracking-tighter">{formatCurrency(displayAmount)}</p>
+                                        {/* Profit/Loss or Interest Display */}
+                                        {(isStockMarket || isMutualFund || isFixedDeposit || isPPF || isNPS || isSGB || isSavingsAccount || isRecurringDeposit || isPF) && (
+                                            (() => {
+                                                if (isFixedDeposit || isRecurringDeposit || isPPF || isSavingsAccount) {
+                                                    const invested = calculateItemInvestedValue(item);
+                                                    const totalInterest = displayAmount - invested;
+                                                    return (
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.5rem', fontSize: '10px', fontWeight: '900', color: '#10b981', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                            <TrendingUp size={14} />
+                                                            <span>{formatCurrency(totalInterest)} Interest</span>
+                                                        </div>
+                                                    );
+                                                }
 
-                                    {/* Profit/Loss Display */}
-                                    {(isStockMarket || isMutualFund || isFixedDeposit || isPPF || isNPS || isSGB || isSavingsAccount || isRecurringDeposit || isPF) && (
-                                        (() => {
-                                            if (isFixedDeposit || isRecurringDeposit || isPPF || isSavingsAccount) {
                                                 const invested = calculateItemInvestedValue(item);
-                                                const totalInterest = displayAmount - invested;
+                                                const pl = displayAmount - invested;
+                                                const isProfit = pl >= 0;
+                                                const plPercent = invested > 0 ? (pl / invested) * 100 : 0;
+
                                                 return (
-                                                    <div className="flex items-center gap-2 mt-4 text-[10px] font-black uppercase tracking-widest text-emerald-400">
-                                                        <TrendingUp size={14} />
-                                                        <span>{formatCurrency(totalInterest)} Interest</span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.5rem', fontSize: '10px', fontWeight: '900', color: isProfit ? '#10b981' : '#ef4444', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                        {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+                                                        <span>{formatCurrency(Math.abs(pl))} ({plPercent.toFixed(1)}%)</span>
                                                     </div>
                                                 );
-                                            }
+                                            })()
+                                        )}
 
-                                            const invested = calculateItemInvestedValue(item);
-                                            const pl = displayAmount - invested;
-                                            const isProfit = pl >= 0;
-                                            const plPercent = invested > 0 ? (pl / invested) * 100 : 0;
-
-                                            return (
-                                                <div className={`flex items-center gap-2 mt-4 text-[10px] font-black uppercase tracking-widest ${isProfit ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                    {isProfit ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                                                    <span>{formatCurrency(Math.abs(pl))} ({plPercent.toFixed(1)}%)</span>
+                                        {showProgress && (
+                                            <div style={{ marginTop: '0.75rem' }}>
+                                                <div style={{ width: '100%', height: '4px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '2px', overflow: 'hidden' }}>
+                                                    <div style={{ height: '100%', width: `${progress}%`, backgroundColor: '#3b82f6' }}></div>
                                                 </div>
-                                            );
-                                        })()
-                                    )}
+                                                <div style={{ marginTop: '0.25rem', fontSize: '9px', fontWeight: 'bold', color: '#71717a', textAlign: 'right', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    {progress.toFixed(1)}% Goal
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
 
-                                {showProgress && (
-                                    <div className="mt-8">
-                                        <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
-                                            <div
-                                                className={`h-full ${style.bar}`}
-                                                style={{ width: `${progress}%` }}
-                                            />
-                                        </div>
-                                        <div className="mt-2 text-right text-[10px] font-black text-gray-500 uppercase tracking-widest">
-                                            {progress.toFixed(1)}% Goal
-                                        </div>
-                                    </div>
-                                )}
+                                <button
+                                    onClick={(e) => handleDeleteClick(e, item)}
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: '1rem',
+                                        right: '1rem',
+                                        padding: '0.5rem',
+                                        borderRadius: '0.5rem',
+                                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                        color: '#f87171',
+                                        cursor: 'pointer',
+                                        zIndex: 20
+                                    }}
+                                    title="Delete Account"
+                                >
+                                    <Trash2 size={16} />
+                                </button>
                             </div>
-
-                            <button
-                                onClick={(e) => handleDeleteClick(e, item)}
-                                className="absolute bottom-4 right-4 p-2 rounded-lg bg-red-500/10 text-red-400 opacity-0 group-hover:opacity-100 hover:bg-red-500 hover:text-white transition-all z-20"
-                                title="Delete Account"
-                            >
-                                <Trash2 size={18} />
-                            </button>
-                        </div>
-                    );
-                })}
-            </div>
+                        );
+                    })}
+                </div>
             )}
 
             <SavingsItemModal

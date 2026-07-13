@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Plus, Trash2, Edit2, Settings, RefreshCcw } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Plus, Trash2, Edit2, Settings, RefreshCcw } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import SavingsAccountTransactionModal from '../components/SavingsAccountTransactionModal';
 import SavingsAccountEditModal from '../components/SavingsAccountEditModal';
@@ -11,8 +11,6 @@ const SavingsAccountDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { savings, formatCurrency, updateItem } = useFinance();
-
-    // Flag to ensure we don't loop infinitely - REMOVED strictly converging logic used instead
 
     const [selectedYear, setSelectedYear] = useState('All');
     const [selectedMonth, setSelectedMonth] = useState('All');
@@ -35,8 +33,6 @@ const SavingsAccountDetails = () => {
         // Use interestRate from account or default to 5.4%
         const annualRate = account.interestRate || 5.4;
         const ratePerDay = annualRate / 100 / 365;
-
-        const newTransactions = [];
 
         if (transactions.length === 0) return;
 
@@ -165,7 +161,7 @@ const SavingsAccountDetails = () => {
         }
 
         return filtered.sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [account, selectedYear, selectedMonth]);
+    }, [account, selectedYear, selectedMonth, selectedType]);
 
     const years = useMemo(() => {
         if (!account || !account.transactions) return ['All'];
@@ -206,7 +202,19 @@ const SavingsAccountDetails = () => {
             }, {});
     }, [account]);
 
-    if (!account) return <div>Account not found</div>;
+    if (!account) {
+        return (
+            <div style={{ padding: 'var(--spacing-lg)' }}>
+                <p>Savings Account not found.</p>
+                <button
+                    onClick={() => navigate(-1)}
+                    className="text-primary hover:underline mt-4"
+                >
+                    Back to Savings
+                </button>
+            </div>
+        );
+    }
 
     const handleSaveTransaction = async (tx) => {
         try {
@@ -340,35 +348,44 @@ const SavingsAccountDetails = () => {
         else if (t.type === 'monnies_redeemed') totalMonnies += amt;
     });
 
+    const glassCardStyle = {
+        background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01))',
+        backdropFilter: 'blur(16px)',
+        WebkitBackdropFilter: 'blur(16px)',
+        border: '1px solid rgba(255, 255, 255, 0.07)',
+        borderRadius: '1.25rem',
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+        transition: 'transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease'
+    };
+
     return (
-        <div className="p-8 max-w-[1600px] mx-auto">
+        <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 hover:text-primary transition-all mb-8 text-xs font-black uppercase tracking-[0.2em] text-gray-500 group"
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.08] hover:border-white/[0.1] backdrop-blur-md"
             >
-                <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                Back to Savings
+                <ArrowLeft size={14} /> Back to Savings
             </button>
 
-            <div className="mb-12 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-8">
+            <div className="mb-10 flex flex-col lg:flex-row justify-between items-start lg:items-end gap-6">
                 <div>
                     <div className="flex items-center gap-4 mb-3">
-                        <h2 className="text-5xl font-black text-white tracking-tighter">
+                        <h2 className="text-4xl font-black text-white tracking-tight">
                             {account.title}
                         </h2>
                         <button
                             onClick={() => setIsEditAccountModalOpen(true)}
-                            className="p-3 bg-white/5 rounded-2xl hover:bg-white/10 text-gray-400 hover:text-white transition-all active:scale-90 border border-white/5"
+                            className="p-3 rounded-2xl hover:bg-white/10 text-gray-400 hover:text-white transition-all active:scale-90 border border-white/5 bg-white/[0.03] backdrop-blur-md"
                             title="Edit Account Details"
                         >
-                            <Settings size={20} />
+                            <Settings size={18} />
                         </button>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-[10px] font-black bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full uppercase tracking-widest">
+                    <div className="flex flex-wrap gap-2">
+                        <span className="text-[9px] font-black bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-full uppercase tracking-widest">
                             {account.interestRate || 5.4}% Annual Interest
                         </span>
-                        <span className="text-[10px] font-black bg-white/5 text-gray-400 border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest">
+                        <span className="text-[9px] font-black bg-white/5 text-gray-400 border border-white/10 px-3 py-1.5 rounded-full uppercase tracking-widest">
                             {account.bank || 'Savings Account'}
                         </span>
                     </div>
@@ -376,43 +393,55 @@ const SavingsAccountDetails = () => {
                 <div className="flex items-center gap-4 w-full lg:w-auto">
                     <button
                         onClick={() => { syncInterest(); }}
-                        className="flex-1 lg:flex-none bg-white/5 hover:bg-white/10 text-white font-black py-4 px-8 rounded-2xl flex items-center justify-center gap-3 transition-all border border-white/10 active:scale-95 text-xs uppercase tracking-widest"
+                        className="flex-1 lg:flex-none bg-white/[0.03] hover:bg-white/[0.08] text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all border border-white/10 active:scale-95 text-xs uppercase tracking-widest backdrop-blur-md"
                     >
-                        <TrendingUp size={18} className="text-purple-400" />
+                        <RefreshCcw size={16} className="text-purple-400" />
                         Sync Interest
                     </button>
                     <button
                         onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
-                        className="flex-1 lg:flex-none bg-blue-600 hover:bg-blue-700 text-white font-black py-4 px-8 rounded-2xl flex items-center justify-center gap-3 transition-all shadow-2xl shadow-blue-900/40 active:scale-95 text-xs uppercase tracking-widest"
+                        className="flex-1 lg:flex-none bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white font-black py-4 px-6 rounded-2xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.2)] active:scale-95 text-xs uppercase tracking-widest"
                     >
-                        <Plus size={18} />
+                        <Plus size={16} />
                         Add Transaction
                     </button>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-8 max-w-7xl">
-                <div className="card bg-gradient-to-br from-blue-600/20 via-blue-600/5 to-transparent border-white/10 p-5 relative overflow-hidden group">
-                    <div className="absolute -right-4 -bottom-4 opacity-10 group-hover:scale-110 transition-transform duration-500">
-                        <TrendingUp size={100} />
-                    </div>
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Available Balance</p>
-                    <p className="text-3xl font-black text-white tracking-tighter">{formatCurrency(account.amount)}</p>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                gap: '1rem',
+                marginBottom: '2.5rem'
+            }}>
+                <div className="card p-5" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02))',
+                    border: '1px solid rgba(59, 130, 246, 0.15)'
+                }}>
+                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-2">Available Balance</p>
+                    <p className="text-3xl font-black text-white tracking-tight">{formatCurrency(account.amount)}</p>
                 </div>
                 {account.title !== 'Slice Account' && (
-                    <div className="card bg-white/[0.02] border-white/5 p-5">
-                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Principal Deposits</p>
-                        <p className="text-xl font-black text-gray-200">{formatCurrency(totalDeposits)}</p>
+                    <div className="card p-5" style={glassCardStyle}>
+                        <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-2">Principal Deposits</p>
+                        <p className="text-2xl font-black text-white tracking-tight">{formatCurrency(totalDeposits)}</p>
                     </div>
                 )}
-                <div className="card bg-gradient-to-br from-purple-500/10 to-transparent border-white/5 p-5">
-                    <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest mb-1">Monnies Redeemed</p>
-                    <div className="flex items-center gap-3">
-                        <p className="text-xl font-black text-purple-400 tracking-tight">{formatCurrency(totalMonnies)}</p>
-                    </div>
+                <div className="card p-5" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(139, 92, 246, 0.02))',
+                    border: '1px solid rgba(139, 92, 246, 0.15)'
+                }}>
+                    <p className="text-[10px] text-purple-400 font-black uppercase tracking-widest mb-2">Monnies Redeemed</p>
+                    <p className="text-2xl font-black text-purple-400 tracking-tight">{formatCurrency(totalMonnies)}</p>
                 </div>
-                <div className="card bg-gradient-to-br from-emerald-500/10 to-transparent border-white/5 p-5">
-                    <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-1">Accrued Interest</p>
+                <div className="card p-5" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
+                    border: '1px solid rgba(16, 185, 129, 0.15)'
+                }}>
+                    <p className="text-[10px] text-emerald-400 font-black uppercase tracking-widest mb-2">Accrued Interest</p>
                     <div className="flex items-center gap-2">
                         <p className="text-2xl font-black text-emerald-400 tracking-tight">{formatCurrency(lifetimeInterest)}</p>
                         <div className="p-1 bg-emerald-500/10 rounded-lg">
@@ -420,29 +449,33 @@ const SavingsAccountDetails = () => {
                         </div>
                     </div>
                 </div>
-                <div className="card bg-white/[0.02] border-white/5 p-5">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-1">Total Withdrawals</p>
-                    <p className="text-xl font-black text-red-400/80">{formatCurrency(totalWithdrawals)}</p>
+                <div className="card p-5" style={{
+                    ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.08), rgba(239, 68, 68, 0.02))',
+                    border: '1px solid rgba(239, 68, 68, 0.15)'
+                }}>
+                    <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest mb-2">Total Withdrawals</p>
+                    <p className="text-2xl font-black text-red-400 tracking-tight">{formatCurrency(totalWithdrawals)}</p>
                 </div>
             </div>
 
             {/* Interest Summary Section */}
             <div className="mb-12">
                 <div className="flex items-center justify-between mb-6 px-1">
-                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500">Earnings Distribution</h3>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500">Earnings Distribution</h3>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                     {Object.entries(interestSummary).sort((a, b) => b[0] - a[0]).map(([year, data]) => (
-                        <div key={year} className="card border-white/5 p-6 bg-white/[0.02] relative overflow-hidden group hover:bg-white/[0.04] transition-all">
+                        <div key={year} className="card p-6 relative overflow-hidden group hover:bg-white/[0.04] transition-all" style={glassCardStyle}>
                             <div className="flex justify-between items-start mb-4">
                                 <span className="text-xl font-black text-white">{year}</span>
                                 <span className="text-sm font-bold text-emerald-400">{formatCurrency(data.total)}</span>
                             </div>
                             <div className="space-y-2 max-h-32 overflow-y-auto custom-scrollbar pr-2">
                                 {Object.entries(data.months).map(([month, amount]) => (
-                                    <div key={month} className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                                    <div key={month} className="flex justify-between text-[10px] font-bold uppercase tracking-wider text-zinc-500" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
                                         <span>{month}</span>
-                                        <span className="text-gray-300">{formatCurrency(amount)}</span>
+                                        <span className="text-zinc-300">{formatCurrency(amount)}</span>
                                     </div>
                                 ))}
                             </div>
@@ -455,103 +488,113 @@ const SavingsAccountDetails = () => {
             {account.title !== 'Slice Account' && (
                 <div className="mb-12">
                     <div className="flex items-center justify-between mb-6 px-1">
-                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-gray-500 flex items-center gap-2">
-                            <RefreshCcw size={14} />
+                        <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2">
+                            <RefreshCcw size={14} className="text-blue-400" />
                             Recurring Deposits (RDs)
                         </h3>
                         <button
                             onClick={() => { setEditingRD(null); setIsRDModalOpen(true); }}
-                            className="text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
+                            className="text-[9px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1.5 rounded-lg hover:bg-blue-500 hover:text-white transition-all"
                         >
                             + Add RD
                         </button>
                     </div>
 
                     {(account.recurringDeposits || []).length === 0 ? (
-                        <div className="text-center py-8 bg-white/[0.02] border border-dashed border-white/5 rounded-2xl">
-                            <p className="text-gray-500 text-xs font-bold uppercase tracking-wider">No active recurring deposits</p>
+                        <div className="text-center py-10 bg-white/[0.01] border border-dashed border-white/10 rounded-2xl">
+                            <p className="text-zinc-500 text-xs font-bold uppercase tracking-wider">No active recurring deposits</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {(account.recurringDeposits || []).map(rd => (
-                                <div key={rd.id} className="card bg-white/[0.02] border-white/5 p-5 group relative overflow-hidden">
-                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-all">
-                                        <RefreshCcw size={48} />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <div className="flex justify-between items-start mb-4">
-                                            <div>
-                                                <h4 className="font-bold text-white text-lg">{rd.name}</h4>
-                                                <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rd.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-gray-500/10 text-gray-400'}`}>
-                                                    {rd.status}
-                                                </span>
-                                            </div>
-                                            <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => { setEditingRD(rd); setIsRDModalOpen(true); }} className="p-1.5 bg-blue-500/10 text-blue-400 rounded hover:bg-blue-500 hover:text-white transition-colors">
-                                                    <Edit2 size={12} />
-                                                </button>
-                                                <button onClick={() => handleDeleteRD(rd.id)} className="p-1.5 bg-red-500/10 text-red-400 rounded hover:bg-red-500 hover:text-white transition-colors">
-                                                    <Trash2 size={12} />
-                                                </button>
-                                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {(account.recurringDeposits || []).map(rd => {
+                                const currentPaid = (rd.installments || []).reduce((sum, tx) => sum + (tx.amount || 0), 0);
+                                return (
+                                    <div key={rd.id} className="card p-5 group relative overflow-hidden" style={glassCardStyle}>
+                                        <div className="absolute top-0 right-0 p-4 opacity-[0.02] group-hover:opacity-[0.05] transition-all">
+                                            <RefreshCcw size={48} />
                                         </div>
+                                        <div className="relative z-10">
+                                            <div className="flex justify-between items-start mb-4">
+                                                <div>
+                                                    <h4 className="font-bold text-white text-lg">{rd.name}</h4>
+                                                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded ${rd.status === 'Active' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-zinc-500/10 text-zinc-400'}`}>
+                                                        {rd.status}
+                                                    </span>
+                                                </div>
+                                                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button onClick={() => { setEditingRD(rd); setIsRDModalOpen(true); }} className="p-1.5 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500 hover:text-white transition-colors">
+                                                        <Edit2 size={12} />
+                                                    </button>
+                                                    <button onClick={() => handleDeleteRD(rd.id)} className="p-1.5 bg-red-500/10 text-red-400 rounded-lg hover:bg-red-500 hover:text-white transition-colors">
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                                        <div className="space-y-2">
-                                            <div className="flex justify-between items-center text-xs">
-                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Installment</span>
-                                                <span className="text-white font-bold">{formatCurrency(rd.installmentAmount)}/mo</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-xs">
-                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Interest Rate</span>
-                                                <span className="text-emerald-400 font-bold">{rd.interestRate}%</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-xs">
-                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Dates</span>
-                                                <span className="text-gray-400 font-medium">{formatDate(rd.startDate)} - {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-white/5">
-                                                <span className="text-gray-500 font-bold uppercase tracking-wider">Maturity Value</span>
-                                                <span className="text-purple-400 font-black tracking-tight text-sm">{formatCurrency(rd.maturityAmount)}</span>
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-center text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
+                                                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Installment</span>
+                                                    <span className="text-white font-bold">{formatCurrency(rd.installmentAmount)}/mo</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
+                                                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Interest Rate</span>
+                                                    <span className="text-emerald-400 font-bold">{rd.interestRate}%</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
+                                                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Current Paid</span>
+                                                    <span className="text-zinc-300 font-bold">{formatCurrency(currentPaid)}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs" style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', paddingBottom: '4px' }}>
+                                                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Dates</span>
+                                                    <span className="text-zinc-400 font-medium">{formatDate(rd.startDate)} - {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center text-xs mt-2 pt-2 border-t border-white/5">
+                                                    <span className="text-zinc-500 font-bold uppercase tracking-wider">Maturity Value</span>
+                                                    <span className="text-purple-400 font-black tracking-tight text-sm">{formatCurrency(rd.maturityAmount)}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
             )}
 
             {/* Transactions Section */}
-            <div className="card border-white/5 p-0 overflow-hidden shadow-2xl bg-white/[0.01]">
-                <div className="p-8 border-b border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-gray-400">Transaction History</h3>
+            <div className="card p-0 overflow-hidden shadow-2xl" style={glassCardStyle}>
+                <div className="p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <h3 className="text-xs font-black uppercase tracking-[0.2em] text-zinc-400">Transaction History</h3>
 
-                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
                         <select
                             value={selectedYear}
                             onChange={(e) => setSelectedYear(e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-gray-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer"
+                            className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer backdrop-blur-md"
+                            style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                         >
-                            {years.map(y => <option key={y} value={y}>{y === 'All' ? 'All Years' : y}</option>)}
+                            {years.map(y => <option key={y} value={y} style={{ backgroundColor: '#0c0c1b' }}>{y === 'All' ? 'All Years' : y}</option>)}
                         </select>
                         <select
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-gray-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer"
+                            className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer backdrop-blur-md"
+                            style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                         >
-                            {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                            {months.map(m => <option key={m.value} value={m.value} style={{ backgroundColor: '#0c0c1b' }}>{m.label}</option>)}
                         </select>
                         <select
                             value={selectedType}
                             onChange={(e) => setSelectedType(e.target.value)}
-                            className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-gray-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer"
+                            className="bg-white/[0.04] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-zinc-300 outline-none focus:border-blue-500/50 transition-all cursor-pointer backdrop-blur-md"
+                            style={{ WebkitAppearance: 'none', MozAppearance: 'none' }}
                         >
-                            <option value="All">All Types</option>
-                            <option value="deposit">Deposits</option>
-                            <option value="withdraw">Withdrawals</option>
-                            <option value="interest">Interest</option>
-                            <option value="monnies_redeemed">Monnies</option>
+                            <option value="All" style={{ backgroundColor: '#0c0c1b' }}>All Types</option>
+                            <option value="deposit" style={{ backgroundColor: '#0c0c1b' }}>Deposits</option>
+                            <option value="withdraw" style={{ backgroundColor: '#0c0c1b' }}>Withdrawals</option>
+                            <option value="interest" style={{ backgroundColor: '#0c0c1b' }}>Interest</option>
+                            <option value="monnies_redeemed" style={{ backgroundColor: '#0c0c1b' }}>Monnies</option>
                         </select>
                     </div>
                 </div>
@@ -559,50 +602,69 @@ const SavingsAccountDetails = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
-                            <tr className="text-gray-500 text-[10px] font-black uppercase tracking-widest bg-white/[0.02]">
-                                <th className="py-6 px-10">Date</th>
-                                <th className="py-6 px-6">Classification</th>
-                                <th className="py-6 px-6 text-right">Value</th>
-                                <th className="py-6 px-6">Memorandum</th>
-                                <th className="py-6 px-10 text-right">Actions</th>
+                            <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
+                                <th className="py-5 px-8 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Date</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Classification</th>
+                                <th className="py-5 px-6 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Value</th>
+                                <th className="py-5 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Memorandum</th>
+                                <th className="py-5 px-8 text-right text-zinc-400 text-[10px] font-black uppercase tracking-widest">Actions</th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="text-sm font-bold">
                             {sortedTransactions.map((tx, idx) => (
-                                <tr key={tx.id || idx} className="hover:bg-white/[0.03] transition-colors group">
-                                    <td className="py-7 px-10 text-sm font-bold text-gray-400">{formatDate(tx.date)}</td>
-                                    <td className="py-7 px-6">
-                                        <span className={`text-[9px] font-black px-3 py-1.5 rounded-full uppercase tracking-[0.1em] border ${tx.type === 'deposit' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
-                                            tx.type === 'withdraw' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
-                                                tx.type === 'monnies_redeemed' ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' :
-                                                    'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                                            }`}>
+                                <tr 
+                                    key={tx.id || idx} 
+                                    style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}
+                                    className="hover:bg-white/[0.03] transition-colors group"
+                                >
+                                    <td className="py-5 px-8 text-zinc-400">{formatDate(tx.date)}</td>
+                                    <td className="py-5 px-6">
+                                        <span style={{
+                                            fontSize: '9px',
+                                            fontWeight: '900',
+                                            padding: '4px 10px',
+                                            borderRadius: '8px',
+                                            textTransform: 'uppercase',
+                                            letterSpacing: '0.05em',
+                                            border: tx.type === 'deposit' ? '1px solid rgba(16, 185, 129, 0.2)' :
+                                                tx.type === 'withdraw' ? '1px solid rgba(239, 68, 68, 0.2)' :
+                                                    tx.type === 'monnies_redeemed' ? '1px solid rgba(139, 92, 246, 0.2)' :
+                                                        '1px solid rgba(59, 130, 246, 0.2)',
+                                            color: tx.type === 'deposit' ? '#34d399' :
+                                                tx.type === 'withdraw' ? '#f87171' :
+                                                    tx.type === 'monnies_redeemed' ? '#a78bfa' :
+                                                        '#60a5fa',
+                                            backgroundColor: tx.type === 'deposit' ? 'rgba(16, 185, 129, 0.1)' :
+                                                tx.type === 'withdraw' ? 'rgba(239, 68, 68, 0.1)' :
+                                                    tx.type === 'monnies_redeemed' ? 'rgba(139, 92, 246, 0.1)' :
+                                                        'rgba(59, 130, 246, 0.1)',
+                                        }}>
                                             {tx.type === 'monnies_redeemed' ? 'Monnies' : tx.type}
                                         </span>
                                     </td>
-                                    <td className="py-7 px-6 text-right font-black tracking-tighter text-base">
-                                        <span className={tx.type === 'withdraw' ? 'text-red-400/90' : 'text-white'}>
+                                    <td className="py-5 px-6 text-right font-black tracking-tight text-zinc-100">
+                                        <span style={{ color: tx.type === 'withdraw' ? '#f87171' : '#fff' }}>
                                             {tx.type === 'withdraw' ? '-' : '+'}{formatCurrency(tx.amount)}
                                         </span>
                                     </td>
-                                    <td className="py-7 px-6 text-xs font-medium text-gray-500 italic">
+                                    <td className="py-5 px-6 text-xs font-semibold text-zinc-500 italic">
                                         {tx.remarks || '—'}
                                     </td>
-                                    <td className="py-7 px-10 text-right">
-                                        <div className="flex items-center justify-end gap-3 opacity-0 group-hover:opacity-100 transition-all">
+                                    <td className="py-5 px-8 text-right">
+                                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-all">
                                             <button
                                                 onClick={() => { setEditingTx(tx); setIsTxModalOpen(true); }}
-                                                className="p-2.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-105"
+                                                className="p-2 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-105"
                                                 title="Edit"
                                             >
-                                                <Edit2 size={16} />
+                                                <Edit2 size={14} />
                                             </button>
                                             <button
                                                 onClick={() => handleDeleteTransaction(tx.id)}
-                                                className="p-2.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all transform hover:scale-105"
+                                                className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all transform hover:scale-105"
                                                 title="Delete"
                                             >
-                                                <Trash2 size={16} />
+                                                <Trash2 size={14} />
                                             </button>
                                         </div>
                                     </td>
@@ -613,11 +675,8 @@ const SavingsAccountDetails = () => {
                 </div>
 
                 {sortedTransactions.length === 0 && (
-                    <div className="text-center py-32 bg-white/[0.01]">
-                        <div className="mb-4 flex justify-center text-gray-700">
-                            <TrendingUp size={48} />
-                        </div>
-                        <p className="text-gray-500 font-bold uppercase tracking-widest text-xs">No entries found for this period</p>
+                    <div className="text-center py-24">
+                        <p className="text-zinc-500 font-bold uppercase tracking-widest text-xs italic">No entries found for this period</p>
                     </div>
                 )}
             </div>

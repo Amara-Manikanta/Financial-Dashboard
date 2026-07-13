@@ -163,60 +163,90 @@ const FuelAnalytics = () => {
     }, [filteredTransactions]);
 
     return (
-        <div className="max-w-7xl mx-auto space-y-8 animate-fade-in pb-20">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Header */}
-            <div className="bg-gradient-to-br from-[#18181b] to-orange-900/10 border border-white/10 rounded-3xl p-8 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-orange-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
-                
-                <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div style={{
+                backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(234, 179, 8, 0.1)',
+                borderRadius: '2rem',
+                padding: '2rem',
+                boxShadow: '0 10px 25px -5px rgba(234, 179, 8, 0.05)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.5rem'
+            }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                     <div>
-                        <h1 className="text-4xl font-black text-white mb-2 flex items-center gap-3">
-                            <Fuel className="text-orange-500" size={36} />
-                            Fuel Analytics
-                        </h1>
-                        <p className="text-gray-400">Track your vehicle's mileage, fuel consumption, and expenses.</p>
+                        <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Fuel style={{ color: '#eab308' }} size={32} /> Fuel Analytics
+                        </h2>
+                        <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track your vehicle's mileage, fuel consumption, and expenses.</p>
                     </div>
 
                     {/* Filters */}
-                    <div className="flex flex-wrap items-center gap-3">
+                    <div style={{
+                        display: 'flex',
+                        backgroundColor: 'rgba(255,255,255,0.03)',
+                        border: '1px solid rgba(255,255,255,0.05)',
+                        borderRadius: '1rem',
+                        padding: '2px',
+                        gap: '2px'
+                    }}>
                         <select
                             value={selectedYear}
                             onChange={(e) => {
                                 setSelectedYear(e.target.value);
                                 setSelectedMonth('All');
                             }}
-                            className="h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 focus:bg-[#2c2c2e] transition-all cursor-pointer"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
                         >
-                            <option value="All" className="bg-[#18181b]">All Years</option>
+                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Years</option>
                             {availableYears.map(year => (
-                                <option key={year} value={year} className="bg-[#18181b]">{year}</option>
+                                <option key={year} value={year} style={{ backgroundColor: '#18181b' }}>{year}</option>
                             ))}
                         </select>
+                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
                         <select
                             value={selectedMonth}
                             onChange={(e) => setSelectedMonth(e.target.value)}
                             disabled={selectedYear === 'All'}
-                            className="h-12 bg-white/5 border border-white/5 rounded-xl px-4 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 focus:bg-[#2c2c2e] transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer', opacity: selectedYear === 'All' ? 0.3 : 1 }}
                         >
-                            <option value="All" className="bg-[#18181b]">All Months</option>
+                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Months</option>
                             {availableMonths.map(month => (
-                                <option key={month} value={month} className="bg-[#18181b]">{month}</option>
+                                <option key={month} value={month} style={{ backgroundColor: '#18181b' }}>{month}</option>
                             ))}
                         </select>
                     </div>
                 </div>
 
                 {/* Vehicle Tabs */}
-                <div className="flex gap-2 mt-8 relative z-10 p-1 bg-black/40 rounded-2xl w-max border border-white/5">
+                <div style={{
+                    display: 'flex',
+                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    borderRadius: '1rem',
+                    padding: '2px',
+                    width: 'max-content',
+                    gap: '2px'
+                }}>
                     {['scooty', 'bike', 'car', 'other'].map(vType => (
                         <button
                             key={vType}
                             onClick={() => setSelectedVehicle(vType)}
-                            className={`px-6 py-2.5 rounded-xl font-bold text-sm capitalize transition-all ${
-                                selectedVehicle === vType
-                                    ? 'bg-orange-500 text-white shadow-[0_0_15px_rgba(249,115,22,0.3)]'
-                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                            }`}
+                            style={{
+                                padding: '0.5rem 1rem',
+                                fontSize: '9px',
+                                fontWeight: '900',
+                                letterSpacing: '0.05em',
+                                borderRadius: '0.75rem',
+                                border: 'none',
+                                backgroundColor: selectedVehicle === vType ? '#eab308' : 'transparent',
+                                color: selectedVehicle === vType ? 'black' : '#71717a',
+                                cursor: 'pointer',
+                                textTransform: 'uppercase'
+                            }}
                         >
                             {vType}
                         </button>
@@ -225,107 +255,99 @@ const FuelAnalytics = () => {
             </div>
 
             {filteredTransactions.length === 0 ? (
-                <div className="text-center p-12 bg-[#18181b] rounded-3xl border border-white/5">
-                    <Fuel size={48} className="mx-auto text-gray-600 mb-4" />
-                    <h3 className="text-xl font-bold text-white mb-2">No fuel data for {selectedVehicle}</h3>
-                    <p className="text-gray-400">Add expenses under the 'Fuel' category and select '{selectedVehicle}' to see analytics here.</p>
+                <div style={{
+                    textAlign: 'center',
+                    padding: '4rem 2rem',
+                    border: '1px dashed rgba(255,255,255,0.08)',
+                    borderRadius: '2rem',
+                    backgroundColor: 'rgba(255,255,255,0.01)'
+                }}>
+                    <Fuel size={36} style={{ color: '#71717a', marginBottom: '1.5rem' }} />
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 0.5rem 0' }}>No fuel data for {selectedVehicle}</h3>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>Add expenses under the 'Fuel' category and select '{selectedVehicle}' to see analytics here.</p>
                 </div>
             ) : (
                 <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        <div className="bg-[#18181b] rounded-2xl p-6 border border-white/5 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Car size={48} />
-                            </div>
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Total Distance</p>
-                            <p className="text-3xl font-black text-white font-mono">{analyticsData.totalDistance.toLocaleString()} <span className="text-lg text-gray-500">km</span></p>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem' }}>
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Distance</span>
+                            <p style={{ fontSize: '1.75rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{analyticsData.totalDistance.toLocaleString()} <span style={{ fontSize: '0.875rem', color: '#71717a', fontFamily: 'sans-serif' }}>km</span></p>
                         </div>
-                        <div className="bg-[#18181b] rounded-2xl p-6 border border-white/5 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <Droplets size={48} />
-                            </div>
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Total Fuel</p>
-                            <p className="text-3xl font-black text-white font-mono">{analyticsData.totalLiters.toFixed(1)} <span className="text-lg text-gray-500">L</span></p>
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Fuel</span>
+                            <p style={{ fontSize: '1.75rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{analyticsData.totalLiters.toFixed(1)} <span style={{ fontSize: '0.875rem', color: '#71717a', fontFamily: 'sans-serif' }}>L</span></p>
                         </div>
-                        <div className="bg-[#18181b] rounded-2xl p-6 border border-white/5 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 text-orange-500 group-hover:opacity-20 transition-opacity">
-                                <Gauge size={48} />
-                            </div>
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Avg. Mileage</p>
-                            <p className="text-3xl font-black text-orange-400 font-mono">{analyticsData.avgMileage.toFixed(1)} <span className="text-lg text-orange-400/50">kmpl</span></p>
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(234, 179, 8, 0.1)', borderRadius: '1.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', boxShadow: '0 4px 15px -3px rgba(234, 179, 8, 0.05)' }}>
+                            <span style={{ fontSize: '9px', fontWeight: '900', color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg. Mileage</span>
+                            <p style={{ fontSize: '1.75rem', fontWeight: '950', color: '#eab308', fontFamily: 'monospace', margin: 0 }}>{analyticsData.avgMileage.toFixed(1)} <span style={{ fontSize: '0.875rem', color: 'rgba(234, 179, 8, 0.5)', fontFamily: 'sans-serif' }}>kmpl</span></p>
                         </div>
-                        <div className="bg-[#18181b] rounded-2xl p-6 border border-white/5 relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                                <TrendingUp size={48} />
-                            </div>
-                            <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Avg. Fuel Price</p>
-                            <p className="text-3xl font-black text-white font-mono">{formatCurrency(analyticsData.avgPrice)}<span className="text-lg text-gray-500">/L</span></p>
+                        <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1.5rem', padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Avg. Fuel Price</span>
+                            <p style={{ fontSize: '1.75rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(analyticsData.avgPrice)}<span style={{ fontSize: '0.875rem', color: '#71717a', fontFamily: 'sans-serif' }}>/L</span></p>
                         </div>
                     </div>
 
                     {/* Charts */}
                     {analyticsData.chartData.length > 0 && (
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '2rem' }}>
                             {/* Mileage Trend */}
-                            <div className="bg-[#18181b] rounded-3xl p-6 border border-white/5">
-                                <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                                    <TrendingUp size={18} className="text-orange-400" />
-                                    Mileage Trend
+                            <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '2rem', padding: '1.5rem', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)' }}>
+                                <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <Gauge size={16} style={{ color: '#eab308' }} /> Mileage Trend
                                 </h3>
-                                <div className="h-[300px]">
+                                <div style={{ height: 300 }}>
                                     {analyticsData.validMileageData.length > 1 ? (
                                         <ResponsiveContainer width="100%" height="100%">
                                             <AreaChart data={analyticsData.validMileageData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                                 <defs>
                                                     <linearGradient id="colorMileage" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#f97316" stopOpacity={0.3}/>
-                                                        <stop offset="95%" stopColor="#f97316" stopOpacity={0}/>
+                                                        <stop offset="5%" stopColor="#eab308" stopOpacity={0.3}/>
+                                                        <stop offset="95%" stopColor="#eab308" stopOpacity={0}/>
                                                     </linearGradient>
                                                 </defs>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                <XAxis dataKey="displayDate" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                                                <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin - 5', 'dataMax + 5']} />
+                                                <XAxis dataKey="displayDate" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={['dataMin - 5', 'dataMax + 5']} />
                                                 <RechartsTooltip content={<CustomTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: 'rgba(255,255,255,0.1)' }} />
-                                                <Area type="monotone" dataKey="mileage" name="Mileage (kmpl)" stroke="#f97316" strokeWidth={3} fill="url(#colorMileage)" />
+                                                <Area type="monotone" dataKey="mileage" name="Mileage (kmpl)" stroke="#eab308" strokeWidth={3} fill="url(#colorMileage)" />
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
-                                            <Gauge size={32} className="mb-2 opacity-50" />
-                                            <p>Not enough data for mileage trend</p>
+                                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#71717a', fontSize: '0.875rem' }}>
+                                            <Gauge size={24} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                                            <p style={{ margin: 0 }}>Not enough data for mileage trend</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
                             {/* Price Trend */}
-                            <div className="bg-[#18181b] rounded-3xl p-6 border border-white/5">
-                                <h3 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-                                    <TrendingDown size={18} className="text-emerald-400" />
-                                    Fuel Price Trend
+                            <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '2rem', padding: '1.5rem', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)' }}>
+                                <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <TrendingUp size={16} style={{ color: '#10b981' }} /> Fuel Price Trend
                                 </h3>
-                                <div className="h-[300px]">
+                                <div style={{ height: 300 }}>
                                     {analyticsData.chartData.filter(d => d.pricePerLiter).length > 1 ? (
                                         <ResponsiveContainer width="100%" height="100%">
                                             <AreaChart data={analyticsData.chartData.filter(d => d.pricePerLiter)} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                                                 <defs>
                                                     <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
-                                                        <stop offset="5%" stopColor="#34d399" stopOpacity={0.3}/>
-                                                        <stop offset="95%" stopColor="#34d399" stopOpacity={0}/>
+                                                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                                        <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
                                                     </linearGradient>
                                                 </defs>
                                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                                <XAxis dataKey="displayDate" stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} />
-                                                <YAxis stroke="#71717a" fontSize={12} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
+                                                <XAxis dataKey="displayDate" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} />
+                                                <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} domain={['dataMin - 2', 'dataMax + 2']} />
                                                 <RechartsTooltip content={<CustomTooltip formatCurrency={formatCurrency} />} cursor={{ stroke: 'rgba(255,255,255,0.1)' }} />
-                                                <Area type="monotone" dataKey="pricePerLiter" name="Price/L" stroke="#34d399" strokeWidth={3} fill="url(#colorPrice)" />
+                                                <Area type="monotone" dataKey="pricePerLiter" name="Price/L" stroke="#10b981" strokeWidth={3} fill="url(#colorPrice)" />
                                             </AreaChart>
                                         </ResponsiveContainer>
                                     ) : (
-                                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-500">
-                                            <Droplets size={32} className="mb-2 opacity-50" />
-                                            <p>Not enough data for price trend</p>
+                                        <div style={{ height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#71717a', fontSize: '0.875rem' }}>
+                                            <Droplets size={24} style={{ marginBottom: '0.5rem', opacity: 0.5 }} />
+                                            <p style={{ margin: 0 }}>Not enough data for price trend</p>
                                         </div>
                                     )}
                                 </div>
@@ -334,53 +356,59 @@ const FuelAnalytics = () => {
                     )}
 
                     {/* Transactions Table */}
-                    <div className="bg-[#18181b] rounded-3xl border border-white/5 overflow-hidden">
-                        <div className="p-6 border-b border-white/5">
-                            <h3 className="text-lg font-bold text-white">Fill-up History</h3>
+                    <div style={{
+                        backgroundColor: 'rgba(24, 24, 27, 0.2)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        borderRadius: '2rem',
+                        overflow: 'hidden',
+                        boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                    }}>
+                        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: 0 }}>Fill-up History</h3>
                         </div>
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm text-left">
-                                <thead className="text-xs text-gray-500 uppercase bg-black/20">
-                                    <tr>
-                                        <th className="px-6 py-4 rounded-tl-lg">Date</th>
-                                        <th className="px-6 py-4">Station / Reference</th>
-                                        <th className="px-6 py-4 text-right">Odometer</th>
-                                        <th className="px-6 py-4 text-right">Distance</th>
-                                        <th className="px-6 py-4 text-right">Quantity</th>
-                                        <th className="px-6 py-4 text-right">Amount</th>
-                                        <th className="px-6 py-4 text-right text-orange-400">Mileage</th>
-                                        <th className="px-6 py-4 text-right rounded-tr-lg text-emerald-400">Price/L</th>
+                        <div style={{ overflowX: 'auto' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</th>
+                                        <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Station / Reference</th>
+                                        <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Odometer</th>
+                                        <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Distance</th>
+                                        <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Quantity</th>
+                                        <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount</th>
+                                        <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#eab308', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mileage</th>
+                                        <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Price/L</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {[...analyticsData.chartData].reverse().slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((tx, idx) => (
+                                    {[...analyticsData.chartData].reverse().slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage).map((tx) => (
                                         <tr 
                                             key={tx.id} 
-                                            className="border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer"
+                                            style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer' }}
                                             onClick={() => navigate(`/expenses/${tx.year}/${tx.monthName}?highlightTxId=${tx.id}`)}
                                         >
-                                            <td className="px-6 py-4 text-gray-300 font-medium whitespace-nowrap">
+                                            <td style={{ padding: '1rem 1.5rem', color: '#a1a1aa', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
                                                 {tx.displayDate}
                                             </td>
-                                            <td className="px-6 py-4 text-white">
+                                            <td style={{ padding: '1rem 1.5rem', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                                 {tx.title}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono text-gray-400">
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: '#71717a', fontSize: '0.875rem' }}>
                                                 {tx.km ? `${tx.km.toLocaleString()} km` : '-'}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono text-gray-400">
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: '#71717a', fontSize: '0.875rem' }}>
                                                 {tx.distance ? `+${tx.distance} km` : '-'}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono text-white">
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: 'white', fontSize: '0.875rem' }}>
                                                 {tx.liters ? `${tx.liters} L` : '-'}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono text-white font-bold">
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                                 {formatCurrency(tx.amount)}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono text-orange-400 font-bold">
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: '#eab308', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                                 {tx.mileage ? `${tx.mileage.toFixed(1)} kmpl` : '-'}
                                             </td>
-                                            <td className="px-6 py-4 text-right font-mono text-emerald-400 font-bold">
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: '#34d399', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                                 {tx.pricePerLiter ? formatCurrency(tx.pricePerLiter) : '-'}
                                             </td>
                                         </tr>
@@ -390,41 +418,31 @@ const FuelAnalytics = () => {
                         </div>
                         
                         {analyticsData.chartData.length > 0 && (
-                            <div className="p-4 border-t border-white/5 flex flex-col sm:flex-row justify-between items-center gap-4 text-sm text-gray-400 bg-black/20">
-                                <div className="flex items-center gap-2">
-                                    <span>Show</span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                    <span style={{ fontSize: '11px', color: '#71717a' }}>Show:</span>
                                     <select
                                         value={rowsPerPage}
                                         onChange={(e) => {
                                             setRowsPerPage(Number(e.target.value));
                                             setCurrentPage(1);
                                         }}
-                                        className="bg-white/5 border border-white/5 rounded-xl px-3 py-1 text-white font-bold text-sm focus:outline-none focus:border-orange-500/50 focus:bg-[#2c2c2e] transition-all cursor-pointer"
+                                        style={{ backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', borderRadius: '0.5rem', padding: '0.25rem', outline: 'none', cursor: 'pointer' }}
                                     >
-                                        <option value={10} className="bg-[#18181b]">10</option>
-                                        <option value={20} className="bg-[#18181b]">20</option>
-                                        <option value={30} className="bg-[#18181b]">30</option>
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={30}>30</option>
                                     </select>
-                                    <span>entries</span>
+                                    <span style={{ fontSize: '11px', color: '#71717a' }}>entries</span>
                                 </div>
-                                <div className="flex items-center gap-2 font-bold">
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                        disabled={currentPage === 1}
-                                        className="px-4 py-2 bg-white/5 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
-                                    >
-                                        Prev
-                                    </button>
-                                    <span className="px-2 font-mono">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <span style={{ fontSize: '11px', color: '#71717a', fontFamily: 'monospace' }}>
                                         {currentPage} / {Math.ceil(analyticsData.chartData.length / rowsPerPage)}
                                     </span>
-                                    <button
-                                        onClick={() => setCurrentPage(p => Math.min(Math.ceil(analyticsData.chartData.length / rowsPerPage), p + 1))}
-                                        disabled={currentPage === Math.ceil(analyticsData.chartData.length / rowsPerPage)}
-                                        className="px-4 py-2 bg-white/5 rounded-lg hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-white transition-all"
-                                    >
-                                        Next
-                                    </button>
+                                    <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === 1 ? 0.3 : 1, fontSize: '10px', fontWeight: 'bold' }}>Prev</button>
+                                        <button onClick={() => setCurrentPage(p => Math.min(Math.ceil(analyticsData.chartData.length / rowsPerPage), p + 1))} disabled={currentPage === Math.ceil(analyticsData.chartData.length / rowsPerPage)} style={{ padding: '0.375rem 0.75rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: currentPage === Math.ceil(analyticsData.chartData.length / rowsPerPage) ? 0.3 : 1, fontSize: '10px', fontWeight: 'bold' }}>Next</button>
+                                    </div>
                                 </div>
                             </div>
                         )}

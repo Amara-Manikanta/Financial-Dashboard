@@ -30,10 +30,10 @@ const MetalDetails = () => {
     );
 
     const formattedType = type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    const colorClass = type === 'gold' ? 'text-yellow-400' : type === 'silver' ? 'text-slate-300' : type === 'antique_coins' ? 'text-[#CD853F]' : 'text-emerald-400';
-    const accentBg = type === 'gold' ? 'bg-yellow-500' : type === 'silver' ? 'bg-slate-500' : type === 'antique_coins' ? 'bg-[#8B5A2B]' : 'bg-emerald-600';
-    const accentBorder = type === 'gold' ? 'border-yellow-500/20' : type === 'silver' ? 'border-slate-500/20' : type === 'antique_coins' ? 'border-[#8B5A2B]/20' : 'border-emerald-600/20';
-    const accentShadow = type === 'gold' ? 'shadow-yellow-500/20' : type === 'silver' ? 'shadow-slate-500/20' : type === 'antique_coins' ? 'shadow-[#8B5A2B]/20' : 'shadow-emerald-600/20';
+    const colorHex = type === 'gold' ? '#eab308' : type === 'silver' ? '#cbd5e1' : type === 'antique_coins' ? '#cd853f' : '#34d399';
+    const accentBgHex = type === 'gold' ? '#eab308' : type === 'silver' ? '#64748b' : type === 'antique_coins' ? '#8b5a2b' : '#059669';
+    const accentBorderHex = type === 'gold' ? 'rgba(234, 179, 8, 0.2)' : type === 'silver' ? 'rgba(100, 116, 139, 0.2)' : type === 'antique_coins' ? 'rgba(139, 90, 43, 0.2)' : 'rgba(5, 150, 105, 0.2)';
+    const accentGlowHex = type === 'gold' ? 'rgba(234, 179, 8, 0.05)' : type === 'silver' ? 'rgba(100, 116, 139, 0.05)' : type === 'antique_coins' ? 'rgba(139, 90, 43, 0.05)' : 'rgba(5, 150, 105, 0.05)';
 
     // Calculate aggregate stats (on all items, not filtered)
     const totalWeight = metalItems.reduce((sum, item) => sum + item.weightGm, 0);
@@ -85,214 +85,382 @@ const MetalDetails = () => {
     };
 
     return (
-        <div className="animate-fade-in pb-12">
+        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
             {/* Header Section */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
-                <div className="flex flex-col gap-4">
-                    <button
-                        onClick={() => navigate('/metals')}
-                        className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors text-sm font-bold uppercase tracking-widest group w-fit"
-                    >
-                        <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
-                        <span>Back to Metals</span>
-                    </button>
-                    <div className="flex items-center gap-5">
-                        <div className={`p-4 rounded-[28px] ${accentBg}/10 border ${accentBorder} backdrop-blur-xl shadow-2xl ${accentShadow}`}>
-                            <Coins className={colorClass} size={32} />
+            <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '1.5rem',
+                marginBottom: '2.5rem'
+            }}>
+                <button
+                    onClick={() => navigate('/metals')}
+                    style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        color: '#71717a',
+                        fontSize: '0.75rem',
+                        fontWeight: 'bold',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        border: 'none',
+                        backgroundColor: 'transparent',
+                        cursor: 'pointer',
+                        padding: 0
+                    }}
+                >
+                    ← Back to Metals
+                </button>
+
+                <div style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '1.5rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                        <div style={{
+                            padding: '1rem',
+                            borderRadius: '1.25rem',
+                            backgroundColor: accentBorderHex,
+                            color: colorHex,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}>
+                            <Coins size={32} />
                         </div>
                         <div>
-                            <div className="flex items-center gap-3">
-                                <h2 className="text-4xl font-black tracking-tight text-white leading-tight">
-                                    {formattedType} <span className="text-gray-500">Portfolio</span>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
+                                    {formattedType} <span style={{ color: '#71717a' }}>Portfolio</span>
                                 </h2>
                                 <button
                                     onClick={openRateModal}
-                                    className={`p-2 rounded-full transition-all ${isManualRateActive ? 'bg-yellow-500/20 text-yellow-400' : 'bg-white/5 text-gray-400 hover:bg-white/10'}`}
+                                    style={{
+                                        padding: '0.375rem',
+                                        borderRadius: '50%',
+                                        backgroundColor: isManualRateActive ? 'rgba(234,179,8,0.2)' : 'rgba(255,255,255,0.05)',
+                                        color: isManualRateActive ? '#eab308' : '#71717a',
+                                        cursor: 'pointer',
+                                        border: 'none',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center'
+                                    }}
                                     title="Set Manual Rates"
                                 >
-                                    <Settings size={20} />
+                                    <Settings size={18} />
                                 </button>
                             </div>
                             {type !== 'antique_coins' && type !== 'currencies' && (
                                 <div
                                     onClick={openRateModal}
-                                    className="flex items-center gap-2 mt-2 text-xs font-bold uppercase tracking-wider text-gray-500 cursor-pointer hover:text-white transition-colors"
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.5rem',
+                                        marginTop: '0.375rem',
+                                        fontSize: '0.75rem',
+                                        fontWeight: 'bold',
+                                        textTransform: 'uppercase',
+                                        letterSpacing: '0.05em',
+                                        color: '#71717a',
+                                        cursor: 'pointer'
+                                    }}
                                     title="Click to edit rate"
                                 >
                                     {isManualRateActive ? (
-                                        <span className="text-yellow-500 flex items-center gap-1">
+                                        <span style={{ color: '#eab308', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                             <Edit2 size={12} /> Manual Rate:
                                         </span>
                                     ) : (
-                                        <span className="text-emerald-500 flex items-center gap-1">
+                                        <span style={{ color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                                             <RefreshCw size={12} /> Live Rate:
                                         </span>
                                     )}
-                                    <span className="underline decoration-dotted underline-offset-4 decoration-gray-600">{formatCurrency(currentRate)}/g</span>
+                                    <span style={{ textDecoration: 'underline', textDecorationStyle: 'dotted' }}>{formatCurrency(currentRate)}/g</span>
                                 </div>
                             )}
                         </div>
                     </div>
-                </div>
 
-                <div className="flex items-center gap-4">
-                    {/* Search Bar */}
-                    <div className="relative group">
-                        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                            <Plus size={18} className="text-gray-500 group-focus-within:text-white transition-colors rotate-45" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                        {/* Search Bar */}
+                        <div style={{ position: 'relative' }}>
+                            <input
+                                type="text"
+                                placeholder="Search items..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                style={{
+                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    color: 'white',
+                                    fontSize: '0.875rem',
+                                    borderRadius: '1rem',
+                                    padding: '0.75rem 1rem 0.75rem 2.5rem',
+                                    width: '240px',
+                                    outline: 'none'
+                                }}
+                            />
+                            <span style={{ position: 'absolute', left: '0.875rem', top: '50%', transform: 'translateY(-50%)', color: '#71717a' }}>🔍</span>
                         </div>
-                        <input
-                            type="text"
-                            placeholder="Search items..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="bg-white/5 border border-white/10 text-white text-sm rounded-2xl pl-12 pr-6 py-4 w-full md:w-64 outline-none focus:ring-2 focus:ring-white/20 transition-all placeholder:text-gray-600 font-medium"
-                        />
-                    </div>
 
-                    <button
-                        onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
-                        className={`flex items-center gap-2 ${accentBg} text-white font-black px-8 py-4 rounded-2xl hover:opacity-90 transition-all shadow-2xl ${accentShadow} text-xs uppercase tracking-widest active:scale-95`}
-                    >
-                        <Plus size={20} />
-                        <span>Add {formattedType}</span>
-                    </button>
+                        <button
+                            onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
+                            style={{
+                                padding: '0.75rem 1.5rem',
+                                borderRadius: '1rem',
+                                backgroundColor: accentBgHex,
+                                color: type === 'gold' ? 'black' : 'white',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                cursor: 'pointer',
+                                border: 'none',
+                                boxShadow: `0 4px 10px -2px ${accentGlowHex}`
+                            }}
+                        >
+                            <Plus size={16} /> Add {formattedType}
+                        </button>
+                    </div>
                 </div>
             </div>
 
             {/* Summary Cards */}
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-10">
-                <div className="card group relative overflow-hidden border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent">
-                    <div className="relative z-10 p-1">
-                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '1.5rem',
+                marginBottom: '2.5rem'
+            }}>
+                {/* Total accumulation */}
+                <div style={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: '1rem',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                }}>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#71717a', marginBottom: '0.25rem', margin: 0 }}>
                             {type === 'antique_coins' || type === 'currencies' ? 'Total Items' : 'Total Accumulation'}
                         </p>
-                        <div className="flex items-baseline gap-2">
-                            <p className="text-4xl font-black text-white tracking-tighter">
-                                {type === 'antique_coins' || type === 'currencies' ? metalItems.length : parseFloat(totalWeight.toFixed(4))}
-                            </p>
+                        <h3 style={{ fontSize: '1.75rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>
+                            {type === 'antique_coins' || type === 'currencies' ? metalItems.length : parseFloat(totalWeight.toFixed(4))}
                             {type !== 'antique_coins' && type !== 'currencies' && (
-                                <span className="text-sm font-bold text-gray-400">grams</span>
+                                <span style={{ fontSize: '0.875rem', color: '#71717a', marginLeft: '0.25rem' }}>grams</span>
                             )}
-                        </div>
+                        </h3>
                     </div>
-                    <div className={`absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-[0.03] group-hover:opacity-[0.08] transition-all duration-500 ${accentBg} blur-2xl`} />
                 </div>
 
-                <div className="card group relative overflow-hidden border-white/5 bg-gradient-to-br from-white/[0.03] to-transparent">
-                    <div className="relative z-10 p-1">
-                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Historical Investment</p>
-                        <p className="text-4xl font-black text-white tracking-tighter">{formatCurrency(totalInvested)}</p>
+                {/* Historical invested */}
+                <div style={{
+                    backgroundColor: '#18181b',
+                    border: '1px solid rgba(255, 255, 255, 0.05)',
+                    borderRadius: '1rem',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between'
+                }}>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '850', color: '#71717a', marginBottom: '0.25rem', margin: 0 }}>Historical Investment</p>
+                        <h3 style={{ fontSize: '1.75rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(totalInvested)}</h3>
                     </div>
-                    <div className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-[0.03] group-hover:opacity-[0.08] transition-all duration-500 bg-emerald-500 blur-2xl" />
                 </div>
 
-                <div className="card group relative overflow-hidden border-white/10 bg-gradient-to-br from-white/[0.03] to-white/[0.01]">
-                    <div className="relative z-10 p-1">
-                        <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2">Current Valuation</p>
-                        <p className={`text-4xl font-black ${colorClass} tracking-tighter`}>{formatCurrency(totalCurrentValue)}</p>
+                {/* Current Valuation */}
+                <div style={{
+                    background: `linear-gradient(135deg, ${accentGlowHex} 0%, rgba(24, 24, 27, 0.9) 100%)`,
+                    border: `1px solid ${accentBorderHex}`,
+                    borderRadius: '1rem',
+                    padding: '1.25rem',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    boxShadow: `0 10px 15px -3px ${accentGlowHex}`
+                }}>
+                    <div>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: colorHex, marginBottom: '0.25rem', margin: 0 }}>Current Valuation</p>
+                        <h3 style={{ fontSize: '1.75rem', fontWeight: '950', color: colorHex, fontFamily: 'monospace', margin: 0 }}>{formatCurrency(totalCurrentValue)}</h3>
                     </div>
-                    <div className={`absolute -right-8 -bottom-8 w-32 h-32 rounded-full opacity-[0.05] group-hover:opacity-[0.1] transition-all duration-500 ${accentBg} blur-2xl`} />
                 </div>
             </div>
 
-            {/* Grid View Component */}
-            {/* Grid View Component */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8 mb-10">
+            {/* Holdings Grid */}
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                gap: '2rem',
+                marginBottom: '2.5rem'
+            }}>
                 {filteredItems.map((item) => (
                     <div
                         key={item.id}
                         onClick={() => navigate(`/metals/${type}/${item.id}`)}
-                        className="group relative bg-[#1c1c20] rounded-[32px] overflow-hidden border border-white/20 shadow-xl hover:shadow-2xl hover:shadow-black/50 transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                        style={{
+                            backgroundColor: 'rgba(24, 24, 27, 0.4)',
+                            backdropFilter: 'blur(10px)',
+                            borderRadius: '2rem',
+                            overflow: 'hidden',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            height: '340px',
+                            justifyContent: 'space-between',
+                            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                        }}
                     >
-                        {/* Image Section */}
-                        <div className="relative h-64 w-full overflow-hidden bg-black/20">
+                        {/* Image Header Block */}
+                        <div style={{ position: 'relative', height: '160px', backgroundColor: 'rgba(255, 255, 255, 0.02)', overflow: 'hidden' }}>
                             {item.image ? (
                                 <img
                                     src={item.image}
                                     alt={item.name}
-                                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />
                             ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-white/5">
-                                    <Coins size={48} className={`opacity-20 ${type === 'gold' ? 'text-yellow-500' : 'text-slate-400'}`} />
+                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                    <Coins size={40} style={{ opacity: 0.15, color: colorHex }} />
                                 </div>
                             )}
 
-                            <div className="absolute inset-0 bg-gradient-to-t from-[#1c1c20] via-[#1c1c20]/40 to-transparent opacity-80" />
-
-                            {/* Buttons moved to content section */}
-
+                            {/* Tags overlay */}
                             {type === 'gold' && item.purity && (
-                                <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-xl backdrop-blur-md border ${accentBorder} ${accentBg}/20 shadow-lg`}>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>
-                                        {item.purity}K
-                                    </span>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '1rem',
+                                    left: '1rem',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                                    border: '1px solid rgba(234, 179, 8, 0.3)',
+                                    fontSize: '9px',
+                                    fontWeight: '900',
+                                    color: '#eab308'
+                                }}>
+                                    {item.purity}K
                                 </div>
                             )}
                             {type === 'antique_coins' && item.printedYear && (
-                                <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-xl backdrop-blur-md border ${accentBorder} ${accentBg}/20 shadow-lg`}>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>
-                                        {item.printedYear}
-                                    </span>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '1rem',
+                                    left: '1rem',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: 'rgba(205, 133, 63, 0.2)',
+                                    border: '1px solid rgba(205, 133, 63, 0.3)',
+                                    fontSize: '9px',
+                                    fontWeight: '900',
+                                    color: '#cd853f'
+                                }}>
+                                    {item.printedYear}
                                 </div>
                             )}
                             {type === 'currencies' && (
-                                <div className={`absolute top-4 left-4 px-3 py-1.5 rounded-xl backdrop-blur-md border ${accentBorder} ${accentBg}/20 shadow-lg`}>
-                                    <span className={`text-[10px] font-black uppercase tracking-widest ${colorClass}`}>
-                                        {item.currencyCode || 'Currency'}
-                                    </span>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '1rem',
+                                    left: '1rem',
+                                    padding: '0.25rem 0.5rem',
+                                    borderRadius: '0.5rem',
+                                    backgroundColor: 'rgba(52, 211, 153, 0.2)',
+                                    border: '1px solid rgba(52, 211, 153, 0.3)',
+                                    fontSize: '9px',
+                                    fontWeight: '900',
+                                    color: '#34d399'
+                                }}>
+                                    {item.currencyCode || 'Currency'}
                                 </div>
                             )}
                         </div>
 
-                        {/* Content Section */}
-                        <div className="relative p-6 -mt-12 space-y-4">
-                            <div className="flex justify-between items-start">
+                        {/* Card Info Content */}
+                        <div style={{ padding: '1.25rem', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
                                 <div>
-                                    <h3 className="text-xl font-black text-white tracking-tight leading-tight mb-1">{item.name}</h3>
-                                    <div className="flex items-center gap-1.5 text-gray-400">
-                                        <MapPin size={12} className={colorClass} />
-                                        <span className="text-xs font-bold uppercase tracking-wider text-gray-500">{item.place || 'Unknown Place'}</span>
+                                    <h3 style={{ fontSize: '1.125rem', fontWeight: '900', color: 'white', margin: '0 0 0.25rem 0' }}>{item.name}</h3>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#71717a', fontSize: '10px' }}>
+                                        <MapPin size={10} style={{ color: colorHex }} />
+                                        <span>{item.place || 'Unknown Place'}</span>
                                     </div>
                                 </div>
-                                <div className="flex gap-2">
+                                <div style={{ display: 'flex', gap: '0.375rem' }}>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleEdit(item); }}
-                                        className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-all active:scale-95 border border-white/5"
+                                        style={{
+                                            padding: '0.375rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: 'rgba(255,255,255,0.05)',
+                                            color: 'white',
+                                            cursor: 'pointer',
+                                            border: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
                                         title="Edit Item"
                                     >
-                                        <Edit2 size={18} />
+                                        <Edit2 size={14} />
                                     </button>
                                     <button
                                         onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                                        className="p-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-all active:scale-95 border border-white/5"
+                                        style={{
+                                            padding: '0.375rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            color: '#f87171',
+                                            cursor: 'pointer',
+                                            border: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center'
+                                        }}
                                         title="Delete Item"
                                     >
-                                        <Trash2 size={18} />
+                                        <Trash2 size={14} />
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3 p-4 rounded-2xl bg-white/[0.03] border border-white/5">
+                            <div style={{
+                                marginTop: '1rem',
+                                padding: '0.75rem',
+                                borderRadius: '1rem',
+                                backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                                border: '1px solid rgba(255, 255, 255, 0.05)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
                                 <div>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                                    <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>
                                         {type === 'antique_coins' ? 'Quantity' : type === 'currencies' ? 'Foreign Value' : 'Weight'}
                                     </p>
-                                    <p className="text-lg font-black text-gray-300">
+                                    <p style={{ fontSize: '0.875rem', fontWeight: 'bold', color: 'white', margin: 0 }}>
                                         {type === 'antique_coins' ? (item.quantity || 1) : type === 'currencies' ? `${item.currencyCode || ''} ${item.foreignValue || 0}` : `${item.weightGm}g`}
                                     </p>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">Value</p>
-                                    <p className={`text-lg font-black ${colorClass}`}>{formatCurrency(item.currentValue)}</p>
+                                <div style={{ textAlign: 'right' }}>
+                                    <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Value</p>
+                                    <p style={{ fontSize: '1rem', fontWeight: '950', color: colorHex, margin: 0 }}>{formatCurrency(item.currentValue)}</p>
                                 </div>
                             </div>
 
-                            <div className="flex justify-between items-center pt-2">
-                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">{formatDate(item.purchaseDate)}</span>
-                                <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', fontSize: '8px', color: '#52525b', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+                                <span>{formatDate(item.purchaseDate)}</span>
+                                <span>
                                     ID: {type === 'gold' ? 'G' : type === 'silver' ? 'S' : type === 'antique_coins' ? 'A' : 'C'}{(filteredItems.indexOf(item) + 1)}
                                 </span>
                             </div>
@@ -301,41 +469,62 @@ const MetalDetails = () => {
                 ))}
             </div>
 
-            {
-                (filteredItems.length === 0 && metalItems.length > 0) && (
-                    <div className="text-center py-24 bg-white/[0.02]">
-                        <div className="inline-flex p-6 rounded-full bg-white/5 mb-6">
-                            <Plus size={40} className="text-gray-700 rotate-45" />
-                        </div>
-                        <h4 className="text-xl font-bold text-gray-400 mb-2">No results found for "{searchTerm}"</h4>
-                        <p className="text-gray-600 text-sm font-medium">Try adjusting your search criteria or clear the filter.</p>
-                        <button
-                            onClick={() => setSearchTerm('')}
-                            className="text-white text-xs font-black uppercase tracking-widest mt-8 px-6 py-3 bg-white/5 rounded-xl hover:bg-white/10 transition-all"
-                        >
-                            Clear Search Filter
-                        </button>
-                    </div>
-                )
-            }
+            {/* Empty States */}
+            {filteredItems.length === 0 && metalItems.length > 0 && (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '6rem 1.5rem',
+                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    borderRadius: '1.5rem'
+                }}>
+                    <h4 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#71717a', marginBottom: '0.5rem' }}>No results found for "{searchTerm}"</h4>
+                    <button
+                        onClick={() => setSearchTerm('')}
+                        style={{
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                            color: 'white',
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            padding: '0.5rem 1.5rem',
+                            border: 'none',
+                            borderRadius: '0.75rem',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Clear Search Filter
+                    </button>
+                </div>
+            )}
 
-            {
-                metalItems.length === 0 && (
-                    <div className="text-center py-24 bg-white/[0.02]">
-                        <div className="inline-flex p-6 rounded-full bg-white/5 mb-6">
-                            <Coins size={40} className="text-gray-700" />
-                        </div>
-                        <h4 className="text-xl font-bold text-gray-300 mb-2">Portfolio is Empty</h4>
-                        <p className="text-gray-600 text-sm font-medium">Start building your {type} wealth by adding your first item.</p>
-                        <button
-                            onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
-                            className={`${colorClass} text-xs font-black uppercase tracking-widest mt-8 hover:opacity-80 transition-all`}
-                        >
-                            + Add New Entry
-                        </button>
-                    </div>
-                )
-            }
+            {metalItems.length === 0 && (
+                <div style={{
+                    textAlign: 'center',
+                    padding: '6rem 1.5rem',
+                    backgroundColor: 'rgba(255,255,255,0.02)',
+                    borderRadius: '1.5rem'
+                }}>
+                    <Coins size={48} style={{ color: '#71717a', marginBottom: '1rem' }} />
+                    <h4 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginBottom: '0.5rem' }}>Portfolio is Empty</h4>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', marginBottom: '1.5rem' }}>Start building your {type} wealth by adding your first item.</p>
+                    <button
+                        onClick={() => { setEditingItem(null); setIsModalOpen(true); }}
+                        style={{
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                            color: colorHex,
+                            border: 'none',
+                            backgroundColor: 'transparent',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        + Add New Entry
+                    </button>
+                </div>
+            )}
 
             <MetalModal
                 isOpen={isModalOpen}

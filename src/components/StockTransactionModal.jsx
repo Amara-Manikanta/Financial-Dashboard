@@ -13,13 +13,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const [customValues, setCustomValues] = useState({});
     const [investedAmount, setInvestedAmount] = useState('');
     const [realisedPL, setRealisedPL] = useState('');
-
-    const currentYear = new Date().getFullYear();
-    const dividendYears = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
-
-    const [dividends, setDividends] = useState(
-        dividendYears.reduce((acc, year) => ({ ...acc, [year]: 0 }), {})
-    );
+    const [expectsDividends, setExpectsDividends] = useState(false);
 
     useEffect(() => {
         if (isOpen && initialData) {
@@ -33,11 +27,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setInvestedAmount(initialData.manualInvestedAmount || '');
             setRealisedPL(initialData.realisedPL || '');
 
-            const initialDividends = {};
-            dividendYears.forEach(year => {
-                initialDividends[year] = initialData.dividends?.[year] || 0;
-            });
-            setDividends(initialDividends);
+            setExpectsDividends(initialData.expectsDividends || false);
         } else if (isOpen) {
             setName('');
             setTicker('');
@@ -48,7 +38,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setCustomValues({});
             setInvestedAmount('');
             setRealisedPL('');
-            setDividends(dividendYears.reduce((acc, year) => ({ ...acc, [year]: 0 }), {}));
+            setExpectsDividends(false);
         }
     }, [isOpen, initialData]);
 
@@ -67,7 +57,8 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             customValues,
             manualInvestedAmount: investedAmount ? parseFloat(investedAmount) : null,
             realisedPL: realisedPL ? parseFloat(realisedPL) : null,
-            dividends: Object.entries(dividends).reduce((acc, [k, v]) => ({ ...acc, [k]: parseFloat(v) }), {})
+            dividends: initialData ? initialData.dividends : {},
+            expectsDividends
         });
         onClose();
     };
@@ -245,30 +236,29 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                         )}
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Remarks</label>
-                            <div className="relative">
-                                <input
-                                    type="text" value={remarks} onChange={(e) => setRemarks(e.target.value)}
-                                    className="w-full px-4 py-3 pl-10 focus:outline-none focus:border-blue-500 transition-colors"
-                                    style={inputStyle} placeholder="Optional notes"
-                                />
-                                <FileText size={18} style={iconStyle} />
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 ml-1">Dividends History</label>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                                {Object.keys(dividends).sort((a, b) => b - a).map(year => (
-                                    <div key={year}>
-                                        <label className="block text-[10px] text-gray-500 mb-1">{year}</label>
-                                        <CurrencyInput
-                                            value={dividends[year]}
-                                            onChange={(e) => setDividends(prev => ({ ...prev, [year]: e.target.value }))}
-                                            className="w-full px-3 py-2 rounded-lg bg-[#27272a] border border-[#3f3f46] text-white text-sm focus:border-blue-500 focus:outline-none"
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Remarks</label>
+                                    <div className="relative">
+                                        <input
+                                            type="text" value={remarks} onChange={(e) => setRemarks(e.target.value)}
+                                            className="w-full px-4 py-3 pl-10 focus:outline-none focus:border-blue-500 transition-colors"
+                                            style={inputStyle} placeholder="Optional notes"
                                         />
+                                        <FileText size={18} style={iconStyle} />
                                     </div>
-                                ))}
+                                </div>
+                                <div className="flex items-center self-end mb-3 mr-2">
+                                    <label className="flex items-center gap-2 text-sm font-bold text-emerald-400 cursor-pointer hover:text-emerald-300 transition-colors">
+                                        <input
+                                            type="checkbox"
+                                            checked={expectsDividends}
+                                            onChange={(e) => setExpectsDividends(e.target.checked)}
+                                            className="w-5 h-5 rounded bg-[#27272a] border-[#3f3f46] text-emerald-500 focus:ring-emerald-500 focus:ring-offset-gray-900"
+                                        />
+                                        Tracks Dividends?
+                                    </label>
+                                </div>
                             </div>
                         </div>
 
