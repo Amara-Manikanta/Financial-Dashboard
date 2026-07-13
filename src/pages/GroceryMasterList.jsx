@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight } from 'lucide-react';
+import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package } from 'lucide-react';
 
 const GroceryMasterList = () => {
-    const { groceryCategories, saveGroceryCategories } = useFinance();
+    const { 
+        groceryCategories, saveGroceryCategories,
+        groceryBrands, addGroceryBrand, removeGroceryBrand,
+        groceryFlavours, addGroceryFlavour, removeGroceryFlavour
+    } = useFinance();
     const [selectedCategory, setSelectedCategory] = useState(Object.keys(groceryCategories)[0] || '');
+    const [activeTab, setActiveTab] = useState('items'); // items, brands, flavours
     
     // Add new category
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -47,21 +52,35 @@ const GroceryMasterList = () => {
         e.preventDefault();
         const item = newItemName.trim();
         if (!item || !selectedCategory) return;
-        if (groceryCategories[selectedCategory].includes(item)) return;
-
-        const updated = { ...groceryCategories };
-        updated[selectedCategory] = [...updated[selectedCategory], item].sort();
-        saveGroceryCategories(updated);
+        
+        if (activeTab === 'items') {
+            if (groceryCategories[selectedCategory].includes(item)) return;
+            const updated = { ...groceryCategories };
+            updated[selectedCategory] = [...updated[selectedCategory], item].sort();
+            saveGroceryCategories(updated);
+        } else if (activeTab === 'brands') {
+            addGroceryBrand(selectedCategory, item);
+        } else if (activeTab === 'flavours') {
+            addGroceryFlavour(selectedCategory, item);
+        }
+        
         setNewItemName('');
     };
 
     const handleDeleteItem = (cat, item) => {
-        const updated = { ...groceryCategories };
-        updated[cat] = updated[cat].filter(i => i !== item);
-        saveGroceryCategories(updated);
+        if (activeTab === 'items') {
+            const updated = { ...groceryCategories };
+            updated[cat] = updated[cat].filter(i => i !== item);
+            saveGroceryCategories(updated);
+        } else if (activeTab === 'brands') {
+            removeGroceryBrand(cat, item);
+        } else if (activeTab === 'flavours') {
+            removeGroceryFlavour(cat, item);
+        }
     };
 
     const handleRenameItem = (cat, oldItem) => {
+        if (activeTab !== 'items') return; // Only rename for base items for now
         const newItem = window.prompt('Enter new item name:', oldItem);
         if (!newItem || newItem.trim() === '' || newItem === oldItem || groceryCategories[cat].includes(newItem)) return;
 
@@ -130,53 +149,99 @@ const GroceryMasterList = () => {
                     </div>
                 </div>
 
-                {/* Items Editor */}
-                <div style={{ flex: 1, backgroundColor: 'rgba(24, 24, 27, 0.4)', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.05)', padding: '2rem' }}>
-                    {!selectedCategory ? (
-                        <div style={{ color: '#71717a', textAlign: 'center', padding: '3rem' }}>Select a category to view and edit items.</div>
-                    ) : (
-                        <>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-                                <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', margin: 0 }}>Items in {selectedCategory}</h3>
-                                <form onSubmit={handleAddItem} style={{ display: 'flex', width: '300px' }}>
-                                    <input 
-                                        type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder="Add new item..." 
-                                        style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem 0 0 0.75rem', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.875rem', outline: 'none' }}
-                                    />
+                {/* Editor Content */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    
+                    {/* Tabs */}
+                    {selectedCategory && (
+                        <div style={{ display: 'flex', gap: '1rem', borderBottom: '1px solid rgba(255,255,255,0.05)', paddingBottom: '0.5rem' }}>
+                            <button
+                                onClick={() => setActiveTab('items')}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    backgroundColor: activeTab === 'items' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: activeTab === 'items' ? 'white' : '#71717a', border: 'none'
+                                }}
+                            >
+                                <Package size={16} /> Items
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('brands')}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    backgroundColor: activeTab === 'brands' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: activeTab === 'brands' ? 'white' : '#71717a', border: 'none'
+                                }}
+                            >
+                                <Tag size={16} /> Brands
+                            </button>
+                            <button
+                                onClick={() => setActiveTab('flavours')}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '0.5rem', fontSize: '14px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem',
+                                    backgroundColor: activeTab === 'flavours' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                    color: activeTab === 'flavours' ? 'white' : '#71717a', border: 'none'
+                                }}
+                            >
+                                <Droplets size={16} /> Flavours
+                            </button>
+                        </div>
+                    )}
+
+                    <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', borderRadius: '1.5rem', border: '1px solid rgba(255,255,255,0.05)', padding: '2rem' }}>
+                        {!selectedCategory ? (
+                            <div style={{ color: '#71717a', textAlign: 'center', padding: '3rem' }}>Select a category to view and edit.</div>
+                        ) : (
+                            <>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                                    <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', margin: 0, textTransform: 'capitalize' }}>{activeTab} in {selectedCategory}</h3>
+                                    <form onSubmit={handleAddItem} style={{ display: 'flex', width: '300px' }}>
+                                        <input 
+                                            type="text" value={newItemName} onChange={e => setNewItemName(e.target.value)} placeholder={`Add new ${activeTab.slice(0, -1)}...`}
+                                            style={{ flex: 1, padding: '0.75rem', borderRadius: '0.75rem 0 0 0.75rem', border: '1px solid rgba(255,255,255,0.05)', backgroundColor: 'rgba(0,0,0,0.5)', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                        />
                                     <button type="submit" style={{ backgroundColor: '#10b981', color: 'black', border: 'none', borderRadius: '0 0.75rem 0.75rem 0', padding: '0 1rem', cursor: 'pointer' }}><Plus size={16} /></button>
                                 </form>
                             </div>
 
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                                {groceryCategories[selectedCategory].map(item => (
-                                    <div key={item} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <span style={{ color: 'white', fontWeight: 'bold' }}>{item}</span>
-                                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                                <button onClick={() => handleRenameItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 0 }}><Edit2 size={16} /></button>
-                                                <button onClick={() => handleDeleteItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}><Trash2 size={16} /></button>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+                                    {(activeTab === 'items' ? groceryCategories[selectedCategory] : 
+                                      activeTab === 'brands' ? (groceryBrands[selectedCategory] || []) : 
+                                      (groceryFlavours[selectedCategory] || [])).map(item => (
+                                        <div key={item} style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '1rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <span style={{ color: 'white', fontWeight: 'bold' }}>{item}</span>
+                                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                                    {activeTab === 'items' && (
+                                                        <button onClick={() => handleRenameItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', padding: 0 }}><Edit2 size={16} /></button>
+                                                    )}
+                                                    <button onClick={() => handleDeleteItem(selectedCategory, item)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: 0 }}><Trash2 size={16} /></button>
+                                                </div>
                                             </div>
+                                            
+                                            {activeTab === 'items' && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <ArrowRight size={14} className="text-gray-500" />
+                                                    <select 
+                                                        onChange={(e) => handleMoveItem(selectedCategory, item, e.target.value)}
+                                                        value={selectedCategory}
+                                                        style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', padding: '0.25rem 0.5rem', fontSize: '11px', outline: 'none', cursor: 'pointer' }}
+                                                    >
+                                                        {Object.keys(groceryCategories).map(c => (
+                                                            <option key={c} value={c}>{c}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            )}
                                         </div>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <ArrowRight size={14} className="text-gray-500" />
-                                            <select 
-                                                onChange={(e) => handleMoveItem(selectedCategory, item, e.target.value)}
-                                                value={selectedCategory}
-                                                style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem', padding: '0.25rem 0.5rem', fontSize: '11px', outline: 'none', cursor: 'pointer' }}
-                                            >
-                                                {Object.keys(groceryCategories).map(c => (
-                                                    <option key={c} value={c}>{c}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                    </div>
-                                ))}
-                                {groceryCategories[selectedCategory].length === 0 && (
-                                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#71717a' }}>No items in this category.</div>
-                                )}
-                            </div>
-                        </>
-                    )}
+                                    ))}
+                                    {((activeTab === 'items' ? groceryCategories[selectedCategory] : activeTab === 'brands' ? (groceryBrands[selectedCategory] || []) : (groceryFlavours[selectedCategory] || [])).length === 0) && (
+                                        <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#71717a' }}>No {activeTab} in this category.</div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
