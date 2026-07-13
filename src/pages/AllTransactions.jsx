@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -11,6 +12,7 @@ const AllTransactions = () => {
     const [monthFilter, setMonthFilter] = useState('all');
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
+    const navigate = useNavigate();
 
     // Flatten transactions
     const allTransactions = useMemo(() => {
@@ -235,7 +237,26 @@ const AllTransactions = () => {
                         <tbody>
                             {displayedTransactions.length > 0 ? (
                                 displayedTransactions.map((t) => (
-                                    <tr key={t.id || `${t.date}-${t.amount}-${t.title}`} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                    <tr 
+                                        key={t.id || `${t.date}-${t.amount}-${t.title}`} 
+                                        onClick={() => {
+                                            if (t.id) {
+                                                navigate(`/expenses/${t.year}/${t.month}?highlightTxId=${t.id}`);
+                                            }
+                                        }}
+                                        style={{ 
+                                            borderBottom: '1px solid rgba(255,255,255,0.03)',
+                                            cursor: t.id ? 'pointer' : 'default',
+                                            transition: 'background-color 0.2s ease'
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            if (t.id) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            if (t.id) e.currentTarget.style.backgroundColor = 'transparent';
+                                        }}
+                                        title={t.id ? "Click to view in Monthly Statement" : ""}
+                                    >
                                         <td style={{ padding: '1rem 1.5rem', color: '#a1a1aa', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
                                             <div style={{ color: 'white', fontWeight: 'bold' }}>
                                                 {new Date(t.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
