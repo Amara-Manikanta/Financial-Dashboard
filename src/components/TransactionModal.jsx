@@ -82,7 +82,18 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
 
             setDate(initialData.date ? new Date(initialData.date) : (defaultDate || new Date()));
             setPaymentMode(initialData.paymentMode || 'direct');
-            setCreditCardName(initialData.creditCardName || '');
+            let ccName = initialData.creditCardName || '';
+            if (ccName) {
+                const lowerName = ccName.toLowerCase().trim();
+                if (lowerName === 'icici rupay') ccName = 'Coral Rupay';
+                if (lowerName === 'icici hp card') ccName = 'Hpcl';
+                // Try to find exact case match in available cards, else keep as is
+                if (creditCards) {
+                    const matchedCard = creditCards.find(c => c.name.toLowerCase().trim() === ccName.toLowerCase().trim());
+                    if (matchedCard) ccName = matchedCard.name;
+                }
+            }
+            setCreditCardName(ccName);
             setIsCredited(!!initialData.isCredited);
             setIsCreditCardBill(initialCat.toLowerCase() === 'credit card bill' || initialCat.toLowerCase() === 'credit card payment');
             
