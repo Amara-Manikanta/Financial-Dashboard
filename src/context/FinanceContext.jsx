@@ -640,13 +640,45 @@ export function FinanceProvider({ children }) {
     };
 
     const saveExpenses = async (updatedExpenses) => {
-        setExpenses(updatedExpenses);
+        const sanitizedExpenses = JSON.parse(JSON.stringify(updatedExpenses));
+        Object.values(sanitizedExpenses).forEach(yearData => {
+            Object.values(yearData).forEach(monthData => {
+                if (!monthData.transactions) return;
+                const newCategories = {};
+                monthData.transactions.forEach(tx => {
+                    if (tx.deductFromSalary === false) return;
+                    
+                    const cat = (tx.category || '').toLowerCase();
+                    if (!cat) return;
+                    
+                    const isIncome = ['salary received', 'salary', 'income'].includes(cat);
+                    const amount = Number(tx.amount) || 0;
+                    
+                    let effective = 0;
+                    if (isIncome) {
+                        effective = tx.isCredited ? amount : -amount;
+                    } else {
+                        effective = tx.isCredited ? -amount : amount;
+                    }
+                    
+                    newCategories[cat] = (newCategories[cat] || 0) + effective;
+                });
+                
+                // Keep Math.max for backward compatibility with UI expecting no negative categories
+                Object.keys(newCategories).forEach(k => {
+                    newCategories[k] = Math.max(0, newCategories[k]);
+                });
+                monthData.categories = newCategories;
+            });
+        });
+
+        setExpenses(sanitizedExpenses);
         if (isGuest) return;
         try {
             await fetch(`${API_URL}/expenses`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updatedExpenses)
+                body: JSON.stringify(sanitizedExpenses)
             });
         } catch (error) {
             console.error("Failed to save expenses:", error);
