@@ -192,6 +192,7 @@ const SingleCreditCardDetails = () => {
             monthlyAggregates[key].net -= amt;
         } else {
             if (cat === 'credit card bill' || cat === 'credit card payment') {
+                monthlyAggregates[key].credit += amt;
                 monthlyAggregates[key].net -= amt;
             } else {
                 monthlyAggregates[key].debit += amt;
