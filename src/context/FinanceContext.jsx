@@ -23,9 +23,15 @@ export const DEFAULT_GROCERY_CATEGORIES = {
     'Others': ['Sugar', 'Salt', 'Tea Powder', 'Coffee Powder', 'Jaggery']
 };
 
-const calculateSalaryStats = (expensesData) => {
+const MONTHLY_EARNINGS_KEYS = ['basicSalary', 'hra', 'conveyanceAllowance', 'flexibleAllowance', 'performanceBonus', 'foodWallet',
+    'holidayAllowance', 'compensatoryAllowance', 'engagementPb', 'annualFlexiBasket', 'internetAllowance', 'cfPfMonthly'];
+const MONTHLY_DEDUCTIONS_KEYS = ['epf', 'profTax', 'incomeTax', 'otherRecoveries', 'medicalPremRecoverable', 'cfPfMonthly'];
+
+const calculateSalaryStats = (expensesData, salaryDetailsData = []) => {
     const stats = {};
     if (!expensesData || typeof expensesData !== 'object') return stats;
+
+    // First pass: pull from expense transactions (salary received category)
     Object.entries(expensesData).forEach(([year, months]) => {
         if (!stats[year]) stats[year] = { total: 0, months: {} };
         Object.entries(months).forEach(([month, data]) => {
@@ -38,6 +44,44 @@ const calculateSalaryStats = (expensesData) => {
             }
         });
     });
+
+    // Second pass: fill in from salaryDetails for any months not covered above
+    if (Array.isArray(salaryDetailsData)) {
+        salaryDetailsData.forEach(record => {
+            if (!record.year || !record.month || record.month === 'Annual') return;
+            const yr = record.year;
+            const mo = record.month;
+
+            // If already populated from a transaction, don't override
+            if (stats[yr]?.months[mo] > 0) return;
+
+            // Compute net salary: sum earnings minus deductions
+            let gross = 0;
+            MONTHLY_EARNINGS_KEYS.forEach(k => {
+                if (k !== 'cfPfMonthly') gross += Number(record[k]) || 0;
+            });
+            // Also add any custom fields that are positive numbers
+            Object.entries(record).forEach(([k, v]) => {
+                if (!['id', 'year', 'month', 'type', ...MONTHLY_EARNINGS_KEYS, ...MONTHLY_DEDUCTIONS_KEYS].includes(k)) {
+                    const num = Number(v);
+                    if (!isNaN(num) && num > 0) gross += num;
+                }
+            });
+
+            let deductions = 0;
+            MONTHLY_DEDUCTIONS_KEYS.forEach(k => {
+                if (k !== 'cfPfMonthly') deductions += Math.abs(Number(record[k]) || 0);
+            });
+
+            const net = gross - deductions;
+            if (net > 0) {
+                if (!stats[yr]) stats[yr] = { total: 0, months: {} };
+                stats[yr].months[mo] = net;
+                stats[yr].total += net;
+            }
+        });
+    }
+
     return stats;
 };
 
@@ -71,8 +115,8 @@ export function FinanceProvider({ children }) {
     const { user, isGuest } = useAuth();
 
     useEffect(() => {
-        setSalaryStats(calculateSalaryStats(expenses));
-    }, [expenses]);
+        setSalaryStats(calculateSalaryStats(expenses, salaryDetails));
+    }, [expenses, salaryDetails]);
 
     // Defined before the useEffect that calls it to avoid temporal dead zone
     const fetchMetalRates = async () => {
