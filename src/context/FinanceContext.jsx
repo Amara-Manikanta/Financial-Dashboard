@@ -877,7 +877,7 @@ export function FinanceProvider({ children }) {
             }
 
             // Handle Credit Card Bill Payment
-            const isCreditCardBill = category === 'credit card bill';
+            const isCreditCardBill = category === 'credit card bill' || category === 'credit card payment';
             if (isCreditCardBill && item.creditCardName) {
                 // Find the matching credit card
                 const cardToUpdate = creditCards.find(c =>
@@ -1285,7 +1285,7 @@ export function FinanceProvider({ children }) {
                         found = true;
 
                         // Handle Credit Card Bill deletion - normalise dates before comparing
-                        const isCreditCardBill = (tx.category || '').toLowerCase() === 'credit card bill';
+                        const isCreditCardBill = ['credit card bill', 'credit card payment'].includes((tx.category || '').toLowerCase());
                         if (isCreditCardBill && tx.creditCardName) {
                             const cardToUpdate = creditCards.find(c =>
                                 c.name.toLowerCase().trim() === tx.creditCardName.toLowerCase().trim()
@@ -1623,8 +1623,8 @@ export function FinanceProvider({ children }) {
                     }
 
                     // Handle Credit Card Bill update
-                    const wasOldCreditCardBill = oldTx.category?.toLowerCase() === 'credit card bill';
-                    const isNewCreditCardBill = newCategory.toLowerCase() === 'credit card bill';
+                    const wasOldCreditCardBill = ['credit card bill', 'credit card payment'].includes(oldTx.category?.toLowerCase());
+                    const isNewCreditCardBill = ['credit card bill', 'credit card payment'].includes(newCategory.toLowerCase());
 
                     // Remove old payment record if category changed FROM credit card bill
                     if (wasOldCreditCardBill && oldTx.creditCardName) {
@@ -1676,7 +1676,11 @@ export function FinanceProvider({ children }) {
 
                         if (newCard) {
                             const updatedMonthlyData = [...(newCard.monthlyData || [])];
-                            const unpaidBillIndex = updatedMonthlyData.findIndex(m => !m.isPaid && m.billAmount > 0);
+                            // Use most-recent unpaid bill strategy (consistent with addItem)
+                            const unpaidBillIndex = updatedMonthlyData.reduce((best, m, i) =>
+                                (!m.isPaid && m.billAmount > 0 &&
+                                 (best === -1 || new Date(m.date || `${m.year}-${m.month}-01`) > new Date(updatedMonthlyData[best].date || `${updatedMonthlyData[best].year}-${updatedMonthlyData[best].month}-01`)))
+                                    ? i : best, -1);
                             
                             if (unpaidBillIndex !== -1) {
                                 updatedMonthlyData[unpaidBillIndex] = {

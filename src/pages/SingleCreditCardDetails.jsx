@@ -138,8 +138,13 @@ const SingleCreditCardDetails = () => {
         ? new Date(`${card.carryForwardBaseline.split('/')[0]} 1, ${card.carryForwardBaseline.split('/')[1]}`)
         : null;
 
+    const parseLocalDate = (dateStr) => {
+        const parts = dateStr ? dateStr.split('-').map(Number) : [];
+        return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(dateStr);
+    };
+
     const baselinedTransactions = baselineDate
-        ? linkedTransactions.filter(t => new Date(t.date) >= baselineDate)
+        ? linkedTransactions.filter(t => parseLocalDate(t.date) >= baselineDate)
         : linkedTransactions;
 
     const totalOutstanding = baselinedTransactions.reduce((sum, t) => {
@@ -181,11 +186,12 @@ const SingleCreditCardDetails = () => {
         }
         
         const amt = Number(tx.amount) || 0;
+        const cat = (tx.category || '').toLowerCase();
         if (tx.isCredited) {
             monthlyAggregates[key].credit += amt;
             monthlyAggregates[key].net -= amt;
         } else {
-            if (tx.category === 'credit card bill') {
+            if (cat === 'credit card bill' || cat === 'credit card payment') {
                 monthlyAggregates[key].net -= amt;
             } else {
                 monthlyAggregates[key].debit += amt;

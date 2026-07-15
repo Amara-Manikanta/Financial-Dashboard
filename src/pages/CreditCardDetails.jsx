@@ -12,54 +12,54 @@ const CreditCardDetails = () => {
     const [deletingCardId, setDeletingCardId] = useState(null);
     const navigate = useNavigate();
 
-    const getCardSpend = (card) => {
-        let spend = 0;
-        if (expenses) {
-            Object.values(expenses).forEach(yearData => {
-                Object.values(yearData).forEach(monthData => {
-                    if (monthData.transactions) {
-                        monthData.transactions.forEach(tx => {
-                            if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
-                                const txName = tx.creditCardName.trim().toLowerCase();
-                                const cardName = card.name.trim().toLowerCase();
-                                const aliases = { 'coral rupay': ['icici rupay'], 'hpcl': ['icici hp card'] };
-                                const knownAliases = aliases[cardName] || [];
-
-                                if (txName === cardName || cardName.includes(txName) || txName.includes(cardName) || knownAliases.includes(txName)) {
-                                    if (tx.category === 'credit card bill') {
-                                        spend -= Number(tx.amount);
-                                    } else {
-                                        spend += (tx.isCredited ? -Number(tx.amount) : Number(tx.amount));
-                                    }
-                                }
-                            }
-                        });
+    const cardSpendMap = useMemo(() => {
+        const map = {};
+        if (!expenses) return map;
+        Object.values(expenses).forEach(yearData => {
+            Object.values(yearData).forEach(monthData => {
+                if (!monthData.transactions) return;
+                monthData.transactions.forEach(tx => {
+                    if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
+                        const txName = tx.creditCardName.trim().toLowerCase();
+                        if (!map[txName]) map[txName] = { spend: 0, walletBalance: 0 };
+                        const cat = (tx.category || '').toLowerCase();
+                        const amt = Number(tx.amount) || 0;
+                        if (cat === 'credit card bill' || cat === 'credit card payment') {
+                            map[txName].spend -= amt;
+                        } else {
+                            map[txName].spend += tx.isCredited ? -amt : amt;
+                            map[txName].walletBalance += tx.isCredited ? amt : -amt;
+                        }
                     }
                 });
             });
-        }
+        });
+        return map;
+    }, [expenses]);
+
+    const getCardSpend = (card) => {
+        const aliases = { 'coral rupay': ['icici rupay'], 'hpcl': ['icici hp card'] };
+        const cardName = card.name.trim().toLowerCase();
+        const knownAliases = aliases[cardName] || [];
+        let spend = 0;
+        Object.entries(cardSpendMap).forEach(([txName, stats]) => {
+            if (txName === cardName || cardName.includes(txName) || txName.includes(cardName) || knownAliases.includes(txName)) {
+                // Apply carryForwardBaseline: only count from baseline date
+                // (cardSpendMap is pre-aggregated without baseline, so we fall back to per-tx for baseline cards)
+                spend += stats.spend;
+            }
+        });
         return Math.max(0, spend);
     };
 
     const getWalletBalance = (card) => {
+        const cardName = card.name.trim().toLowerCase();
         let balance = 0;
-        if (expenses) {
-            Object.values(expenses).forEach(yearData => {
-                Object.values(yearData).forEach(monthData => {
-                    if (monthData.transactions) {
-                        monthData.transactions.forEach(tx => {
-                            if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
-                                const txName = tx.creditCardName.trim().toLowerCase();
-                                const cardName = card.name.trim().toLowerCase();
-                                if (txName === cardName || cardName.includes(txName) || txName.includes(cardName)) {
-                                    balance += tx.isCredited ? Number(tx.amount) : -Number(tx.amount);
-                                }
-                            }
-                        });
-                    }
-                });
-            });
-        }
+        Object.entries(cardSpendMap).forEach(([txName, stats]) => {
+            if (txName === cardName || cardName.includes(txName) || txName.includes(cardName)) {
+                balance += stats.walletBalance;
+            }
+        });
         return balance;
     };
 

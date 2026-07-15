@@ -498,7 +498,7 @@ const ExpenseDetails = () => {
                     const mDate = new Date(`${m} 1, ${y}`);
                     if (mDate <= targetMonthDate && mData.transactions) {
                         mData.transactions.forEach(t => {
-                            if (t.paymentMode === 'credit_card' && t.creditCardName === w.name) {
+                            if (t.paymentMode === 'credit_card' && t.creditCardName?.trim() === w.name.trim()) {
                                 if (t.isCredited) {
                                     walletStats[w.name] += Number(t.amount) || 0;
                                 } else {
@@ -515,7 +515,7 @@ const ExpenseDetails = () => {
             .filter(t => t.paymentMode === 'credit_card' && t.creditCardName)
             .forEach(t => {
                 const card = t.creditCardName;
-                if (wallets.some(w => w.name === card)) return;
+                if (wallets.some(w => w.name.trim() === card.trim())) return;
 
                 if (t.category && (t.category.toLowerCase() === 'credit card bill' || t.category.toLowerCase() === 'credit card payment')) {
                     return;
@@ -553,7 +553,7 @@ const ExpenseDetails = () => {
                     mData.transactions.forEach(t => {
                         if (t.paymentMode === 'credit_card' && t.creditCardName) {
                             const card = t.creditCardName;
-                            if (wallets.some(w => w.name === card)) return;
+                            if (wallets.some(w => w.name.trim() === card.trim())) return;
 
                             // Skip if before this card's baseline
                             const baseline = cardBaselineMap[card];
