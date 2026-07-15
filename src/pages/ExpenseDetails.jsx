@@ -486,6 +486,8 @@ const ExpenseDetails = () => {
             }, 0);
 
         const creditCardStats = {};
+        const creditCardPayments = {};
+
         const walletStats = {};
         
         const wallets = (creditCards || []).filter(c => c.type === 'wallet');
@@ -518,6 +520,8 @@ const ExpenseDetails = () => {
                 if (wallets.some(w => w.name.trim() === card.trim())) return;
 
                 if (t.category && (t.category.toLowerCase() === 'credit card bill' || t.category.toLowerCase() === 'credit card payment')) {
+                    const amount = Number(t.amount) || 0;
+                    creditCardPayments[card] = (creditCardPayments[card] || 0) + amount;
                     return;
                 }
                 const amount = Number(t.amount) || 0;
@@ -600,6 +604,7 @@ const ExpenseDetails = () => {
             trendData,
             totalCreditCardSpend,
             creditCardStats,
+            creditCardPayments,
             carryForwardCCStats,
             walletStats,
             mainItems
@@ -1126,7 +1131,8 @@ const ExpenseDetails = () => {
                                 {Array.from(new Set([...Object.keys(monthDetails.creditCardStats), ...Object.keys(monthDetails.carryForwardCCStats || {})])).map(cardName => {
                                     const currentSpend = monthDetails.creditCardStats[cardName] || 0;
                                     const carryForward = monthDetails.carryForwardCCStats?.[cardName] || 0;
-                                    const totalDue = currentSpend + carryForward;
+                                    const currentPayment = monthDetails.creditCardPayments?.[cardName] || 0;
+                                    const totalDue = currentSpend + carryForward - currentPayment;
                                     
                                     return (
                                         <div key={cardName} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -1134,21 +1140,27 @@ const ExpenseDetails = () => {
                                                 <span style={{ fontSize: '1rem', color: 'white', fontWeight: 'bold' }}>{cardName}</span>
                                                 <span style={{ fontSize: '1.125rem', color: 'white', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(totalDue)}</span>
                                             </div>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.25rem' }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginTop: '0.25rem' }}>
                                                 <div style={{ display: 'flex', flexDirection: 'column' }}>
                                                     <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>Current Spends</span>
                                                     <span style={{ fontSize: '0.875rem', color: '#e4e4e7', fontFamily: 'monospace' }}>{formatCurrency(currentSpend)}</span>
                                                 </div>
-                                                {carryForward > 0 && (
+                                                {carryForward !== 0 && (
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                                        <span style={{ fontSize: '0.75rem', color: '#f59e0b' }}>Carry Forward Due</span>
-                                                        <span style={{ fontSize: '0.875rem', color: '#fcd34d', fontFamily: 'monospace' }}>{formatCurrency(carryForward)}</span>
+                                                        <span style={{ fontSize: '0.75rem', color: carryForward > 0 ? '#f59e0b' : '#10b981' }}>
+                                                            {carryForward > 0 ? 'Carry Forward Due' : 'Overpaid'}
+                                                        </span>
+                                                        <span style={{ fontSize: '0.875rem', color: carryForward > 0 ? '#fcd34d' : '#34d399', fontFamily: 'monospace' }}>
+                                                            {formatCurrency(carryForward)}
+                                                        </span>
                                                     </div>
                                                 )}
-                                                {carryForward < 0 && (
+                                                {currentPayment > 0 && (
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                                                        <span style={{ fontSize: '0.75rem', color: '#10b981' }}>Overpaid</span>
-                                                        <span style={{ fontSize: '0.875rem', color: '#34d399', fontFamily: 'monospace' }}>{formatCurrency(Math.abs(carryForward))}</span>
+                                                        <span style={{ fontSize: '0.75rem', color: '#3b82f6' }}>Payments Made</span>
+                                                        <span style={{ fontSize: '0.875rem', color: '#60a5fa', fontFamily: 'monospace' }}>
+                                                            -{formatCurrency(currentPayment)}
+                                                        </span>
                                                     </div>
                                                 )}
                                             </div>
