@@ -293,6 +293,7 @@ const ExpenseDetails = () => {
     const [statementPage, setStatementPage] = useState(1);
     const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, id: null });
     const [selectedCategoryHighlight, setSelectedCategoryHighlight] = useState(null);
+    const [selectedCreditCardHighlight, setSelectedCreditCardHighlight] = useState(null);
     const ITEMS_PER_PAGE = 12;
     const STATEMENT_ITEMS_PER_PAGE = 10;
 
@@ -630,7 +631,7 @@ const ExpenseDetails = () => {
                 }, 100);
             }
         }
-    }, [highlightTxId, monthDetails?.rawTransactions, selectedCategoryHighlight]);
+    }, [highlightTxId, monthDetails?.rawTransactions, selectedCategoryHighlight, selectedCreditCardHighlight]);
 
     const displayTransactions = useMemo(() => {
         let txs = monthDetails.rawTransactions;
@@ -641,8 +642,11 @@ const ExpenseDetails = () => {
                     : (t.category || 'others') === selectedCategoryHighlight.name
             );
         }
+        if (selectedCreditCardHighlight) {
+            txs = txs.filter(t => t.paymentMode === 'credit_card' && t.creditCardName === selectedCreditCardHighlight);
+        }
         return txs;
-    }, [monthDetails.rawTransactions, selectedCategoryHighlight]);
+    }, [monthDetails.rawTransactions, selectedCategoryHighlight, selectedCreditCardHighlight]);
 
     // Reset pagination and filters on route change
     React.useEffect(() => {
@@ -650,12 +654,13 @@ const ExpenseDetails = () => {
         setCurrentMainPage(1);
         setCurrentSubPage(1);
         setSelectedCategoryHighlight(null);
+        setSelectedCreditCardHighlight(null);
     }, [year, month]);
 
     // Reset statement page when filter changes
     React.useEffect(() => {
         setStatementPage(1);
-    }, [selectedCategoryHighlight]);
+    }, [selectedCategoryHighlight, selectedCreditCardHighlight]);
 
     const handleSaveTransaction = (transaction) => {
         if (transaction.id) updateItem('expense', transaction);
@@ -1044,9 +1049,12 @@ const ExpenseDetails = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: '300px' }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                 <p style={{ fontSize: '8px', fontWeight: '950', color: 'rgba(129, 140, 248, 0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Latest Transactions</p>
-                                {selectedCategoryHighlight && (
+                                {(selectedCategoryHighlight || selectedCreditCardHighlight) && (
                                     <button 
-                                        onClick={() => setSelectedCategoryHighlight(null)}
+                                        onClick={() => {
+                                            setSelectedCategoryHighlight(null);
+                                            setSelectedCreditCardHighlight(null);
+                                        }}
                                         style={{ fontSize: '9px', fontWeight: 'bold', border: 'none', backgroundColor: 'rgba(16,185,129,0.1)', color: '#34d399', padding: '0.25rem 0.5rem', borderRadius: '0.375rem', cursor: 'pointer' }}
                                     >
                                         Clear Filter
@@ -1135,7 +1143,25 @@ const ExpenseDetails = () => {
                                     const totalDue = currentSpend + carryForward - currentPayment;
                                     
                                     return (
-                                        <div key={cardName} style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', padding: '1rem', borderRadius: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <div 
+                                            key={cardName} 
+                                            onClick={() => {
+                                                setSelectedCreditCardHighlight(selectedCreditCardHighlight === cardName ? null : cardName);
+                                                setSelectedCategoryHighlight(null);
+                                            }}
+                                            style={{ 
+                                                display: 'flex', 
+                                                flexDirection: 'column', 
+                                                gap: '0.5rem', 
+                                                padding: '1rem', 
+                                                borderRadius: '1rem', 
+                                                backgroundColor: 'rgba(255,255,255,0.02)', 
+                                                border: selectedCreditCardHighlight === cardName ? '1px solid rgba(16, 185, 129, 0.4)' : '1px solid rgba(255,255,255,0.05)',
+                                                cursor: 'pointer',
+                                                boxShadow: selectedCreditCardHighlight === cardName ? '0 4px 15px rgba(16, 185, 129, 0.05)' : 'none',
+                                                transition: 'all 0.2s'
+                                            }}
+                                        >
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <span style={{ fontSize: '1rem', color: 'white', fontWeight: 'bold' }}>{cardName}</span>
                                                 <span style={{ fontSize: '1.125rem', color: 'white', fontWeight: 'bold', fontFamily: 'monospace' }}>{formatCurrency(totalDue)}</span>
