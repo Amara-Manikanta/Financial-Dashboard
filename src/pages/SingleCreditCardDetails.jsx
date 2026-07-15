@@ -33,6 +33,9 @@ const SingleCreditCardDetails = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
     const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+    const [isBaselineModalOpen, setIsBaselineModalOpen] = useState(false);
+    const [baselineMonth, setBaselineMonth] = useState('');
+    const [baselineYear, setBaselineYear] = useState('');
 
     const [filterYear, setFilterYear] = useState('All');
     const [filterMonth, setFilterMonth] = useState('All');
@@ -46,6 +49,18 @@ const SingleCreditCardDetails = () => {
     useEffect(() => { setCurrentPage(1); }, [id]);
 
     const card = creditCards.find(c => c.id.toString() === id);
+
+    // Sync local baseline state when card loads
+    React.useEffect(() => {
+        if (card?.carryForwardBaseline) {
+            const [bm, by] = card.carryForwardBaseline.split('/');
+            setBaselineMonth(bm || '');
+            setBaselineYear(by || '');
+        } else {
+            setBaselineMonth('');
+            setBaselineYear('');
+        }
+    }, [card?.id, card?.carryForwardBaseline]);
 
     if (!card) {
         return (
@@ -118,19 +133,40 @@ const SingleCreditCardDetails = () => {
         return true;
     });
 
-    const totalOutstanding = linkedTransactions.reduce((sum, t) => {
-        if (t.category === 'credit card bill') {
+    // Compute baseline date for filtering
+    const baselineDate = card?.carryForwardBaseline
+        ? new Date(`${card.carryForwardBaseline.split('/')[0]} 1, ${card.carryForwardBaseline.split('/')[1]}`)
+        : null;
+
+    const baselinedTransactions = baselineDate
+        ? linkedTransactions.filter(t => new Date(t.date) >= baselineDate)
+        : linkedTransactions;
+
+    const totalOutstanding = baselinedTransactions.reduce((sum, t) => {
+        if (t.category === 'credit card bill' || t.category === 'credit card payment') {
             return sum - Number(t.amount);
         }
         return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
     }, 0);
 
     const filteredNetSpend = filteredTransactions.reduce((sum, t) => {
-        if (t.category === 'credit card bill') {
+        if (t.category === 'credit card bill' || t.category === 'credit card payment') {
             return sum - Number(t.amount);
         }
         return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
     }, 0);
+
+    const handleSaveBaseline = async () => {
+        if (!baselineMonth || !baselineYear) {
+            // Clear baseline
+            const updatedCard = { ...card, carryForwardBaseline: null };
+            await updateItem('creditCards', updatedCard);
+        } else {
+            const updatedCard = { ...card, carryForwardBaseline: `${baselineMonth}/${baselineYear}` };
+            await updateItem('creditCards', updatedCard);
+        }
+        setIsBaselineModalOpen(false);
+    };
 
     // Compute chart data using ALL linked transactions to show a complete trend, not just the filtered ones
     const monthlyAggregates = {};
@@ -245,7 +281,7 @@ const SingleCreditCardDetails = () => {
                     </p>
                 </div>
 
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <div style={{
                         backgroundColor: 'rgba(255,255,255,0.02)',
                         border: '1px solid rgba(255,255,255,0.05)',
@@ -254,9 +290,14 @@ const SingleCreditCardDetails = () => {
                         minWidth: '160px'
                     }}>
                         <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Outstanding</span>
-                        <p style={{ fontSize: '1.5rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>
+                        <p style={{ fontSize: '1.5rem', fontWeight: '950', color: totalOutstanding > 0 ? '#f87171' : '#34d399', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>
                             {formatCurrency(Math.max(0, totalOutstanding))}
                         </p>
+                        {baselineDate && (
+                            <p style={{ fontSize: '9px', color: '#f59e0b', margin: '0.25rem 0 0 0' }}>
+                                From {card.carryForwardBaseline.split('/')[0]} {card.carryForwardBaseline.split('/')[1]}
+                            </p>
+                        )}
                     </div>
                     <div style={{
                         backgroundColor: 'rgba(255,255,255,0.02)',
@@ -270,8 +311,108 @@ const SingleCreditCardDetails = () => {
                             <Award size={18} /> {totalPoints.toLocaleString()}
                         </p>
                     </div>
+                    <div>
+                        <button
+                            onClick={() => setIsBaselineModalOpen(true)}
+                            style={{
+                                padding: '0.75rem 1.25rem',
+                                borderRadius: '0.75rem',
+                                backgroundColor: baselineDate ? 'rgba(245, 158, 11, 0.1)' : 'rgba(255,255,255,0.03)',
+                                border: baselineDate ? '1px solid rgba(245, 158, 11, 0.3)' : '1px solid rgba(255,255,255,0.08)',
+                                color: baselineDate ? '#fcd34d' : '#71717a',
+                                fontWeight: 'bold',
+                                fontSize: '0.75rem',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.05em',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem'
+                            }}
+                        >
+                            <Calendar size={14} />
+                            {baselineDate ? `Baseline: ${card.carryForwardBaseline.split('/')[0].substring(0,3)} ${card.carryForwardBaseline.split('/')[1]}` : 'Set Baseline'}
+                        </button>
+                        {baselineDate && (
+                            <p style={{ fontSize: '9px', color: '#6b7280', marginTop: '0.375rem', textAlign: 'center' }}>Carry forward from this month</p>
+                        )}
+                    </div>
                 </div>
             </div>
+
+            {/* Baseline Modal */}
+            {isBaselineModalOpen && (
+                <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
+                    <div style={{ backgroundColor: '#18181b', border: '1px solid rgba(245, 158, 11, 0.2)', borderRadius: '1.5rem', padding: '2rem', maxWidth: '480px', width: '100%', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 0.5rem 0' }}>Set Carry Forward Baseline</h3>
+                        <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0 0 1.5rem 0', lineHeight: '1.6' }}>
+                            Choose the month from which carry forward tracking begins. All transactions <strong style={{ color: 'white' }}>before</strong> this month will be ignored — assuming the card was fully paid off by then.
+                        </p>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                            <div>
+                                <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Month</label>
+                                <select
+                                    value={baselineMonth}
+                                    onChange={e => setBaselineMonth(e.target.value)}
+                                    style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                >
+                                    <option value="">Select Month</option>
+                                    {['January','February','March','April','May','June','July','August','September','October','November','December'].map(m => (
+                                        <option key={m} value={m} style={{ backgroundColor: '#18181b' }}>{m}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Year</label>
+                                <select
+                                    value={baselineYear}
+                                    onChange={e => setBaselineYear(e.target.value)}
+                                    style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                >
+                                    <option value="">Select Year</option>
+                                    {Array.from({ length: 8 }, (_, i) => 2020 + i).map(y => (
+                                        <option key={y} value={y} style={{ backgroundColor: '#18181b' }}>{y}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {baselineMonth && baselineYear && (
+                            <div style={{ backgroundColor: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)', borderRadius: '0.75rem', padding: '0.875rem 1rem', marginBottom: '1.5rem' }}>
+                                <p style={{ fontSize: '0.8rem', color: '#fcd34d', margin: 0, lineHeight: '1.5' }}>
+                                    ✓ Carry forward will only include transactions from <strong>{baselineMonth} {baselineYear}</strong> onwards.
+                                    Any gap before this date will be treated as ₹0 outstanding.
+                                </p>
+                            </div>
+                        )}
+
+                        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                            {card?.carryForwardBaseline && (
+                                <button
+                                    onClick={async () => { setBaselineMonth(''); setBaselineYear(''); await updateItem('creditCards', { ...card, carryForwardBaseline: null }); setIsBaselineModalOpen(false); }}
+                                    style={{ padding: '0.625rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(239, 68, 68, 0.3)', backgroundColor: 'rgba(239,68,68,0.05)', color: '#f87171', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer' }}
+                                >
+                                    Clear Baseline
+                                </button>
+                            )}
+                            <button
+                                onClick={() => setIsBaselineModalOpen(false)}
+                                style={{ padding: '0.625rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.1)', backgroundColor: 'transparent', color: '#a1a1aa', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleSaveBaseline}
+                                disabled={!baselineMonth || !baselineYear}
+                                style={{ padding: '0.625rem 1.25rem', borderRadius: '0.75rem', border: 'none', backgroundColor: '#f59e0b', color: 'black', fontWeight: 'bold', fontSize: '0.75rem', cursor: 'pointer', opacity: (!baselineMonth || !baselineYear) ? 0.5 : 1 }}
+                            >
+                                Save Baseline
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Actions & List */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>

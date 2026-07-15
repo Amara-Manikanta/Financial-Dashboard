@@ -536,6 +536,16 @@ const ExpenseDetails = () => {
 
         const carryForwardCCStats = {};
         const targetMonthDate = new Date(`${month} 1, ${year}`);
+
+        // Build a map of card baselines for quick lookup
+        const cardBaselineMap = {};
+        creditCards.forEach(c => {
+            if (c.carryForwardBaseline) {
+                const [bm, by] = c.carryForwardBaseline.split('/');
+                cardBaselineMap[c.name] = new Date(`${bm} 1, ${by}`);
+            }
+        });
+
         Object.entries(expenses).forEach(([y, yData]) => {
             Object.entries(yData).forEach(([m, mData]) => {
                 const mDate = new Date(`${m} 1, ${y}`);
@@ -544,6 +554,10 @@ const ExpenseDetails = () => {
                         if (t.paymentMode === 'credit_card' && t.creditCardName) {
                             const card = t.creditCardName;
                             if (wallets.some(w => w.name === card)) return;
+
+                            // Skip if before this card's baseline
+                            const baseline = cardBaselineMap[card];
+                            if (baseline && mDate < baseline) return;
 
                             const amount = Number(t.amount) || 0;
                             if (!carryForwardCCStats[card]) carryForwardCCStats[card] = 0;
