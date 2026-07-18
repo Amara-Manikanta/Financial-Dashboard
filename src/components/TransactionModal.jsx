@@ -24,6 +24,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const [liters, setLiters] = useState('');
     const [pricePerLiter, setPricePerLiter] = useState('');
     const [vehicleType, setVehicleType] = useState('scooty');
+    const [useRewardPoints, setUseRewardPoints] = useState(false);
     
     // Investment fields
     const [investmentAssetId, setInvestmentAssetId] = useState('');
@@ -127,6 +128,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setDate(defaultDate || new Date());
             setPaymentMode('direct');
             setCreditCardName('');
+            setUseRewardPoints(false);
             setIsCreditCardBill(false);
             setKm(''); setLiters(''); setPricePerLiter(''); setVehicleType('scooty');
             setInvestmentAssetId(''); setInvQuantity(''); setInvPrice(''); setInvNav(''); setInvUnits(''); setInvRemarks('');
@@ -203,6 +205,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             deductFromSalary,
             paymentMode,
             creditCardName: paymentMode === 'credit_card' ? creditCardName : null,
+            isRewardPoints: paymentMode === 'credit_card' && creditCardName?.toLowerCase().includes('scapia') ? useRewardPoints : false,
             isCredited,
             transactionType: isCredited ? 'credit' : 'debit',
             type: 'monthly',
@@ -466,6 +469,24 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                         </select>
                                         <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-400" />
                                     </div>
+                                    
+                                    {creditCardName && creditCardName.toLowerCase().includes('scapia') && (
+                                        <div className="mt-4 flex items-center gap-3 bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20">
+                                            <div className="relative flex items-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    id="usePoints" 
+                                                    checked={useRewardPoints} 
+                                                    onChange={e => setUseRewardPoints(e.target.checked)}
+                                                    className="w-5 h-5 appearance-none border-2 border-indigo-400 rounded-md checked:bg-indigo-500 checked:border-indigo-500 transition-colors cursor-pointer"
+                                                />
+                                                {useRewardPoints && <span className="absolute inset-0 flex items-center justify-center text-white pointer-events-none text-xs">✓</span>}
+                                            </div>
+                                            <label htmlFor="usePoints" className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider cursor-pointer">
+                                                Pay with Reward Points (5 pts = ₹1)
+                                            </label>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

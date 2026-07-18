@@ -519,6 +519,8 @@ const ExpenseDetails = () => {
             .forEach(t => {
                 const card = t.creditCardName;
                 if (wallets.some(w => w.name.trim() === card.trim())) return;
+                
+                if (t.isRewardPoints) return;
 
                 if (t.category && (t.category.toLowerCase() === 'credit card bill' || t.category.toLowerCase() === 'credit card payment')) {
                     const amount = Number(t.amount) || 0;

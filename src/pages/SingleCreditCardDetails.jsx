@@ -72,7 +72,10 @@ const SingleCreditCardDetails = () => {
     }
 
     const monthlyData = card.monthlyData || [];
-    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0);
+    const pointsSpent = linkedTransactions
+        .filter(t => t.isRewardPoints)
+        .reduce((sum, t) => sum + (Number(t.amount) * 5), 0);
+    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
 
     // Filter Linked Transactions from Expenses
     const linkedTransactions = [];
@@ -148,6 +151,7 @@ const SingleCreditCardDetails = () => {
         : linkedTransactions;
 
     const totalOutstanding = baselinedTransactions.reduce((sum, t) => {
+        if (t.isRewardPoints) return sum;
         const cat = (t.category || '').toLowerCase();
         if (cat === 'credit card bill' || cat === 'credit card payment') {
             return sum - Number(t.amount);
@@ -156,6 +160,7 @@ const SingleCreditCardDetails = () => {
     }, 0);
 
     const filteredNetSpend = filteredTransactions.reduce((sum, t) => {
+        if (t.isRewardPoints) return sum;
         const cat = (t.category || '').toLowerCase();
         if (cat === 'credit card bill' || cat === 'credit card payment') {
             return sum - Number(t.amount);
@@ -186,6 +191,8 @@ const SingleCreditCardDetails = () => {
         if (!monthlyAggregates[key]) {
             monthlyAggregates[key] = { month, year, debit: 0, credit: 0, net: 0 };
         }
+        
+        if (tx.isRewardPoints) return;
         
         const amt = Number(tx.amount) || 0;
         const cat = (tx.category || '').toLowerCase();

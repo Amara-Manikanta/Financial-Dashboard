@@ -150,7 +150,11 @@ const CreditCardDetails = () => {
                 gap: '2rem'
             }}>
                 {creditCards.map((card) => {
-                    const totalPoints = (card.monthlyData || []).reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0);
+                    const pointsSpent = (expenses ? Object.values(expenses).flatMap(year => Object.values(year).flatMap(month => month.transactions || [])) : [])
+                        .filter(tx => tx.paymentMode === 'credit_card' && tx.creditCardName && tx.creditCardName.trim().toLowerCase() === card.name.trim().toLowerCase() && tx.isRewardPoints)
+                        .reduce((sum, tx) => sum + (Number(tx.amount) * 5), 0);
+                    
+                    const totalPoints = (card.monthlyData || []).reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
                     const pendingAmount = (card.monthlyData || [])
                         .filter(m => !m.isPaid)
                         .reduce((sum, m) => sum + (Number(m.billAmount) || 0), 0);
