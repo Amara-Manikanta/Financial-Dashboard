@@ -655,29 +655,34 @@ const SingleCreditCardDetails = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {paginatedTransactions.map((tx) => (
-                                    <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                                        <td style={{ padding: '1rem 1.5rem', color: '#71717a', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
-                                            {formatDate(tx.date)}
-                                        </td>
-                                        <td style={{ padding: '1rem 1.5rem', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                            {tx.title}
-                                        </td>
-                                        <td style={{ padding: '1rem 1.5rem' }}>
-                                            <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: tx.isCredited ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: tx.isCredited ? '#34d399' : '#f87171', border: tx.isCredited ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)' }}>
-                                                {tx.isCredited ? 'Credit' : 'Debit'}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '1rem 1.5rem' }}>
-                                            <span style={{ display: 'inline-flex', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.03)', color: '#a1a1aa' }}>
-                                                {tx.category}
-                                            </span>
-                                        </td>
-                                        <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.875rem', color: tx.isCredited ? '#34d399' : 'white' }}>
-                                            {tx.isCredited ? '+' : ''}{formatCurrency(tx.amount)}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {paginatedTransactions.map((tx) => {
+                                    const isCCBill = (tx.category || '').toLowerCase() === 'credit card bill' || (tx.category || '').toLowerCase() === 'credit card payment';
+                                    const isEffectivelyCredit = tx.isCredited || isCCBill;
+                                    
+                                    return (
+                                        <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                            <td style={{ padding: '1rem 1.5rem', color: '#71717a', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
+                                                {formatDate(tx.date)}
+                                            </td>
+                                            <td style={{ padding: '1rem 1.5rem', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
+                                                {tx.title}
+                                            </td>
+                                            <td style={{ padding: '1rem 1.5rem' }}>
+                                                <span style={{ display: 'inline-flex', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em', backgroundColor: isEffectivelyCredit ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', color: isEffectivelyCredit ? '#34d399' : '#f87171', border: isEffectivelyCredit ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                                    {isEffectivelyCredit ? 'Credit' : 'Debit'}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '1rem 1.5rem' }}>
+                                                <span style={{ display: 'inline-flex', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', fontSize: '11px', fontWeight: 'bold', backgroundColor: 'rgba(255,255,255,0.03)', color: '#a1a1aa' }}>
+                                                    {tx.category}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.875rem', color: isEffectivelyCredit ? '#34d399' : 'white' }}>
+                                                {isEffectivelyCredit ? '+' : ''}{formatCurrency(tx.amount)}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 {filteredTransactions.length === 0 && (
                                     <tr>
                                         <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem' }}>
