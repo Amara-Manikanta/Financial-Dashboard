@@ -643,7 +643,18 @@ const ExpenseDetails = () => {
             );
         }
         if (selectedCreditCardHighlight) {
-            txs = txs.filter(t => t.paymentMode === 'credit_card' && t.creditCardName === selectedCreditCardHighlight);
+            const aliases = {
+                'coral rupay': ['icici rupay'],
+                'hpcl': ['icici hp card']
+            };
+            const lowerHighlight = selectedCreditCardHighlight.trim().toLowerCase();
+            const validNames = [lowerHighlight, ...(aliases[lowerHighlight] || [])];
+            
+            txs = txs.filter(t => 
+                t.paymentMode === 'credit_card' && 
+                t.creditCardName && 
+                validNames.includes(t.creditCardName.trim().toLowerCase())
+            );
         }
         return txs;
     }, [monthDetails.rawTransactions, selectedCategoryHighlight, selectedCreditCardHighlight]);
