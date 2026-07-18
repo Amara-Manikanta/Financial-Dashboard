@@ -10,6 +10,7 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [isWallet, setIsWallet] = useState(false);
     const [autoLoadAmount, setAutoLoadAmount] = useState('');
     const [autoLoadDay, setAutoLoadDay] = useState('');
+    const [manualPoints, setManualPoints] = useState('');
     const [error, setError] = useState('');
 
     useEffect(() => {
@@ -18,6 +19,7 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             setLast4Digits(initialData.last4Digits || '');
             setBankName(initialData.bankName || '');
             setCreditLimit(initialData.creditLimit || '');
+            setManualPoints(initialData.manualPoints || '');
             if (initialData.type === 'wallet') {
                 setIsWallet(true);
                 if (initialData.autoCredit) {
@@ -40,6 +42,7 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             setIsWallet(false);
             setAutoLoadAmount('');
             setAutoLoadDay('');
+            setManualPoints('');
         }
         setError('');
     }, [isOpen, initialData]);
@@ -59,6 +62,7 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             last4Digits,
             bankName,
             creditLimit: Number(creditLimit),
+            manualPoints: Number(manualPoints) || 0,
             monthlyData: initialData ? initialData.monthlyData : []
         };
         
@@ -160,6 +164,20 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
                                 />
                             </div>
                         </div>
+
+                        {!isWallet && (
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-gray-400 ml-1">Manual Reward Points</label>
+                                <input
+                                    type="number"
+                                    value={manualPoints}
+                                    onChange={(e) => setManualPoints(e.target.value)}
+                                    placeholder="e.g. 5000"
+                                    className="w-full bg-gray-800 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-gray-600 focus:outline-none focus:border-purple-500 transition-colors font-mono"
+                                    style={{ backgroundColor: '#27272a', color: '#ffffff' }}
+                                />
+                            </div>
+                        )}
 
                         {isWallet && (
                             <div className="grid grid-cols-2 gap-4">

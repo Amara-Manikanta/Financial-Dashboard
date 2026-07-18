@@ -72,7 +72,7 @@ const SingleCreditCardDetails = () => {
     }
 
     const monthlyData = card.monthlyData || [];
-    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0);
+    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0);
 
     // Filter Linked Transactions from Expenses
     const linkedTransactions = [];

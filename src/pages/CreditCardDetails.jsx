@@ -150,7 +150,7 @@ const CreditCardDetails = () => {
                 gap: '2rem'
             }}>
                 {creditCards.map((card) => {
-                    const totalPoints = (card.monthlyData || []).reduce((sum, m) => sum + (Number(m.points) || 0), 0);
+                    const totalPoints = (card.monthlyData || []).reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0);
                     const pendingAmount = (card.monthlyData || [])
                         .filter(m => !m.isPaid)
                         .reduce((sum, m) => sum + (Number(m.billAmount) || 0), 0);
