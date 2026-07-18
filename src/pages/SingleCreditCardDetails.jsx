@@ -109,6 +109,11 @@ const SingleCreditCardDetails = () => {
         });
     }
 
+    const pointsSpent = linkedTransactions
+        .filter(t => t.isRewardPoints)
+        .reduce((sum, t) => sum + (Number(t.amount) * 5), 0);
+    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
+
     // Extract available filter options
     const yearsSet = new Set(linkedTransactions.map(t => t.year));
     const currentYear = new Date().getFullYear();
