@@ -148,14 +148,16 @@ const SingleCreditCardDetails = () => {
         : linkedTransactions;
 
     const totalOutstanding = baselinedTransactions.reduce((sum, t) => {
-        if (t.category === 'credit card bill' || t.category === 'credit card payment') {
+        const cat = (t.category || '').toLowerCase();
+        if (cat === 'credit card bill' || cat === 'credit card payment') {
             return sum - Number(t.amount);
         }
         return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
     }, 0);
 
     const filteredNetSpend = filteredTransactions.reduce((sum, t) => {
-        if (t.category === 'credit card bill' || t.category === 'credit card payment') {
+        const cat = (t.category || '').toLowerCase();
+        if (cat === 'credit card bill' || cat === 'credit card payment') {
             return sum - Number(t.amount);
         }
         return sum + (t.isCredited ? -Number(t.amount) : Number(t.amount));
