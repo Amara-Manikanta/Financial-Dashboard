@@ -351,7 +351,7 @@ const ExpenseDetails = () => {
                 const mainCat = t.mainCategory || 'Miscellaneous';
                 mainCategoryTotals[mainCat] = (mainCategoryTotals[mainCat] || 0) + effective;
 
-                if (t.deductFromSalary !== false) {
+                if (t.deductFromSalary !== false && !t.isRewardPoints) {
                     categoryDeductibles[targetKey] = (categoryDeductibles[targetKey] || 0) + effective;
                     mainCategoryDeductibles[mainCat] = (mainCategoryDeductibles[mainCat] || 0) + effective;
                 }
