@@ -93,6 +93,7 @@ export function FinanceProvider({ children }) {
     const [lents, setLents] = useState([]);
     const [categories, setCategories] = useState([]);
     const [creditCards, setCreditCards] = useState([]);
+    const [taxes, setTaxes] = useState([]);
     const [salaryDetails, setSalaryDetails] = useState([]);
     const [salaryStats, setSalaryStats] = useState({});
     const [snapshots, setSnapshots] = useState([]);
@@ -152,6 +153,7 @@ export function FinanceProvider({ children }) {
                 setAssets(guestAssets);
                 setLents(guestLents);
                 setCreditCards(guestCreditCards);
+                setTaxes([]);
                 setCategoryBudgets({});
                 setCategories(["salary received", "house rent", "groceries", "others"]);
                 setSalaryStats({});
@@ -168,7 +170,7 @@ export function FinanceProvider({ children }) {
                 return;
             }
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, salRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes] = await Promise.all([
                     fetch(`${API_URL}/expenses`),
                     fetch(`${API_URL}/savings`),
                     fetch(`${API_URL}/metals`),
@@ -177,6 +179,7 @@ export function FinanceProvider({ children }) {
                     fetch(`${API_URL}/snapshots`),
                     fetch(`${API_URL}/lents`),
                     fetch(`${API_URL}/creditCards`),
+                    fetch(`${API_URL}/taxes`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
                     fetch(`${API_URL}/salaryDetails`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })) // Fallback if endpoint doesn't exist yet
                 ]);
 
@@ -188,6 +191,7 @@ export function FinanceProvider({ children }) {
                 const snapData = await snapRes.json();
                 const lentData = await lentRes.json();
                 const ccData = await ccRes.json();
+                const taxesData = await taxRes.json();
                 const salaryDetailsData = await salRes.json();
 
                 const modifiedExpenses = JSON.parse(JSON.stringify(expData)); // deep-clone to avoid mutating fetched object
@@ -253,6 +257,7 @@ export function FinanceProvider({ children }) {
                 setAssets(assData);
                 setLents(lentData || []);
                 setCreditCards(ccData || []);
+                setTaxes(taxesData || []);
                 setCategoryBudgets(appData.categoryBudgets || {});
                 setCategories(appData.categories || []);
                 setCategoryRules(appData.categoryRules || {});
@@ -985,7 +990,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : '';
 
         if (!endpoint) return;
 
@@ -996,6 +1001,7 @@ export function FinanceProvider({ children }) {
             if (type === 'lents') setLents(prev => [...prev, savedItem]);
             if (type === 'creditCards') setCreditCards(prev => [...prev, savedItem]);
             if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
+            if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
             return;
         }
 
@@ -1011,6 +1017,7 @@ export function FinanceProvider({ children }) {
             if (type === 'lents') setLents(prev => [...prev, savedItem]);
             if (type === 'creditCards') setCreditCards(prev => [...prev, savedItem]);
             if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
+            if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
         } catch (error) {
             console.error("Error adding item:", error);
         }
@@ -1351,7 +1358,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : '';
         if (!endpoint) return;
         if (isGuest) return;
         try {
@@ -1361,6 +1368,7 @@ export function FinanceProvider({ children }) {
             if (type === 'lents') setLents(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'creditCards') setCreditCards(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'salaryDetail') setSalaryDetails(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'taxes') setTaxes(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
             console.error("Error deleting item:", error);
         }
@@ -1735,7 +1743,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : '';
         if (!endpoint || !item.id) return;
         if (isGuest) return;
         try {
@@ -1750,6 +1758,7 @@ export function FinanceProvider({ children }) {
             if (type === 'lents') setLents(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'creditCards') setCreditCards(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'salaryDetail') setSalaryDetails(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'taxes') setTaxes(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             return { success: true };
         } catch (error) {
             console.error("Error updating item:", error);
@@ -1922,7 +1931,7 @@ export function FinanceProvider({ children }) {
     };
 
     const value = {
-        expenses, savings, metals: processedMetals, assets, creditCards, lents, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
+        expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,
         addNewYear, takeSnapshot, updateCategoryBudget,
         formatCurrency,
