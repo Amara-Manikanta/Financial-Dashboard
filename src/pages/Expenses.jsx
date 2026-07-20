@@ -5,7 +5,7 @@ import { Calendar, ChevronDown, ChevronUp, BarChart3, Plus, X, Upload, Loader2 }
 import { processBankStatement, mergeTransactionsIntoExpenses } from '../utils/importUtils';
 
 const Expenses = () => {
-    const { expenses, formatCurrency, salaryStats, addNewYear, categoryRules, updateCategoryRules, saveExpenses } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addNewYear, categoryRules, updateCategoryRules, saveExpenses, mergedCategoryMap } = useFinance();
     const navigate = useNavigate();
     const [expandedYears, setExpandedYears] = useState(new Set());
     const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
@@ -53,7 +53,20 @@ const Expenses = () => {
 
     const expenseGroups = useMemo(() => {
         const groups = {};
-        // ... (existing logic remains the same, but let's ensure it's properly closed)
+        const getMainCategory = (subCatName) => {
+            const lowerSub = (subCatName || '').toLowerCase();
+            for (const [main, subs] of Object.entries(mergedCategoryMap || {})) {
+                if (subs.some(s => s.toLowerCase() === lowerSub)) {
+                    return main;
+                }
+            }
+            const matchingKey = Object.keys(mergedCategoryMap || {}).find(k => k.toLowerCase() === lowerSub);
+            if (matchingKey) return matchingKey;
+            return 'Miscellaneous';
+        };
+
+        const SAVINGS_MAIN_CATEGORIES = ['Investments', 'Transfers', 'Loans'];
+
         if (Array.isArray(expenses)) {
             expenses.forEach(item => {
                 const date = new Date(item.date);
@@ -67,13 +80,27 @@ const Expenses = () => {
                         name: monthName,
                         year: year,
                         total: 0,
-                        count: 0
+                        invested: 0,
+                        count: 0,
+                        investedCount: 0
                     };
                 }
                 if (item.deductFromSalary !== false) {
-                    groups[year][monthIndex].total += item.amount;
+                    const cat = (item.category || '').toLowerCase();
+                    const isCreditCardBill = cat.includes('credit card bill') || cat.includes('credit card payment');
+                    const isCCSpend = item.paymentMode === 'credit_card' && !isCreditCardBill;
+                    
+                    if (!isCCSpend) {
+                        const mainCat = item.mainCategory || getMainCategory(item.category);
+                        if (SAVINGS_MAIN_CATEGORIES.includes(mainCat)) {
+                            groups[year][monthIndex].invested += item.amount;
+                            groups[year][monthIndex].investedCount += 1;
+                        } else {
+                            groups[year][monthIndex].total += item.amount;
+                            groups[year][monthIndex].count += 1;
+                        }
+                    }
                 }
-                groups[year][monthIndex].count += 1;
             });
         } else if (typeof expenses === 'object' && expenses !== null) {
             Object.entries(expenses).forEach(([year, months]) => {
@@ -86,13 +113,52 @@ const Expenses = () => {
                     if (isNaN(monthIndex)) return;
 
                     let total = 0;
+                    let invested = 0;
                     let count = 0;
+                    let investedCount = 0;
                     const categories = data.categories || data;
 
-                    if (typeof categories === 'object' && categories !== null) {
+                    if (data.transactions && data.transactions.length > 0) {
+                        const uniqueCats = new Set();
+                        const uniqueInvestedCats = new Set();
+                        
+                        data.transactions.forEach(t => {
+                            const cat = (t.category || 'others').toLowerCase();
+                            if (['salary received', 'income', 'salary'].includes(cat)) return;
+
+                            const amt = Number(t.amount) || 0;
+                            const effective = t.isCredited ? -amt : amt;
+
+                            if (t.deductFromSalary !== false && !t.isRewardPoints) {
+                                const mainCat = t.mainCategory || getMainCategory(t.category);
+                                const isCreditCardBill = cat.includes('credit card bill') || cat.includes('credit card payment');
+                                const isCCSpend = t.paymentMode === 'credit_card' && !isCreditCardBill;
+
+                                if (!isCCSpend) {
+                                    if (SAVINGS_MAIN_CATEGORIES.includes(mainCat)) {
+                                        invested += effective;
+                                        uniqueInvestedCats.add(cat);
+                                    } else {
+                                        total += effective;
+                                        uniqueCats.add(cat);
+                                    }
+                                }
+                            }
+                        });
+                        count = uniqueCats.size;
+                        investedCount = uniqueInvestedCats.size;
+                    } else if (typeof categories === 'object' && categories !== null) {
                         Object.entries(categories).forEach(([cat, val]) => {
-                            if (cat !== 'salary received' && cat !== 'income') {
-                                total += (Number(val) || 0);
+                            if (['salary received', 'income', 'salary'].includes(cat.toLowerCase())) return;
+
+                            const value = Number(val) || 0;
+                            const mainCat = getMainCategory(cat);
+
+                            if (SAVINGS_MAIN_CATEGORIES.includes(mainCat)) {
+                                invested += value;
+                                investedCount++;
+                            } else {
+                                total += value;
                                 count++;
                             }
                         });
@@ -102,14 +168,16 @@ const Expenses = () => {
                         name: monthName,
                         year: year,
                         total: total,
+                        invested: invested,
                         count: count,
+                        investedCount: investedCount,
                         details: categories
                     };
                 });
             });
         }
         return groups;
-    }, [expenses]);
+    }, [expenses, mergedCategoryMap]);
 
     const years = useMemo(() => {
         const expenseYears = Object.keys(expenseGroups);
@@ -277,6 +345,9 @@ const Expenses = () => {
                     const yearlyTotalExpenses = expenseGroups[year]
                         ? Object.values(expenseGroups[year]).reduce((acc, month) => acc + month.total, 0)
                         : 0;
+                    const yearlyTotalInvested = expenseGroups[year]
+                        ? Object.values(expenseGroups[year]).reduce((acc, month) => acc + month.invested, 0)
+                        : 0;
                     const yearlySalary = salaryStats[year]?.total || 0;
 
                     return (
@@ -322,6 +393,10 @@ const Expenses = () => {
                                         <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Expenses</p>
                                         <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#ef4444', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(yearlyTotalExpenses)}</p>
                                     </div>
+                                    <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.05)', paddingLeft: '2rem' }}>
+                                        <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Invested</p>
+                                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#c084fc', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(yearlyTotalInvested)}</p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -347,12 +422,13 @@ const Expenses = () => {
                                         .sort(([a], [b]) => Number(a) - Number(b))
                                         .map(([index, data]) => {
                                             const monthlySalary = salaryStats[year]?.months[data.name] || 0;
-                                            const balance = monthlySalary - data.total;
+                                            const balance = monthlySalary - data.total - data.invested;
                                             const isDeficit = balance < 0;
 
-                                            const maxAmount = Math.max(monthlySalary, data.total, 1);
+                                            const maxAmount = Math.max(monthlySalary, data.total, data.invested, 1);
                                             const incomePercent = Math.min((monthlySalary / maxAmount) * 100, 100);
                                             const expensePercent = Math.min((data.total / maxAmount) * 100, 100);
+                                            const investedPercent = Math.min((data.invested / maxAmount) * 100, 100);
 
                                             return (
                                                 <div
@@ -368,20 +444,20 @@ const Expenses = () => {
                                                         display: 'flex',
                                                         flexDirection: 'column',
                                                         justifyContent: 'space-between',
-                                                        height: '240px',
+                                                        height: '270px',
                                                         boxShadow: isDeficit ? '0 4px 20px -2px rgba(239, 68, 68, 0.02)' : '0 4px 20px -2px rgba(16, 185, 129, 0.02)'
                                                     }}
                                                 >
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                                                         <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>{data.name}</h3>
                                                         <div style={{ color: isDeficit ? '#ef4444' : '#10b981' }}>
                                                             <Calendar size={18} />
                                                         </div>
                                                     </div>
 
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                                         <div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#71717a', marginBottom: '0.25rem' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#71717a', marginBottom: '0.125rem' }}>
                                                                 <span>Income</span>
                                                                 <span style={{ color: '#10b981', fontFamily: 'monospace' }}>{formatCurrency(monthlySalary)}</span>
                                                             </div>
@@ -391,7 +467,7 @@ const Expenses = () => {
                                                         </div>
 
                                                         <div>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#71717a', marginBottom: '0.25rem' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#71717a', marginBottom: '0.125rem' }}>
                                                                 <span>Expense</span>
                                                                 <span style={{ color: '#ef4444', fontFamily: 'monospace' }}>{formatCurrency(data.total)}</span>
                                                             </div>
@@ -399,19 +475,29 @@ const Expenses = () => {
                                                                 <div style={{ height: '100%', width: `${expensePercent}%`, backgroundColor: '#ef4444' }}></div>
                                                             </div>
                                                         </div>
+
+                                                        <div>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#71717a', marginBottom: '0.125rem' }}>
+                                                                <span>Invested</span>
+                                                                <span style={{ color: '#c084fc', fontFamily: 'monospace' }}>{formatCurrency(data.invested)}</span>
+                                                            </div>
+                                                            <div style={{ width: '100%', height: '3px', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: '1.5px', overflow: 'hidden' }}>
+                                                                <div style={{ height: '100%', width: `${investedPercent}%`, backgroundColor: '#c084fc' }}></div>
+                                                            </div>
+                                                        </div>
                                                     </div>
 
-                                                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '0.5rem' }}>
+                                                    <div style={{ borderTop: '1px solid rgba(255, 255, 255, 0.05)', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '0.25rem' }}>
                                                         <div>
                                                             <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>
-                                                                {isDeficit ? 'Deficit' : 'Savings'}
+                                                                {isDeficit ? 'Deficit' : 'Net Balance'}
                                                             </p>
                                                             <p style={{ fontSize: '1.125rem', fontWeight: '950', color: isDeficit ? '#ef4444' : '#10b981', fontFamily: 'monospace', margin: 0 }}>
                                                                 {formatCurrency(Math.abs(balance))}
                                                             </p>
                                                         </div>
                                                         <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', padding: '0.25rem 0.5rem', borderRadius: '0.5rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                                                            {data.count} categories
+                                                            {data.count + data.investedCount} categories
                                                         </span>
                                                     </div>
                                                 </div>

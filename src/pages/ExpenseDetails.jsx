@@ -284,7 +284,7 @@ const CATEGORY_ICONS = {
 const ExpenseDetails = () => {
     const { year, month } = useParams();
     const navigate = useNavigate();
-    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentMainPage, setCurrentMainPage] = useState(1);
     const [currentSubPage, setCurrentSubPage] = useState(1);
@@ -294,6 +294,7 @@ const ExpenseDetails = () => {
     const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, id: null });
     const [selectedCategoryHighlight, setSelectedCategoryHighlight] = useState(null);
     const [selectedCreditCardHighlight, setSelectedCreditCardHighlight] = useState(null);
+    const [searchQuery, setSearchQuery] = useState('');
     const ITEMS_PER_PAGE = 12;
     const STATEMENT_ITEMS_PER_PAGE = 10;
 
@@ -351,23 +352,43 @@ const ExpenseDetails = () => {
                 const mainCat = t.mainCategory || 'Miscellaneous';
                 mainCategoryTotals[mainCat] = (mainCategoryTotals[mainCat] || 0) + effective;
 
-                if (t.deductFromSalary !== false && !t.isRewardPoints) {
+                const isCreditCardBill = cat.toLowerCase().includes('credit card bill') || cat.toLowerCase().includes('credit card payment');
+                const isCCSpend = t.paymentMode === 'credit_card' && !isCreditCardBill;
+
+                if (t.deductFromSalary !== false && !t.isRewardPoints && !isCCSpend) {
                     categoryDeductibles[targetKey] = (categoryDeductibles[targetKey] || 0) + effective;
                     mainCategoryDeductibles[mainCat] = (mainCategoryDeductibles[mainCat] || 0) + effective;
                 }
             });
         }
 
+        const getMainCategory = (subCatName) => {
+            const lowerSub = (subCatName || '').toLowerCase();
+            for (const [main, subs] of Object.entries(mergedCategoryMap || {})) {
+                if (subs.some(s => s.toLowerCase() === lowerSub)) {
+                    return main;
+                }
+            }
+            const matchingKey = Object.keys(mergedCategoryMap || {}).find(k => k.toLowerCase() === lowerSub);
+            if (matchingKey) return matchingKey;
+            return 'Miscellaneous';
+        };
+
         const items = Object.entries(categoryTotals)
             .filter(([_, amount]) => amount !== 0) // Filter empty categories
-            .map(([category, amount], index) => ({
-                id: `${year}-${month}-${category}-${index}`,
-                date: new Date(`${month} 1, ${year}`).toISOString(),
-                category: category,
-                amount: amount,
-                deductibleAmount: categoryDeductibles[category] || 0,
-                type: 'monthly'
-            })).sort((a, b) => b.amount - a.amount);
+            .map(([category, amount], index) => {
+                const tx = activeTransactions.find(t => (t.category || '').toLowerCase() === category.toLowerCase());
+                const mainCategory = tx?.mainCategory || getMainCategory(category);
+                return {
+                    id: `${year}-${month}-${category}-${index}`,
+                    date: new Date(`${month} 1, ${year}`).toISOString(),
+                    category: category,
+                    mainCategory: mainCategory,
+                    amount: amount,
+                    deductibleAmount: categoryDeductibles[category] || 0,
+                    type: 'monthly'
+                };
+            }).sort((a, b) => b.amount - a.amount);
 
         const mainItems = Object.entries(mainCategoryTotals)
             .filter(([_, amount]) => amount !== 0)
@@ -380,10 +401,27 @@ const ExpenseDetails = () => {
                 type: 'monthly-main'
             })).sort((a, b) => b.amount - a.amount);
 
-        // Calculate totalNetExpenses using ONLY the deductible amounts
-        const totalNetExpenses = items.reduce((sum, item) => sum + item.deductibleAmount, 0);
-        // Calculate totalGrossExpenses using ALL amounts (deductible + non-deductible)
-        const totalGrossExpenses = items.reduce((sum, item) => sum + item.amount, 0);
+        const SAVINGS_MAIN_CATEGORIES = ['Investments', 'Transfers', 'Loans'];
+
+        // Calculate totalNetExpenses using ONLY the deductible amounts of true expenses
+        const totalNetExpenses = items
+            .filter(item => !SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
+            .reduce((sum, item) => sum + item.deductibleAmount, 0);
+
+        // Calculate totalInvestments using ONLY the deductible amounts of savings/investments
+        const totalInvestments = items
+            .filter(item => SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
+            .reduce((sum, item) => sum + item.deductibleAmount, 0);
+
+        // Calculate totalGrossExpenses using ALL amounts of true expenses (deductible + non-deductible)
+        const totalGrossExpenses = items
+            .filter(item => !SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
+            .reduce((sum, item) => sum + item.amount, 0);
+
+        // Calculate totalGrossInvestments
+        const totalGrossInvestments = items
+            .filter(item => SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
+            .reduce((sum, item) => sum + item.amount, 0);
 
         const findSalary = (obj) => {
             if (!obj) return 0;
@@ -412,8 +450,9 @@ const ExpenseDetails = () => {
             salary = baseSalary + manualIncome;
         }
 
-        const balance = salary - totalNetExpenses;
+        const balance = salary - totalNetExpenses - totalInvestments;
         const expensePercentage = salary > 0 ? Math.round((totalNetExpenses / salary) * 100) : 0;
+        const investmentPercentage = salary > 0 ? Math.round((totalInvestments / salary) * 100) : 0;
         const balancePercentage = salary > 0 ? Math.round((balance / salary) * 100) : 0;
 
 
@@ -598,11 +637,15 @@ const ExpenseDetails = () => {
             items,
             rawTransactions,
             totalExpenses: totalNetExpenses,
-            totalGrossExpenses, // Export gross expenses
+            totalGrossExpenses,
+            totalInvestments,
+            totalGrossInvestments,
             salary,
             balance,
-            expenseCount: items.length,
+            expenseCount: items.filter(item => !['Investments', 'Transfers', 'Loans'].includes(item.mainCategory)).length,
+            investmentCount: items.filter(item => ['Investments', 'Transfers', 'Loans'].includes(item.mainCategory)).length,
             expensePercentage,
+            investmentPercentage,
             balancePercentage,
             trendData,
             totalCreditCardSpend,
@@ -612,7 +655,7 @@ const ExpenseDetails = () => {
             walletStats,
             mainItems
         };
-    }, [expenses, creditCards, year, month, salaryStats]);
+    }, [expenses, creditCards, year, month, salaryStats, mergedCategoryMap]);
 
     React.useEffect(() => {
         if (highlightTxId && monthDetails?.rawTransactions) {
@@ -658,8 +701,19 @@ const ExpenseDetails = () => {
                 validNames.includes(t.creditCardName.trim().toLowerCase())
             );
         }
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase().trim();
+            txs = txs.filter(t => 
+                (t.title || '').toLowerCase().includes(q) || 
+                (t.description || '').toLowerCase().includes(q) || 
+                (t.category || '').toLowerCase().includes(q) || 
+                (t.mainCategory || '').toLowerCase().includes(q) ||
+                (t.creditCardName || '').toLowerCase().includes(q) ||
+                String(t.amount).includes(q)
+            );
+        }
         return txs;
-    }, [monthDetails.rawTransactions, selectedCategoryHighlight, selectedCreditCardHighlight]);
+    }, [monthDetails.rawTransactions, selectedCategoryHighlight, selectedCreditCardHighlight, searchQuery]);
 
     // Reset pagination and filters on route change
     React.useEffect(() => {
@@ -668,12 +722,13 @@ const ExpenseDetails = () => {
         setCurrentSubPage(1);
         setSelectedCategoryHighlight(null);
         setSelectedCreditCardHighlight(null);
+        setSearchQuery('');
     }, [year, month]);
 
-    // Reset statement page when filter changes
+    // Reset statement page when filter or search changes
     React.useEffect(() => {
         setStatementPage(1);
-    }, [selectedCategoryHighlight, selectedCreditCardHighlight]);
+    }, [selectedCategoryHighlight, selectedCreditCardHighlight, searchQuery]);
 
     const handleSaveTransaction = (transaction) => {
         if (transaction.id) updateItem('expense', transaction);
@@ -834,15 +889,11 @@ const ExpenseDetails = () => {
             </div>
 
             {/* Summaries */}
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '2.5rem'
-            }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2.5rem' }}>
                 <SummaryCard title="Monthly Salary" subtitle="Income Source" amount={formatCurrency(monthDetails.salary)} percentage="100%" color="#10B981" />
-                <SummaryCard title="Total Spends" subtitle={`${monthDetails.expenseCount} Categories`} amount={formatCurrency(monthDetails.totalGrossExpenses)} percentage={`-${monthDetails.expensePercentage}%`} color="#ef4444" />
-                <SummaryCard title="Net Savings" subtitle="Current Balance" amount={formatCurrency(monthDetails.balance)} percentage={`${monthDetails.balancePercentage}%`} color="#3b82f6" />
+                <SummaryCard title="True Expenses" subtitle={`${monthDetails.expenseCount} Categories`} amount={formatCurrency(monthDetails.totalGrossExpenses)} percentage={`-${monthDetails.expensePercentage}%`} color="#ef4444" />
+                <SummaryCard title="Invested/Transferred" subtitle={`${monthDetails.investmentCount} Categories`} amount={formatCurrency(monthDetails.totalGrossInvestments)} percentage={`-${monthDetails.investmentPercentage}%`} color="#c084fc" />
+                <SummaryCard title="Net Balance" subtitle="Remaining Cash" amount={formatCurrency(monthDetails.balance)} percentage={`${monthDetails.balancePercentage}%`} color="#3b82f6" />
             </div>
 
             {/* Content Body Grid */}
@@ -1059,18 +1110,59 @@ const ExpenseDetails = () => {
                             </span>
                         </div>
 
+                        {/* Search Input */}
+                        <div style={{ position: 'relative', width: '100%' }}>
+                            <input
+                                type="text"
+                                placeholder="Search transactions..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '0.625rem 1rem',
+                                    borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                                    color: 'white',
+                                    fontSize: '0.75rem',
+                                    outline: 'none',
+                                    boxSizing: 'border-box'
+                                }}
+                            />
+                            {searchQuery && (
+                                <button
+                                    onClick={() => setSearchQuery('')}
+                                    style={{
+                                        position: 'absolute',
+                                        right: '0.75rem',
+                                        top: '50%',
+                                        transform: 'translateY(-50%)',
+                                        background: 'none',
+                                        border: 'none',
+                                        color: '#71717a',
+                                        cursor: 'pointer',
+                                        fontSize: '0.75rem',
+                                        padding: 0
+                                    }}
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
+
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: '300px' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center' }}>
                                 <p style={{ fontSize: '8px', fontWeight: '950', color: 'rgba(129, 140, 248, 0.5)', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0 }}>Latest Transactions</p>
-                                {(selectedCategoryHighlight || selectedCreditCardHighlight) && (
+                                {(selectedCategoryHighlight || selectedCreditCardHighlight || searchQuery) && (
                                     <button 
                                         onClick={() => {
                                             setSelectedCategoryHighlight(null);
                                             setSelectedCreditCardHighlight(null);
+                                            setSearchQuery('');
                                         }}
                                         style={{ fontSize: '9px', fontWeight: 'bold', border: 'none', backgroundColor: 'rgba(16,185,129,0.1)', color: '#34d399', padding: '0.25rem 0.5rem', borderRadius: '0.375rem', cursor: 'pointer' }}
                                     >
-                                        Clear Filter
+                                        Clear Filters
                                     </button>
                                 )}
                             </div>
