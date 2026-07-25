@@ -71,9 +71,10 @@ const AssetItemDetails = () => {
                 <div>
                     <button
                         onClick={() => navigate(`/assets/${categoryId}`)}
-                        className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-4 text-xs font-black uppercase tracking-widest"
+                        className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-6 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
+                        style={{ cursor: 'pointer' }}
                     >
-                        <ArrowLeft size={16} /> Back to {category.title}
+                        <ArrowLeft size={16} className="text-white" /> Back to {category.title}
                     </button>
                     <div className="flex items-center gap-4">
                         <div className="p-4 rounded-3xl bg-indigo-500/10 border border-indigo-500/20">

@@ -91,6 +91,7 @@ const FuelAnalytics = () => {
         
         const chartData = [];
         let previousKm = null;
+        let previousLiters = null;
 
         let totalSpentWithLiters = 0;
 
@@ -115,8 +116,10 @@ const FuelAnalytics = () => {
                 if (previousKm && k > previousKm) {
                     distance = k - previousKm;
                     totalDistance += distance;
-                    if (l && l > 0) {
-                        mileage = distance / l;
+                    // Use the previous fill-up's liters (which was actually burned over this distance)
+                    const litersUsed = (previousLiters && previousLiters > 0) ? previousLiters : l;
+                    if (litersUsed && litersUsed > 0) {
+                        mileage = distance / litersUsed;
                     }
                 }
                 previousKm = k;
@@ -125,6 +128,11 @@ const FuelAnalytics = () => {
                 // we must break the continuous chain so we don't calculate an invalid, 
                 // inflated distance/mileage on the next transaction.
                 previousKm = null;
+                previousLiters = null;
+            }
+
+            if (l && l > 0) {
+                previousLiters = l;
             }
 
             chartData.push({

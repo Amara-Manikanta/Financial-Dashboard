@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import FixedDepositModal from '../components/FixedDepositModal';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend } from 'recharts';
 
 const FixedDepositDetails = () => {
     const { id } = useParams();
@@ -58,8 +59,8 @@ const FixedDepositDetails = () => {
         });
 
         return Object.entries(breakdown)
-            .map(([year, amount]) => ({ year, amount }))
-            .sort((a, b) => b.year - a.year);
+            .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
+            .sort((a, b) => Number(a.year) - Number(b.year));
     }, [fund]);
 
     const yearlyTdsBreakdown = useMemo(() => {
@@ -74,9 +75,30 @@ const FixedDepositDetails = () => {
         });
 
         return Object.entries(breakdown)
-            .map(([year, amount]) => ({ year, amount }))
-            .sort((a, b) => b.year.localeCompare(a.year));
+            .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
+            .sort((a, b) => Number(a.year) - Number(b.year));
     }, [fund]);
+
+    const combinedFdChartData = useMemo(() => {
+        const interestMap = {};
+        const tdsMap = {};
+
+        yearlyBreakdown.forEach(item => {
+            interestMap[item.year] = item.amount;
+        });
+
+        yearlyTdsBreakdown.forEach(item => {
+            tdsMap[item.year] = item.amount;
+        });
+
+        const allYears = Array.from(new Set([...Object.keys(interestMap), ...Object.keys(tdsMap)])).sort((a, b) => Number(a) - Number(b));
+
+        return allYears.map(year => ({
+            year,
+            interest: interestMap[year] || 0,
+            tds: tdsMap[year] || 0
+        }));
+    }, [yearlyBreakdown, yearlyTdsBreakdown]);
 
     if (!fund) {
         return (
@@ -210,10 +232,10 @@ const FixedDepositDetails = () => {
 
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-6 text-xs font-black uppercase tracking-widest"
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
                 style={{ cursor: 'pointer' }}
             >
-                <ArrowLeft size={16} /> Back to Savings
+                <ArrowLeft size={16} className="text-white" /> Back to Savings
             </button>
 
             <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
@@ -363,38 +385,44 @@ const FixedDepositDetails = () => {
                 </div>
             </div>
 
-            {/* Yearly Interest Summary Section */}
-            {yearlyBreakdown.length > 0 && (
-                <div className="mt-12">
-                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <TrendingUp size={22} className="text-emerald-400" />
-                        Yearly Interest Accrual
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {yearlyBreakdown.map(({ year, amount }) => (
-                            <div key={year} className="fd-year-card flex flex-col items-center justify-center text-center border-l-4 border-l-emerald-500">
-                                <span className="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">{year}</span>
-                                <span className="text-lg font-bold text-emerald-400">{formatCurrency(amount)}</span>
-                            </div>
-                        ))}
+            {/* Yearly Interest & TDS Combined Summary Section */}
+            {combinedFdChartData.length > 0 && (
+                <div className="mt-12 bg-white/5 border border-white/10 backdrop-blur-xl p-6 rounded-2xl">
+                    <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                        <h3 className="text-xl font-bold flex items-center gap-2 text-white">
+                            <TrendingUp size={22} className="text-emerald-400" />
+                            Yearly Interest Accrual vs TDS Deducted
+                        </h3>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs font-semibold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                                Total Interest: {formatCurrency(yearlyBreakdown.reduce((sum, item) => sum + item.amount, 0))}
+                            </span>
+                            {yearlyTdsBreakdown.length > 0 && (
+                                <span className="text-xs font-semibold text-rose-400 bg-rose-500/10 px-3 py-1 rounded-full border border-rose-500/20">
+                                    Total TDS: {formatCurrency(yearlyTdsBreakdown.reduce((sum, item) => sum + item.amount, 0))}
+                                </span>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
 
-            {/* Yearly TDS Summary Section */}
-            {yearlyTdsBreakdown.length > 0 && (
-                <div className="mt-12">
-                    <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                        <TrendingUp size={22} className="text-rose-400" />
-                        Yearly TDS Deducted
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                        {yearlyTdsBreakdown.map(({ year, amount }) => (
-                            <div key={year} className="fd-year-card flex flex-col items-center justify-center text-center border-l-4 border-l-rose-500">
-                                <span className="text-xs font-black text-gray-500 uppercase tracking-widest mb-1">{year}</span>
-                                <span className="text-lg font-bold text-rose-400">{formatCurrency(amount)}</span>
-                            </div>
-                        ))}
+                    <div style={{ width: '100%', height: '320px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={combinedFdChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
+                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                    itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                                    formatter={(value, name) => [formatCurrency(value), name === 'interest' ? 'Interest Accrued' : 'TDS Deducted']}
+                                    labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
+                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                />
+                                <Legend wrapperStyle={{ paddingTop: '12px' }} />
+                                <Bar dataKey="interest" fill="#34d399" radius={[6, 6, 0, 0]} barSize={30} name="Interest Accrued" />
+                                <Bar dataKey="tds" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={30} name="TDS Deducted" />
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
             )}

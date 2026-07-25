@@ -206,10 +206,10 @@ const SingleDepositDetails = () => {
 
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-6 text-xs font-black uppercase tracking-widest"
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
                 style={{ cursor: 'pointer' }}
             >
-                <ArrowLeft size={16} /> Back to Deposits
+                <ArrowLeft size={16} className="text-white" /> Back to Deposits
             </button>
 
             <div className="mb-8">

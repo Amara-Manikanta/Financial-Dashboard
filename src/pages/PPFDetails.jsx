@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, TrendingUp } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import PPFTransactionModal from '../components/PPFTransactionModal';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
 const PPFDetails = () => {
     const { id } = useParams();
@@ -153,6 +154,12 @@ const PPFDetails = () => {
             return acc;
         }, {});
     }, [ppfDetails]);
+
+    const ppfInterestChartData = useMemo(() => {
+        return Object.entries(yearlyInterest)
+            .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
+            .sort((a, b) => a.year.localeCompare(b.year));
+    }, [yearlyInterest]);
 
     if (!ppf) return <div style={{ padding: 'var(--spacing-lg)', color: 'white' }}>PPF account not found.</div>;
 
@@ -351,11 +358,10 @@ const PPFDetails = () => {
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
                 onClick={() => navigate(-1)}
-                style={styles.breadcrumb}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
+                style={{ cursor: 'pointer' }}
             >
-                <ArrowLeft size={14} style={{ marginRight: '0.25rem' }} /> Back to Savings
+                <ArrowLeft size={16} className="text-white" /> Back to Savings
             </button>
 
             <div style={styles.headerPanel}>
@@ -420,95 +426,126 @@ const PPFDetails = () => {
                 </div>
             </div>
 
-            <div style={{ marginBottom: '2.5rem' }}>
-                <h3 style={styles.sectionHeader}>Yearly Interest Summary</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem' }}>
-                    {Object.entries(yearlyInterest).sort((a, b) => b[0].localeCompare(a[0])).map(([year, interest]) => (
-                        <div 
-                            key={year} 
-                            style={styles.yearCard}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
-                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)';
-                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.06)';
-                            }}
-                        >
-                            <p style={{ fontSize: '10px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', marginBottom: '0.25rem', margin: 0 }}>{year}</p>
-                            <p style={{ fontSize: '1rem', fontWeight: '800', color: '#10b981', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(interest)}</p>
-                            <button
-                                onClick={() => handleAddInterest(year)}
-                                style={styles.recalcBtn}
-                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.15)'}
-                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}
-                                title="Recalculate Interest"
-                            >
-                                <Plus size={12} />
-                            </button>
+            {/* Yearly Interest Summary Section */}
+            {ppfInterestChartData.length > 0 && (
+                <div style={{
+                    marginBottom: '2.5rem',
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.005) 100%)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    borderRadius: '1.25rem',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    padding: '1.5rem'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <TrendingUp size={22} style={{ color: '#34d399' }} />
+                            <h3 style={{ ...styles.sectionHeader, margin: 0 }}>Yearly PPF Interest Earned</h3>
                         </div>
-                    ))}
-                    <div style={{ position: 'relative' }}>
-                        <button
-                            onClick={() => setShowFYSelector(!showFYSelector)}
-                            style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                width: '100%',
-                                height: '100%',
-                                minHeight: '80px',
-                                background: 'transparent',
-                                border: '1px dashed rgba(255, 255, 255, 0.12)',
-                                borderRadius: '1rem',
-                                color: '#71717a',
-                                cursor: 'pointer',
-                                transition: 'color 0.2s, border-color 0.2s, background-color 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
-                                e.currentTarget.style.color = 'white';
-                                e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.02)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                                e.currentTarget.style.color = '#71717a';
-                                e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                        >
-                            <Plus size={16} style={{ marginBottom: '0.25rem' }} />
-                            <span style={{ fontSize: '9px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Add Interest</span>
-                        </button>
-                        {showFYSelector && (
-                            <div style={{
-                                position: 'absolute', top: '105%', left: 0, width: '12rem',
-                                backgroundColor: '#121225', border: '1px solid rgba(255, 255, 255, 0.08)',
-                                borderRadius: '0.75rem', boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
-                                zIndex: 50, padding: '0.5rem', maxHeight: '12rem', overflowY: 'auto'
-                            }} className="custom-scrollbar">
-                                {possibleFYs.map(fy => (
-                                    <button
-                                        key={fy}
-                                        onClick={() => { handleAddInterest(fy); setShowFYSelector(false); }}
-                                        style={{
-                                            width: '100%', textAlign: 'left', padding: '0.5rem 0.75rem',
-                                            fontSize: '11px', fontWeight: '700', color: '#a1a1aa',
-                                            backgroundColor: 'transparent', border: 'none', borderRadius: '0.5rem',
-                                            cursor: 'pointer', transition: 'background-color 0.2s, color 0.2s'
-                                        }}
-                                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'white'; }}
-                                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#a1a1aa'; }}
-                                    >
-                                        FY {fy}
-                                    </button>
-                                ))}
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span style={{
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                color: '#34d399',
+                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                padding: '0.25rem 0.75rem',
+                                borderRadius: '9999px',
+                                border: '1px solid rgba(16, 185, 129, 0.2)'
+                            }}>
+                                Total Interest: {formatCurrency(totalInterest)}
+                            </span>
+
+                            <div style={{ position: 'relative' }}>
+                                <button
+                                    onClick={() => setShowFYSelector(!showFYSelector)}
+                                    style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '0.375rem',
+                                        padding: '0.375rem 0.75rem',
+                                        borderRadius: '0.5rem',
+                                        backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                        color: '#34d399',
+                                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                                        fontWeight: '800',
+                                        fontSize: '11px',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.25)'}
+                                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(16, 185, 129, 0.15)'}
+                                >
+                                    <Plus size={14} /> Add Interest
+                                </button>
+                                {showFYSelector && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '105%',
+                                        right: 0,
+                                        width: '12rem',
+                                        backgroundColor: '#121225',
+                                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                                        borderRadius: '0.75rem',
+                                        boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                                        zIndex: 50,
+                                        padding: '0.5rem',
+                                        maxHeight: '12rem',
+                                        overflowY: 'auto'
+                                    }} className="custom-scrollbar">
+                                        <p style={{ fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', padding: '0.25rem 0.5rem', margin: 0 }}>Select FY to Calculate</p>
+                                        {possibleFYs.map(fy => (
+                                            <button
+                                                key={fy}
+                                                onClick={() => { handleAddInterest(fy); setShowFYSelector(false); }}
+                                                style={{
+                                                    width: '100%',
+                                                    textAlign: 'left',
+                                                    padding: '0.5rem 0.75rem',
+                                                    fontSize: '11px',
+                                                    fontWeight: '700',
+                                                    color: '#a1a1aa',
+                                                    backgroundColor: 'transparent',
+                                                    border: 'none',
+                                                    borderRadius: '0.5rem',
+                                                    cursor: 'pointer',
+                                                    transition: 'background-color 0.2s, color 0.2s'
+                                                }}
+                                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)'; e.currentTarget.style.color = 'white'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; e.currentTarget.style.color = '#a1a1aa'; }}
+                                            >
+                                                FY {fy}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
-                        )}
+                        </div>
+                    </div>
+
+                    <div style={{ width: '100%', height: '280px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={ppfInterestChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
+                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                    itemStyle={{ color: '#34d399', fontWeight: 'bold' }}
+                                    formatter={(value) => [formatCurrency(value), 'PPF Interest Earned']}
+                                    labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
+                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                />
+                                <Bar dataKey="amount" fill="#34d399" radius={[6, 6, 0, 0]} maxBarSize={50} name="Interest Earned">
+                                    {ppfInterestChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={index === ppfInterestChartData.length - 1 ? '#10b981' : '#34d399'} opacity={0.9} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
                     </div>
                 </div>
-            </div>
+            )}
 
             <div style={styles.filterBar}>
                 {years.map(year => (

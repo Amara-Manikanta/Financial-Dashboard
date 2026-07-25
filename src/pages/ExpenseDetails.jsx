@@ -464,9 +464,14 @@ const ExpenseDetails = () => {
             .filter(t => t.id && (t.amount || t.category))
             .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        // Group actual transactions by day
+        // Group actual transactions by day (excluding credit card bill repayments to prevent double counting with card spends)
         const transactionsByDay = rawTransactions
-            .filter(t => !t.isCredited)
+            .filter(t => {
+                if (t.isCredited) return false;
+                const cat = (t.category || '').toLowerCase();
+                const isCreditCardBill = cat.includes('credit card bill') || cat.includes('credit card payment');
+                return !isCreditCardBill;
+            })
             .reduce((acc, t) => {
                 const txDate = new Date(t.date);
                 let day = txDate.getDate();

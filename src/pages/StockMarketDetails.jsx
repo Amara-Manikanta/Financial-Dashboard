@@ -208,9 +208,9 @@ const StockMarketDetails = () => {
         }).length;
     }, [activeStocks, currentYear]);
 
-    // Calculate Active Dividends
+    // Calculate Total Dividends (Active + Archived)
     const activeDividendsData = useMemo(() => {
-        const data = activeStocks.reduce((acc, stock) => {
+        const data = filteredStocks.reduce((acc, stock) => {
             const stockDividends = stock.dividends || {};
             Object.entries(stockDividends).forEach(([year, amount]) => {
                 acc.total += Number(amount);
@@ -221,7 +221,7 @@ const StockMarketDetails = () => {
 
         data.total = Number(data.total.toFixed(2));
         return data;
-    }, [activeStocks]);
+    }, [filteredStocks]);
 
     const dividendGraphData = useMemo(() => {
         return Object.entries(activeDividendsData.yearly)
@@ -239,7 +239,7 @@ const StockMarketDetails = () => {
     }, [stockRows]);
 
     const dividendTreemapData = useMemo(() => {
-        return activeStocks.map(stock => {
+        return filteredStocks.map(stock => {
             const stockDividends = stock.dividends || {};
             const totalStockDividend = Object.values(stockDividends).reduce((sum, amount) => sum + Number(amount), 0);
             return {
@@ -248,7 +248,7 @@ const StockMarketDetails = () => {
                 value: totalStockDividend
             };
         }).filter(item => item.value > 0);
-    }, [activeStocks]);
+    }, [filteredStocks]);
 
     if (!market) {
         return (
@@ -732,7 +732,7 @@ const StockMarketDetails = () => {
                         <Award size={48} />
                     </div>
                     <div>
-                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#2dd4bf', marginBottom: '0.25rem', margin: 0 }}>Dividends (Active)</p>
+                        <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#2dd4bf', marginBottom: '0.25rem', margin: 0 }}>Dividends (Total)</p>
                         <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(activeDividendsData.total)}</h3>
                     </div>
                     <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.375rem', margin: 0 }}>

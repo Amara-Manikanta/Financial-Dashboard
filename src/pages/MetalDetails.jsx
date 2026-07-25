@@ -95,22 +95,10 @@ const MetalDetails = () => {
             }}>
                 <button
                     onClick={() => navigate('/metals')}
-                    style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.5rem',
-                        color: '#71717a',
-                        fontSize: '0.75rem',
-                        fontWeight: 'bold',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.1em',
-                        border: 'none',
-                        backgroundColor: 'transparent',
-                        cursor: 'pointer',
-                        padding: 0
-                    }}
+                    className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg w-fit"
+                    style={{ cursor: 'pointer' }}
                 >
-                    ← Back to Metals
+                    <ArrowLeft size={16} className="text-white" /> Back to Precious Metals
                 </button>
 
                 <div style={{

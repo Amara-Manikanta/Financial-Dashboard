@@ -5,6 +5,7 @@ import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, Ref
 import { formatDate } from '../utils/dateUtils';
 import MutualFundTransactionModal from '../components/MutualFundTransactionModal';
 import MutualFundEditModal from '../components/MutualFundEditModal';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine } from 'recharts';
 
 const MutualFundDetails = () => {
     const { id } = useParams();
@@ -130,6 +131,76 @@ const MutualFundDetails = () => {
         total_realised_profit,
         total_profit
     } = fundCalcs;
+
+    const [selectedYear, setSelectedYear] = useState('All');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
+
+    const getFinancialYear = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '';
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        if (month >= 3) { // April onwards
+            return `${year}-${(year + 1).toString().slice(-2)}`;
+        } else {
+            return `${year - 1}-${year.toString().slice(-2)}`;
+        }
+    };
+
+    const availableYears = useMemo(() => {
+        if (!transactionsWithCalcs.length) return ['All'];
+        const yearsSet = new Set(transactionsWithCalcs.map(tx => getFinancialYear(tx.date)).filter(Boolean));
+        return ['All', ...Array.from(yearsSet).sort((a, b) => b.localeCompare(a))];
+    }, [transactionsWithCalcs]);
+
+    const filteredTransactions = useMemo(() => {
+        const sorted = [...transactionsWithCalcs].sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (selectedYear === 'All') return sorted;
+        return sorted.filter(tx => getFinancialYear(tx.date) === selectedYear);
+    }, [transactionsWithCalcs, selectedYear]);
+
+    const totalPages = useMemo(() => Math.ceil(filteredTransactions.length / itemsPerPage) || 1, [filteredTransactions, itemsPerPage]);
+
+    const paginatedTransactions = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredTransactions.slice(start, start + itemsPerPage);
+    }, [filteredTransactions, currentPage, itemsPerPage]);
+
+    const handleYearChange = (year) => {
+        setSelectedYear(year);
+        setCurrentPage(1);
+    };
+
+    const yearlyPLChartData = useMemo(() => {
+        if (!transactionsWithCalcs.length) return [];
+
+        const yearlyMap = {};
+
+        transactionsWithCalcs.forEach(tx => {
+            const year = getFinancialYear(tx.date) || new Date(tx.date).getFullYear().toString();
+            if (!yearlyMap[year]) {
+                yearlyMap[year] = { year, realizedPL: 0, unrealizedPL: 0, totalPL: 0 };
+            }
+
+            if (tx.isSell) {
+                yearlyMap[year].realizedPL += (tx.displayPL || 0);
+            } else {
+                yearlyMap[year].unrealizedPL += (tx.displayPL || 0);
+            }
+            yearlyMap[year].totalPL += (tx.displayPL || 0);
+        });
+
+        return Object.values(yearlyMap)
+            .map(item => ({
+                ...item,
+                realizedPL: Math.round(item.realizedPL),
+                unrealizedPL: Math.round(item.unrealizedPL),
+                totalPL: Math.round(item.totalPL)
+            }))
+            .sort((a, b) => a.year.localeCompare(b.year));
+    }, [transactionsWithCalcs]);
 
     const handleRefreshNav = async () => {
         setIsRefreshing(true);
@@ -301,10 +372,10 @@ const MutualFundDetails = () => {
 
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-gray-500 hover:text-white transition-colors mb-6 text-xs font-black uppercase tracking-widest"
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
                 style={{ cursor: 'pointer' }}
             >
-                <ArrowLeft size={16} /> Back to Savings
+                <ArrowLeft size={16} className="text-white" /> Back to Savings
             </button>
 
             <div className="mb-8">
@@ -434,7 +505,97 @@ const MutualFundDetails = () => {
                 </div>
             </div>
 
+            {/* Year-Wise Profit / Loss Bar Chart */}
+            {yearlyPLChartData.length > 0 && (
+                <div style={{
+                    marginBottom: '2.5rem',
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)',
+                    backdropFilter: 'blur(16px)',
+                    WebkitBackdropFilter: 'blur(16px)',
+                    borderRadius: '1.25rem',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
+                    padding: '1.5rem',
+                    boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <TrendingUp size={22} style={{ color: '#34d399' }} />
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff', margin: 0, letterSpacing: '-0.01em' }}>
+                                Yearly Profit / Loss Breakdown
+                            </h3>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <span style={{
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                color: total_profit >= 0 ? '#34d399' : '#f87171',
+                                backgroundColor: total_profit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                                padding: '0.35rem 0.85rem',
+                                borderRadius: '9999px',
+                                border: total_profit >= 0 ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(239, 68, 68, 0.2)'
+                            }}>
+                                Total P/L: {formatCurrency(total_profit)}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div style={{ width: '100%', height: '280px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={yearlyPLChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
+                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 || val <= -1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                    itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                                    formatter={(value) => [formatCurrency(value), 'Net Profit / Loss']}
+                                    labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
+                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                />
+                                <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
+                                <Bar dataKey="totalPL" radius={[6, 6, 0, 0]} maxBarSize={45} name="Net Profit / Loss">
+                                    {yearlyPLChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.totalPL >= 0 ? '#34d399' : '#f87171'} opacity={0.9} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
+
             <div className="mf-table-container">
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#a1a1aa', marginRight: '0.5rem' }}>
+                            Filter Year:
+                        </span>
+                        {availableYears.map(year => (
+                            <button
+                                key={year}
+                                onClick={() => handleYearChange(year)}
+                                style={{
+                                    padding: '0.375rem 0.875rem',
+                                    borderRadius: '0.5rem',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    border: selectedYear === year ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                                    backgroundColor: selectedYear === year ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                    color: selectedYear === year ? '#818cf8' : '#a1a1aa',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {year === 'All' ? 'All Years' : `FY ${year}`}
+                            </button>
+                        ))}
+                    </div>
+
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#71717a' }}>
+                        {filteredTransactions.length} {filteredTransactions.length === 1 ? 'Transaction' : 'Transactions'}
+                    </span>
+                </div>
+
                 <div style={{ overflowX: 'auto' }}>
                     <table className="mf-table">
                         <thead>
@@ -451,7 +612,7 @@ const MutualFundDetails = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {transactionsWithCalcs.map((tx, index) => {
+                            {paginatedTransactions.map((tx, index) => {
                                 const isProfit = tx.displayPL >= 0;
 
                                 return (
@@ -507,16 +668,93 @@ const MutualFundDetails = () => {
                                     </tr>
                                 );
                             })}
-                            {!transactionsWithCalcs.length && (
+                            {!paginatedTransactions.length && (
                                 <tr>
                                     <td colSpan="9" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                        No transactions found.
+                                        No transactions found for the selected period.
                                     </td>
                                 </tr>
                             )}
                         </tbody>
                     </table>
                 </div>
+
+                {/* Pagination Controls */}
+                {filteredTransactions.length > itemsPerPage && (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'space-between',
+                        padding: '1rem 1.5rem',
+                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+                    }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#71717a' }}>
+                            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                style={{
+                                    padding: '0.4rem 0.875rem',
+                                    borderRadius: '0.5rem',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)',
+                                    color: currentPage === 1 ? '#52525b' : '#ffffff',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Previous
+                            </button>
+
+                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        style={{
+                                            width: '2rem',
+                                            height: '2rem',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '11px',
+                                            fontWeight: '800',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            backgroundColor: currentPage === i + 1 ? '#6366f1' : 'transparent',
+                                            color: currentPage === i + 1 ? 'white' : '#71717a',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                style={{
+                                    padding: '0.4rem 0.875rem',
+                                    borderRadius: '0.5rem',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)',
+                                    color: currentPage === totalPages ? '#52525b' : '#ffffff',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Modals */}

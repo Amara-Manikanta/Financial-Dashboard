@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, Calendar } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, Calendar, PiggyBank, Sparkles, DollarSign, CheckCircle2 } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import RDTransactionModal from '../components/RDTransactionModal';
 import InterestTransactionModal from '../components/InterestTransactionModal';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
 const SingleRecurringDepositDetails = () => {
     const { id, rdId } = useParams();
@@ -23,13 +24,10 @@ const SingleRecurringDepositDetails = () => {
 
     if (!account || !rd) {
         return (
-            <div style={{ padding: 'var(--spacing-lg)' }}>
+            <div className="p-8 text-white">
                 <p>Recurring Deposit not found.</p>
-                <button
-                    onClick={() => navigate(-1)}
-                    className="text-primary hover:underline mt-4"
-                >
-                    Back
+                <button onClick={() => navigate(-1)} className="text-blue-400 hover:underline mt-4">
+                    Back to Recurring Deposits
                 </button>
             </div>
         );
@@ -92,105 +90,165 @@ const SingleRecurringDepositDetails = () => {
         }
     };
 
+    const monthlyChartData = useMemo(() => {
+        if (!installments.length) return [];
+        const sorted = [...installments].sort((a, b) => new Date(a.date) - new Date(b.date));
+        return sorted.map(tx => ({
+            date: formatDate(tx.date),
+            amount: tx.amount || 0
+        }));
+    }, [installments]);
+
     const glassCardStyle = {
         background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01))',
         backdropFilter: 'blur(16px)',
         WebkitBackdropFilter: 'blur(16px)',
-        border: '1px solid rgba(255, 255, 255, 0.07)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
         borderRadius: '1.25rem',
-        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-        transition: 'transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease'
+        boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
     };
 
     return (
         <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>
+            {/* Navigation */}
             <button
                 onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2 rounded-xl bg-white/[0.03] border border-white/[0.05] hover:bg-white/[0.08] hover:border-white/[0.1] backdrop-blur-md"
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.12] backdrop-blur-md shadow-lg"
             >
-                <ArrowLeft size={14} /> Back to Recurring Deposits
+                <ArrowLeft size={14} /> Back to {account.title}
             </button>
 
-            <div className="mb-10">
-                <h2 className="text-4xl font-black mb-2 text-white tracking-tight">
-                    {rd.name}
-                </h2>
-                <div className="flex gap-6 mt-4 text-xs font-semibold text-zinc-400">
-                    <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.05] py-2 px-4 rounded-xl backdrop-blur-md">
-                        <Calendar size={14} className="text-blue-400" />
-                        {formatDate(rd.startDate)} — {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}
+            {/* Hero Header */}
+            <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-blue-900/20 via-indigo-900/10 to-transparent border border-blue-500/10 backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <div className="flex items-center gap-3 mb-2">
+                        <h2 className="text-3xl font-black text-white tracking-tight">{rd.name}</h2>
+                        <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                            {rd.interestRate}% p.a. Interest
+                        </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
+                        <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] py-1.5 px-3.5 rounded-xl backdrop-blur-md">
+                            <Calendar size={14} className="text-blue-400" />
+                            {formatDate(rd.startDate)} ➔ {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}
+                        </div>
                     </div>
                 </div>
+
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                    <button
+                        onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
+                        className="flex-1 md:flex-none bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black py-3 px-5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] text-xs uppercase tracking-widest border border-blue-400/30 active:scale-95"
+                    >
+                        <Plus size={15} /> Add Installment
+                    </button>
+
+                    <button
+                        onClick={() => { setEditingInterestTx(null); setIsInterestModalOpen(true); }}
+                        className="flex-1 md:flex-none bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3 px-5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] text-xs uppercase tracking-widest border border-emerald-400/30 active:scale-95"
+                    >
+                        <Plus size={15} /> Record Interest
+                    </button>
+                </div>
             </div>
 
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                gap: '1.5rem',
-                marginBottom: '2.5rem'
-            }}>
+            {/* KPI Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
                 <div className="card p-6" style={glassCardStyle}>
-                    <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest mb-2">Monthly Installment</p>
-                    <p className="text-2xl font-black text-white">{formatCurrency(rd.installmentAmount)}</p>
+                    <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest mb-2">Monthly Installment</p>
+                    <p className="text-3xl font-black text-white font-mono">{formatCurrency(rd.installmentAmount)}</p>
                 </div>
                 <div className="card p-6" style={{
                     ...glassCardStyle,
-                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(59, 130, 246, 0.02))',
-                    border: '1px solid rgba(59, 130, 246, 0.15)'
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(59, 130, 246, 0.01))',
+                    border: '1px solid rgba(59, 130, 246, 0.2)'
                 }}>
-                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Total Paid</p>
-                    <p className="text-2xl font-black text-white">{formatCurrency(totalPaid)}</p>
+                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-2">Total Paid to Date</p>
+                    <p className="text-3xl font-black text-white font-mono">{formatCurrency(totalPaid)}</p>
                 </div>
                 <div className="card p-6" style={{
                     ...glassCardStyle,
-                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
-                    border: '1px solid rgba(16, 185, 129, 0.15)'
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(16, 185, 129, 0.01))',
+                    border: '1px solid rgba(16, 185, 129, 0.2)'
                 }}>
-                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Maturity Goal</p>
-                    <p className="text-2xl font-black text-emerald-400">{formatCurrency(rd.maturityAmount)}</p>
+                    <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">Target Maturity Goal</p>
+                    <p className="text-3xl font-black text-emerald-400 font-mono">{formatCurrency(rd.maturityAmount)}</p>
                 </div>
                 <div className="card p-6" style={{
                     ...glassCardStyle,
-                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(245, 158, 11, 0.02))',
-                    border: '1px solid rgba(245, 158, 11, 0.15)'
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.06), rgba(245, 158, 11, 0.01))',
+                    border: '1px solid rgba(245, 158, 11, 0.2)'
                 }}>
-                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2">Total Interest</p>
-                    <p className="text-2xl font-black text-amber-400">{formatCurrency(totalInterestReceived)}</p>
+                    <p className="text-[10px] font-black text-amber-400 uppercase tracking-widest mb-2">Interest Received</p>
+                    <p className="text-3xl font-black text-amber-400 font-mono">{formatCurrency(totalInterestReceived)}</p>
                 </div>
             </div>
 
-            {/* Progress Bar */}
-            <div className="mb-12 bg-white/[0.02] border border-white/[0.06] p-6 rounded-2xl backdrop-blur-md shadow-2xl">
-                <div className="flex justify-between items-end mb-3">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Goal Progress</span>
-                    <span className="text-xs font-black text-white">{progress.toFixed(1)}%</span>
+            {/* Goal Progress Section */}
+            <div className="mb-10 bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-xl shadow-2xl">
+                <div className="flex justify-between items-center mb-3">
+                    <span className="text-xs font-black uppercase tracking-widest text-zinc-400 flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-emerald-400" />
+                        Maturity Goal Progress
+                    </span>
+                    <span className="text-sm font-black text-white">{progress.toFixed(1)}%</span>
                 </div>
-                <div className="w-full bg-white/5 h-3 rounded-full overflow-hidden">
+                <div className="w-full bg-white/10 h-3 rounded-full overflow-hidden p-0.5">
                     <div
-                        className="h-full bg-gradient-to-r from-blue-500 to-emerald-500 rounded-full transition-all duration-1000 ease-out"
+                        className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 rounded-full transition-all duration-1000 ease-out shadow-[0_0_12px_rgba(52,211,153,0.5)]"
                         style={{ width: `${Math.min(progress, 100)}%` }}
                     />
                 </div>
             </div>
 
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-white tracking-tight">Installments Paid</h3>
-                <button
-                    onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
-                    className="bg-gradient-to-r from-blue-500 to-indigo-600 hover:brightness-110 text-white font-black py-3 px-5 rounded-2xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.2)] text-xs uppercase tracking-widest active:scale-95"
-                >
-                    <Plus size={16} />
-                    Add Installment
-                </button>
-            </div>
+            {/* Installment History Bar Chart */}
+            {monthlyChartData.length > 0 && (
+                <div className="mb-10 bg-white/5 border border-white/10 backdrop-blur-xl p-6 rounded-2xl shadow-2xl">
+                    <div className="flex items-center gap-2 mb-6">
+                        <TrendingUp size={22} className="text-emerald-400" />
+                        <h3 className="text-xl font-bold text-white tracking-tight">Installment Contribution History</h3>
+                    </div>
 
-            <div className="card p-0 overflow-hidden shadow-2xl mb-12" style={glassCardStyle}>
+                    <div style={{ width: '100%', height: '260px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={monthlyChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis dataKey="date" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
+                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
+                                <Tooltip
+                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                    itemStyle={{ color: '#34d399', fontWeight: 'bold' }}
+                                    formatter={(value) => [formatCurrency(value), 'Installment Paid']}
+                                    labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
+                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                />
+                                <Bar dataKey="amount" fill="#34d399" radius={[6, 6, 0, 0]} maxBarSize={45} name="Installment Paid">
+                                    {monthlyChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={index === monthlyChartData.length - 1 ? '#10b981' : '#34d399'} opacity={0.9} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
+
+            {/* Installments Table */}
+            <div className="card p-0 overflow-hidden shadow-2xl mb-10 border border-white/10" style={glassCardStyle}>
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                        <Sparkles size={18} className="text-blue-400" />
+                        Installment Transactions
+                    </h3>
+                    <span className="text-xs font-bold text-zinc-400">{installments.length} Paid</span>
+                </div>
+
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
                                 <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Date</th>
-                                <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Amount</th>
+                                <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest text-right">Amount</th>
                                 <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Remarks</th>
                                 <th className="py-4 px-6 text-center text-zinc-400 text-[10px] font-black uppercase tracking-widest">Actions</th>
                             </tr>
@@ -202,28 +260,28 @@ const SingleRecurringDepositDetails = () => {
                                     <tr 
                                         key={tx.id} 
                                         style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} 
-                                        className="hover:bg-white/[0.03] transition-colors group"
+                                        className="hover:bg-white/[0.04] transition-colors group"
                                     >
-                                        <td className="py-4 px-6 text-zinc-300">{formatDate(tx.date)}</td>
-                                        <td className="py-4 px-6 text-zinc-100 font-mono">
+                                        <td className="py-4 px-6 text-zinc-300 font-semibold">{formatDate(tx.date)}</td>
+                                        <td className="py-4 px-6 text-emerald-400 font-mono text-right font-extrabold">
                                             {formatCurrency(tx.amount)}
                                         </td>
                                         <td className="py-4 px-6 text-zinc-400 font-medium">{tx.remarks || '—'}</td>
                                         <td className="py-4 px-6 text-center">
-                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => { setEditingTx(tx); setIsModalOpen(true); }}
-                                                    className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all"
+                                                    className="p-2 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all border border-blue-500/20"
                                                     title="Edit"
                                                 >
-                                                    <Edit2 size={12} />
+                                                    <Edit2 size={13} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteTransaction(tx.id)}
-                                                    className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                    className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
                                                     title="Delete"
                                                 >
-                                                    <Trash2 size={12} />
+                                                    <Trash2 size={13} />
                                                 </button>
                                             </div>
                                         </td>
@@ -232,7 +290,7 @@ const SingleRecurringDepositDetails = () => {
                             {!installments.length && (
                                 <tr>
                                     <td colSpan="4" className="py-12 text-center text-zinc-500 italic">
-                                        No installments recorded.
+                                        No installments recorded yet.
                                     </td>
                                 </tr>
                             )}
@@ -241,24 +299,22 @@ const SingleRecurringDepositDetails = () => {
                 </div>
             </div>
 
-            <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-bold text-white tracking-tight">Interest Payouts</h3>
-                <button
-                    onClick={() => { setEditingInterestTx(null); setIsInterestModalOpen(true); }}
-                    className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:brightness-110 text-white font-black py-3 px-5 rounded-2xl flex items-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.2)] text-xs uppercase tracking-widest active:scale-95"
-                >
-                    <Plus size={16} />
-                    Add Interest
-                </button>
-            </div>
+            {/* Interest Received Section */}
+            <div className="card p-0 overflow-hidden shadow-2xl border border-white/10" style={glassCardStyle}>
+                <div className="p-6 border-b border-white/10 flex items-center justify-between">
+                    <h3 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                        <TrendingUp size={18} className="text-amber-400" />
+                        Interest Payouts Received
+                    </h3>
+                    <span className="text-xs font-bold text-amber-400/80 font-mono">Total: {formatCurrency(totalInterestReceived)}</span>
+                </div>
 
-            <div className="card p-0 overflow-hidden shadow-2xl" style={glassCardStyle}>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.02)' }}>
                                 <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Date</th>
-                                <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Amount</th>
+                                <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest text-right">Interest Amount</th>
                                 <th className="py-4 px-6 text-zinc-400 text-[10px] font-black uppercase tracking-widest">Remarks</th>
                                 <th className="py-4 px-6 text-center text-zinc-400 text-[10px] font-black uppercase tracking-widest">Actions</th>
                             </tr>
@@ -267,31 +323,27 @@ const SingleRecurringDepositDetails = () => {
                             {interestTransactions
                                 .sort((a, b) => new Date(b.date) - new Date(a.date))
                                 .map((tx) => (
-                                    <tr 
-                                        key={tx.id} 
-                                        style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} 
-                                        className="hover:bg-white/[0.03] transition-colors group"
-                                    >
-                                        <td className="py-4 px-6 text-zinc-300">{formatDate(tx.date)}</td>
-                                        <td className="py-4 px-6 text-emerald-400 font-mono">
+                                    <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }} className="hover:bg-white/[0.04] transition-colors group">
+                                        <td className="py-4 px-6 text-zinc-300 font-semibold">{formatDate(tx.date)}</td>
+                                        <td className="py-4 px-6 text-amber-400 font-mono text-right font-extrabold">
                                             {formatCurrency(tx.amount)}
                                         </td>
-                                        <td className="py-4 px-6 text-zinc-400 font-medium">{tx.remarks || '—'}</td>
+                                        <td className="py-4 px-6 text-zinc-400 font-medium">{tx.remarks || 'Interest Payout'}</td>
                                         <td className="py-4 px-6 text-center">
-                                            <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <div className="flex items-center justify-center gap-2 opacity-80 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => { setEditingInterestTx(tx); setIsInterestModalOpen(true); }}
-                                                    className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all"
+                                                    className="p-2 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all border border-blue-500/20"
                                                     title="Edit"
                                                 >
-                                                    <Edit2 size={12} />
+                                                    <Edit2 size={13} />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeleteInterest(tx.id)}
-                                                    className="p-1.5 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all"
+                                                    className="p-2 rounded-xl bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
                                                     title="Delete"
                                                 >
-                                                    <Trash2 size={12} />
+                                                    <Trash2 size={13} />
                                                 </button>
                                             </div>
                                         </td>
@@ -300,7 +352,7 @@ const SingleRecurringDepositDetails = () => {
                             {!interestTransactions.length && (
                                 <tr>
                                     <td colSpan="4" className="py-12 text-center text-zinc-500 italic">
-                                        No interest transactions recorded.
+                                        No interest payouts recorded yet.
                                     </td>
                                 </tr>
                             )}

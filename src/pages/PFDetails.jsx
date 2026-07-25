@@ -17,6 +17,7 @@ const PFDetails = () => {
     const [editingIndex, setEditingIndex] = useState(null);
     const [isEditingUan, setIsEditingUan] = useState(false);
     const [uan, setUan] = useState('');
+    const [activeTab, setActiveTab] = useState('EPF');
 
     const pf = useMemo(() => savings.find(s => s.id === id), [savings, id]);
 
@@ -36,11 +37,21 @@ const PFDetails = () => {
     const recalculateBalances = (details) => {
         if (!pf) return [];
         const sorted = [...details].sort((a, b) => new Date(a.date) - new Date(b.date));
-        let runningBalance = Number(pf.amount || 0); // Starting opening balance
+        let runningEpfBalance = Number(pf.amount || 0);
+        let runningEpsBalance = 0;
         return sorted.map(item => {
-            const txAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.interestEarned) || 0);
-            runningBalance += txAmount;
-            return { ...item, balance: runningBalance };
+            const epfAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.interestEarned) || 0);
+            runningEpfBalance += epfAmount;
+            
+            const epsAmount = Number(item.epsContribution) || 0;
+            runningEpsBalance += epsAmount;
+
+            return { 
+                ...item, 
+                balance: runningEpfBalance,
+                epfBalance: runningEpfBalance,
+                epsBalance: runningEpsBalance
+            };
         });
     };
 
@@ -84,9 +95,21 @@ const PFDetails = () => {
 
     const filteredDetails = useMemo(() => {
         const sorted = [...details].sort((a, b) => new Date(b.date) - new Date(a.date));
-        if (selectedYear === 'All') return sorted;
-        return details.filter(item => getFinancialYear(item.date) === selectedYear).sort((a, b) => new Date(b.date) - new Date(a.date));
-    }, [details, selectedYear]);
+        
+        const tabFiltered = sorted.filter(item => {
+            if (activeTab === 'EPF') {
+                return (Number(item.employeeContribution) > 0 || 
+                        Number(item.employerContribution) > 0 || 
+                        Number(item.interestEarned) > 0 || 
+                        item.type === 'Interest');
+            } else {
+                return Number(item.epsContribution) > 0;
+            }
+        });
+
+        if (selectedYear === 'All') return tabFiltered;
+        return tabFiltered.filter(item => getFinancialYear(item.date) === selectedYear);
+    }, [details, selectedYear, activeTab]);
 
     const itemsPerPage = 6;
     const totalPages = useMemo(() => Math.ceil(filteredDetails.length / itemsPerPage), [filteredDetails]);
@@ -97,7 +120,7 @@ const PFDetails = () => {
 
     const openingBalance = useMemo(() => Number(pf?.amount || 0), [pf]);
 
-    const totalInterest = useMemo(() => {
+    const totalEpfInterest = useMemo(() => {
         return details.reduce((sum, item) => sum + (Number(item.interestEarned) || 0), 0);
     }, [details]);
 
@@ -109,26 +132,134 @@ const PFDetails = () => {
         return details.reduce((sum, item) => sum + (Number(item.employerContribution) || 0), 0);
     }, [details]);
 
-    const totalBalance = useMemo(() => {
+    const totalEpsContrib = useMemo(() => {
+        return details.reduce((sum, item) => sum + (Number(item.epsContribution) || 0), 0);
+    }, [details]);
+
+    const totalEpfBalance = useMemo(() => {
         if (!pf) return 0;
-        return details.length > 0 ? recalculateBalances(details).slice(-1)[0].balance : openingBalance;
+        return details.length > 0 ? recalculateBalances(details).slice(-1)[0].epfBalance : openingBalance;
     }, [details, pf, openingBalance]);
 
-    const yearlyInterest = useMemo(() => {
+    const totalEpsBalance = useMemo(() => {
+        if (!pf) return 0;
+        return details.length > 0 ? recalculateBalances(details).slice(-1)[0].epsBalance : 0;
+    }, [details, pf]);
+
+    const totalPortfolioBalance = useMemo(() => {
+        return totalEpfBalance + totalEpsBalance;
+    }, [totalEpfBalance, totalEpsBalance]);
+
+    const yearlyEpfInterestSplit = useMemo(() => {
         return details.reduce((acc, item) => {
             if (item.type === 'Interest' || Number(item.interestEarned) > 0) {
                 const fy = getFinancialYear(item.date);
-                acc[fy] = (acc[fy] || 0) + (Number(item.interestEarned) || 0);
+                if (!acc[fy]) {
+                    acc[fy] = { employeeInterest: 0, employerInterest: 0 };
+                }
+                const empInt = item.employeeInterestEarned;
+                const emrInt = item.employerInterestEarned;
+                if (empInt !== undefined || emrInt !== undefined) {
+                    acc[fy].employeeInterest += (Number(empInt) || 0);
+                    acc[fy].employerInterest += (Number(emrInt) || 0);
+                } else {
+                    acc[fy].employeeInterest += (Number(item.interestEarned) || 0);
+                }
             }
             return acc;
         }, {});
     }, [details]);
 
-    const chartData = useMemo(() => {
-        return Object.entries(yearlyInterest)
+    const epfChartData = useMemo(() => {
+        return Object.entries(yearlyEpfInterestSplit)
+            .map(([year, split]) => ({ 
+                year, 
+                employeeInterest: split.employeeInterest, 
+                employerInterest: split.employerInterest,
+                total: split.employeeInterest + split.employerInterest
+            }))
+            .sort((a, b) => a.year.localeCompare(b.year));
+    }, [yearlyEpfInterestSplit]);
+
+    const yearlyEpsContrib = useMemo(() => {
+        return details.reduce((acc, item) => {
+            if (Number(item.epsContribution) > 0) {
+                const fy = getFinancialYear(item.date);
+                acc[fy] = (acc[fy] || 0) + (Number(item.epsContribution) || 0);
+            }
+            return acc;
+        }, {});
+    }, [details]);
+
+    const epsChartData = useMemo(() => {
+        return Object.entries(yearlyEpsContrib)
             .map(([year, amount]) => ({ year, amount }))
             .sort((a, b) => a.year.localeCompare(b.year));
-    }, [yearlyInterest]);
+    }, [yearlyEpsContrib]);
+
+    const getYearlyStatus = useMemo(() => {
+        const status = {};
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear();
+        const currentMonth = currentDate.getMonth() + 1;
+        const currentFY = currentMonth >= 4 ? `${currentYear}-${(currentYear + 1).toString().slice(-2)}` : `${currentYear - 1}-${currentYear.toString().slice(-2)}`;
+
+        const uniqueYears = new Set(details.map(item => getFinancialYear(item.date)));
+        uniqueYears.add(currentFY);
+
+        uniqueYears.forEach(fy => {
+            if (!fy || fy.length < 7) return;
+            const startYearStr = fy.split('-')[0];
+            const startYear = parseInt(startYearStr);
+            if (isNaN(startYear)) return;
+            
+            const expectedMonths = [];
+            for (let m = 4; m <= 12; m++) {
+                expectedMonths.push({ year: startYear, month: m });
+            }
+            for (let m = 1; m <= 3; m++) {
+                expectedMonths.push({ year: startYear + 1, month: m });
+            }
+
+            const checkableMonths = expectedMonths.filter(em => {
+                if (em.year < currentYear) return true;
+                if (em.year === currentYear && em.month <= currentMonth) return true;
+                return false;
+            });
+
+            const fyTxs = details.filter(item => getFinancialYear(item.date) === fy);
+            
+            const monthlyContributions = {};
+            fyTxs.forEach(tx => {
+                if (tx.type !== 'Interest' && (Number(tx.employeeContribution) > 0 || Number(tx.employerContribution) > 0 || Number(tx.epsContribution) > 0)) {
+                    const txDate = new Date(tx.date);
+                    const key = `${txDate.getFullYear()}-${txDate.getMonth() + 1}`;
+                    monthlyContributions[key] = true;
+                }
+            });
+
+            const missingMonths = checkableMonths.filter(em => {
+                const key = `${em.year}-${em.month}`;
+                return !monthlyContributions[key];
+            });
+
+            const hasInterest = fyTxs.some(tx => tx.type === 'Interest' || Number(tx.interestEarned) > 0);
+
+            status[fy] = {
+                totalExpected: checkableMonths.length,
+                totalRecorded: checkableMonths.length - missingMonths.length,
+                missingCount: missingMonths.length,
+                missingMonths: missingMonths.map(em => {
+                    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                    return `${monthNames[em.month - 1]} ${em.year}`;
+                }),
+                hasInterest,
+                isOngoing: fy === currentFY
+            };
+        });
+
+        return status;
+    }, [details]);
 
     if (!pf) return <div style={{ padding: 'var(--spacing-lg)', color: 'white' }}>PF account not found.</div>;
 
@@ -323,11 +454,10 @@ const PFDetails = () => {
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
                 onClick={() => navigate(-1)}
-                style={styles.breadcrumb}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
+                style={{ cursor: 'pointer' }}
             >
-                <ArrowLeft size={14} style={{ marginRight: '0.25rem' }} /> Back to Savings
+                <ArrowLeft size={16} className="text-white" /> Back to Savings
             </button>
 
             <div style={styles.headerPanel}>
@@ -421,107 +551,152 @@ const PFDetails = () => {
                 </button>
             </div>
 
-            <div style={styles.statGrid}>
-                {/* Total Balance */}
-                <div 
-                    style={styles.glassCard('rgba(99, 102, 241, 0.05)', 'rgba(99, 102, 241, 0.15)', 'rgba(99, 102, 241, 0.1)')}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.15)';
-                    }}
-                >
-                    <p style={{ fontSize: '10px', color: '#818cf8', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total Balance</p>
-                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: 'white', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalBalance)}</p>
-                </div>
-                {/* My Contribution */}
-                <div 
-                    style={styles.glassCard('rgba(59, 130, 246, 0.05)', 'rgba(59, 130, 246, 0.15)', 'rgba(59, 130, 246, 0.1)')}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.25)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.borderColor = 'rgba(59, 130, 246, 0.15)';
-                    }}
-                >
-                    <p style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>My Contribution</p>
-                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#60a5fa', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployeeContrib)}</p>
-                </div>
-                {/* Employer Contribution */}
-                <div 
-                    style={styles.glassCard('rgba(20, 184, 166, 0.05)', 'rgba(20, 184, 166, 0.15)', 'rgba(20, 184, 166, 0.1)')}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.25)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.borderColor = 'rgba(20, 184, 166, 0.15)';
-                    }}
-                >
-                    <p style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Employer Contribution</p>
-                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#2dd4bf', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployerContrib)}</p>
-                </div>
-                {/* Total Interest */}
-                <div 
-                    style={styles.glassCard('rgba(16, 185, 129, 0.05)', 'rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.1)')}
-                    onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-2px)';
-                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.25)';
-                    }}
-                    onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.borderColor = 'rgba(16, 185, 129, 0.15)';
-                    }}
-                >
-                    <p style={{ fontSize: '10px', color: '#34d399', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total Interest</p>
-                    <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#34d399', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalInterest)}</p>
-                </div>
+            <div style={{
+                marginBottom: '1.5rem',
+                padding: '1rem 1.5rem',
+                borderRadius: '1.25rem',
+                backgroundColor: 'rgba(255, 255, 255, 0.01)',
+                border: '1px solid rgba(255, 255, 255, 0.05)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <span style={{ fontSize: '0.875rem', color: '#a1a1aa', fontWeight: '600' }}>Combined PF Portfolio Value (EPF + EPS):</span>
+                <span style={{ fontSize: '1.5rem', fontWeight: '900', color: '#818cf8', fontFamily: 'monospace' }}>{formatCurrency(totalPortfolioBalance)}</span>
             </div>
 
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <button
+                    onClick={() => { setActiveTab('EPF'); setCurrentPage(1); }}
+                    style={styles.filterTab(activeTab === 'EPF')}
+                >
+                    EPF (Provident Fund)
+                </button>
+                <button
+                    onClick={() => { setActiveTab('EPS'); setCurrentPage(1); }}
+                    style={styles.filterTab(activeTab === 'EPS')}
+                >
+                    EPS (Pension Scheme)
+                </button>
+            </div>
+
+            {activeTab === 'EPF' ? (
+                <div style={styles.statGrid}>
+                    <div style={styles.glassCard('rgba(99, 102, 241, 0.05)', 'rgba(99, 102, 241, 0.15)', 'rgba(99, 102, 241, 0.1)')}>
+                        <p style={{ fontSize: '10px', color: '#818cf8', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total EPF Balance</p>
+                        <p style={{ fontSize: '1.6rem', fontWeight: '900', color: 'white', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEpfBalance)}</p>
+                    </div>
+                    <div style={styles.glassCard('rgba(59, 130, 246, 0.05)', 'rgba(59, 130, 246, 0.15)', 'rgba(59, 130, 246, 0.1)')}>
+                        <p style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Employee Contribution</p>
+                        <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#60a5fa', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployeeContrib)}</p>
+                    </div>
+                    <div style={styles.glassCard('rgba(20, 184, 166, 0.05)', 'rgba(20, 184, 166, 0.15)', 'rgba(20, 184, 166, 0.1)')}>
+                        <p style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Employer EPF Contribution</p>
+                        <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#2dd4bf', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployerContrib)}</p>
+                    </div>
+                    <div style={styles.glassCard('rgba(16, 185, 129, 0.05)', 'rgba(16, 185, 129, 0.15)', 'rgba(16, 185, 129, 0.1)')}>
+                        <p style={{ fontSize: '10px', color: '#34d399', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total EPF Interest</p>
+                        <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#34d399', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEpfInterest)}</p>
+                    </div>
+                </div>
+            ) : (
+                <div style={styles.statGrid}>
+                    <div style={styles.glassCard('rgba(251, 191, 36, 0.05)', 'rgba(251, 191, 36, 0.15)', 'rgba(251, 191, 36, 0.1)')}>
+                        <p style={{ fontSize: '10px', color: '#fbbf24', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total EPS Balance</p>
+                        <p style={{ fontSize: '1.6rem', fontWeight: '900', color: 'white', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEpsBalance)}</p>
+                    </div>
+                    <div style={styles.glassCard('rgba(249, 115, 22, 0.05)', 'rgba(249, 115, 22, 0.15)', 'rgba(249, 115, 22, 0.1)')}>
+                        <p style={{ fontSize: '10px', color: '#f97316', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Total EPS Contributions</p>
+                        <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#f97316', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEpsContrib)}</p>
+                    </div>
+                </div>
+            )}
+
             <div style={styles.chartCard}>
-                <h3 style={styles.sectionHeader}>Interest Earned By Year</h3>
-                {chartData.length > 0 ? (
-                    <div style={{ width: '100%', height: '350px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                                <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
-                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
-                                    itemStyle={{ color: '#34d399', fontWeight: 'bold' }}
-                                    formatter={(value) => formatCurrency(value)}
-                                    cursor={{fill: 'rgba(255,255,255,0.02)'}}
-                                />
-                                <Bar dataKey="amount" fill="#34d399" radius={[4, 4, 0, 0]} barSize={40} />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
+                {activeTab === 'EPF' ? (
+                    <>
+                        <h3 style={styles.sectionHeader}>EPF Interest Earned By Year (Employee vs Employer)</h3>
+                        {epfChartData.length > 0 ? (
+                            <div style={{ width: '100%', height: '350px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={epfChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
+                                        <Tooltip 
+                                            contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                                            itemStyle={{ fontWeight: 'bold' }}
+                                            formatter={(value) => formatCurrency(value)}
+                                            cursor={{fill: 'rgba(255,255,255,0.02)'}}
+                                        />
+                                        <Bar dataKey="employeeInterest" fill="#34d399" radius={[4, 4, 0, 0]} barSize={20} name="Employee Interest" />
+                                        <Bar dataKey="employerInterest" fill="#60a5fa" radius={[4, 4, 0, 0]} barSize={20} name="Employer Interest" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div style={{
+                                height: '12rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: '1px dashed rgba(255, 255, 255, 0.12)', borderRadius: '1rem', backgroundColor: 'transparent'
+                            }}>
+                                <p style={{ color: '#71717a', fontWeight: '800', uppercase: 'true', letterSpacing: '0.08em', fontSize: '11px', margin: 0 }}>No EPF interest recorded yet</p>
+                            </div>
+                        )}
+                    </>
                 ) : (
-                    <div style={{
-                        height: '12rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: '1px dashed rgba(255, 255, 255, 0.12)', borderRadius: '1rem', backgroundColor: 'transparent'
-                    }}>
-                        <p style={{ color: '#71717a', fontWeight: '800', uppercase: 'true', letterSpacing: '0.08em', fontSize: '11px', margin: 0 }}>No interest recorded yet</p>
-                    </div>
+                    <>
+                        <h3 style={styles.sectionHeader}>EPS Contributions By Year</h3>
+                        {epsChartData.length > 0 ? (
+                            <div style={{ width: '100%', height: '350px' }}>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={epsChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                        <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
+                                        <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
+                                        <Tooltip 
+                                            contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                                            itemStyle={{ color: '#fbbf24', fontWeight: 'bold' }}
+                                            formatter={(value) => formatCurrency(value)}
+                                            cursor={{fill: 'rgba(255,255,255,0.02)'}}
+                                        />
+                                        <Bar dataKey="amount" fill="#fbbf24" radius={[4, 4, 0, 0]} barSize={40} name="EPS Contribution" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div style={{
+                                height: '12rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: '1px dashed rgba(255, 255, 255, 0.12)', borderRadius: '1rem', backgroundColor: 'transparent'
+                            }}>
+                                <p style={{ color: '#71717a', fontWeight: '800', uppercase: 'true', letterSpacing: '0.08em', fontSize: '11px', margin: 0 }}>No EPS contribution recorded yet</p>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
 
             <div style={styles.filterBar}>
-                {years.map(year => (
-                    <button
-                        key={year}
-                        onClick={() => { setSelectedYear(year); setCurrentPage(1); }}
-                        style={styles.filterTab(selectedYear === year)}
-                    >
-                        {year}
-                    </button>
-                ))}
+                {years.map(year => {
+                    const status = getYearlyStatus[year];
+                    const isWarning = status && (status.missingCount > 0 || !status.hasInterest);
+                    return (
+                        <button
+                            key={year}
+                            onClick={() => { setSelectedYear(year); setCurrentPage(1); }}
+                            style={{
+                                ...styles.filterTab(selectedYear === year),
+                                position: 'relative'
+                            }}
+                        >
+                            {year}
+                            {isWarning && year !== 'All' && (
+                                <span style={{
+                                    position: 'absolute', top: '3px', right: '4px',
+                                    width: '6px', height: '6px', borderRadius: '50%',
+                                    backgroundColor: '#f87171'
+                                }} title="Pending contributions or missing interest" />
+                            )}
+                        </button>
+                    );
+                })}
             </div>
 
             <div style={styles.tableContainer}>
@@ -548,24 +723,43 @@ const PFDetails = () => {
                             {paginatedDetails.map((item, index) => {
                                 const originalIndex = details.indexOf(item);
                                 const isInterest = item.type === 'Interest';
-                                const txAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.interestEarned) || 0);
+                                const epfAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.interestEarned) || 0);
+                                const epsAmount = Number(item.epsContribution) || 0;
+                                const txAmount = activeTab === 'EPF' ? epfAmount : epsAmount;
 
                                 return (
                                     <tr key={index} style={{ transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                                         <td style={styles.td('left', false, '#d4d4d8')}>{formatDate(item.date)}</td>
                                         <td style={styles.td('left')}>
-                                            <span style={{
-                                                fontSize: '9px', fontWeight: '900', px: '0.5rem', py: '0.125rem',
-                                                borderRadius: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em',
-                                                padding: '0.25rem 0.5rem',
-                                                backgroundColor: isInterest ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
-                                                color: isInterest ? '#34d399' : '#818cf8',
-                                                border: isInterest ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(99, 102, 241, 0.2)'
-                                            }}>
-                                                {item.type || 'Contribution'}
-                                            </span>
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                                                <span style={{
+                                                    fontSize: '9px', fontWeight: '900',
+                                                    borderRadius: '0.25rem', textTransform: 'uppercase', letterSpacing: '0.05em',
+                                                    padding: '0.25rem 0.5rem', width: 'fit-content',
+                                                    backgroundColor: activeTab === 'EPS' ? 'rgba(251, 191, 36, 0.12)' : isInterest ? 'rgba(16, 185, 129, 0.12)' : 'rgba(99, 102, 241, 0.12)',
+                                                    color: activeTab === 'EPS' ? '#fbbf24' : isInterest ? '#34d399' : '#818cf8',
+                                                    border: activeTab === 'EPS' ? '1px solid rgba(251, 191, 36, 0.2)' : isInterest ? '1px solid rgba(16, 185, 129, 0.2)' : '1px solid rgba(99, 102, 241, 0.2)'
+                                                }}>
+                                                    {activeTab === 'EPS' ? 'EPS Contribution' : isInterest ? 'Interest' : 'Contribution'}
+                                                </span>
+                                                {activeTab === 'EPF' && !isInterest && (Number(item.employeeContribution) > 0 || Number(item.employerContribution) > 0) && (
+                                                    <span style={{ fontSize: '10px', color: '#71717a' }}>
+                                                        Emp EPF: {formatCurrency(item.employeeContribution || 0)} | Employer EPF: {formatCurrency(item.employerContribution || 0)}
+                                                    </span>
+                                                )}
+                                                {activeTab === 'EPF' && isInterest && (Number(item.employeeInterestEarned) > 0 || Number(item.employerInterestEarned) > 0) && (
+                                                    <span style={{ fontSize: '10px', color: '#71717a' }}>
+                                                        Emp Int: {formatCurrency(item.employeeInterestEarned || 0)} | Employer Int: {formatCurrency(item.employerInterestEarned || 0)}
+                                                    </span>
+                                                )}
+                                                {activeTab === 'EPF' && isInterest && !item.employeeInterestEarned && !item.employerInterestEarned && (
+                                                    <span style={{ fontSize: '10px', color: '#71717a' }}>
+                                                        Interest: {formatCurrency(item.interestEarned || 0)}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
-                                        <td style={styles.td('right', true, isInterest ? '#34d399' : '#e4e4e7')}><span style={{ fontFamily: 'monospace' }}>{isInterest ? `+${formatCurrency(txAmount)}` : formatCurrency(txAmount)}</span></td>
+                                        <td style={styles.td('right', true, isInterest ? '#34d399' : activeTab === 'EPS' ? '#fbbf24' : '#e4e4e7')}><span style={{ fontFamily: 'monospace' }}>{isInterest ? `+${formatCurrency(txAmount)}` : formatCurrency(txAmount)}</span></td>
                                         <td style={styles.td('center')}>
                                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}>
                                                 <button onClick={() => { setEditingTx(item); setEditingIndex(originalIndex); setIsModalOpen(true); }} style={styles.actionBtn('rgba(99, 102, 241, 0.12)', 'rgba(99, 102, 241, 0.25)', '#818cf8')} onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.05)'} onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}><Edit2 size={14} /></button>

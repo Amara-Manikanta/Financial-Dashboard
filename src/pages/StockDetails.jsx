@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, X, Save, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
+import { formatDate } from '../utils/dateUtils';
 import StockTransactionModal from '../components/StockTransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -43,6 +45,47 @@ const StockDetails = () => {
     const sortedTransactions = useMemo(() => {
         return [...effectiveTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
     }, [effectiveTransactions]);
+
+    const [selectedYear, setSelectedYear] = useState('All');
+    const [currentPage, setCurrentPage] = useState(1);
+    const itemsPerPage = 8;
+
+    const getFinancialYear = (dateStr) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return '';
+        const month = date.getMonth();
+        const year = date.getFullYear();
+        if (month >= 3) { // April onwards
+            return `${year}-${(year + 1).toString().slice(-2)}`;
+        } else {
+            return `${year - 1}-${year.toString().slice(-2)}`;
+        }
+    };
+
+    const availableYears = useMemo(() => {
+        if (!effectiveTransactions.length) return ['All'];
+        const yearsSet = new Set(effectiveTransactions.map(tx => getFinancialYear(tx.date)).filter(Boolean));
+        return ['All', ...Array.from(yearsSet).sort((a, b) => b.localeCompare(a))];
+    }, [effectiveTransactions]);
+
+    const filteredTransactions = useMemo(() => {
+        const sorted = [...effectiveTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (selectedYear === 'All') return sorted;
+        return sorted.filter(tx => getFinancialYear(tx.date) === selectedYear);
+    }, [effectiveTransactions, selectedYear]);
+
+    const totalPages = useMemo(() => Math.ceil(filteredTransactions.length / itemsPerPage) || 1, [filteredTransactions, itemsPerPage]);
+
+    const paginatedTransactions = useMemo(() => {
+        const start = (currentPage - 1) * itemsPerPage;
+        return filteredTransactions.slice(start, start + itemsPerPage);
+    }, [filteredTransactions, currentPage, itemsPerPage]);
+
+    const handleYearChange = (year) => {
+        setSelectedYear(year);
+        setCurrentPage(1);
+    };
 
     if (!market || !stock) {
         return <div className="p-8 text-white">Stock not found.</div>;
@@ -211,6 +254,14 @@ const StockDetails = () => {
     const currentYear = new Date().getFullYear();
     const dividendYears = useMemo(() => Array.from({ length: 5 }, (_, i) => (currentYear - i).toString()), [currentYear]);
 
+    const dividendChartData = useMemo(() => {
+        const years = Array.from({ length: 6 }, (_, i) => (currentYear - i).toString()).reverse();
+        return years.map(year => ({
+            year,
+            amount: Number(stock?.dividends?.[year] || 0)
+        }));
+    }, [currentYear, stock]);
+
     // Redesigned premium inline CSS styles
     const styles = {
         breadcrumb: {
@@ -345,11 +396,10 @@ const StockDetails = () => {
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
                 onClick={() => navigate(-1)}
-                style={styles.breadcrumb}
-                onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
+                style={{ cursor: 'pointer' }}
             >
-                <ArrowLeft size={16} /> Back to Market
+                <ArrowLeft size={16} className="text-white" /> Back to Market
             </button>
 
             <div style={styles.headerPanel}>
@@ -437,6 +487,37 @@ const StockDetails = () => {
             </div>
 
             <div style={styles.tableContainer}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '11px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#a1a1aa', marginRight: '0.5rem' }}>
+                            Filter Year:
+                        </span>
+                        {availableYears.map(year => (
+                            <button
+                                key={year}
+                                onClick={() => handleYearChange(year)}
+                                style={{
+                                    padding: '0.375rem 0.875rem',
+                                    borderRadius: '0.5rem',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    border: selectedYear === year ? '1px solid #6366f1' : '1px solid rgba(255, 255, 255, 0.08)',
+                                    backgroundColor: selectedYear === year ? 'rgba(99, 102, 241, 0.15)' : 'rgba(255, 255, 255, 0.03)',
+                                    color: selectedYear === year ? '#818cf8' : '#a1a1aa',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                {year === 'All' ? 'All Years' : `FY ${year}`}
+                            </button>
+                        ))}
+                    </div>
+
+                    <span style={{ fontSize: '12px', fontWeight: '700', color: '#71717a' }}>
+                        {filteredTransactions.length} {filteredTransactions.length === 1 ? 'Transaction' : 'Transactions'}
+                    </span>
+                </div>
+
                 <table style={styles.table}>
                     <thead>
                         <tr>
@@ -450,13 +531,13 @@ const StockDetails = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {sortedTransactions.length === 0 ? (
-                            <tr><td colSpan={7} style={{ ...styles.td('center'), color: '#71717a', padding: '3rem' }}>No transactions recorded.</td></tr>
+                        {paginatedTransactions.length === 0 ? (
+                            <tr><td colSpan={7} style={{ ...styles.td('center'), color: '#71717a', padding: '3rem' }}>No transactions found for the selected period.</td></tr>
                         ) : (
-                            sortedTransactions.map(tx => (
+                            paginatedTransactions.map(tx => (
                                 <tr key={tx.id} style={{ transition: 'background-color 0.2s' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.02)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}>
                                     <td style={styles.td('left', false, '#d4d4d8')}>
-                                        {new Date(tx.date).toLocaleDateString()}
+                                        {formatDate(tx.date)}
                                         {tx.id === 'synthetic-initial' && <span style={{ marginLeft: '0.5rem', fontSize: '10px', color: '#fbbf24', fontWeight: 'bold' }}>(Auto-generated)</span>}
                                     </td>
                                     <td style={styles.td('left')}>
@@ -553,39 +634,146 @@ const StockDetails = () => {
                         )}
                     </tbody>
                 </table>
+
+                {/* Pagination Controls */}
+                {filteredTransactions.length > itemsPerPage && (
+                    <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justify: 'space-between',
+                        padding: '1rem 1.5rem',
+                        backgroundColor: 'rgba(255, 255, 255, 0.02)',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.08)'
+                    }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600', color: '#71717a' }}>
+                            Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length}
+                        </span>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                style={{
+                                    padding: '0.4rem 0.875rem',
+                                    borderRadius: '0.5rem',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    backgroundColor: currentPage === 1 ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)',
+                                    color: currentPage === 1 ? '#52525b' : '#ffffff',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Previous
+                            </button>
+
+                            <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                {[...Array(totalPages)].map((_, i) => (
+                                    <button
+                                        key={i}
+                                        onClick={() => setCurrentPage(i + 1)}
+                                        style={{
+                                            width: '2rem',
+                                            height: '2rem',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '11px',
+                                            fontWeight: '800',
+                                            border: 'none',
+                                            cursor: 'pointer',
+                                            backgroundColor: currentPage === i + 1 ? '#6366f1' : 'transparent',
+                                            color: currentPage === i + 1 ? 'white' : '#71717a',
+                                            transition: 'all 0.2s'
+                                        }}
+                                    >
+                                        {i + 1}
+                                    </button>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                style={{
+                                    padding: '0.4rem 0.875rem',
+                                    borderRadius: '0.5rem',
+                                    fontSize: '11px',
+                                    fontWeight: '800',
+                                    backgroundColor: currentPage === totalPages ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.06)',
+                                    color: currentPage === totalPages ? '#52525b' : '#ffffff',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                    transition: 'all 0.2s'
+                                }}
+                            >
+                                Next
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            <div style={{ marginTop: '2.5rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '700', color: 'white', marginBottom: '1rem', paddingLeft: '0.25rem' }}>Dividends History</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem' }}>
-                    {dividendYears.map(year => (
-                        <div
-                            key={year}
-                            style={{
-                                ...styles.glassCard(),
-                                padding: '1rem',
-                                cursor: 'pointer',
-                                transition: 'all 0.3s'
-                            }}
-                            onMouseEnter={(e) => {
-                                e.currentTarget.style.transform = 'translateY(-2px)';
-                                e.currentTarget.style.borderColor = 'rgba(99, 102, 241, 0.25)';
-                            }}
-                            onMouseLeave={(e) => {
-                                e.currentTarget.style.transform = 'translateY(0)';
-                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)';
-                            }}
-                            onClick={() => setEditingDividend({ year, amount: stock.dividends?.[year] || 0 })}
-                        >
-                            <p style={{ fontSize: '0.825rem', color: '#a1a1aa', margin: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                                {year}
-                                <Edit2 size={12} style={{ color: '#818cf8', opacity: 0.5 }} />
-                            </p>
-                            <p style={{ fontSize: '1.125rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>
-                                {formatCurrency(stock.dividends?.[year] || 0)}
-                            </p>
-                        </div>
-                    ))}
+            {/* Yearly Dividend History Bar Chart */}
+            <div style={{
+                marginTop: '2.5rem',
+                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0.01) 100%)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                borderRadius: '1.25rem',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '1.5rem',
+                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+                    <div>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff', margin: 0, letterSpacing: '-0.01em' }}>
+                            Yearly Dividend History
+                        </h3>
+                        <p style={{ fontSize: '0.75rem', color: '#a1a1aa', margin: '0.25rem 0 0 0' }}>
+                            Click on any bar or bar card to edit dividend amount
+                        </p>
+                    </div>
+
+                    <span style={{
+                        fontSize: '11px',
+                        fontWeight: '800',
+                        color: '#2dd4bf',
+                        backgroundColor: 'rgba(45, 212, 191, 0.1)',
+                        padding: '0.35rem 0.85rem',
+                        borderRadius: '9999px',
+                        border: '1px solid rgba(45, 212, 191, 0.2)'
+                    }}>
+                        Total Dividends: {formatCurrency(Object.values(stock.dividends || {}).reduce((a, b) => Number(a) + Number(b), 0))}
+                    </span>
+                </div>
+
+                <div style={{ width: '100%', height: '240px' }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dividendChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                            <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
+                            <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
+                            <Tooltip
+                                contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                itemStyle={{ color: '#2dd4bf', fontWeight: 'bold' }}
+                                formatter={(value) => [formatCurrency(value), 'Dividend Earned']}
+                                labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
+                                cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                            />
+                            <Bar
+                                dataKey="amount"
+                                radius={[6, 6, 0, 0]}
+                                maxBarSize={45}
+                                name="Dividend Earned"
+                                onClick={(entry) => setEditingDividend({ year: entry.year, amount: entry.amount })}
+                                style={{ cursor: 'pointer' }}
+                            >
+                                {dividendChartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill="#2dd4bf" opacity={0.85} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             </div>
 

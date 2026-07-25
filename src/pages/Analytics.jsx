@@ -297,10 +297,10 @@ const Analytics = () => {
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="flex items-center gap-2 text-secondary hover:text-primary transition-colors mb-6"
-                style={{ cursor: 'pointer', marginBottom: 'var(--spacing-lg)', background: 'none', border: 'none', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
+                style={{ cursor: 'pointer' }}
             >
-                <ArrowLeft size={20} /> Back to Expenses
+                <ArrowLeft size={16} className="text-white" /> Back to Expenses
             </button>
 
             {/* First Plot Section */}

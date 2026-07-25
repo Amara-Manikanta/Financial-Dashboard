@@ -29,7 +29,9 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [type, setType] = useState('Contribution');
     const [employeeAmount, setEmployeeAmount] = useState('');
     const [employerAmount, setEmployerAmount] = useState('');
-    const [interestAmount, setInterestAmount] = useState('');
+    const [epsAmount, setEpsAmount] = useState('');
+    const [employeeInterestAmount, setEmployeeInterestAmount] = useState('');
+    const [employerInterestAmount, setEmployerInterestAmount] = useState('');
 
     useEffect(() => {
         if (initialData) {
@@ -37,7 +39,17 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
             setType(initialData.type === 'Interest' ? 'Interest' : 'Contribution');
             setEmployeeAmount(initialData.employeeContribution ? initialData.employeeContribution.toString() : '');
             setEmployerAmount(initialData.employerContribution ? initialData.employerContribution.toString() : '');
-            setInterestAmount(initialData.interestEarned ? initialData.interestEarned.toString() : '');
+            setEpsAmount(initialData.epsContribution ? initialData.epsContribution.toString() : '');
+            
+            const empInt = initialData.employeeInterestEarned;
+            const emrInt = initialData.employerInterestEarned;
+            if (empInt !== undefined || emrInt !== undefined) {
+                setEmployeeInterestAmount(empInt ? empInt.toString() : '');
+                setEmployerInterestAmount(emrInt ? emrInt.toString() : '');
+            } else {
+                setEmployeeInterestAmount(initialData.interestEarned ? initialData.interestEarned.toString() : '');
+                setEmployerInterestAmount('');
+            }
         } else {
             resetForm();
         }
@@ -48,7 +60,9 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
         setType('Contribution');
         setEmployeeAmount('');
         setEmployerAmount('');
-        setInterestAmount('');
+        setEpsAmount('1250');
+        setEmployeeInterestAmount('');
+        setEmployerInterestAmount('');
     };
 
     const handleSubmit = (e) => {
@@ -56,7 +70,9 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
         
         const numEmployee = parseFloat(employeeAmount || 0);
         const numEmployer = parseFloat(employerAmount || 0);
-        const numInterest = parseFloat(interestAmount || 0);
+        const numEps = parseFloat(epsAmount || 0);
+        const numEmployeeInterest = parseFloat(employeeInterestAmount || 0);
+        const numEmployerInterest = parseFloat(employerInterestAmount || 0);
 
         let txData = {
             id: initialData?.id || Date.now(),
@@ -67,13 +83,19 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
         if (type === 'Contribution') {
             txData.employeeContribution = numEmployee;
             txData.employerContribution = numEmployer;
+            txData.epsContribution = numEps;
+            txData.employeeInterestEarned = 0;
+            txData.employerInterestEarned = 0;
             txData.interestEarned = 0;
-            txData.amount = numEmployee + numEmployer;
+            txData.amount = numEmployee + numEmployer + numEps;
         } else if (type === 'Interest') {
             txData.employeeContribution = 0;
             txData.employerContribution = 0;
-            txData.interestEarned = numInterest;
-            txData.amount = numInterest;
+            txData.epsContribution = 0;
+            txData.employeeInterestEarned = numEmployeeInterest;
+            txData.employerInterestEarned = numEmployerInterest;
+            txData.interestEarned = numEmployeeInterest + numEmployerInterest;
+            txData.amount = numEmployeeInterest + numEmployerInterest;
         }
 
         onSave(txData);
@@ -136,47 +158,73 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                     </div>
 
                     {type === 'Contribution' && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-3 gap-3">
                             <div className="relative">
-                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">My Contribution</label>
+                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Employee EPF</label>
                                 <div className="relative">
                                     <CurrencyInput
                                         required
                                         value={employeeAmount}
                                         onChange={e => setEmployeeAmount(e.target.value)}
-                                        style={inputStyle}
+                                        style={{...inputStyle, padding: '0.75rem 0.5rem 0.75rem 1.7rem'}}
                                         placeholder="0.00"
                                     />
-                                    <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                                    <div style={{...iconStyle, left: '0.5rem'}}><span className="text-sm font-bold">₹</span></div>
                                 </div>
                             </div>
                             <div className="relative">
-                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Employer</label>
+                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Employer EPF</label>
                                 <div className="relative">
                                     <CurrencyInput
                                         value={employerAmount}
                                         onChange={e => setEmployerAmount(e.target.value)}
-                                        style={inputStyle}
+                                        style={{...inputStyle, padding: '0.75rem 0.5rem 0.75rem 1.7rem'}}
                                         placeholder="0.00"
                                     />
-                                    <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                                    <div style={{...iconStyle, left: '0.5rem'}}><span className="text-sm font-bold">₹</span></div>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Employer EPS</label>
+                                <div className="relative">
+                                    <CurrencyInput
+                                        value={epsAmount}
+                                        onChange={e => setEpsAmount(e.target.value)}
+                                        style={{...inputStyle, padding: '0.75rem 0.5rem 0.75rem 1.7rem'}}
+                                        placeholder="0.00"
+                                    />
+                                    <div style={{...iconStyle, left: '0.5rem'}}><span className="text-sm font-bold">₹</span></div>
                                 </div>
                             </div>
                         </div>
                     )}
 
                     {type === 'Interest' && (
-                        <div className="relative">
-                            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Interest Earned</label>
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="relative">
-                                <CurrencyInput
-                                    required
-                                    value={interestAmount}
-                                    onChange={e => setInterestAmount(e.target.value)}
-                                    style={inputStyle}
-                                    placeholder="0.00"
-                                />
-                                <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Employee Interest</label>
+                                <div className="relative">
+                                    <CurrencyInput
+                                        required
+                                        value={employeeInterestAmount}
+                                        onChange={e => setEmployeeInterestAmount(e.target.value)}
+                                        style={inputStyle}
+                                        placeholder="0.00"
+                                    />
+                                    <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Employer Interest</label>
+                                <div className="relative">
+                                    <CurrencyInput
+                                        value={employerInterestAmount}
+                                        onChange={e => setEmployerInterestAmount(e.target.value)}
+                                        style={inputStyle}
+                                        placeholder="0.00"
+                                    />
+                                    <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
+                                </div>
                             </div>
                         </div>
                     )}
