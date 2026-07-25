@@ -50,9 +50,12 @@ const Investments = () => {
     };
 
     const totalPortfolioValue = activeInvestments.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
+    const totalInvestedValue = activeInvestments.reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
+    const totalProfitLoss = totalPortfolioValue - totalInvestedValue;
+    const isTotalProfit = totalProfitLoss >= 0;
 
     const stockMarketTotal = activeInvestments.filter(i => i.type === 'stock_market').reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
-    
+
     let pieData = [];
     if (stockMarketTotal > 0) {
         pieData.push({ name: 'Stock Market', value: stockMarketTotal });
@@ -66,10 +69,6 @@ const Investments = () => {
     });
 
     pieData.sort((a, b) => b.value - a.value);
-
-    const totalInvestedValue = pieData.reduce((sum, item) => sum + item.value, 0);
-    const totalProfitLoss = totalPortfolioValue - totalInvestedValue;
-    const isTotalProfit = totalProfitLoss >= 0;
 
     const PIE_COLORS = [
         '#8b5cf6', // Purple

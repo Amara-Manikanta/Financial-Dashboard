@@ -1409,16 +1409,19 @@ export function FinanceProvider({ children }) {
 
         switch (item.type) {
             case 'stock_market':
-                return (item.stocks || []).reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.currentPrice || 0)), 0);
+                return (item.stocks || [])
+                    .filter(s => !s.isArchived && Number(s.shares || 0) > 0)
+                    .reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.currentPrice || 0)), 0);
 
             case 'mutual_fund':
                 let totalUnits = 0;
                 (item.transactions || []).forEach(tx => {
-                    const type = tx.type || (tx.remarks && tx.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
-                    if (type === 'buy' || type === 'sip') totalUnits += Number(tx.units || 0);
-                    if (type === 'sell' || type === 'withdraw') totalUnits -= Number(tx.units || 0);
+                    const isSell = tx.type === 'sell' || tx.type === 'withdraw';
+                    const txUnits = Number(tx.units || 0);
+                    if (isSell) totalUnits -= txUnits;
+                    else totalUnits += txUnits;
                 });
-                return totalUnits * (item.currentNav || 0);
+                return Math.max(0, totalUnits) * Number(item.currentNav || 0);
 
             case 'fixed_deposit':
                 return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.currentValue) || 0), 0);
@@ -1479,12 +1482,15 @@ export function FinanceProvider({ children }) {
 
         switch (item.type) {
             case 'stock_market':
-                return (item.stocks || []).reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.avgCost || 0)), 0);
+                return (item.stocks || [])
+                    .filter(s => !s.isArchived && Number(s.shares || 0) > 0)
+                    .reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.avgCost || 0)), 0);
 
-            case 'mutual_fund':
+            case 'mutual_fund': {
                 let runningUnits = 0;
                 let runningCost = 0;
-                (item.transactions || []).forEach(tx => {
+                const sortedTxs = [...(item.transactions || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
+                sortedTxs.forEach(tx => {
                     const isSell = tx.type === 'sell' || tx.type === 'withdraw';
                     const txAmount = Number(tx.amount || 0) || (Number(tx.units || 0) * Number(tx.nav || 0));
                     const txUnits = Number(tx.units || 0);
@@ -1493,12 +1499,15 @@ export function FinanceProvider({ children }) {
                         const costOfSoldUnits = avgCostAtSale * txUnits;
                         runningUnits -= txUnits;
                         runningCost -= costOfSoldUnits;
+                        if (runningUnits < 0) runningUnits = 0;
+                        if (runningCost < 0) runningCost = 0;
                     } else {
                         runningUnits += txUnits;
                         runningCost += txAmount;
                     }
                 });
-                return runningCost;
+                return Math.max(0, runningCost);
+            }
 
             case 'fixed_deposit':
                 return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.originalAmount) || 0), 0);
