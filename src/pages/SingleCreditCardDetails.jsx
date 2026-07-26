@@ -50,17 +50,21 @@ const SingleCreditCardDetails = () => {
 
     const card = creditCards.find(c => c.id.toString() === id);
 
+    const [baselineOpeningBalance, setBaselineOpeningBalance] = useState(card?.baselineOpeningBalance || '');
+
     // Sync local baseline state when card loads
     React.useEffect(() => {
         if (card?.carryForwardBaseline) {
             const [bm, by] = card.carryForwardBaseline.split('/');
             setBaselineMonth(bm || '');
             setBaselineYear(by || '');
+            setBaselineOpeningBalance(card.baselineOpeningBalance || '');
         } else {
             setBaselineMonth('');
             setBaselineYear('');
+            setBaselineOpeningBalance('');
         }
-    }, [card?.id, card?.carryForwardBaseline]);
+    }, [card?.id, card?.carryForwardBaseline, card?.baselineOpeningBalance]);
 
     if (!card) {
         return (
@@ -151,7 +155,9 @@ const SingleCreditCardDetails = () => {
         ? linkedTransactions.filter(t => parseLocalDate(t.date) >= baselineDate)
         : linkedTransactions;
 
-    const totalOutstanding = baselinedTransactions.reduce((sum, t) => {
+    const initialBalance = card?.carryForwardBaseline ? (Number(card?.baselineOpeningBalance) || 0) : 0;
+
+    const totalOutstanding = initialBalance + baselinedTransactions.reduce((sum, t) => {
         if (t.isRewardPoints) return sum;
         const cat = (t.category || '').toLowerCase();
         if (cat === 'credit card bill' || cat === 'credit card payment') {
@@ -172,10 +178,14 @@ const SingleCreditCardDetails = () => {
     const handleSaveBaseline = async () => {
         if (!baselineMonth || !baselineYear) {
             // Clear baseline
-            const updatedCard = { ...card, carryForwardBaseline: null };
+            const updatedCard = { ...card, carryForwardBaseline: null, baselineOpeningBalance: 0 };
             await updateItem('creditCards', updatedCard);
         } else {
-            const updatedCard = { ...card, carryForwardBaseline: `${baselineMonth}/${baselineYear}` };
+            const updatedCard = {
+                ...card,
+                carryForwardBaseline: `${baselineMonth}/${baselineYear}`,
+                baselineOpeningBalance: parseFloat(baselineOpeningBalance) || 0
+            };
             await updateItem('creditCards', updatedCard);
         }
         setIsBaselineModalOpen(false);
@@ -354,7 +364,7 @@ const SingleCreditCardDetails = () => {
                             Choose the month from which carry forward tracking begins. All transactions <strong style={{ color: 'white' }}>before</strong> this month will be ignored — assuming the card was fully paid off by then.
                         </p>
 
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
                             <div>
                                 <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Month</label>
                                 <select
@@ -381,6 +391,17 @@ const SingleCreditCardDetails = () => {
                                     ))}
                                 </select>
                             </div>
+                        </div>
+
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Opening / Carry Forward Balance (₹) (Optional)</label>
+                            <input
+                                type="number"
+                                placeholder="0.00 (e.g. initial outstanding amount at baseline)"
+                                value={baselineOpeningBalance}
+                                onChange={e => setBaselineOpeningBalance(e.target.value)}
+                                style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                            />
                         </div>
 
                         {baselineMonth && baselineYear && (
