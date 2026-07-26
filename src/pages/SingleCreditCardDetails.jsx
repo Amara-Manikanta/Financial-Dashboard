@@ -5,6 +5,7 @@ import { useFinance } from '../context/FinanceContext';
 import { formatDate } from '../utils/dateUtils';
 import CreditCardTransactionModal from '../components/CreditCardTransactionModal';
 import CreditCardImportModal from '../components/CreditCardImportModal';
+import TransactionModal from '../components/TransactionModal';
 import { mergeTransactionsIntoExpenses } from '../utils/importUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -28,7 +29,7 @@ const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
 const SingleCreditCardDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { creditCards, expenses, updateItem, saveExpenses, formatCurrency, categories } = useFinance();
+    const { creditCards, expenses, updateItem, addItem, deleteItem, saveExpenses, formatCurrency, categories } = useFinance();
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
@@ -36,6 +37,9 @@ const SingleCreditCardDetails = () => {
     const [isBaselineModalOpen, setIsBaselineModalOpen] = useState(false);
     const [baselineMonth, setBaselineMonth] = useState('');
     const [baselineYear, setBaselineYear] = useState('');
+
+    const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
+    const [editingExpenseTx, setEditingExpenseTx] = useState(null);
 
     const [filterFY, setFilterFY] = useState('All');
     const [filterYear, setFilterYear] = useState('All');
@@ -294,6 +298,38 @@ const SingleCreditCardDetails = () => {
             const updatedCard = { ...card, monthlyData: updatedMonthlyData };
             await updateItem('creditCards', updatedCard);
         }
+    };
+
+    const handleSaveExpenseTx = (txData) => {
+        if (txData.id) {
+            updateItem('expense', txData);
+        } else {
+            addItem('expense', txData);
+        }
+        setEditingExpenseTx(null);
+        setIsExpenseModalOpen(false);
+    };
+
+    const handleDeleteExpenseTx = (e, txId) => {
+        e.stopPropagation();
+        if (window.confirm('Are you sure you want to delete this expense transaction?')) {
+            deleteItem('expense', txId);
+        }
+    };
+
+    const handleEditExpenseTx = (e, tx) => {
+        e.stopPropagation();
+        setEditingExpenseTx(tx);
+        setIsExpenseModalOpen(true);
+    };
+
+    const handleAddExpenseTx = () => {
+        setEditingExpenseTx({
+            paymentMode: 'credit_card',
+            creditCardName: card.name,
+            date: new Date().toISOString()
+        });
+        setIsExpenseModalOpen(true);
     };
 
     const handleTransactionClick = (tx) => {
@@ -757,6 +793,7 @@ const SingleCreditCardDetails = () => {
                                     <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Type</th>
                                     <th style={{ textAlign: 'left', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Category</th>
                                     <th style={{ textAlign: 'right', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Amount</th>
+                                    <th style={{ textAlign: 'center', padding: '1rem 1.5rem', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -791,12 +828,30 @@ const SingleCreditCardDetails = () => {
                                             <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold', fontSize: '0.875rem', color: isEffectivelyCredit ? '#34d399' : 'white' }}>
                                                 {isEffectivelyCredit ? '+' : ''}{formatCurrency(tx.amount)}
                                             </td>
+                                            <td style={{ padding: '1rem 1.5rem', textAlign: 'center' }}>
+                                                <div style={{ display: 'flex', gap: '0.375rem', justifyContent: 'center' }}>
+                                                    <button
+                                                        onClick={(e) => handleEditExpenseTx(e, tx)}
+                                                        style={{ padding: '0.25rem', borderRadius: '0.375rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: '#71717a', cursor: 'pointer' }}
+                                                        title="Edit Transaction"
+                                                    >
+                                                        <Edit2 size={12} />
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => handleDeleteExpenseTx(e, tx.id)}
+                                                        style={{ padding: '0.25rem', borderRadius: '0.375rem', border: 'none', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#f87171', cursor: 'pointer' }}
+                                                        title="Delete Transaction"
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </button>
+                                                </div>
+                                            </td>
                                         </tr>
                                     );
                                 })}
                                 {filteredTransactions.length === 0 && (
                                     <tr>
-                                        <td colSpan="5" style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem' }}>
+                                        <td colSpan="6" style={{ padding: '3rem', textAlign: 'center', color: '#71717a', fontSize: '0.875rem' }}>
                                             No linked expense transactions found matching filters.
                                         </td>
                                     </tr>
