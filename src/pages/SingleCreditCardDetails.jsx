@@ -667,6 +667,25 @@ const SingleCreditCardDetails = () => {
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={handleAddExpenseTx}
+                            style={{
+                                padding: '0.375rem 0.75rem',
+                                borderRadius: '9999px',
+                                fontSize: '11px',
+                                fontWeight: 'bold',
+                                border: '1px solid #10b981',
+                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                color: '#34d399',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.25rem'
+                            }}
+                        >
+                            <Plus size={12} /> Add Expense
+                        </button>
+
                         {/* Financial Year Filter Pills */}
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', alignItems: 'center' }}>
                             <button
@@ -903,6 +922,15 @@ const SingleCreditCardDetails = () => {
                 existingTransactions={linkedTransactions}
                 cardName={card.name}
             />
+
+            {isExpenseModalOpen && (
+                <TransactionModal
+                    isOpen={isExpenseModalOpen}
+                    onClose={() => { setIsExpenseModalOpen(false); setEditingExpenseTx(null); }}
+                    onAdd={handleSaveExpenseTx}
+                    initialData={editingExpenseTx}
+                />
+            )}
         </div>
     );
 };
