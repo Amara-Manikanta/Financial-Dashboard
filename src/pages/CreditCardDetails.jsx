@@ -37,18 +37,44 @@ const CreditCardDetails = () => {
         return map;
     }, [expenses]);
 
+    const parseLocalDate = (dateStr) => {
+        const parts = dateStr ? dateStr.split('-').map(Number) : [];
+        return parts.length === 3 ? new Date(parts[0], parts[1] - 1, parts[2]) : new Date(dateStr);
+    };
+
     const getCardSpend = (card) => {
         const aliases = { 'coral rupay': ['icici rupay'], 'hpcl': ['icici hp card'] };
         const cardName = card.name.trim().toLowerCase();
         const knownAliases = aliases[cardName] || [];
         let spend = 0;
-        Object.entries(cardSpendMap).forEach(([txName, stats]) => {
-            if (txName === cardName || cardName.includes(txName) || txName.includes(cardName) || knownAliases.includes(txName)) {
-                // Apply carryForwardBaseline: only count from baseline date
-                // (cardSpendMap is pre-aggregated without baseline, so we fall back to per-tx for baseline cards)
-                spend += stats.spend;
-            }
-        });
+
+        const baselineDate = card?.carryForwardBaseline
+            ? new Date(`${card.carryForwardBaseline.split('/')[0]} 1, ${card.carryForwardBaseline.split('/')[1]}`)
+            : null;
+
+        if (expenses) {
+            Object.values(expenses).forEach(yearData => {
+                Object.values(yearData).forEach(monthData => {
+                    if (!monthData.transactions) return;
+                    monthData.transactions.forEach(tx => {
+                        if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
+                            const txName = tx.creditCardName.trim().toLowerCase();
+                            if (txName === cardName || cardName.includes(txName) || txName.includes(cardName) || knownAliases.includes(txName)) {
+                                if (tx.isRewardPoints) return;
+                                if (baselineDate && parseLocalDate(tx.date) < baselineDate) return;
+                                const cat = (tx.category || '').toLowerCase();
+                                const amt = Number(tx.amount) || 0;
+                                if (cat === 'credit card bill' || cat === 'credit card payment') {
+                                    spend -= amt;
+                                } else {
+                                    spend += tx.isCredited ? -amt : amt;
+                                }
+                            }
+                        }
+                    });
+                });
+            });
+        }
         return Math.max(0, spend);
     };
 
