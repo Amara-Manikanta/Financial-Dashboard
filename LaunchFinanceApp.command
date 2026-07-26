@@ -28,18 +28,14 @@ if ! command -v npm &> /dev/null; then
     exit 1
 fi
 
-# Check for existing processes on port 3000 (Backend) & 5173 (Frontend) and clean them up
-PORT_3000_PID=$(lsof -ti :3000)
-if [ -n "$PORT_3000_PID" ]; then
-    echo "Port 3000 is in use by PID $PORT_3000_PID. Cleaning up backend..."
-    kill -9 $PORT_3000_PID 2>/dev/null
-fi
-
-PORT_5173_PID=$(lsof -ti :5173)
-if [ -n "$PORT_5173_PID" ]; then
-    echo "Port 5173 is in use by PID $PORT_5173_PID. Cleaning up frontend..."
-    kill -9 $PORT_5173_PID 2>/dev/null
-fi
+# Check for existing processes on port 3000, 3001 (Backend) & 5173 (Frontend) and clean them up
+for PORT in 3000 3001 5173; do
+    PID=$(lsof -ti :$PORT)
+    if [ -n "$PID" ]; then
+        echo "Port $PORT is in use by PID $PID. Cleaning up..."
+        kill -9 $PID 2>/dev/null
+    fi
+done
 
 # Start the backend server in the background
 echo "Step 1/3: Starting backend server..."
