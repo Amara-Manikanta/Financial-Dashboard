@@ -1550,13 +1550,13 @@ export function FinanceProvider({ children }) {
             const newCategory = item.category;
             const newAmount = Number(item.amount) || 0;
 
-            if (typeof item.id === 'string' && !item.id.includes('-')) {
+            if (item.id && !String(item.id).includes('-')) {
                 let foundLocation = null;
                 // Find where the transaction is currently stored
                 Object.entries(newExpenses).forEach(([y, months]) => {
                     Object.entries(months).forEach(([m, monthData]) => {
                         if (foundLocation || !monthData.transactions) return;
-                        const txIndex = monthData.transactions.findIndex(t => t.id === item.id);
+                        const txIndex = monthData.transactions.findIndex(t => String(t.id) === String(item.id));
                         if (txIndex !== -1) {
                             foundLocation = { year: y, month: m, index: txIndex, data: monthData };
                         }
