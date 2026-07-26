@@ -709,6 +709,7 @@ const ExpenseDetails = () => {
         if (searchQuery.trim()) {
             const q = searchQuery.toLowerCase().trim();
             txs = txs.filter(t => 
+                String(t.id).toLowerCase() === q ||
                 (t.title || '').toLowerCase().includes(q) || 
                 (t.description || '').toLowerCase().includes(q) || 
                 (t.category || '').toLowerCase().includes(q) || 
@@ -720,15 +721,21 @@ const ExpenseDetails = () => {
         return txs;
     }, [monthDetails.rawTransactions, selectedCategoryHighlight, selectedCreditCardHighlight, searchQuery]);
 
-    // Reset pagination and filters on route change
+    // Reset pagination and sync search filter from URL
     React.useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const searchParam = params.get('search') || '';
         setStatementPage(1);
         setCurrentMainPage(1);
         setCurrentSubPage(1);
         setSelectedCategoryHighlight(null);
         setSelectedCreditCardHighlight(null);
-        setSearchQuery('');
-    }, [year, month]);
+        if (searchParam) {
+            setSearchQuery(searchParam);
+        } else {
+            setSearchQuery('');
+        }
+    }, [year, month, location.search]);
 
     // Reset statement page when filter or search changes
     React.useEffect(() => {

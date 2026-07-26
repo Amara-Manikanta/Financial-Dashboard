@@ -296,6 +296,15 @@ const SingleCreditCardDetails = () => {
         }
     };
 
+    const handleTransactionClick = (tx) => {
+        const d = new Date(tx.date);
+        const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthName = tx.month || months[d.getMonth()];
+        const yearVal = tx.year || d.getFullYear();
+        const searchVal = encodeURIComponent(tx.title || tx.category || '');
+        navigate(`/expenses/${yearVal}/${monthName}?highlightTxId=${tx.id}&search=${searchVal}`);
+    };
+
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             <button
@@ -756,7 +765,13 @@ const SingleCreditCardDetails = () => {
                                     const isEffectivelyCredit = tx.isCredited || isCCBill;
                                     
                                     return (
-                                        <tr key={tx.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                                        <tr 
+                                            key={tx.id} 
+                                            onClick={() => handleTransactionClick(tx)}
+                                            style={{ borderBottom: '1px solid rgba(255,255,255,0.03)', cursor: 'pointer', transition: 'background-color 0.15s ease' }}
+                                            className="hover:bg-white/5"
+                                            title="Click to view & filter this transaction in Month Expenses page"
+                                        >
                                             <td style={{ padding: '1rem 1.5rem', color: '#71717a', fontSize: '0.875rem', whiteSpace: 'nowrap' }}>
                                                 {formatDate(tx.date)}
                                             </td>
