@@ -51,11 +51,12 @@ const SingleCreditCardDetails = () => {
     useEffect(() => { setCurrentPage(1); }, [id]);
 
     const card = creditCards.find(c => c.id.toString() === id);
+    const monthlyData = React.useMemo(() => card?.monthlyData || [], [card?.monthlyData]);
 
     const [baselineOpeningBalance, setBaselineOpeningBalance] = useState(card?.baselineOpeningBalance || '');
 
     // Sync local baseline state when card loads
-    React.useEffect(() => {
+    useEffect(() => {
         if (card?.carryForwardBaseline) {
             const [bm, by] = card.carryForwardBaseline.split('/');
             setBaselineMonth(bm || '');
@@ -68,57 +69,39 @@ const SingleCreditCardDetails = () => {
         }
     }, [card?.id, card?.carryForwardBaseline, card?.baselineOpeningBalance]);
 
-    if (!card) {
-        return (
-            <div className="p-8 text-center text-gray-500">
-                <p>Credit Card not found.</p>
-                <button onClick={() => navigate(-1)} className="text-purple-400 hover:underline mt-4">Go Back</button>
-            </div>
-        );
-    }
-
-    const monthlyData = card.monthlyData || [];
-
     // Filter Linked Transactions from Expenses
-    const linkedTransactions = [];
-    if (expenses) {
-        Object.entries(expenses).forEach(([year, months]) => {
-            Object.entries(months).forEach(([month, data]) => {
-                if (data.transactions) {
-                    data.transactions.forEach(tx => {
-                        // Match payment mode and credit card name loosely
-                        if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
-                            const txName = tx.creditCardName.trim().toLowerCase();
-                            const cardName = card.name.trim().toLowerCase();
+    const linkedTransactions = React.useMemo(() => {
+        const list = [];
+        if (expenses && card) {
+            const cardName = card.name.trim().toLowerCase();
+            const aliases = {
+                'coral rupay': ['icici rupay'],
+                'hpcl': ['icici hp card']
+            };
+            const knownAliases = aliases[cardName] || [];
 
-                            // Check for exact match, or partial matches (e.g. "Scapia" matches "Scapia Card")
-                            // Also check aliases for legacy data
-                            const aliases = {
-                                'coral rupay': ['icici rupay'],
-                                'hpcl': ['icici hp card']
-                            };
-
-                            const knownAliases = aliases[cardName] || [];
-
-                            if (
-                                txName === cardName ||
-                                cardName.includes(txName) ||
-                                txName.includes(cardName) ||
-                                knownAliases.includes(txName)
-                            ) {
-                                linkedTransactions.push({ ...tx, month, year });
+            Object.entries(expenses).forEach(([year, months]) => {
+                Object.entries(months).forEach(([month, data]) => {
+                    if (data.transactions) {
+                        data.transactions.forEach(tx => {
+                            if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
+                                const txName = tx.creditCardName.trim().toLowerCase();
+                                if (
+                                    txName === cardName ||
+                                    cardName.includes(txName) ||
+                                    txName.includes(cardName) ||
+                                    knownAliases.includes(txName)
+                                ) {
+                                    list.push({ ...tx, month, year });
+                                }
                             }
-                        }
-                    });
-                }
+                        });
+                    }
+                });
             });
-        });
-    }
-
-    const pointsSpent = linkedTransactions
-        .filter(t => t.isRewardPoints)
-        .reduce((sum, t) => sum + (Number(t.amount) * 5), 0);
-    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
+        }
+        return list;
+    }, [expenses, card]);
 
     // Extract available filter options
     const availableFYs = React.useMemo(() => {
@@ -133,6 +116,28 @@ const SingleCreditCardDetails = () => {
         });
         return Array.from(fySet).sort().reverse();
     }, [linkedTransactions]);
+
+    const sortedMonthlyData = React.useMemo(() => {
+        return [...monthlyData].sort((a, b) => {
+            if (b.year !== a.year) return b.year - a.year;
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            return months.indexOf(b.month) - months.indexOf(a.month);
+        });
+    }, [monthlyData]);
+
+    if (!card) {
+        return (
+            <div className="p-8 text-center text-gray-500">
+                <p>Credit Card not found.</p>
+                <button onClick={() => navigate(-1)} className="text-purple-400 hover:underline mt-4">Go Back</button>
+            </div>
+        );
+    }
+
+    const pointsSpent = linkedTransactions
+        .filter(t => t.isRewardPoints)
+        .reduce((sum, t) => sum + (Number(t.amount) * 5), 0);
+    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
 
     const yearsSet = new Set(linkedTransactions.map(t => t.year));
     const currentYear = new Date().getFullYear();
@@ -257,14 +262,6 @@ const SingleCreditCardDetails = () => {
     const sortedFilteredTransactions = [...filteredTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
     const totalPages = Math.max(1, Math.ceil(sortedFilteredTransactions.length / itemsPerPage));
     const paginatedTransactions = sortedFilteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-    const sortedMonthlyData = React.useMemo(() => {
-        return [...monthlyData].sort((a, b) => {
-            if (b.year !== a.year) return b.year - a.year;
-            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-            return months.indexOf(b.month) - months.indexOf(a.month);
-        });
-    }, [monthlyData]);
 
     const monthlyItemsPerPage = 8;
     const totalMonthlyPages = Math.max(1, Math.ceil(sortedMonthlyData.length / monthlyItemsPerPage));
