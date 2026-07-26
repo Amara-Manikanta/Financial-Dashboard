@@ -37,6 +37,7 @@ const SingleCreditCardDetails = () => {
     const [baselineMonth, setBaselineMonth] = useState('');
     const [baselineYear, setBaselineYear] = useState('');
 
+    const [filterFY, setFilterFY] = useState('All');
     const [filterYear, setFilterYear] = useState('All');
     const [filterMonth, setFilterMonth] = useState('All');
     const [filterType, setFilterType] = useState('All');
@@ -44,6 +45,7 @@ const SingleCreditCardDetails = () => {
     // Pagination state
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(20);
+    const [monthlyPage, setMonthlyPage] = useState(1);
 
     // Reset page when navigating to a different card
     useEffect(() => { setCurrentPage(1); }, [id]);
@@ -119,6 +121,19 @@ const SingleCreditCardDetails = () => {
     const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
 
     // Extract available filter options
+    const availableFYs = React.useMemo(() => {
+        const fySet = new Set();
+        linkedTransactions.forEach(tx => {
+            const d = new Date(tx.date);
+            const y = d.getFullYear();
+            const m = d.getMonth() + 1;
+            const fyStart = m >= 4 ? y : y - 1;
+            const fyLabel = `FY ${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
+            fySet.add(fyLabel);
+        });
+        return Array.from(fySet).sort().reverse();
+    }, [linkedTransactions]);
+
     const yearsSet = new Set(linkedTransactions.map(t => t.year));
     const currentYear = new Date().getFullYear();
     for (let y = 2022; y <= currentYear + 1; y++) {
@@ -129,8 +144,15 @@ const SingleCreditCardDetails = () => {
     const availableMonths = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
     // Filter Logic
-    // Filter Logic
     const filteredTransactions = linkedTransactions.filter(tx => {
+        if (filterFY !== 'All') {
+            const d = new Date(tx.date);
+            const y = d.getFullYear();
+            const m = d.getMonth() + 1;
+            const fyStart = m >= 4 ? y : y - 1;
+            const fyLabel = `FY ${fyStart}-${(fyStart + 1).toString().slice(-2)}`;
+            if (fyLabel !== filterFY) return false;
+        }
         if (filterYear !== 'All' && String(tx.year) !== String(filterYear)) return false;
         if (filterMonth !== 'All' && String(tx.month).trim().toLowerCase() !== String(filterMonth).trim().toLowerCase()) return false;
         if (filterType !== 'All') {
@@ -235,6 +257,18 @@ const SingleCreditCardDetails = () => {
     const sortedFilteredTransactions = [...filteredTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
     const totalPages = Math.max(1, Math.ceil(sortedFilteredTransactions.length / itemsPerPage));
     const paginatedTransactions = sortedFilteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+    const sortedMonthlyData = React.useMemo(() => {
+        return [...monthlyData].sort((a, b) => {
+            if (b.year !== a.year) return b.year - a.year;
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            return months.indexOf(b.month) - months.indexOf(a.month);
+        });
+    }, [monthlyData]);
+
+    const monthlyItemsPerPage = 8;
+    const totalMonthlyPages = Math.max(1, Math.ceil(sortedMonthlyData.length / monthlyItemsPerPage));
+    const paginatedMonthlyData = sortedMonthlyData.slice((monthlyPage - 1) * monthlyItemsPerPage, monthlyPage * monthlyItemsPerPage);
 
 
     const handleSaveTransaction = async (transaction) => {
@@ -508,13 +542,7 @@ const SingleCreditCardDetails = () => {
                             </tr>
                         </thead>
                         <tbody style={{ divideY: '1px solid rgba(255,255,255,0.05)' }}>
-                            {[...monthlyData]
-                                .sort((a, b) => {
-                                    if (b.year !== a.year) return b.year - a.year;
-                                    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                                    return months.indexOf(b.month) - months.indexOf(a.month);
-                                })
-                                .map((item) => (
+                            {paginatedMonthlyData.map((item) => (
                                     <tr key={item.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                                         <td style={{ padding: '1rem 1.5rem', color: 'white', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                             {item.month} {item.year}
@@ -571,6 +599,19 @@ const SingleCreditCardDetails = () => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* Monthly History Pagination */}
+                {sortedMonthlyData.length > monthlyItemsPerPage && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem 1.5rem', backgroundColor: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                        <span style={{ fontSize: '11px', color: '#71717a' }}>
+                            Showing {((monthlyPage - 1) * monthlyItemsPerPage) + 1} to {Math.min(monthlyPage * monthlyItemsPerPage, sortedMonthlyData.length)} of {sortedMonthlyData.length} statements
+                        </span>
+                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                            <button onClick={() => setMonthlyPage(p => Math.max(1, p - 1))} disabled={monthlyPage === 1} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: monthlyPage === 1 ? 0.3 : 1 }}><ChevronLeft size={16} /></button>
+                            <button onClick={() => setMonthlyPage(p => Math.min(totalMonthlyPages, p + 1))} disabled={monthlyPage === totalMonthlyPages} style={{ padding: '0.375rem', borderRadius: '0.5rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: 'white', cursor: 'pointer', opacity: monthlyPage === totalMonthlyPages ? 0.3 : 1 }}><ChevronRight size={16} /></button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Linked Expenses Section */}
@@ -583,45 +624,84 @@ const SingleCreditCardDetails = () => {
                         </p>
                     </div>
 
-                    <div style={{
-                        display: 'flex',
-                        backgroundColor: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.05)',
-                        borderRadius: '1rem',
-                        padding: '2px',
-                        gap: '2px'
-                    }}>
-                        <select
-                            value={filterYear}
-                            onChange={(e) => { setFilterYear(e.target.value); setCurrentPage(1); }}
-                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
-                        >
-                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Years</option>
-                            {availableYears.map(year => (
-                                <option key={year} value={year} style={{ backgroundColor: '#18181b' }}>{year}</option>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                        {/* Financial Year Filter Pills */}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', alignItems: 'center' }}>
+                            <button
+                                onClick={() => { setFilterFY('All'); setCurrentPage(1); }}
+                                style={{
+                                    padding: '0.375rem 0.75rem',
+                                    borderRadius: '9999px',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    border: filterFY === 'All' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                                    backgroundColor: filterFY === 'All' ? 'rgba(192, 132, 252, 0.15)' : 'rgba(255,255,255,0.03)',
+                                    color: filterFY === 'All' ? '#c084fc' : '#a1a1aa',
+                                    cursor: 'pointer'
+                                }}
+                            >
+                                All FY
+                            </button>
+                            {availableFYs.map(fy => (
+                                <button
+                                    key={fy}
+                                    onClick={() => { setFilterFY(fy); setCurrentPage(1); }}
+                                    style={{
+                                        padding: '0.375rem 0.75rem',
+                                        borderRadius: '9999px',
+                                        fontSize: '11px',
+                                        fontWeight: 'bold',
+                                        border: filterFY === fy ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                                        backgroundColor: filterFY === fy ? 'rgba(192, 132, 252, 0.15)' : 'rgba(255,255,255,0.03)',
+                                        color: filterFY === fy ? '#c084fc' : '#a1a1aa',
+                                        cursor: 'pointer'
+                                    }}
+                                >
+                                    {fy}
+                                </button>
                             ))}
-                        </select>
-                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
-                        <select
-                            value={filterMonth}
-                            onChange={(e) => { setFilterMonth(e.target.value); setCurrentPage(1); }}
-                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
-                        >
-                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Months</option>
-                            {availableMonths.map(month => (
-                                <option key={month} value={month} style={{ backgroundColor: '#18181b' }}>{month}</option>
-                            ))}
-                        </select>
-                        <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
-                        <select
-                            value={filterType}
-                            onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
-                            style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
-                        >
-                            <option value="All" style={{ backgroundColor: '#18181b' }}>All Types</option>
-                            <option value="debit" style={{ backgroundColor: '#18181b' }}>Debit</option>
-                            <option value="credit" style={{ backgroundColor: '#18181b' }}>Credit</option>
-                        </select>
+                        </div>
+
+                        <div style={{
+                            display: 'flex',
+                            backgroundColor: 'rgba(255,255,255,0.03)',
+                            border: '1px solid rgba(255,255,255,0.05)',
+                            borderRadius: '1rem',
+                            padding: '2px',
+                            gap: '2px'
+                        }}>
+                            <select
+                                value={filterYear}
+                                onChange={(e) => { setFilterYear(e.target.value); setCurrentPage(1); }}
+                                style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
+                            >
+                                <option value="All" style={{ backgroundColor: '#18181b' }}>All Years</option>
+                                {availableYears.map(year => (
+                                    <option key={year} value={year} style={{ backgroundColor: '#18181b' }}>{year}</option>
+                                ))}
+                            </select>
+                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
+                            <select
+                                value={filterMonth}
+                                onChange={(e) => { setFilterMonth(e.target.value); setCurrentPage(1); }}
+                                style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
+                            >
+                                <option value="All" style={{ backgroundColor: '#18181b' }}>All Months</option>
+                                {availableMonths.map(month => (
+                                    <option key={month} value={month} style={{ backgroundColor: '#18181b' }}>{month}</option>
+                                ))}
+                            </select>
+                            <div style={{ width: '1px', backgroundColor: 'rgba(255,255,255,0.05)', margin: '4px 0' }} />
+                            <select
+                                value={filterType}
+                                onChange={(e) => { setFilterType(e.target.value); setCurrentPage(1); }}
+                                style={{ backgroundColor: 'transparent', border: 'none', color: '#a1a1aa', fontSize: '11px', fontWeight: 'bold', padding: '0.5rem', outline: 'none', cursor: 'pointer' }}
+                            >
+                                <option value="All" style={{ backgroundColor: '#18181b' }}>All Types</option>
+                                <option value="debit" style={{ backgroundColor: '#18181b' }}>Debit</option>
+                                <option value="credit" style={{ backgroundColor: '#18181b' }}>Credit</option>
+                            </select>
+                        </div>
                     </div>
                 </div>
 
