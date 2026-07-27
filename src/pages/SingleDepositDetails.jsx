@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, Calendar } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, Calendar, Archive, ArchiveRestore } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import InterestTransactionModal from '../components/InterestTransactionModal';
 import BackButton from '../components/BackButton';
@@ -19,6 +19,22 @@ const SingleDepositDetails = () => {
     const fund = savings.find(s => s.id.toString() === id);
     const depositIndex = fund?.deposits?.findIndex(d => d.id.toString() === depositId);
     const deposit = depositIndex !== -1 && depositIndex !== undefined && fund?.deposits ? fund.deposits[depositIndex] : null;
+
+    const handleToggleArchive = () => {
+        if (!fund || depositIndex === -1 || depositIndex === undefined) return;
+        const updatedDeposits = fund.deposits.map((d, index) => {
+            if (index === depositIndex) {
+                return { ...d, isArchived: !d.isArchived };
+            }
+            return d;
+        });
+
+        const newTotalAmount = updatedDeposits
+            .filter(d => !d.isArchived)
+            .reduce((sum, d) => sum + (d.currentValue || d.originalAmount || 0), 0);
+
+        updateItem('savings', { ...fund, deposits: updatedDeposits, amount: newTotalAmount });
+    };
 
     // Use useMemo for transaction calculations
     const transactionCalcs = useMemo(() => {
@@ -205,7 +221,21 @@ const SingleDepositDetails = () => {
                 }
             `}</style>
 
-            <BackButton label="Back to Deposits" />
+            <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+                <BackButton label="Back to Deposits" />
+                <button
+                    onClick={handleToggleArchive}
+                    className={`px-3 py-1.5 rounded-xl border flex items-center gap-2 text-xs font-bold transition-all ${
+                        deposit.isArchived 
+                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500 hover:text-white' 
+                            : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500 hover:text-white'
+                    }`}
+                    title={deposit.isArchived ? "Restore FD" : "Archive / Close FD"}
+                >
+                    {deposit.isArchived ? <ArchiveRestore size={15} /> : <Archive size={15} />}
+                    <span>{deposit.isArchived ? 'Restore FD' : 'Archive / Close FD'}</span>
+                </button>
+            </div>
 
             <div className="mb-8">
                 <h2 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3 flex-wrap">

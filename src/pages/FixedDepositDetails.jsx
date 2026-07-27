@@ -567,10 +567,11 @@ const FixedDepositDetails = () => {
                                                     </button>
                                                     <button
                                                         onClick={() => handleArchiveDeposit(deposit.id)}
-                                                        className="p-1.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white transition-colors"
+                                                        className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/30 flex items-center gap-1 text-xs font-bold shadow-sm"
                                                         title="Archive / Close Deposit"
                                                     >
-                                                        <Archive size={14} />
+                                                        <Archive size={13} />
+                                                        <span>Archive</span>
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteDeposit(deposit.id)}
