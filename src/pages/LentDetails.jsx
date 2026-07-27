@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Plus, Edit2, Trash2, Calendar, DollarSign, TrendingUp, TrendingDown, Clock } from 'lucide-react';
 import LentModal from '../components/LentModal';
 import LentTransactionModal from '../components/LentTransactionModal';
+import BackButton from '../components/BackButton';
 
 const LentDetails = () => {
     const { id } = useParams();
@@ -104,13 +105,7 @@ const LentDetails = () => {
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-            <button
-                onClick={() => navigate('/lents-loans')}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg w-fit"
-                style={{ cursor: 'pointer' }}
-            >
-                <ArrowLeft size={16} className="text-white" /> Back to Lent & Loans
-            </button>
+            <BackButton label="Back to Lent & Loans" to="/lents-loans" style={{ marginBottom: 0 }} />
 
             {/* Header */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>

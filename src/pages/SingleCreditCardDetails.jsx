@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Edit2, Trash2, Plus, Calendar, Award, CheckCircle, XCircle, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { formatDate } from '../utils/dateUtils';
+import BackButton from '../components/BackButton';
 import CreditCardTransactionModal from '../components/CreditCardTransactionModal';
 import CreditCardImportModal from '../components/CreditCardImportModal';
 import TransactionModal from '../components/TransactionModal';
@@ -343,13 +344,7 @@ const SingleCreditCardDetails = () => {
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
-            <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-2 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg w-fit"
-                style={{ cursor: 'pointer' }}
-            >
-                <ArrowLeft size={16} className="text-white" /> Back to Credit Cards
-            </button>
+            <BackButton label="Back to Credit Cards" style={{ marginBottom: 0 }} />
 
             {/* Header Card */}
             <div style={{

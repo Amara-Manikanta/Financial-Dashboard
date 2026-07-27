@@ -3,6 +3,7 @@ import { useFinance } from '../context/FinanceContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from 'recharts';
 import { ArrowLeft, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import BackButton from '../components/BackButton';
 
 const Analytics = () => {
     const { expenses, formatCurrency, snapshots, takeSnapshot } = useFinance();
@@ -295,13 +296,7 @@ const Analytics = () => {
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
-            <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                style={{ cursor: 'pointer' }}
-            >
-                <ArrowLeft size={16} className="text-white" /> Back to Expenses
-            </button>
+            <BackButton label="Back to Expenses" />
 
             {/* First Plot Section */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">

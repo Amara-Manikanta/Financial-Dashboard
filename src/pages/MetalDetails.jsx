@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Coins, Plus, Edit2, Trash2, MapPin, Settings, X, RefreshCw } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
+import BackButton from '../components/BackButton';
 import MetalModal from '../components/MetalModal';
 
 const MetalDetails = () => {
@@ -93,13 +94,7 @@ const MetalDetails = () => {
                 gap: '1.5rem',
                 marginBottom: '2.5rem'
             }}>
-                <button
-                    onClick={() => navigate('/metals')}
-                    className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg w-fit"
-                    style={{ cursor: 'pointer' }}
-                >
-                    <ArrowLeft size={16} className="text-white" /> Back to Precious Metals
-                </button>
+                <BackButton label="Back to Precious Metals" to="/metals" style={{ marginBottom: 0 }} />
 
                 <div style={{
                     display: 'flex',

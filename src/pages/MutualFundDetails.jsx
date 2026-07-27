@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X, Archive, ArchiveRestore } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import MutualFundTransactionModal from '../components/MutualFundTransactionModal';
+import BackButton from '../components/BackButton';
 import MutualFundEditModal from '../components/MutualFundEditModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine } from 'recharts';
 
@@ -370,13 +371,7 @@ const MutualFundDetails = () => {
                 }
             `}</style>
 
-            <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                style={{ cursor: 'pointer' }}
-            >
-                <ArrowLeft size={16} className="text-white" /> Back to Savings
-            </button>
+            <BackButton label="Back to Investments" />
 
             <div className="mb-8">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">

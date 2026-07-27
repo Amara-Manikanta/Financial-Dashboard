@@ -5,6 +5,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
+import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 
 const StockTreemapContent = (props) => {
@@ -593,20 +594,7 @@ const StockMarketDetails = () => {
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
-            {/* Elegant Header Breadcrumb */}
-            <div style={styles.headerContainer}>
-                <button
-                    onClick={() => navigate(-1)}
-                    style={styles.breadcrumb}
-                    onMouseEnter={(e) => e.currentTarget.style.color = '#fff'}
-                    onMouseLeave={(e) => e.currentTarget.style.color = '#a1a1aa'}
-                >
-                    <ArrowLeft size={16} style={{ marginRight: '0.25rem' }} />
-                    <span>Savings</span>
-                    <span style={{ color: '#52525b', margin: '0 0.5rem' }}>/</span>
-                    <span style={{ color: '#d4d4d8', fontWeight: 'normal' }}>{market.title}</span>
-                </button>
-            </div>
+            <BackButton label="Back to Investments" />
 
             {/* Dashboard Title Panel */}
             <div style={{ marginBottom: '2rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>

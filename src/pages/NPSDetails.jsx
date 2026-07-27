@@ -5,6 +5,7 @@ import { ArrowLeft, TrendingUp, TrendingDown, PieChart, Plus, Edit2, Trash2, Set
 import { formatDate } from '../utils/dateUtils';
 import NPSModal from '../components/NPSModal';
 import NPSTransactionModal from '../components/NPSTransactionModal';
+import BackButton from '../components/BackButton';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
 const getSchemeCalculations = (h) => {
@@ -242,13 +243,7 @@ const NPSDetails = () => {
 
     return (
         <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>
-            <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                style={{ cursor: 'pointer' }}
-            >
-                <ArrowLeft size={16} className="text-white" /> Back to Savings
-            </button>
+            <BackButton label="Back to Savings" />
 
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', marginBottom: '2.5rem' }}>
                 <div>

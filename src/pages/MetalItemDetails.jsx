@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Trash2, Plus, Image as ImageIcon, MapPin, Calendar, Weight, Info, Save } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
+import BackButton from '../components/BackButton';
 
 const MetalItemDetails = () => {
     const { type, itemId } = useParams();
@@ -88,14 +89,7 @@ const MetalItemDetails = () => {
         <div className="animate-fade-in pb-12">
             {/* Header */}
             <div className="flex items-center justify-between mb-8">
-                <button
-                    onClick={() => navigate(`/metals/${type}`)}
-                    className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                    style={{ cursor: 'pointer' }}
-                >
-                    <ArrowLeft size={16} className="text-white" />
-                    <span>Back to {formattedType}</span>
-                </button>
+                <BackButton label={`Back to ${formattedType}`} to={`/metals/${type}`} style={{ marginBottom: 0 }} />
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

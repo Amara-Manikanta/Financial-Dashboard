@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, Calendar } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import InterestTransactionModal from '../components/InterestTransactionModal';
+import BackButton from '../components/BackButton';
 
 const SingleDepositDetails = () => {
     const { id, depositId } = useParams();
@@ -204,13 +205,7 @@ const SingleDepositDetails = () => {
                 }
             `}</style>
 
-            <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                style={{ cursor: 'pointer' }}
-            >
-                <ArrowLeft size={16} className="text-white" /> Back to Deposits
-            </button>
+            <BackButton label="Back to Deposits" />
 
             <div className="mb-8">
                 <h2 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">

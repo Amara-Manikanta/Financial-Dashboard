@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, TrendingUp } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import PPFTransactionModal from '../components/PPFTransactionModal';
+import BackButton from '../components/BackButton';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 
 const PPFDetails = () => {
@@ -356,13 +357,7 @@ const PPFDetails = () => {
 
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
-            <button
-                onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                style={{ cursor: 'pointer' }}
-            >
-                <ArrowLeft size={16} className="text-white" /> Back to Savings
-            </button>
+            <BackButton label="Back to Savings" />
 
             <div style={styles.headerPanel}>
                 <div>

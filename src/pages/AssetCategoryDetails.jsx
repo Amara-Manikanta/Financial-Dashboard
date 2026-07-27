@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Plus, Edit2, Trash2, MapPin, Ruler, Briefcase, TrendingUp } from 'lucide-react';
 import AssetItemModal from '../components/AssetItemModal';
+import BackButton from '../components/BackButton';
 
 const AssetCategoryDetails = () => {
     const { id } = useParams();
@@ -60,13 +61,7 @@ const AssetCategoryDetails = () => {
         <div className="animate-fade-in pb-12">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-10">
                 <div>
-                    <button
-                        onClick={() => navigate('/assets')}
-                        className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-6 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                        style={{ cursor: 'pointer' }}
-                    >
-                        <ArrowLeft size={16} className="text-white" /> Back to Assets
-                    </button>
+                    <BackButton label="Back to Assets" to="/assets" />
                     <div className="flex items-center gap-4">
                         <div className="p-4 rounded-3xl bg-blue-500/10 border border-blue-500/20">
                             <Briefcase className="text-blue-400" size={32} />
