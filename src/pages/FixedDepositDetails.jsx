@@ -698,7 +698,7 @@ const FixedDepositDetails = () => {
 
                     <div style={{ width: '100%', height: '320px' }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={combinedFdChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+                            <BarChart data={combinedFdChartData} margin={{ top: 10, right: 10, left: -15, bottom: 0 }} barGap={6} barCategoryGap="25%">
                                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                                 <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
                                 <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
@@ -710,8 +710,8 @@ const FixedDepositDetails = () => {
                                     cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                                 />
                                 <Legend wrapperStyle={{ paddingTop: '12px' }} />
-                                <Bar dataKey="interest" fill="#34d399" radius={[6, 6, 0, 0]} barSize={30} name="Interest Accrued" />
-                                <Bar dataKey="tds" fill="#f43f5e" radius={[6, 6, 0, 0]} barSize={30} name="TDS Deducted" />
+                                <Bar dataKey="interest" fill="#34d399" radius={[4, 4, 0, 0]} maxBarSize={28} name="Interest Accrued" />
+                                <Bar dataKey="tds" fill="#f43f5e" radius={[4, 4, 0, 0]} maxBarSize={28} name="TDS Deducted" />
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
