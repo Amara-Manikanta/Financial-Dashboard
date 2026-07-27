@@ -112,6 +112,40 @@ const FixedDepositDetails = () => {
     const totalInterest = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.interestEarned || 0), 0), [filteredDeposits]);
     const totalInterestAccruedTillNow = useMemo(() => filteredDeposits.reduce((sum, d) => sum + getDepositAccruedDetails(d).accruedInterest, 0), [filteredDeposits]);
 
+    const getFYLabel = (dateObj) => {
+        const d = new Date(dateObj);
+        if (isNaN(d.getTime())) return null;
+        const year = d.getFullYear();
+        const month = d.getMonth();
+        if (month >= 3) {
+            return `FY ${year}-${(year + 1).toString().slice(-2)}`;
+        } else {
+            return `FY ${year - 1}-${year.toString().slice(-2)}`;
+        }
+    };
+
+    const normalizeFYString = (fyStr) => {
+        if (!fyStr) return '';
+        const str = fyStr.toString().trim();
+        if (str.includes('-')) {
+            const parts = str.replace(/FY/i, '').trim().split('-');
+            if (parts.length === 2) {
+                const startY = parts[0].trim();
+                const endY = parts[1].trim().slice(-2);
+                return `FY ${startY}-${endY}`;
+            }
+        }
+        const parsedDate = new Date(str);
+        if (!isNaN(parsedDate.getTime())) {
+            return getFYLabel(parsedDate);
+        }
+        const numYear = parseInt(str);
+        if (!isNaN(numYear)) {
+            return `FY ${numYear}-${(numYear + 1).toString().slice(-2)}`;
+        }
+        return str;
+    };
+
     const yearlyBreakdown = useMemo(() => {
         const breakdown = {};
         if (!fund?.deposits?.length) return [];
@@ -126,15 +160,15 @@ const FixedDepositDetails = () => {
 
             if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
 
-            let currentYear = start.getFullYear();
-            const lastYear = end.getFullYear();
+            const startFYYear = start.getMonth() >= 3 ? start.getFullYear() : start.getFullYear() - 1;
+            const endFYYear = end.getMonth() >= 3 ? end.getFullYear() : end.getFullYear() - 1;
 
-            while (currentYear <= lastYear) {
-                const yearStart = new Date(currentYear, 0, 1);
-                const yearEnd = new Date(currentYear, 12, 0);
+            for (let y = startFYYear; y <= endFYYear; y++) {
+                const fyStart = new Date(y, 3, 1);
+                const fyEnd = new Date(y + 1, 2, 31, 23, 59, 59);
 
-                const periodStart = start > yearStart ? start : yearStart;
-                const periodEnd = end < yearEnd ? end : yearEnd;
+                const periodStart = start > fyStart ? start : fyStart;
+                const periodEnd = end < fyEnd ? end : fyEnd;
 
                 if (periodEnd > periodStart) {
                     const tStart = (periodStart - start) / (1000 * 60 * 60 * 24 * 365.25);
@@ -143,16 +177,15 @@ const FixedDepositDetails = () => {
                     const vStart = P * Math.pow((1 + r / n), (n * tStart));
                     const vEnd = P * Math.pow((1 + r / n), (n * tEnd));
 
-                    const interestInYear = vEnd - vStart;
-                    breakdown[currentYear] = (breakdown[currentYear] || 0) + interestInYear;
+                    const interestInFY = vEnd - vStart;
+                    const fyLabel = `FY ${y}-${(y + 1).toString().slice(-2)}`;
+                    breakdown[fyLabel] = (breakdown[fyLabel] || 0) + interestInFY;
                 }
-                currentYear++;
             }
         });
 
         return Object.entries(breakdown)
-            .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
-            .sort((a, b) => Number(a.year) - Number(b.year));
+            .map(([year, amount]) => ({ year, amount: Math.round(amount) }));
     }, [fund]);
 
     const yearlyTdsBreakdown = useMemo(() => {
@@ -161,14 +194,16 @@ const FixedDepositDetails = () => {
 
         fund.deposits.forEach(deposit => {
             (deposit.tdsTransactions || []).forEach(tx => {
-                const year = tx.financialYear || new Date(tx.date).getFullYear().toString();
-                breakdown[year] = (breakdown[year] || 0) + (tx.amount || 0);
+                const rawFy = tx.financialYear || tx.date;
+                const fyLabel = normalizeFYString(rawFy);
+                if (fyLabel) {
+                    breakdown[fyLabel] = (breakdown[fyLabel] || 0) + (tx.amount || 0);
+                }
             });
         });
 
         return Object.entries(breakdown)
-            .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
-            .sort((a, b) => Number(a.year) - Number(b.year));
+            .map(([year, amount]) => ({ year, amount: Math.round(amount) }));
     }, [fund]);
 
     const combinedFdChartData = useMemo(() => {
@@ -183,7 +218,8 @@ const FixedDepositDetails = () => {
             tdsMap[item.year] = item.amount;
         });
 
-        const allYears = Array.from(new Set([...Object.keys(interestMap), ...Object.keys(tdsMap)])).sort((a, b) => Number(a) - Number(b));
+        const allYears = Array.from(new Set([...Object.keys(interestMap), ...Object.keys(tdsMap)]))
+            .sort((a, b) => a.localeCompare(b));
 
         return allYears.map(year => ({
             year,
