@@ -702,71 +702,6 @@ const PFDetails = () => {
                 )}
             </div>
 
-            {/* Year-Wise PF Contribution Trend Line Chart */}
-            <div style={styles.chartCard}>
-                <h3 style={styles.sectionHeader}>Yearly Contribution Trend (Employee vs Employer)</h3>
-                {yearlyContributionData.length > 0 ? (
-                    <div style={{ width: '100%', height: '350px' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={yearlyContributionData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                                <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
-                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} />
-                                <Tooltip 
-                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
-                                    itemStyle={{ fontWeight: 'bold' }}
-                                    formatter={(value) => formatCurrency(value)}
-                                    cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeDasharray: '4 4' }}
-                                />
-                                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#a1a1aa', paddingTop: '10px' }} />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="employeeContribution" 
-                                    name="Employee (Me) Contribution" 
-                                    stroke="#60a5fa" 
-                                    strokeWidth={3} 
-                                    dot={{ r: 5, fill: '#60a5fa', strokeWidth: 2, stroke: '#121225' }}
-                                    activeDot={{ r: 7 }}
-                                />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="employerContribution" 
-                                    name="Employer EPF Contribution" 
-                                    stroke="#2dd4bf" 
-                                    strokeWidth={3} 
-                                    dot={{ r: 5, fill: '#2dd4bf', strokeWidth: 2, stroke: '#121225' }}
-                                    activeDot={{ r: 7 }}
-                                />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="epsContribution" 
-                                    name="Employer EPS Contribution" 
-                                    stroke="#fbbf24" 
-                                    strokeWidth={2} 
-                                    dot={{ r: 4, fill: '#fbbf24' }}
-                                />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="totalContribution" 
-                                    name="Total Year Contribution" 
-                                    stroke="#c084fc" 
-                                    strokeWidth={2}
-                                    strokeDasharray="5 5" 
-                                    dot={{ r: 4, fill: '#c084fc' }}
-                                />
-                            </LineChart>
-                        </ResponsiveContainer>
-                    </div>
-                ) : (
-                    <div style={{
-                        height: '12rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        border: '1px dashed rgba(255, 255, 255, 0.12)', borderRadius: '1rem', backgroundColor: 'transparent'
-                    }}>
-                        <p style={{ color: '#71717a', fontWeight: '800', uppercase: 'true', letterSpacing: '0.08em', fontSize: '11px', margin: 0 }}>No contribution records yet</p>
-                    </div>
-                )}
-            </div>
-
             <div style={styles.filterBar}>
                 {years.map(year => {
                     const status = getYearlyStatus[year];
@@ -909,6 +844,71 @@ const PFDetails = () => {
                         border: 'none', cursor: (currentPage === totalPages || totalPages === 0) ? 'not-allowed' : 'pointer', transition: 'all 0.2s'
                     }} onMouseEnter={(e) => { if (currentPage !== totalPages && totalPages !== 0) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)'; }} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}>Next</button>
                 </div>
+            </div>
+
+            {/* Year-Wise PF Contribution Trend Line Chart */}
+            <div style={{ ...styles.chartCard, marginTop: '2.5rem' }}>
+                <h3 style={styles.sectionHeader}>Yearly Contribution Trend (Employee vs Employer)</h3>
+                {yearlyContributionData.length > 0 ? (
+                    <div style={{ width: '100%', height: '350px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={yearlyContributionData} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                                <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
+                                <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} />
+                                <Tooltip 
+                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                                    itemStyle={{ fontWeight: 'bold' }}
+                                    formatter={(value) => formatCurrency(value)}
+                                    cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeDasharray: '4 4' }}
+                                />
+                                <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#a1a1aa', paddingTop: '10px' }} />
+                                <Line 
+                                    type="monotone" 
+                                    dataKey="employeeContribution" 
+                                    name="Employee (Me) Contribution" 
+                                    stroke="#60a5fa" 
+                                    strokeWidth={3} 
+                                    dot={{ r: 5, fill: '#60a5fa', strokeWidth: 2, stroke: '#121225' }}
+                                    activeDot={{ r: 7 }}
+                                />
+                                <Line 
+                                    type="monotone" 
+                                    dataKey="employerContribution" 
+                                    name="Employer EPF Contribution" 
+                                    stroke="#2dd4bf" 
+                                    strokeWidth={3} 
+                                    dot={{ r: 5, fill: '#2dd4bf', strokeWidth: 2, stroke: '#121225' }}
+                                    activeDot={{ r: 7 }}
+                                />
+                                <Line 
+                                    type="monotone" 
+                                    dataKey="epsContribution" 
+                                    name="Employer EPS Contribution" 
+                                    stroke="#fbbf24" 
+                                    strokeWidth={2} 
+                                    dot={{ r: 4, fill: '#fbbf24' }}
+                                />
+                                <Line 
+                                    type="monotone" 
+                                    dataKey="totalContribution" 
+                                    name="Total Year Contribution" 
+                                    stroke="#c084fc" 
+                                    strokeWidth={2}
+                                    strokeDasharray="5 5" 
+                                    dot={{ r: 4, fill: '#c084fc' }}
+                                />
+                            </LineChart>
+                        </ResponsiveContainer>
+                    </div>
+                ) : (
+                    <div style={{
+                        height: '12rem', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: '1px dashed rgba(255, 255, 255, 0.12)', borderRadius: '1rem', backgroundColor: 'transparent'
+                    }}>
+                        <p style={{ color: '#71717a', fontWeight: '800', uppercase: 'true', letterSpacing: '0.08em', fontSize: '11px', margin: 0 }}>No contribution records yet</p>
+                    </div>
+                )}
             </div>
 
             <PFTransactionModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveTx} initialData={editingTx} />
