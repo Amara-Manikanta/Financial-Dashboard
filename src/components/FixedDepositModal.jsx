@@ -52,7 +52,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                         interestRate: '',
                         interestEarned: '0',
                         maturityAmount: '',
-                        remarks: '',
+                        remarks: initialData.remarks || '',
                         tds: '',
                         renewalCount: (initialData.renewalCount || 0) + 1,
                         interestTransactions: initialData.interestTransactions || []
