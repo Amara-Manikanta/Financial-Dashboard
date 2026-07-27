@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp } from 'lucide-react';
+import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2 } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import FixedDepositModal from '../components/FixedDepositModal';
 import BackButton from '../components/BackButton';
@@ -15,19 +15,38 @@ const FixedDepositDetails = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingDeposit, setEditingDeposit] = useState(null);
     const [isRenewal, setIsRenewal] = useState(false);
+    const [selectedBank, setSelectedBank] = useState('ALL');
 
     const fund = savings.find(s => s.id.toString() === id);
 
-    const totalOriginalAmount = useMemo(() => fund?.deposits?.reduce((sum, d) => sum + d.originalAmount, 0) || 0, [fund]);
-    const totalMaturityAmount = useMemo(() => fund?.deposits?.reduce((sum, d) => sum + d.maturityAmount, 0) || 0, [fund]);
-    const totalInterest = useMemo(() => fund?.deposits?.reduce((sum, d) => sum + d.interestEarned, 0) || 0, [fund]);
+    const bankList = useMemo(() => {
+        if (!fund?.deposits) return [];
+        const banks = Array.from(new Set(fund.deposits.map(d => d.bank).filter(Boolean)));
+        return banks.sort();
+    }, [fund]);
+
+    useEffect(() => {
+        if (selectedBank !== 'ALL' && !bankList.includes(selectedBank)) {
+            setSelectedBank('ALL');
+        }
+    }, [bankList, selectedBank]);
+
+    const filteredDeposits = useMemo(() => {
+        if (!fund?.deposits) return [];
+        if (selectedBank === 'ALL') return fund.deposits;
+        return fund.deposits.filter(d => d.bank === selectedBank);
+    }, [fund, selectedBank]);
+
+    const totalOriginalAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.originalAmount || 0), 0), [filteredDeposits]);
+    const totalMaturityAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.maturityAmount || 0), 0), [filteredDeposits]);
+    const totalInterest = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.interestEarned || 0), 0), [filteredDeposits]);
 
     const yearlyBreakdown = useMemo(() => {
         const breakdown = {};
-        if (!fund || !fund.deposits) return [];
+        if (!filteredDeposits.length) return [];
 
-        fund.deposits.forEach(deposit => {
-            const P = deposit.originalAmount;
+        filteredDeposits.forEach(deposit => {
+            const P = deposit.originalAmount || 0;
             const r = (deposit.interestRate || 0) / 100;
             const n = 4; // Quarterly
             const start = new Date(deposit.startDate);
@@ -62,13 +81,13 @@ const FixedDepositDetails = () => {
         return Object.entries(breakdown)
             .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
             .sort((a, b) => Number(a.year) - Number(b.year));
-    }, [fund]);
+    }, [filteredDeposits]);
 
     const yearlyTdsBreakdown = useMemo(() => {
         const breakdown = {};
-        if (!fund || !fund.deposits) return [];
+        if (!filteredDeposits.length) return [];
 
-        fund.deposits.forEach(deposit => {
+        filteredDeposits.forEach(deposit => {
             (deposit.tdsTransactions || []).forEach(tx => {
                 const year = tx.financialYear || new Date(tx.date).getFullYear().toString();
                 breakdown[year] = (breakdown[year] || 0) + (tx.amount || 0);
@@ -78,7 +97,7 @@ const FixedDepositDetails = () => {
         return Object.entries(breakdown)
             .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
             .sort((a, b) => Number(a.year) - Number(b.year));
-    }, [fund]);
+    }, [filteredDeposits]);
 
     const combinedFdChartData = useMemo(() => {
         const interestMap = {};
@@ -250,21 +269,109 @@ const FixedDepositDetails = () => {
                 </button>
             </div>
 
+            {/* Bank Selection Tabs */}
+            {bankList.length > 0 && (
+                <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    overflowX: 'auto',
+                    paddingBottom: '0.5rem',
+                    marginBottom: '2rem',
+                    scrollbarWidth: 'none'
+                }}>
+                    <button
+                        onClick={() => setSelectedBank('ALL')}
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.625rem 1.25rem',
+                            borderRadius: '0.875rem',
+                            backgroundColor: selectedBank === 'ALL' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                            border: selectedBank === 'ALL' ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                            color: selectedBank === 'ALL' ? '#ffffff' : '#a1a1aa',
+                            fontSize: '0.75rem',
+                            fontWeight: '800',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            whiteSpace: 'nowrap',
+                            boxShadow: selectedBank === 'ALL' ? '0 0 15px rgba(16, 185, 129, 0.3)' : 'none'
+                        }}
+                    >
+                        <Building2 size={15} style={{ color: selectedBank === 'ALL' ? '#34d399' : '#a1a1aa' }} />
+                        <span>All Banks</span>
+                        <span style={{
+                            backgroundColor: selectedBank === 'ALL' ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.1)',
+                            color: '#ffffff',
+                            padding: '0.125rem 0.5rem',
+                            borderRadius: '9999px',
+                            fontSize: '0.6875rem'
+                        }}>
+                            {fund.deposits?.length || 0}
+                        </span>
+                    </button>
+
+                    {bankList.map(bank => {
+                        const count = fund.deposits.filter(d => d.bank === bank).length;
+                        const isSelected = selectedBank === bank;
+                        return (
+                            <button
+                                key={bank}
+                                onClick={() => setSelectedBank(bank)}
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    padding: '0.625rem 1.25rem',
+                                    borderRadius: '0.875rem',
+                                    backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.2)' : 'rgba(255, 255, 255, 0.04)',
+                                    border: isSelected ? '1px solid rgba(16, 185, 129, 0.5)' : '1px solid rgba(255, 255, 255, 0.08)',
+                                    color: isSelected ? '#ffffff' : '#a1a1aa',
+                                    fontSize: '0.75rem',
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.05em',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: isSelected ? '0 0 15px rgba(16, 185, 129, 0.3)' : 'none'
+                                }}
+                            >
+                                <Building2 size={15} style={{ color: isSelected ? '#34d399' : '#a1a1aa' }} />
+                                <span>{bank}</span>
+                                <span style={{
+                                    backgroundColor: isSelected ? 'rgba(16, 185, 129, 0.4)' : 'rgba(255, 255, 255, 0.1)',
+                                    color: '#ffffff',
+                                    padding: '0.125rem 0.5rem',
+                                    borderRadius: '9999px',
+                                    fontSize: '0.6875rem'
+                                }}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
                 <div className="fd-glass-panel">
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Principal</p>
                     <p className="font-bold text-2xl tracking-tight">{formatCurrency(totalOriginalAmount)}</p>
-                    <p className="text-xs text-gray-600 mt-1">Total Capital Invested</p>
+                    <p className="text-xs text-gray-600 mt-1">{selectedBank === 'ALL' ? 'Total Capital Invested' : `${selectedBank} Principal`}</p>
                 </div>
                 <div className="fd-glass-glow-card">
                     <p className="text-emerald-300 text-xs font-black uppercase tracking-widest mb-1">Total Interest Earned</p>
                     <p className="font-bold text-2xl tracking-tight text-emerald-400">{formatCurrency(totalInterest)}</p>
-                    <p className="text-xs text-emerald-500/70 mt-1">Accumulated returns</p>
+                    <p className="text-xs text-emerald-500/70 mt-1">{selectedBank === 'ALL' ? 'Accumulated returns' : `${selectedBank} Interest`}</p>
                 </div>
                 <div className="fd-glass-panel">
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Maturity Value</p>
                     <p className="font-bold text-2xl tracking-tight text-white">{formatCurrency(totalMaturityAmount)}</p>
-                    <p className="text-xs text-gray-600 mt-1">Value on completion</p>
+                    <p className="text-xs text-gray-600 mt-1">{selectedBank === 'ALL' ? 'Value on completion' : `${selectedBank} Maturity`}</p>
                 </div>
             </div>
 
@@ -289,7 +396,7 @@ const FixedDepositDetails = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {[...(fund.deposits || [])]
+                            {[...filteredDeposits]
                                 .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
                                 .map((deposit) => {
                                     const maturityDate = new Date(deposit.endDate);
