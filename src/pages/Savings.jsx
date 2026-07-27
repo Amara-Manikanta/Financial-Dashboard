@@ -1,22 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, ArrowUpRight, Info, Award } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, ArrowUpRight, Info, Award, Archive, ArchiveRestore } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import SavingsItemModal from '../components/SavingsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
 
 const Savings = () => {
-    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, deleteItem } = useFinance();
+    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, updateItem, deleteItem } = useFinance();
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [showArchived, setShowArchived] = useState(false);
 
     const handleDeleteClick = (e, item) => {
         e.stopPropagation();
         setItemToDelete(item);
         setIsDeleteModalOpen(true);
+    };
+
+    const handleArchiveClick = async (e, item) => {
+        e.stopPropagation();
+        await updateItem('savings', { ...item, isArchived: !item.isArchived });
     };
 
     const confirmDelete = async () => {
@@ -70,13 +76,16 @@ const Savings = () => {
     };
 
     const savingsOnly = savings.filter(item => item.type !== 'mutual_fund' && item.type !== 'stock_market' && item.type !== 'sgb');
-    const totalPortfolioValue = savingsOnly.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
-    const totalInvestedValue = savingsOnly.reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
+    const activeSavings = savingsOnly.filter(item => !item.isArchived);
+    const archivedSavings = savingsOnly.filter(item => item.isArchived);
+
+    const totalPortfolioValue = activeSavings.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
+    const totalInvestedValue = activeSavings.reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
     const totalProfitLoss = totalPortfolioValue - totalInvestedValue;
     const isTotalProfit = totalProfitLoss >= 0;
 
     let pieData = [];
-    savingsOnly.forEach(item => {
+    activeSavings.forEach(item => {
         const val = calculateItemCurrentValue(item);
         if (val > 0) {
             pieData.push({ name: item.title || item.type.replace('_', ' '), value: val });
@@ -192,7 +201,7 @@ const Savings = () => {
                     </div>
                     <div>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#71717a', marginBottom: '0.25rem', margin: 0 }}>Active Savings Holdings</p>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', margin: 0 }}>{savingsOnly.length} Accounts / Deposits</h3>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: 'white', margin: 0 }}>{activeSavings.length} Accounts / Deposits</h3>
                     </div>
                     <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.25rem', margin: 0 }}>
                         <Award size={12} /> Diversified low-risk assets portfolio
@@ -302,7 +311,7 @@ const Savings = () => {
             )}
 
             {/* Savings Accounts Listings */}
-            {savingsOnly.length === 0 ? (
+            {activeSavings.length === 0 ? (
                 <div style={{
                     textAlign: 'center',
                     padding: '4rem 1.5rem',
@@ -312,7 +321,7 @@ const Savings = () => {
                     marginBottom: '2rem'
                 }}>
                     <Target style={{ color: '#71717a', marginBottom: '1.5rem' }} size={48} />
-                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', marginBottom: '0.5rem' }}>No Savings Yet</h3>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', marginBottom: '0.5rem' }}>No Active Savings Yet</h3>
                     <p style={{ fontSize: '0.875rem', color: '#71717a', maxWidth: '400px', margin: '0 auto 1.5rem auto' }}>Start tracking your financial goals by adding your first savings account or deposit.</p>
                     <button
                         onClick={() => setIsModalOpen(true)}
@@ -334,7 +343,7 @@ const Savings = () => {
                     gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                     gap: '2rem'
                 }}>
-                    {savingsOnly.map(item => {
+                    {activeSavings.map(item => {
                         const progress = item.goal > 0 ? Math.min((item.amount / item.goal) * 100, 100) : 0;
                         const isStockMarket = item.type === 'stock_market';
                         const isMutualFund = item.type === 'mutual_fund';
@@ -461,26 +470,162 @@ const Savings = () => {
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={(e) => handleDeleteClick(e, item)}
-                                    style={{
-                                        position: 'absolute',
-                                        bottom: '1rem',
-                                        right: '1rem',
-                                        padding: '0.5rem',
-                                        borderRadius: '0.5rem',
-                                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                        color: '#f87171',
-                                        cursor: 'pointer',
-                                        zIndex: 20
-                                    }}
-                                    title="Delete Account"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', display: 'flex', gap: '0.375rem', zIndex: 20 }}>
+                                    <button
+                                        onClick={(e) => handleArchiveClick(e, item)}
+                                        style={{
+                                            padding: '0.5rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                            color: '#fbbf24',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                        title="Archive Account"
+                                    >
+                                        <Archive size={16} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDeleteClick(e, item)}
+                                        style={{
+                                            padding: '0.5rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            color: '#f87171',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                        title="Delete Account"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {/* Archived Savings Accounts */}
+            {archivedSavings.length > 0 && (
+                <div style={{ marginTop: '3.5rem', paddingTop: '2rem', borderTop: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+                        <div>
+                            <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: '#71717a', letterSpacing: '-0.025em', margin: 0 }}>Archived Accounts</h3>
+                            <p style={{ fontSize: '10px', color: '#52525b', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em', marginTop: '0.25rem', margin: 0 }}>Hidden from main savings valuation</p>
+                        </div>
+                        <button 
+                            onClick={() => setShowArchived(!showArchived)}
+                            style={{
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.1em',
+                                color: '#71717a',
+                                border: '1px solid rgba(255,255,255,0.05)',
+                                borderRadius: '0.75rem',
+                                backgroundColor: 'rgba(255,255,255,0.02)',
+                                padding: '0.5rem 1rem',
+                                cursor: 'pointer'
+                            }}
+                        >
+                            {showArchived ? 'Hide Archived' : 'Show Archived'} ({archivedSavings.length})
+                        </button>
+                    </div>
+
+                    {showArchived && (
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                            gap: '1.5rem',
+                            opacity: 0.6
+                        }}>
+                            {archivedSavings.map(item => {
+                                const displayAmount = calculateItemCurrentValue(item);
+                                return (
+                                    <div
+                                        key={item.id}
+                                        onClick={() => {
+                                            if (item.type === 'fixed_deposit') navigate(`/savings/fixed-deposit/${item.id}`);
+                                            else if (item.type === 'policy') navigate(`/savings/policy/${item.id}`);
+                                            else if (item.type === 'ppf') navigate(`/savings/ppf/${item.id}`);
+                                            else if (item.type === 'nps') navigate(`/savings/nps/${item.id}`);
+                                            else if (item.type === 'savings_account') navigate(`/savings/savings-account/${item.id}`);
+                                            else if (item.type === 'recurring_deposit') navigate(`/savings/recurring-deposit/${item.id}`);
+                                            else if (item.type === 'pf') navigate(`/savings/pf/${item.id}`);
+                                        }}
+                                        style={{
+                                            backgroundColor: 'rgba(0, 0, 0, 0.4)',
+                                            borderRadius: '1rem',
+                                            border: '1px solid rgba(255, 255, 255, 0.05)',
+                                            padding: '1.25rem',
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            height: '160px'
+                                        }}
+                                    >
+                                        <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.25rem', opacity: 0.05, color: '#71717a' }}>
+                                            {getIcon(item.type)}
+                                        </div>
+                                        <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+                                            <div>
+                                                <h3 style={{ fontSize: '1rem', fontWeight: 'bold', color: '#a1a1aa', margin: '0 0 0.375rem 0' }}>{item.title}</h3>
+                                                <span style={{
+                                                    fontSize: '8px',
+                                                    padding: '0.125rem 0.375rem',
+                                                    borderRadius: '9999px',
+                                                    fontWeight: '800',
+                                                    textTransform: 'uppercase',
+                                                    letterSpacing: '0.05em',
+                                                    border: '1px solid rgba(255,255,255,0.1)',
+                                                    color: '#71717a'
+                                                }}>
+                                                    Archived {item.type.replace('_', ' ')}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <p style={{ fontSize: '1.5rem', fontWeight: '900', color: '#a1a1aa', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(displayAmount)}</p>
+                                            </div>
+                                        </div>
+                                        <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', display: 'flex', gap: '0.375rem', zIndex: 20 }}>
+                                            <button
+                                                onClick={(e) => handleArchiveClick(e, item)}
+                                                style={{
+                                                    padding: '0.375rem',
+                                                    borderRadius: '0.375rem',
+                                                    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                                    color: '#fbbf24',
+                                                    border: 'none',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Unarchive Account"
+                                            >
+                                                <ArchiveRestore size={14} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDeleteClick(e, item)}
+                                                style={{
+                                                    padding: '0.375rem',
+                                                    borderRadius: '0.375rem',
+                                                    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                                    color: '#f87171',
+                                                    border: 'none',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Delete Account"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
                 </div>
             )}
 
