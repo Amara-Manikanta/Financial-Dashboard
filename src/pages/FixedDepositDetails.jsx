@@ -104,6 +104,7 @@ const FixedDepositDetails = () => {
 
     const totalOriginalAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.originalAmount || 0), 0), [filteredDeposits]);
     const totalMaturityAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.maturityAmount || 0), 0), [filteredDeposits]);
+    const totalInterest = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.interestEarned || 0), 0), [filteredDeposits]);
     const totalInterestAccruedTillNow = useMemo(() => filteredDeposits.reduce((sum, d) => sum + getDepositAccruedDetails(d).accruedInterest, 0), [filteredDeposits]);
 
     const yearlyBreakdown = useMemo(() => {
@@ -441,16 +442,21 @@ const FixedDepositDetails = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                 <div className="fd-glass-panel">
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Principal</p>
                     <p className="font-bold text-2xl tracking-tight">{formatCurrency(totalOriginalAmount)}</p>
                     <p className="text-xs text-gray-600 mt-1">{selectedBank === 'ALL' ? 'Total Capital Invested' : `${selectedBank} Principal`}</p>
                 </div>
                 <div className="fd-glass-glow-card">
-                    <p className="text-emerald-300 text-xs font-black uppercase tracking-widest mb-1">Total Interest Earned</p>
-                    <p className="font-bold text-2xl tracking-tight text-emerald-400">{formatCurrency(totalInterest)}</p>
-                    <p className="text-xs text-emerald-500/70 mt-1">{selectedBank === 'ALL' ? 'Accumulated returns' : `${selectedBank} Interest`}</p>
+                    <p className="text-emerald-300 text-xs font-black uppercase tracking-widest mb-1">Interest Till Today</p>
+                    <p className="font-bold text-2xl tracking-tight text-emerald-400">{formatCurrency(totalInterestAccruedTillNow)}</p>
+                    <p className="text-xs text-emerald-500/70 mt-1">Live accrued earnings</p>
+                </div>
+                <div className="fd-glass-panel">
+                    <p className="text-emerald-400/80 text-xs font-black uppercase tracking-widest mb-1">Total Interest (Maturity)</p>
+                    <p className="font-bold text-2xl tracking-tight text-emerald-300">{formatCurrency(totalInterest)}</p>
+                    <p className="text-xs text-gray-600 mt-1">Expected total returns</p>
                 </div>
                 <div className="fd-glass-panel">
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Maturity Value</p>
