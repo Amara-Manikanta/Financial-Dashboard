@@ -41,6 +41,28 @@ const FixedDepositDetails = () => {
     const totalMaturityAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.maturityAmount || 0), 0), [filteredDeposits]);
     const totalInterest = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.interestEarned || 0), 0), [filteredDeposits]);
 
+    const getDepositAccruedValue = (deposit) => {
+        if (!deposit.originalAmount || !deposit.interestRate || !deposit.startDate) {
+            return deposit.currentValue || deposit.originalAmount || 0;
+        }
+        const P = deposit.originalAmount;
+        const r = (deposit.interestRate || 0) / 100;
+        const start = new Date(deposit.startDate);
+        const end = new Date(deposit.endDate);
+        const today = new Date();
+
+        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+            return deposit.currentValue || deposit.originalAmount || 0;
+        }
+
+        const isSlice = deposit.bank && deposit.bank.toLowerCase().includes('slice');
+        const n = isSlice ? 365 : 4;
+
+        const tElapsed = Math.max(0, (Math.min(today, end) - start) / (1000 * 60 * 60 * 24 * 365.25));
+        const accruedValue = P * Math.pow((1 + r / n), (n * tElapsed));
+        return Math.round(accruedValue);
+    };
+
     const yearlyBreakdown = useMemo(() => {
         const breakdown = {};
         if (!filteredDeposits.length) return [];
@@ -48,7 +70,8 @@ const FixedDepositDetails = () => {
         filteredDeposits.forEach(deposit => {
             const P = deposit.originalAmount || 0;
             const r = (deposit.interestRate || 0) / 100;
-            const n = 4; // Quarterly
+            const isSlice = deposit.bank && deposit.bank.toLowerCase().includes('slice');
+            const n = isSlice ? 365 : 4;
             const start = new Date(deposit.startDate);
             const end = new Date(deposit.endDate);
 
@@ -424,14 +447,23 @@ const FixedDepositDetails = () => {
                                                     )}
                                                 </div>
                                             </td>
-                                            <td style={{ padding: '1.25rem 1rem', color: '#ffffff' }}>{deposit.bank}</td>
+                                            <td style={{ padding: '1.25rem 1rem', color: '#ffffff' }}>
+                                                <div className="flex flex-col">
+                                                    <span>{deposit.bank}</span>
+                                                    {deposit.bank?.toLowerCase().includes('slice') && (
+                                                        <span className="text-[9px] font-black text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded-full border border-purple-500/20 w-fit mt-1">
+                                                            ⚡ Daily Interest
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </td>
                                             <td style={{ padding: '1.25rem 1rem', fontWeight: 'bold', color: 'var(--text-accent)' }}>{deposit.interestRate || '—'}%</td>
                                             <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.startDate)}</td>
                                             <td style={{ padding: '1.25rem 1rem', fontWeight: (isNearingMaturity || isMatured) ? 'bold' : 'normal', color: isMatured ? '#10b981' : (isNearingMaturity ? '#fbbf24' : '#ffffff') }}>{formatDate(deposit.endDate)}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: '500' }}>{formatCurrency(deposit.originalAmount)}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)', fontWeight: '500' }}>{formatCurrency(totalInterest)}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#f87171', fontWeight: '500' }}>{totalTds ? formatCurrency(totalTds) : '-'}</td>
-                                            <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#a1a1aa', fontWeight: '500' }}>{formatCurrency(deposit.currentValue)}</td>
+                                            <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#a1a1aa', fontWeight: '500' }}>{formatCurrency(getDepositAccruedValue(deposit))}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: '700' }}>{formatCurrency(deposit.maturityAmount)}</td>
                                             <td style={{ padding: '1.25rem 1rem', paddingLeft: '1.5rem', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={deposit.remarks}>{deposit.remarks || '—'}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>

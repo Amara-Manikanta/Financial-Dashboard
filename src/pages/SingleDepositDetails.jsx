@@ -208,15 +208,25 @@ const SingleDepositDetails = () => {
             <BackButton label="Back to Deposits" />
 
             <div className="mb-8">
-                <h2 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
+                <h2 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3 flex-wrap">
                     <span className="text-gray-500">#{deposit.accountNo}</span>
                     <span>{deposit.bank}</span>
+                    {deposit.bank?.toLowerCase().includes('slice') && (
+                        <span className="text-xs font-black text-purple-300 bg-purple-500/20 px-3 py-1 rounded-full border border-purple-500/30 flex items-center gap-1">
+                            ⚡ Daily Interest Compounding
+                        </span>
+                    )}
                 </h2>
-                <div className="flex gap-6 mt-3 text-sm text-gray-500 font-bold uppercase tracking-wider">
+                <div className="flex flex-wrap gap-6 mt-3 text-sm text-gray-500 font-bold uppercase tracking-wider">
                     <div className="flex items-center gap-2">
                         <Calendar size={16} className="text-teal-400" />
                         <span>{formatDate(deposit.startDate)} — {formatDate(deposit.endDate)}</span>
                     </div>
+                    {deposit.bank?.toLowerCase().includes('slice') && (
+                        <div className="text-purple-400 font-semibold text-xs flex items-center gap-1">
+                            Interest accrued daily @ {(deposit.interestRate / 365).toFixed(4)}% per day
+                        </div>
+                    )}
                 </div>
             </div>
 

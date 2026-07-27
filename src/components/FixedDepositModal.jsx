@@ -90,7 +90,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
         }
     }, [isOpen, initialData]);
 
-    const calculateMaturity = (principal, rate, start, end) => {
+    const calculateMaturity = (principal, rate, start, end, bankName) => {
         if (!principal || !rate || !start || !end) return { interest: 0, maturity: 0, accrued: 0 };
 
         const P = parseFloat(principal);
@@ -103,9 +103,9 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
         const T = (endDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
         const tElapsed = Math.max(0, (Math.min(today, endDate) - startDate) / (1000 * 60 * 60 * 24 * 365.25));
 
-        // Standard Indian FD: Quarterly Compounding (n=4)
-        // A = P * (1 + r/n)^(n*t)
-        const n = 4;
+        // Slice Bank compounding is daily (n=365), standard Indian FDs compound quarterly (n=4)
+        const isSlice = bankName && bankName.toLowerCase().includes('slice');
+        const n = isSlice ? 365 : 4;
         const maturityValue = P * Math.pow((1 + r / n), (n * T));
         const accruedValue = P * Math.pow((1 + r / n), (n * tElapsed));
 
@@ -122,8 +122,8 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
             const next = { ...prev, [name]: value };
 
             // Auto-calculate if key fields change
-            if (['originalAmount', 'interestRate', 'startDate', 'endDate'].includes(name)) {
-                const { interest, maturity } = calculateMaturity(next.originalAmount, next.interestRate, next.startDate, next.endDate);
+            if (['originalAmount', 'interestRate', 'startDate', 'endDate', 'bank'].includes(name)) {
+                const { interest, maturity } = calculateMaturity(next.originalAmount, next.interestRate, next.startDate, next.endDate, next.bank);
                 next.interestEarned = interest;
                 next.maturityAmount = maturity;
             }
@@ -133,7 +133,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        const { accrued } = calculateMaturity(formData.originalAmount, formData.interestRate, formData.startDate, formData.endDate);
+        const { accrued } = calculateMaturity(formData.originalAmount, formData.interestRate, formData.startDate, formData.endDate, formData.bank);
 
         onSave({
             id: initialData?.id || Date.now(),
