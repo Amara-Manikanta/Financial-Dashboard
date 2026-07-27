@@ -584,36 +584,80 @@ const FixedDepositDetails = () => {
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
-                                                <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-2.5" onClick={(e) => e.stopPropagation()}>
                                                     {isMatured && (
                                                         <button
                                                             onClick={() => handleRenewDeposit(deposit)}
-                                                            className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all border border-emerald-500/20 shadow-sm animate-pulse"
+                                                            style={{
+                                                                display: 'inline-flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                padding: '0.5rem',
+                                                                borderRadius: '0.625rem',
+                                                                backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                                                color: '#34d399',
+                                                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                                                cursor: 'pointer',
+                                                                transition: 'all 0.2s ease'
+                                                            }}
                                                             title="Renew Deposit"
                                                         >
-                                                            <RefreshCw size={14} />
+                                                            <RefreshCw size={15} style={{ color: '#34d399' }} />
                                                         </button>
                                                     )}
                                                     <button
                                                         onClick={() => { setEditingDeposit(deposit); setIsRenewal(false); setIsModalOpen(true); }}
-                                                        className="p-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all border border-blue-500/20 shadow-sm"
-                                                        title="Edit"
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            padding: '0.5rem',
+                                                            borderRadius: '0.625rem',
+                                                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                                            color: '#60a5fa',
+                                                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                        title="Edit Deposit"
                                                     >
-                                                        <Edit2 size={14} />
+                                                        <Edit2 size={15} style={{ color: '#60a5fa' }} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleOpenCloseModal(deposit)}
-                                                        className="p-2 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/20 shadow-sm"
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            padding: '0.5rem',
+                                                            borderRadius: '0.625rem',
+                                                            backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                                            color: '#fbbf24',
+                                                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
                                                         title="Close / Archive Deposit"
                                                     >
-                                                        <Archive size={14} />
+                                                        <Archive size={15} style={{ color: '#fbbf24' }} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteDeposit(deposit.id)}
-                                                        className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 shadow-sm"
-                                                        title="Delete"
+                                                        style={{
+                                                            display: 'inline-flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            padding: '0.5rem',
+                                                            borderRadius: '0.625rem',
+                                                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                                                            color: '#f87171',
+                                                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                                                            cursor: 'pointer',
+                                                            transition: 'all 0.2s ease'
+                                                        }}
+                                                        title="Delete Deposit"
                                                     >
-                                                        <Trash2 size={14} />
+                                                        <Trash2 size={15} style={{ color: '#f87171' }} />
                                                     </button>
                                                 </div>
                                             </td>
