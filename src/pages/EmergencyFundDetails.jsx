@@ -133,10 +133,39 @@ const EmergencyFundDetails = () => {
         <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>
             <button
                 onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-200 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/10 border border-white/15 hover:bg-white/20 hover:border-white/30 backdrop-blur-md shadow-lg"
-                style={{ cursor: 'pointer' }}
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.625rem',
+                    padding: '0.625rem 1.25rem',
+                    borderRadius: '0.875rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#ffffff',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    marginBottom: '2rem',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                }}
             >
-                <ArrowLeft size={16} className="text-white" /> Back to Savings
+                <ArrowLeft size={16} style={{ color: '#60a5fa' }} />
+                <span>Back to Savings</span>
             </button>
 
             <div className="mb-10">

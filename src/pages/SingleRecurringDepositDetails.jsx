@@ -113,41 +113,145 @@ const SingleRecurringDepositDetails = () => {
             {/* Navigation */}
             <button
                 onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.12] backdrop-blur-md shadow-lg"
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.625rem',
+                    padding: '0.625rem 1.25rem',
+                    borderRadius: '0.875rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#ffffff',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    marginBottom: '2rem',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                }}
             >
-                <ArrowLeft size={14} /> Back to {account.title}
+                <ArrowLeft size={16} style={{ color: '#60a5fa' }} />
+                <span>Back to {account.title}</span>
             </button>
 
             {/* Hero Header */}
-            <div className="mb-10 p-6 rounded-2xl bg-gradient-to-r from-blue-900/20 via-indigo-900/10 to-transparent border border-blue-500/10 backdrop-blur-xl flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            <div style={{
+                marginBottom: '2.5rem',
+                padding: '1.75rem 2rem',
+                borderRadius: '1.25rem',
+                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(17, 24, 39, 0.6) 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '1.5rem',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+            }}>
                 <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <h2 className="text-3xl font-black text-white tracking-tight">{rd.name}</h2>
-                        <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                        <h2 style={{ fontSize: '2rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, lineHeight: 1.2 }}>
+                            {rd.name}
+                        </h2>
+                        <span style={{
+                            fontSize: '0.75rem',
+                            fontWeight: '800',
+                            color: '#60a5fa',
+                            backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                            padding: '0.25rem 0.75rem',
+                            borderRadius: '9999px',
+                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                            whiteSpace: 'nowrap'
+                        }}>
                             {rd.interestRate}% p.a. Interest
                         </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-zinc-400">
-                        <div className="flex items-center gap-2 bg-white/[0.03] border border-white/[0.06] py-1.5 px-3.5 rounded-xl backdrop-blur-md">
-                            <Calendar size={14} className="text-blue-400" />
-                            {formatDate(rd.startDate)} ➔ {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <div style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            padding: '0.375rem 0.875rem',
+                            borderRadius: '0.75rem',
+                            backgroundColor: 'rgba(255, 255, 255, 0.04)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            color: '#a1a1aa',
+                            fontSize: '0.75rem',
+                            fontWeight: '600'
+                        }}>
+                            <Calendar size={14} style={{ color: '#60a5fa' }} />
+                            <span>{formatDate(rd.startDate)} ➔ {rd.endDate ? formatDate(rd.endDate) : 'Ongoing'}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <button
                         onClick={() => { setEditingTx(null); setIsModalOpen(true); }}
-                        className="flex-1 md:flex-none bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black py-3 px-5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] text-xs uppercase tracking-widest border border-blue-400/30 active:scale-95"
+                        style={{
+                            padding: '0.875rem 1.25rem',
+                            borderRadius: '0.875rem',
+                            background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)',
+                            color: 'white',
+                            fontWeight: '900',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            cursor: 'pointer',
+                            border: '1px solid rgba(96, 165, 250, 0.3)',
+                            boxShadow: '0 4px 15px rgba(37, 99, 235, 0.35)',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                        <Plus size={15} /> Add Installment
+                        <Plus size={16} />
+                        <span>Add Installment</span>
                     </button>
 
                     <button
                         onClick={() => { setEditingInterestTx(null); setIsInterestModalOpen(true); }}
-                        className="flex-1 md:flex-none bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black py-3 px-5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] text-xs uppercase tracking-widest border border-emerald-400/30 active:scale-95"
+                        style={{
+                            padding: '0.875rem 1.25rem',
+                            borderRadius: '0.875rem',
+                            background: 'linear-gradient(135deg, #059669 0%, #0d9488 100%)',
+                            color: 'white',
+                            fontWeight: '900',
+                            fontSize: '0.75rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.1em',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            cursor: 'pointer',
+                            border: '1px solid rgba(52, 211, 153, 0.3)',
+                            boxShadow: '0 4px 15px rgba(16, 185, 129, 0.35)',
+                            transition: 'all 0.2s ease'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                        onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                     >
-                        <Plus size={15} /> Record Interest
+                        <Plus size={16} />
+                        <span>Record Interest</span>
                     </button>
                 </div>
             </div>

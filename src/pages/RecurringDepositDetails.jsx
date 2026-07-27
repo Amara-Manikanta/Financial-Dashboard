@@ -97,34 +97,119 @@ const RecurringDepositDetails = () => {
             {/* Top Navigation */}
             <button
                 onClick={() => navigate(-1)}
-                className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-zinc-400 hover:text-white transition-all duration-300 mb-8 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06] hover:bg-white/[0.08] hover:border-white/[0.12] backdrop-blur-md shadow-lg"
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '0.625rem',
+                    padding: '0.625rem 1.25rem',
+                    borderRadius: '0.875rem',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    color: '#ffffff',
+                    fontSize: '0.75rem',
+                    fontWeight: '800',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1em',
+                    cursor: 'pointer',
+                    backdropFilter: 'blur(12px)',
+                    WebkitBackdropFilter: 'blur(12px)',
+                    marginBottom: '2rem',
+                    transition: 'all 0.2s ease',
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                }}
+                onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.25)';
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+                    e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                    e.currentTarget.style.transform = 'translateY(0)';
+                }}
             >
-                <ArrowLeft size={14} /> Back to Savings
+                <ArrowLeft size={16} style={{ color: '#60a5fa' }} />
+                <span>Back to Savings</span>
             </button>
 
             {/* Header Section */}
-            <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 bg-gradient-to-r from-blue-900/20 via-indigo-900/10 to-transparent p-6 rounded-2xl border border-blue-500/10 backdrop-blur-xl">
-                <div className="flex items-center gap-5">
-                    <div className="p-4 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-2xl text-white shadow-[0_0_25px_rgba(59,130,246,0.3)]">
-                        <RefreshCcw size={32} className="animate-spin-slow" />
+            <div style={{
+                marginBottom: '2.5rem',
+                padding: '1.75rem 2rem',
+                borderRadius: '1.25rem',
+                background: 'linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(17, 24, 39, 0.6) 100%)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '1.5rem',
+                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
+                    <div style={{
+                        padding: '1rem',
+                        borderRadius: '1rem',
+                        background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)',
+                        color: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 0 20px rgba(37, 99, 235, 0.4)'
+                    }}>
+                        <RefreshCcw size={28} />
                     </div>
                     <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-3xl font-black text-white tracking-tight">{account.title}</h2>
-                            <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full border border-blue-500/20">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.375rem' }}>
+                            <h2 style={{ fontSize: '2rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, lineHeight: 1.2 }}>
+                                {account.title}
+                            </h2>
+                            <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: '800',
+                                color: '#60a5fa',
+                                backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                                padding: '0.25rem 0.75rem',
+                                borderRadius: '9999px',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                whiteSpace: 'nowrap'
+                            }}>
                                 {account.recurringDeposits?.length || 0} Deposits
                             </span>
                         </div>
-                        <p className="text-zinc-400 font-semibold uppercase tracking-widest text-[11px]">Systematic Monthly Savings & Interest Accumulation</p>
+                        <p style={{ color: '#9ca3af', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.12em', fontSize: '0.6875rem', margin: 0 }}>
+                            Systematic Monthly Savings & Interest Accumulation
+                        </p>
                     </div>
                 </div>
 
                 <button
                     onClick={() => { setEditingRD(null); setIsModalOpen(true); }}
-                    className="w-full md:w-auto bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white font-black py-3.5 px-6 rounded-xl flex items-center justify-center gap-2.5 transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)] text-xs uppercase tracking-widest active:scale-95 border border-blue-400/30"
+                    style={{
+                        padding: '0.875rem 1.5rem',
+                        borderRadius: '0.875rem',
+                        background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)',
+                        color: 'white',
+                        fontWeight: '900',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.1em',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.5rem',
+                        cursor: 'pointer',
+                        border: '1px solid rgba(96, 165, 250, 0.3)',
+                        boxShadow: '0 4px 15px rgba(37, 99, 235, 0.35)',
+                        transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-1px)'}
+                    onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                     <Plus size={16} />
-                    Add Deposit
+                    <span>Add Deposit</span>
                 </button>
             </div>
 
