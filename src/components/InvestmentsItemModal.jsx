@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, FileText, Layout, TrendingUp, Landmark } from 'lucide-react';
+import { X, Calendar, FileText, Layout, TrendingUp, Landmark, ScrollText } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 
 const inputStyle = {
@@ -36,6 +36,7 @@ const InvestmentsItemModal = ({ isOpen, onClose, onSave }) => {
     const types = [
         { id: 'mutual_fund', label: 'Mutual Fund', icon: <TrendingUp size={16} /> },
         { id: 'stock_market', label: 'Stock Market', icon: <Layout size={16} /> },
+        { id: 'sgb', label: 'Gold Bond (SGB)', icon: <ScrollText size={16} /> },
     ];
 
     const handleExtraChange = (key, value) => {
@@ -58,6 +59,9 @@ const InvestmentsItemModal = ({ isOpen, onClose, onSave }) => {
             newItem.transactions = [];
         } else if (type === 'stock_market') {
             newItem.stocks = [];
+        } else if (type === 'sgb') {
+            newItem.holdings = [];
+            newItem.interestTransactions = [];
         }
 
         onSave(newItem);

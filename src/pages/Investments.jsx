@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -14,8 +14,8 @@ const Investments = () => {
     const [itemToDelete, setItemToDelete] = useState(null);
     const [showArchived, setShowArchived] = useState(false);
 
-    // Filter only investments
-    const investments = savings.filter(item => item.type === 'mutual_fund' || item.type === 'stock_market');
+    // Filter only investments (mutual funds, stocks, and SGB)
+    const investments = savings.filter(item => item.type === 'mutual_fund' || item.type === 'stock_market' || item.type === 'sgb');
     const activeInvestments = investments.filter(item => !item.isArchived);
     const archivedInvestments = investments.filter(item => item.isArchived);
 
@@ -37,6 +37,7 @@ const Investments = () => {
         switch (type) {
             case 'stock_market': return <Layout size={64} />;
             case 'mutual_fund': return <TrendingUp size={64} />;
+            case 'sgb': return <ScrollText size={64} />;
             default: return <Target size={64} />;
         }
     };
@@ -45,6 +46,7 @@ const Investments = () => {
         switch (type) {
             case 'stock_market': return { bg: 'bg-blue-500/20', text: 'text-blue-400', bar: 'bg-blue-500' };
             case 'mutual_fund': return { bg: 'bg-purple-500/20', text: 'text-purple-400', bar: 'bg-purple-500' };
+            case 'sgb': return { bg: 'bg-amber-500/20', text: 'text-amber-400', bar: 'bg-amber-500' };
             default: return { bg: 'bg-gray-500/20', text: 'text-gray-400', bar: 'bg-gray-500' };
         }
     };
@@ -60,6 +62,13 @@ const Investments = () => {
     if (stockMarketTotal > 0) {
         pieData.push({ name: 'Stock Market', value: stockMarketTotal });
     }
+
+    activeInvestments.filter(i => i.type === 'sgb').forEach(sgb => {
+        const val = calculateItemCurrentValue(sgb);
+        if (val > 0) {
+            pieData.push({ name: sgb.title || 'Gold Bonds (SGB)', value: val });
+        }
+    });
 
     activeInvestments.filter(i => i.type === 'mutual_fund').forEach(fund => {
         const val = calculateItemInvestedValue(fund);
@@ -346,6 +355,7 @@ const Investments = () => {
                     {activeInvestments.map(item => {
                         const isStockMarket = item.type === 'stock_market';
                         const isMutualFund = item.type === 'mutual_fund';
+                        const isSGB = item.type === 'sgb';
                         const style = getStyle(item.type);
 
                         const displayAmount = calculateItemCurrentValue(item);
@@ -357,7 +367,34 @@ const Investments = () => {
                         const handleClick = () => {
                             if (isMutualFund) { navigate(`/savings/mutual-fund/${item.id}`); }
                             else if (isStockMarket) { navigate(`/savings/stock-market/${item.id}`); }
+                            else if (isSGB) { navigate(`/savings/sgb/${item.id}`); }
                         };
+
+                        const borderStyle = isStockMarket 
+                            ? '1px solid rgba(59, 130, 246, 0.15)' 
+                            : isSGB 
+                                ? '1px solid rgba(245, 158, 11, 0.2)' 
+                                : '1px solid rgba(167, 139, 250, 0.15)';
+                        const shadowStyle = isStockMarket 
+                            ? '0 10px 15px -3px rgba(59, 130, 246, 0.02)' 
+                            : isSGB 
+                                ? '0 10px 15px -3px rgba(245, 158, 11, 0.02)' 
+                                : '0 10px 15px -3px rgba(167, 139, 250, 0.02)';
+                        const badgeBg = isStockMarket 
+                            ? 'rgba(59, 130, 246, 0.1)' 
+                            : isSGB 
+                                ? 'rgba(245, 158, 11, 0.1)' 
+                                : 'rgba(167, 139, 250, 0.1)';
+                        const badgeBorder = isStockMarket 
+                            ? '1px solid rgba(59, 130, 246, 0.2)' 
+                            : isSGB 
+                                ? '1px solid rgba(245, 158, 11, 0.2)' 
+                                : '1px solid rgba(167, 139, 250, 0.2)';
+                        const badgeText = isStockMarket 
+                            ? '#60a5fa' 
+                            : isSGB 
+                                ? '#fbbf24' 
+                                : '#c084fc';
 
                         return (
                             <div
@@ -367,7 +404,7 @@ const Investments = () => {
                                     backgroundColor: 'rgba(24, 24, 27, 0.4)',
                                     backdropFilter: 'blur(10px)',
                                     borderRadius: '1.5rem',
-                                    border: isStockMarket ? '1px solid rgba(59, 130, 246, 0.15)' : '1px solid rgba(167, 139, 250, 0.15)',
+                                    border: borderStyle,
                                     padding: '1.5rem',
                                     position: 'relative',
                                     overflow: 'hidden',
@@ -376,10 +413,10 @@ const Investments = () => {
                                     flexDirection: 'column',
                                     justifyContent: 'space-between',
                                     height: '220px',
-                                    boxShadow: isStockMarket ? '0 10px 15px -3px rgba(59, 130, 246, 0.02)' : '0 10px 15px -3px rgba(167, 139, 250, 0.02)'
+                                    boxShadow: shadowStyle
                                 }}
                             >
-                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.05, color: isStockMarket ? '#3b82f6' : '#a78bfa' }}>
+                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.05, color: isStockMarket ? '#3b82f6' : isSGB ? '#fbbf24' : '#a78bfa' }}>
                                     {getIcon(item.type)}
                                 </div>
 
@@ -393,11 +430,11 @@ const Investments = () => {
                                             fontWeight: '800',
                                             textTransform: 'uppercase',
                                             letterSpacing: '0.1em',
-                                            border: isStockMarket ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid rgba(167, 139, 250, 0.2)',
-                                            backgroundColor: isStockMarket ? 'rgba(59, 130, 246, 0.1)' : 'rgba(167, 139, 250, 0.1)',
-                                            color: isStockMarket ? '#60a5fa' : '#c084fc'
+                                            border: badgeBorder,
+                                            backgroundColor: badgeBg,
+                                            color: badgeText
                                         }}>
-                                            {item.type.replace('_', ' ')}
+                                            {item.type === 'sgb' ? 'SGB' : item.type.replace('_', ' ')}
                                         </span>
                                     </div>
 

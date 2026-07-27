@@ -69,7 +69,7 @@ const Savings = () => {
         }
     };
 
-    const savingsOnly = savings.filter(item => item.type !== 'mutual_fund' && item.type !== 'stock_market');
+    const savingsOnly = savings.filter(item => item.type !== 'mutual_fund' && item.type !== 'stock_market' && item.type !== 'sgb');
     const totalPortfolioValue = savingsOnly.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
     const totalInvestedValue = savingsOnly.reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
     const totalProfitLoss = totalPortfolioValue - totalInvestedValue;
