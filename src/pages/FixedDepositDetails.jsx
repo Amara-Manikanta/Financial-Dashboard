@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2, Archive, ArchiveRestore, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import FixedDepositModal from '../components/FixedDepositModal';
+import CloseDepositModal from '../components/CloseDepositModal';
 import BackButton from '../components/BackButton';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend } from 'recharts';
 
@@ -17,6 +18,10 @@ const FixedDepositDetails = () => {
     const [isRenewal, setIsRenewal] = useState(false);
     const [selectedBank, setSelectedBank] = useState('ALL');
     const [showArchived, setShowArchived] = useState(false);
+
+    // Close & Archive Modal state
+    const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+    const [closingDeposit, setClosingDeposit] = useState(null);
 
     const fund = savings.find(s => s.id.toString() === id);
 
@@ -236,10 +241,41 @@ const FixedDepositDetails = () => {
         }
     };
 
-    const handleArchiveDeposit = (depositId) => {
+    const handleOpenCloseModal = (deposit) => {
+        setClosingDeposit(deposit);
+        setIsCloseModalOpen(true);
+    };
+
+    const handleConfirmCloseModal = ({ depositId, closureDate, finalInterestEarned, closureRemarks }) => {
         const updatedDeposits = fund.deposits.map(d => {
             if (d.id === depositId) {
-                return { ...d, isArchived: !d.isArchived };
+                const P = Number(d.originalAmount) || 0;
+                const finalInterest = Number(finalInterestEarned) || 0;
+                return {
+                    ...d,
+                    isArchived: true,
+                    endDate: closureDate || d.endDate,
+                    interestEarned: finalInterest,
+                    currentValue: P + finalInterest,
+                    maturityAmount: P + finalInterest,
+                    remarks: closureRemarks || d.remarks
+                };
+            }
+            return d;
+        });
+
+        const newTotalAmount = updatedDeposits
+            .filter(d => !d.isArchived)
+            .reduce((sum, d) => sum + (getDepositAccruedDetails(d).accruedValue || d.originalAmount || 0), 0);
+
+        updateItem('savings', { ...fund, deposits: updatedDeposits, amount: newTotalAmount });
+        setClosingDeposit(null);
+    };
+
+    const handleRestoreDeposit = (depositId) => {
+        const updatedDeposits = fund.deposits.map(d => {
+            if (d.id === depositId) {
+                return { ...d, isArchived: false };
             }
             return d;
         });
@@ -548,11 +584,11 @@ const FixedDepositDetails = () => {
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
-                                                <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
                                                     {isMatured && (
                                                         <button
                                                             onClick={() => handleRenewDeposit(deposit)}
-                                                            className="p-1.5 rounded bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-colors animate-pulse"
+                                                            className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all border border-emerald-500/20 shadow-sm animate-pulse"
                                                             title="Renew Deposit"
                                                         >
                                                             <RefreshCw size={14} />
@@ -560,22 +596,21 @@ const FixedDepositDetails = () => {
                                                     )}
                                                     <button
                                                         onClick={() => { setEditingDeposit(deposit); setIsRenewal(false); setIsModalOpen(true); }}
-                                                        className="p-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                                        className="p-2 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all border border-blue-500/20 shadow-sm"
                                                         title="Edit"
                                                     >
                                                         <Edit2 size={14} />
                                                     </button>
                                                     <button
-                                                        onClick={() => handleArchiveDeposit(deposit.id)}
-                                                        className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 text-amber-400 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/30 flex items-center gap-1 text-xs font-bold shadow-sm"
-                                                        title="Archive / Close Deposit"
+                                                        onClick={() => handleOpenCloseModal(deposit)}
+                                                        className="p-2 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/20 shadow-sm"
+                                                        title="Close / Archive Deposit"
                                                     >
-                                                        <Archive size={13} />
-                                                        <span>Archive</span>
+                                                        <Archive size={14} />
                                                     </button>
                                                     <button
                                                         onClick={() => handleDeleteDeposit(deposit.id)}
-                                                        className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                        className="p-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-all border border-red-500/20 shadow-sm"
                                                         title="Delete"
                                                     >
                                                         <Trash2 size={14} />
@@ -688,31 +723,34 @@ const FixedDepositDetails = () => {
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Start Date</th>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>End Date</th>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Principal</th>
-                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Accrued Interest</th>
-                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Maturity Value</th>
-                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left', paddingLeft: '1.5rem' }}>Remarks</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Final Interest Received</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Closure Amount</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left', paddingLeft: '1.5rem' }}>Closure Remarks</th>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {archivedDeposits.map((deposit) => {
                                             const { accruedInterest, accruedValue } = getDepositAccruedDetails(deposit);
+                                            const finalInterest = deposit.interestEarned ?? accruedInterest;
+                                            const finalPayout = deposit.maturityAmount ?? accruedValue;
+
                                             return (
-                                                <tr key={deposit.id} style={{ opacity: 0.75 }}>
+                                                <tr key={deposit.id} style={{ opacity: 0.8 }}>
                                                     <td style={{ padding: '1.25rem 1rem', fontFamily: 'monospace' }}>{deposit.accountNo}</td>
                                                     <td style={{ padding: '1.25rem 1rem', color: '#ffffff' }}>{deposit.bank}</td>
                                                     <td style={{ padding: '1.25rem 1rem' }}>{deposit.interestRate}%</td>
                                                     <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.startDate)}</td>
                                                     <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.endDate)}</td>
                                                     <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.originalAmount)}</td>
-                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#34d399' }}>{formatCurrency(accruedInterest)}</td>
-                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.maturityAmount || accruedValue)}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#34d399', fontWeight: 'bold' }}>{formatCurrency(finalInterest)}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: 'bold' }}>{formatCurrency(finalPayout)}</td>
                                                     <td style={{ padding: '1.25rem 1rem', paddingLeft: '1.5rem', color: '#a1a1aa' }}>{deposit.remarks || '—'}</td>
                                                     <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
                                                         <button
-                                                            onClick={() => handleArchiveDeposit(deposit.id)}
+                                                            onClick={() => handleRestoreDeposit(deposit.id)}
                                                             className="p-2 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/20 flex items-center gap-1.5 text-xs font-bold mx-auto"
-                                                            title="Restore FD"
+                                                            title="Restore FD to Active"
                                                         >
                                                             <ArchiveRestore size={14} /> Restore
                                                         </button>
@@ -734,6 +772,15 @@ const FixedDepositDetails = () => {
                 onSave={handleSaveDeposit}
                 initialData={editingDeposit}
                 isRenewal={isRenewal}
+            />
+
+            <CloseDepositModal
+                isOpen={isCloseModalOpen}
+                onClose={() => setIsCloseModalOpen(false)}
+                onConfirm={handleConfirmCloseModal}
+                deposit={closingDeposit}
+                calculatedInterest={closingDeposit ? getDepositAccruedDetails(closingDeposit).accruedInterest : 0}
+                formatCurrency={formatCurrency}
             />
         </div>
     );
