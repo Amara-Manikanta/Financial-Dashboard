@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2 } from 'lucide-react';
+import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2, Archive, ArchiveRestore, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import FixedDepositModal from '../components/FixedDepositModal';
 import BackButton from '../components/BackButton';
@@ -16,14 +16,25 @@ const FixedDepositDetails = () => {
     const [editingDeposit, setEditingDeposit] = useState(null);
     const [isRenewal, setIsRenewal] = useState(false);
     const [selectedBank, setSelectedBank] = useState('ALL');
+    const [showArchived, setShowArchived] = useState(false);
 
     const fund = savings.find(s => s.id.toString() === id);
 
-    const bankList = useMemo(() => {
+    const activeDeposits = useMemo(() => {
         if (!fund?.deposits) return [];
-        const banks = Array.from(new Set(fund.deposits.map(d => d.bank).filter(Boolean)));
-        return banks.sort();
+        return fund.deposits.filter(d => !d.isArchived);
     }, [fund]);
+
+    const archivedDeposits = useMemo(() => {
+        if (!fund?.deposits) return [];
+        return fund.deposits.filter(d => d.isArchived);
+    }, [fund]);
+
+    const bankList = useMemo(() => {
+        if (!activeDeposits.length) return [];
+        const banks = Array.from(new Set(activeDeposits.map(d => d.bank).filter(Boolean)));
+        return banks.sort();
+    }, [activeDeposits]);
 
     useEffect(() => {
         if (selectedBank !== 'ALL' && !bankList.includes(selectedBank)) {
@@ -32,42 +43,74 @@ const FixedDepositDetails = () => {
     }, [bankList, selectedBank]);
 
     const filteredDeposits = useMemo(() => {
-        if (!fund?.deposits) return [];
-        if (selectedBank === 'ALL') return fund.deposits;
-        return fund.deposits.filter(d => d.bank === selectedBank);
-    }, [fund, selectedBank]);
+        if (!activeDeposits.length) return [];
+        if (selectedBank === 'ALL') return activeDeposits;
+        return activeDeposits.filter(d => d.bank === selectedBank);
+    }, [activeDeposits, selectedBank]);
 
-    const totalOriginalAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.originalAmount || 0), 0), [filteredDeposits]);
-    const totalMaturityAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.maturityAmount || 0), 0), [filteredDeposits]);
-    const totalInterest = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.interestEarned || 0), 0), [filteredDeposits]);
-
-    const getDepositAccruedValue = (deposit) => {
-        if (!deposit.originalAmount || !deposit.interestRate || !deposit.startDate) {
-            return deposit.currentValue || deposit.originalAmount || 0;
+    const getDepositAccruedDetails = (deposit) => {
+        if (!deposit || !deposit.originalAmount || !deposit.startDate) {
+            return {
+                accruedValue: Number(deposit?.currentValue || deposit?.originalAmount) || 0,
+                accruedInterest: Number(deposit?.interestEarned) || 0,
+                daysElapsed: 0,
+                totalDays: 0
+            };
         }
-        const P = deposit.originalAmount;
-        const r = (deposit.interestRate || 0) / 100;
+
+        const P = Number(deposit.originalAmount) || 0;
+        const r = (Number(deposit.interestRate) || 0) / 100;
         const start = new Date(deposit.startDate);
         const end = new Date(deposit.endDate);
         const today = new Date();
 
         if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            return deposit.currentValue || deposit.originalAmount || 0;
+            return {
+                accruedValue: Number(deposit.currentValue || P),
+                accruedInterest: Number(deposit.interestEarned) || 0,
+                daysElapsed: 0,
+                totalDays: 0
+            };
         }
 
-        const isSlice = deposit.bank && deposit.bank.toLowerCase().includes('slice');
-        const n = isSlice ? 365 : 4;
+        const msPerDay = 1000 * 60 * 60 * 24;
+        const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+        const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
 
-        const tElapsed = Math.max(0, (Math.min(today, end) - start) / (1000 * 60 * 60 * 24 * 365.25));
-        const accruedValue = P * Math.pow((1 + r / n), (n * tElapsed));
-        return Math.round(accruedValue);
+        const effectiveEnd = todayMidnight < endMidnight ? todayMidnight : endMidnight;
+        const daysElapsed = Math.max(0, Math.round((effectiveEnd - startMidnight) / msPerDay));
+        const totalDays = Math.max(1, Math.round((endMidnight - startMidnight) / msPerDay));
+
+        const isSlice = deposit.bank && deposit.bank.toLowerCase().includes('slice');
+        let accruedInterest = 0;
+
+        if (isSlice) {
+            accruedInterest = P * (Math.pow(1 + r / 365, daysElapsed) - 1);
+        } else {
+            const tElapsedYears = daysElapsed / 365.25;
+            accruedInterest = P * (Math.pow(1 + r / 4, 4 * tElapsedYears) - 1);
+        }
+
+        const accruedValue = P + accruedInterest;
+
+        return {
+            accruedValue,
+            accruedInterest,
+            daysElapsed,
+            totalDays
+        };
     };
+
+    const totalOriginalAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.originalAmount || 0), 0), [filteredDeposits]);
+    const totalMaturityAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.maturityAmount || 0), 0), [filteredDeposits]);
+    const totalInterestAccruedTillNow = useMemo(() => filteredDeposits.reduce((sum, d) => sum + getDepositAccruedDetails(d).accruedInterest, 0), [filteredDeposits]);
 
     const yearlyBreakdown = useMemo(() => {
         const breakdown = {};
-        if (!filteredDeposits.length) return [];
+        if (!fund?.deposits?.length) return [];
 
-        filteredDeposits.forEach(deposit => {
+        fund.deposits.forEach(deposit => {
             const P = deposit.originalAmount || 0;
             const r = (deposit.interestRate || 0) / 100;
             const isSlice = deposit.bank && deposit.bank.toLowerCase().includes('slice');
@@ -82,7 +125,7 @@ const FixedDepositDetails = () => {
 
             while (currentYear <= lastYear) {
                 const yearStart = new Date(currentYear, 0, 1);
-                const yearEnd = new Date(currentYear, 12, 0); // End of Dec
+                const yearEnd = new Date(currentYear, 12, 0);
 
                 const periodStart = start > yearStart ? start : yearStart;
                 const periodEnd = end < yearEnd ? end : yearEnd;
@@ -104,13 +147,13 @@ const FixedDepositDetails = () => {
         return Object.entries(breakdown)
             .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
             .sort((a, b) => Number(a.year) - Number(b.year));
-    }, [filteredDeposits]);
+    }, [fund]);
 
     const yearlyTdsBreakdown = useMemo(() => {
         const breakdown = {};
-        if (!filteredDeposits.length) return [];
+        if (!fund?.deposits?.length) return [];
 
-        filteredDeposits.forEach(deposit => {
+        fund.deposits.forEach(deposit => {
             (deposit.tdsTransactions || []).forEach(tx => {
                 const year = tx.financialYear || new Date(tx.date).getFullYear().toString();
                 breakdown[year] = (breakdown[year] || 0) + (tx.amount || 0);
@@ -120,7 +163,7 @@ const FixedDepositDetails = () => {
         return Object.entries(breakdown)
             .map(([year, amount]) => ({ year, amount: Math.round(amount) }))
             .sort((a, b) => Number(a.year) - Number(b.year));
-    }, [filteredDeposits]);
+    }, [fund]);
 
     const combinedFdChartData = useMemo(() => {
         const interestMap = {};
@@ -166,8 +209,9 @@ const FixedDepositDetails = () => {
             updatedDeposits.push(deposit);
         }
 
-        // Calculate total amount for the main item if needed, but 'amount' usually implies total current value
-        const newTotalAmount = updatedDeposits.reduce((sum, d) => sum + (d.currentValue || d.originalAmount), 0);
+        const newTotalAmount = updatedDeposits
+            .filter(d => !d.isArchived)
+            .reduce((sum, d) => sum + (getDepositAccruedDetails(d).accruedValue || d.originalAmount || 0), 0);
 
         updateItem('savings', { ...fund, deposits: updatedDeposits, amount: newTotalAmount });
         setEditingDeposit(null);
@@ -184,9 +228,26 @@ const FixedDepositDetails = () => {
     const handleDeleteDeposit = (depositId) => {
         if (window.confirm('Delete this deposit entry?')) {
             const updatedDeposits = fund.deposits.filter(d => d.id !== depositId);
-            const newTotalAmount = updatedDeposits.reduce((sum, d) => sum + (d.currentValue || d.originalAmount), 0);
+            const newTotalAmount = updatedDeposits
+                .filter(d => !d.isArchived)
+                .reduce((sum, d) => sum + (getDepositAccruedDetails(d).accruedValue || d.originalAmount || 0), 0);
             updateItem('savings', { ...fund, deposits: updatedDeposits, amount: newTotalAmount });
         }
+    };
+
+    const handleArchiveDeposit = (depositId) => {
+        const updatedDeposits = fund.deposits.map(d => {
+            if (d.id === depositId) {
+                return { ...d, isArchived: !d.isArchived };
+            }
+            return d;
+        });
+
+        const newTotalAmount = updatedDeposits
+            .filter(d => !d.isArchived)
+            .reduce((sum, d) => sum + (getDepositAccruedDetails(d).accruedValue || d.originalAmount || 0), 0);
+
+        updateItem('savings', { ...fund, deposits: updatedDeposits, amount: newTotalAmount });
     };
 
     return (
@@ -409,12 +470,13 @@ const FixedDepositDetails = () => {
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Start Date</th>
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>End Date</th>
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Principal</th>
-                                <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Interest (Total)</th>
+                                <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Interest (Till Today)</th>
+                                <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Interest (Maturity)</th>
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>TDS</th>
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Accrued Value</th>
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Maturity Value</th>
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'left', paddingLeft: '1.5rem' }}>Remarks</th>
-                                <th style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>Times Renewed</th>
+                                <th style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>Renewals</th>
                                 <th style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>Actions</th>
                             </tr>
                         </thead>
@@ -427,6 +489,7 @@ const FixedDepositDetails = () => {
                                     const isMatured = today >= maturityDate;
                                     const isNearingMaturity = !isMatured && (maturityDate - today) / (1000 * 60 * 60 * 24 * 30.44) <= 2;
                                     
+                                    const { accruedInterest, accruedValue } = getDepositAccruedDetails(deposit);
                                     const totalInterest = (deposit.interestTransactions || []).reduce((sum, tx) => sum + (tx.amount || 0), 0) || deposit.interestEarned || 0;
                                     const totalTds = (deposit.tdsTransactions || []).reduce((sum, tx) => sum + (tx.amount || 0), 0) || deposit.tds || 0;
 
@@ -461,9 +524,10 @@ const FixedDepositDetails = () => {
                                             <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.startDate)}</td>
                                             <td style={{ padding: '1.25rem 1rem', fontWeight: (isNearingMaturity || isMatured) ? 'bold' : 'normal', color: isMatured ? '#10b981' : (isNearingMaturity ? '#fbbf24' : '#ffffff') }}>{formatDate(deposit.endDate)}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: '500' }}>{formatCurrency(deposit.originalAmount)}</td>
+                                            <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#34d399', fontWeight: '600' }}>{formatCurrency(accruedInterest)}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: 'var(--color-success)', fontWeight: '500' }}>{formatCurrency(totalInterest)}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#f87171', fontWeight: '500' }}>{totalTds ? formatCurrency(totalTds) : '-'}</td>
-                                            <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#a1a1aa', fontWeight: '500' }}>{formatCurrency(getDepositAccruedValue(deposit))}</td>
+                                            <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#a1a1aa', fontWeight: '500' }}>{formatCurrency(accruedValue)}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: '700' }}>{formatCurrency(deposit.maturityAmount)}</td>
                                             <td style={{ padding: '1.25rem 1rem', paddingLeft: '1.5rem', color: 'var(--text-secondary)', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={deposit.remarks}>{deposit.remarks || '—'}</td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
@@ -478,7 +542,7 @@ const FixedDepositDetails = () => {
                                                 </div>
                                             </td>
                                             <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
-                                                <div className="flex items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                <div className="flex items-center justify-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                                                     {isMatured && (
                                                         <button
                                                             onClick={() => handleRenewDeposit(deposit)}
@@ -496,6 +560,13 @@ const FixedDepositDetails = () => {
                                                         <Edit2 size={14} />
                                                     </button>
                                                     <button
+                                                        onClick={() => handleArchiveDeposit(deposit.id)}
+                                                        className="p-1.5 rounded bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white transition-colors"
+                                                        title="Archive / Close Deposit"
+                                                    >
+                                                        <Archive size={14} />
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleDeleteDeposit(deposit.id)}
                                                         className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
                                                         title="Delete"
@@ -507,10 +578,10 @@ const FixedDepositDetails = () => {
                                         </tr>
                                     );
                                 })}
-                            {!fund.deposits?.length && (
+                            {!filteredDeposits.length && (
                                 <tr>
-                                    <td colSpan="13" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-                                        No fixed deposits found.
+                                    <td colSpan="14" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                        No active fixed deposits found.
                                     </td>
                                 </tr>
                             )}
@@ -558,6 +629,95 @@ const FixedDepositDetails = () => {
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
+                </div>
+            )}
+
+            {/* Archived / Closed Fixed Deposits Section */}
+            {archivedDeposits.length > 0 && (
+                <div className="mt-10">
+                    <button
+                        onClick={() => setShowArchived(!showArchived)}
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            width: '100%',
+                            padding: '1.25rem 1.5rem',
+                            borderRadius: '1rem',
+                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            color: '#ffffff',
+                            cursor: 'pointer',
+                            marginBottom: '1rem'
+                        }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Archive size={20} style={{ color: '#fbbf24' }} />
+                            <span style={{ fontSize: '1rem', fontWeight: 'bold' }}>Archived & Closed Fixed Deposits</span>
+                            <span style={{
+                                fontSize: '0.75rem',
+                                fontWeight: '800',
+                                color: '#fbbf24',
+                                backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                                padding: '0.2rem 0.6rem',
+                                borderRadius: '9999px',
+                                border: '1px solid rgba(245, 158, 11, 0.3)'
+                            }}>
+                                {archivedDeposits.length}
+                            </span>
+                        </div>
+                        {showArchived ? <ChevronUp size={18} style={{ color: '#a1a1aa' }} /> : <ChevronDown size={18} style={{ color: '#a1a1aa' }} />}
+                    </button>
+
+                    {showArchived && (
+                        <div className="fd-table-container">
+                            <div style={{ overflowX: 'auto' }}>
+                                <table className="fd-table" style={{ minWidth: '1000px' }}>
+                                    <thead>
+                                        <tr>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Account No</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Bank</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Rate (%)</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Start Date</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>End Date</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Principal</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Accrued Interest</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'right' }}>Maturity Value</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left', paddingLeft: '1.5rem' }}>Remarks</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {archivedDeposits.map((deposit) => {
+                                            const { accruedInterest, accruedValue } = getDepositAccruedDetails(deposit);
+                                            return (
+                                                <tr key={deposit.id} style={{ opacity: 0.75 }}>
+                                                    <td style={{ padding: '1.25rem 1rem', fontFamily: 'monospace' }}>{deposit.accountNo}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', color: '#ffffff' }}>{deposit.bank}</td>
+                                                    <td style={{ padding: '1.25rem 1rem' }}>{deposit.interestRate}%</td>
+                                                    <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.startDate)}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.endDate)}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.originalAmount)}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', color: '#34d399' }}>{formatCurrency(accruedInterest)}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(deposit.maturityAmount || accruedValue)}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', paddingLeft: '1.5rem', color: '#a1a1aa' }}>{deposit.remarks || '—'}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
+                                                        <button
+                                                            onClick={() => handleArchiveDeposit(deposit.id)}
+                                                            className="p-2 rounded-xl bg-amber-500/10 text-amber-400 hover:bg-amber-500 hover:text-white transition-all border border-amber-500/20 flex items-center gap-1.5 text-xs font-bold mx-auto"
+                                                            title="Restore FD"
+                                                        >
+                                                            <ArchiveRestore size={14} /> Restore
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
