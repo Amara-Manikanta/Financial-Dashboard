@@ -7,7 +7,7 @@ import SavingsItemModal from '../components/SavingsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
 
 const Savings = () => {
-    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, updateItem, deleteItem } = useFinance();
+    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, updateItem, deleteItem, salaryDetails, employments } = useFinance();
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -79,9 +79,65 @@ const Savings = () => {
     const activeSavings = savingsOnly.filter(item => !item.isArchived);
     const archivedSavings = savingsOnly.filter(item => item.isArchived);
 
-    const totalPortfolioValue = activeSavings.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
+    const totalPortfolioValueFromItems = activeSavings.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
     const totalInvestedValue = activeSavings.reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
-    const totalProfitLoss = totalPortfolioValue - totalInvestedValue;
+    
+    // Calculate Total Gratuity Till Now from Salary & Company Tenures
+    const totalGratuityTillNow = useMemo(() => {
+        let total = 0;
+        if (employments && employments.length > 0) {
+            employments.forEach(emp => {
+                const start = emp.startDate ? new Date(emp.startDate) : null;
+                const end = emp.isCurrent || !emp.endDate ? new Date() : new Date(emp.endDate);
+                let totalYears = 0;
+                let fullYears = 0;
+
+                if (start && !isNaN(start.getTime())) {
+                    const diffTime = Math.max(0, end.getTime() - start.getTime());
+                    totalYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+                    fullYears = Math.floor(totalYears);
+                }
+
+                const isFiveYearEligible = totalYears >= 5.0;
+                let status = emp.status || 'active';
+
+                if (!emp.isCurrent && !isFiveYearEligible && status === 'active') {
+                    status = 'forfeited';
+                }
+
+                if (status === 'forfeited' || status === 'claimed') {
+                    return;
+                }
+
+                let amt = 0;
+                if (Number(emp.lastDrawnBasic) > 0 && fullYears > 0) {
+                    amt = (15 * Number(emp.lastDrawnBasic) * fullYears) / 26;
+                } else {
+                    const startYr = start ? start.getFullYear() : 0;
+                    const endYr = end ? end.getFullYear() : 9999;
+                    (salaryDetails || []).forEach(s => {
+                        if (s.month === 'Annual') {
+                            const yr = Number(s.year);
+                            if (yr >= startYr && yr <= endYr) {
+                                amt += (Number(s.gratuity) || 0);
+                            }
+                        }
+                    });
+                }
+                total += amt;
+            });
+        } else {
+            (salaryDetails || []).forEach(s => {
+                if (s.month === 'Annual') {
+                    total += (Number(s.gratuity) || 0);
+                }
+            });
+        }
+        return total;
+    }, [employments, salaryDetails]);
+
+    const totalPortfolioValue = totalPortfolioValueFromItems + totalGratuityTillNow;
+    const totalProfitLoss = totalPortfolioValueFromItems - totalInvestedValue;
     const isTotalProfit = totalProfitLoss >= 0;
 
     let pieData = [];
@@ -91,6 +147,9 @@ const Savings = () => {
             pieData.push({ name: item.title || item.type.replace('_', ' '), value: val });
         }
     });
+    if (totalGratuityTillNow > 0) {
+        pieData.push({ name: 'Employee Gratuity', value: totalGratuityTillNow });
+    }
     pieData.sort((a,b) => b.value - a.value);
 
     const PIE_COLORS = [
@@ -343,6 +402,69 @@ const Savings = () => {
                     gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
                     gap: '2rem'
                 }}>
+                    {/* Gratuity Benefit Card (Auto-Synced from Salary) */}
+                    <div
+                        onClick={() => navigate('/salary')}
+                        style={{
+                            background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(24, 24, 27, 0.6) 100%)',
+                            backdropFilter: 'blur(10px)',
+                            borderRadius: '1.5rem',
+                            border: '1px solid rgba(16, 185, 129, 0.3)',
+                            padding: '1.5rem',
+                            position: 'relative',
+                            overflow: 'hidden',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            justifyContent: 'space-between',
+                            height: '220px',
+                            boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.1)'
+                        }}
+                        className="hover:scale-[1.02] transition-transform"
+                    >
+                        <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.08, color: '#34d399' }}>
+                            <Award size={64} />
+                        </div>
+
+                        <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
+                                        Employee Gratuity
+                                    </h3>
+                                    <ArrowUpRight size={18} style={{ color: '#34d399' }} />
+                                </div>
+                                <span style={{
+                                    fontSize: '9px',
+                                    padding: '0.125rem 0.5rem',
+                                    borderRadius: '9999px',
+                                    fontWeight: '800',
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.1em',
+                                    width: 'fit-content',
+                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+                                    color: '#34d399'
+                                }}>
+                                    Retirement Benefit
+                                </span>
+                            </div>
+
+                            <div style={{ marginTop: 'auto' }}>
+                                <p style={{ fontSize: '10px', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>
+                                    Accumulated Gratuity (Till Now)
+                                </p>
+                                <p style={{ fontSize: '1.75rem', fontWeight: '950', color: '#34d399', fontFamily: 'monospace', margin: 0 }}>
+                                    {formatCurrency(totalGratuityTillNow)}
+                                </p>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', marginTop: '0.5rem', fontSize: '10px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    <Award size={14} />
+                                    <span>Synced with Salary &amp; Company Tenures</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     {activeSavings.map(item => {
                         const progress = item.goal > 0 ? Math.min((item.amount / item.goal) * 100, 100) : 0;
                         const isStockMarket = item.type === 'stock_market';
