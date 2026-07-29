@@ -690,6 +690,32 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const updateEmploymentsConfig = async (newEmployments) => {
+        setEmployments(newEmployments);
+        if (isGuest) {
+            localStorage.setItem('employments', JSON.stringify(newEmployments));
+            return;
+        }
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            
+            const payload = {
+                ...currentAppData,
+                employments: newEmployments
+            };
+            
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            console.error("Failed to save employments config:", error);
+            localStorage.setItem('employments', JSON.stringify(newEmployments));
+        }
+    };
+
     const saveExpenses = async (updatedExpenses) => {
         const sanitizedExpenses = JSON.parse(JSON.stringify(updatedExpenses));
         Object.values(sanitizedExpenses).forEach(yearData => {
