@@ -114,6 +114,20 @@ const DividendTreemapContent = (props) => {
     );
 };
 
+const OFFICIAL_SECTORS = [
+    { name: 'Information Technology', icon: '💻', color: '#3b82f6' },
+    { name: 'Financials', icon: '🏦', color: '#10b981' },
+    { name: 'Health Care', icon: '🩺', color: '#ec4899' },
+    { name: 'Consumer Discretionary', icon: '🛍️', color: '#f59e0b' },
+    { name: 'Consumer Staples', icon: '🛒', color: '#84cc16' },
+    { name: 'Industrials', icon: '⚙️', color: '#6366f1' },
+    { name: 'Communication Services', icon: '📡', color: '#8b5cf6' },
+    { name: 'Energy', icon: '⚡', color: '#ef4444' },
+    { name: 'Utilities', icon: '🚰', color: '#06b6d4' },
+    { name: 'Materials', icon: '🏗️', color: '#d97706' },
+    { name: 'Real Estate', icon: '🏢', color: '#14b8a6' }
+];
+
 const StockMarketDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -133,6 +147,7 @@ const StockMarketDetails = () => {
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [showPendingOnly, setShowPendingOnly] = useState(false);
     const [capFilter, setCapFilter] = useState('All'); // 'All' | 'Large Cap' | 'Mid Cap' | 'Small Cap' | 'Unclassified'
+    const [sectorFilter, setSectorFilter] = useState('All');
 
     const market = useMemo(() => savings.find(s => s.id.toString() === id), [savings, id]);
 
@@ -182,13 +197,18 @@ const StockMarketDetails = () => {
         };
     }, [activeStocks]);
 
-    // Filter display rows based on pending dividend status and cap filter
+    // Filter display rows based on pending dividend status, cap filter, and sector filter
     const displayStockRows = useMemo(() => {
         return stockRows.filter(stock => {
             // Cap filter
             if (capFilter !== 'All') {
                 const stockCap = stock.marketCap || 'Unclassified';
                 if (stockCap !== capFilter) return false;
+            }
+            // Sector filter
+            if (sectorFilter !== 'All') {
+                const stockSector = stock.sector || 'Unclassified';
+                if (stockSector !== sectorFilter) return false;
             }
             // Pending dividend filter
             if (showPendingOnly) {
@@ -197,7 +217,7 @@ const StockMarketDetails = () => {
             }
             return true;
         });
-    }, [stockRows, showPendingOnly, currentYear, capFilter]);
+    }, [stockRows, showPendingOnly, currentYear, capFilter, sectorFilter]);
 
     // Market Cap Performance Metrics
     const capMetrics = useMemo(() => {
@@ -233,6 +253,44 @@ const StockMarketDetails = () => {
         });
 
         return { metrics, totalPortfolioValue };
+    }, [stockRows]);
+
+    // Sector Performance Metrics
+    const sectorMetrics = useMemo(() => {
+        const metrics = {};
+        let totalPortfolioValue = 0;
+
+        OFFICIAL_SECTORS.forEach(sec => {
+            metrics[sec.name] = { ...sec, invested: 0, currentValue: 0, pl: 0, count: 0, stocks: [] };
+        });
+        metrics['Unclassified'] = { name: 'Unclassified', icon: '📁', color: '#71717a', invested: 0, currentValue: 0, pl: 0, count: 0, stocks: [] };
+
+        stockRows.forEach(stock => {
+            const secName = stock.sector || 'Unclassified';
+            if (!metrics[secName]) {
+                metrics[secName] = { name: secName, icon: '📊', color: '#a1a1aa', invested: 0, currentValue: 0, pl: 0, count: 0, stocks: [] };
+            }
+            metrics[secName].invested += stock.investedValue;
+            metrics[secName].currentValue += stock.currentValue;
+            metrics[secName].pl += stock.unrealisedPL;
+            metrics[secName].count += 1;
+            metrics[secName].stocks.push(stock.ticker);
+            totalPortfolioValue += stock.currentValue;
+        });
+
+        // Calculate percentage allocation & P/L %
+        Object.keys(metrics).forEach(secName => {
+            metrics[secName].percentAllocation = totalPortfolioValue > 0
+                ? (metrics[secName].currentValue / totalPortfolioValue) * 100
+                : 0;
+            metrics[secName].plPercent = metrics[secName].invested > 0
+                ? (metrics[secName].pl / metrics[secName].invested) * 100
+                : 0;
+        });
+
+        const activeSectorList = Object.values(metrics).filter(m => m.count > 0);
+
+        return { metrics, totalPortfolioValue, activeSectorList };
     }, [stockRows]);
 
     const totalProfitLoss = useMemo(() => currentTotalValue - totalInvested, [currentTotalValue, totalInvested]);
@@ -880,6 +938,33 @@ const StockMarketDetails = () => {
                                         </button>
                                     ))}
                                 </div>
+
+                                {/* Sector Filter Dropdown */}
+                                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                    <select
+                                        value={sectorFilter}
+                                        onChange={(e) => setSectorFilter(e.target.value)}
+                                        style={{
+                                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                                            color: sectorFilter !== 'All' ? '#60a5fa' : '#d4d4d8',
+                                            padding: '0.4rem 1rem 0.4rem 2rem',
+                                            borderRadius: '0.75rem',
+                                            outline: 'none',
+                                            fontSize: '0.75rem',
+                                            fontWeight: '700',
+                                            cursor: 'pointer'
+                                        }}
+                                    >
+                                        <option value="All" style={{ backgroundColor: '#18181b', color: '#fff' }}>All Sectors</option>
+                                        {OFFICIAL_SECTORS.map(sec => (
+                                            <option key={sec.name} value={sec.name} style={{ backgroundColor: '#18181b', color: '#fff' }}>
+                                                {sec.icon} {sec.name}
+                                            </option>
+                                        ))}
+                                    </select>
+                                    <PieChartIcon size={14} style={{ position: 'absolute', left: '0.625rem', color: '#818cf8', pointerEvents: 'none' }} />
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
@@ -1094,6 +1179,119 @@ const StockMarketDetails = () => {
                                     </div>
                                 </div>
                             )}
+
+                            {/* Sector Performance & Allocation Breakdown */}
+                            {sectorMetrics.activeSectorList.length > 0 && (
+                                <div style={{ marginTop: '1.5rem' }}>
+                                    <div style={{ fontSize: '0.75rem', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.875rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <PieChartIcon size={16} className="text-indigo-400" />
+                                        Official 11 Market Sectors Performance Breakdown
+                                    </div>
+
+                                    {/* Sector KPI Cards Grid */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                                        {sectorMetrics.activeSectorList.map((sec) => {
+                                            const isProfit = sec.pl >= 0;
+                                            const isSelected = sectorFilter === sec.name;
+
+                                            return (
+                                                <div
+                                                    key={sec.name}
+                                                    onClick={() => setSectorFilter(isSelected ? 'All' : sec.name)}
+                                                    style={{
+                                                        background: `linear-gradient(135deg, ${sec.color}15 0%, rgba(255,255,255,0.01) 100%)`,
+                                                        border: `1px solid ${isSelected ? sec.color : sec.color + '33'}`,
+                                                        borderRadius: '1rem',
+                                                        padding: '1.25rem',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.3s ease',
+                                                        position: 'relative',
+                                                        overflow: 'hidden',
+                                                        boxShadow: isSelected ? `0 0 20px ${sec.color}33` : 'none'
+                                                    }}
+                                                >
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                                                        <div>
+                                                            <span style={{ fontSize: '0.75rem', fontWeight: '800', color: sec.color, display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                                                                <span>{sec.icon}</span> {sec.name}
+                                                            </span>
+                                                            <div style={{ fontSize: '0.6rem', color: '#71717a', marginTop: '0.125rem' }}>
+                                                                {sec.count} stock{sec.count !== 1 ? 's' : ''} · {sec.percentAllocation.toFixed(1)}% of portfolio
+                                                            </div>
+                                                        </div>
+                                                        <span style={{
+                                                            padding: '0.125rem 0.5rem',
+                                                            borderRadius: '0.375rem',
+                                                            fontSize: '0.625rem',
+                                                            fontWeight: '800',
+                                                            fontFamily: 'monospace',
+                                                            backgroundColor: isProfit ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                                            color: isProfit ? '#34d399' : '#f87171',
+                                                            border: `1px solid ${isProfit ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+                                                        }}>
+                                                            {isProfit ? '▲' : '▼'} {sec.plPercent.toFixed(2)}%
+                                                        </span>
+                                                    </div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                        <div>
+                                                            <div style={{ fontSize: '0.575rem', color: '#71717a', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>Invested</div>
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#d4d4d8', fontFamily: 'monospace' }}>{formatCurrency(sec.invested)}</div>
+                                                        </div>
+                                                        <div>
+                                                            <div style={{ fontSize: '0.575rem', color: '#71717a', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>Current</div>
+                                                            <div style={{ fontSize: '0.85rem', fontWeight: '800', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(sec.currentValue)}</div>
+                                                        </div>
+                                                    </div>
+                                                    <div style={{ marginTop: '0.625rem', fontSize: '0.75rem', fontWeight: '700', fontFamily: 'monospace', color: isProfit ? '#34d399' : '#f87171' }}>
+                                                        {isProfit ? '+' : ''}{formatCurrency(sec.pl)}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Sector Allocation Stacked Bar */}
+                                    {sectorMetrics.totalPortfolioValue > 0 && (
+                                        <div style={{
+                                            background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.005) 100%)',
+                                            border: '1px solid rgba(255,255,255,0.08)',
+                                            borderRadius: '1rem',
+                                            padding: '1rem 1.25rem'
+                                        }}>
+                                            <div style={{ fontSize: '0.625rem', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.625rem' }}>
+                                                Portfolio Allocation by Sector
+                                            </div>
+                                            <div style={{ display: 'flex', borderRadius: '0.5rem', overflow: 'hidden', height: '12px', backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                                {sectorMetrics.activeSectorList
+                                                    .filter(sec => sec.percentAllocation > 0)
+                                                    .map(sec => (
+                                                        <div
+                                                            key={sec.name}
+                                                            style={{
+                                                                width: `${sec.percentAllocation}%`,
+                                                                backgroundColor: sec.color,
+                                                                transition: 'width 0.5s ease',
+                                                                opacity: 0.8
+                                                            }}
+                                                            title={`${sec.name}: ${sec.percentAllocation.toFixed(1)}%`}
+                                                        />
+                                                    ))}
+                                            </div>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '0.625rem' }}>
+                                                {sectorMetrics.activeSectorList
+                                                    .filter(sec => sec.count > 0)
+                                                    .map(sec => (
+                                                        <div key={sec.name} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.675rem', color: '#a1a1aa' }}>
+                                                            <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: sec.color, display: 'inline-block' }} />
+                                                            <span style={{ fontWeight: '700', color: sec.color }}>{sec.icon} {sec.name}</span>
+                                                            <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{sec.percentAllocation.toFixed(1)}%</span>
+                                                        </div>
+                                                    ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -1203,6 +1401,21 @@ const StockMarketDetails = () => {
                                                         border: `1px solid ${stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
                                                     }}>
                                                         {stock.marketCap === 'Large Cap' ? 'LC' : stock.marketCap === 'Mid Cap' ? 'MC' : 'SC'}
+                                                    </span>
+                                                )}
+                                                {stock.sector && (
+                                                    <span style={{
+                                                        padding: '0.125rem 0.5rem',
+                                                        borderRadius: '0.375rem',
+                                                        fontSize: '9px',
+                                                        fontWeight: '800',
+                                                        letterSpacing: '0.04em',
+                                                        marginLeft: '0.375rem',
+                                                        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                                        color: '#e4e4e7',
+                                                        border: '1px solid rgba(255, 255, 255, 0.1)'
+                                                    }}>
+                                                        {OFFICIAL_SECTORS.find(s => s.name === stock.sector)?.icon || '📊'} {stock.sector}
                                                     </span>
                                                 )}
                                                 <h4
@@ -1356,6 +1569,7 @@ const StockMarketDetails = () => {
                                         <th style={styles.th('left')}>Company Name</th>
                                         <th style={styles.th('left')}>Ticker</th>
                                         <th style={styles.th('center')}>Cap</th>
+                                        <th style={styles.th('left')}>Sector</th>
                                         <th style={styles.th('right')}>Shares Held</th>
                                         <th style={styles.th('right')}>Avg Cost</th>
                                         <th style={styles.th('right')}>Invested Value</th>
@@ -1446,6 +1660,15 @@ const StockMarketDetails = () => {
                                                             border: `1px solid ${stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
                                                         }}>
                                                             {stock.marketCap === 'Large Cap' ? 'LC' : stock.marketCap === 'Mid Cap' ? 'MC' : 'SC'}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: '#52525b', fontSize: '10px' }}>—</span>
+                                                    )}
+                                                </td>
+                                                <td style={styles.td('left', false, 'var(--text-secondary)', false, isDividendPending)}>
+                                                    {stock.sector ? (
+                                                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#d4d4d8', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                                                            <span>{OFFICIAL_SECTORS.find(s => s.name === stock.sector)?.icon || '📊'}</span> {stock.sector}
                                                         </span>
                                                     ) : (
                                                         <span style={{ color: '#52525b', fontSize: '10px' }}>—</span>

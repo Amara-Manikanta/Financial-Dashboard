@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Hash, FileText, Calendar, DollarSign, PieChart, Layers } from 'lucide-react';
+import { X, TrendingUp, Hash, FileText, Calendar, DollarSign, PieChart, Layers, PieChart as SectorIcon } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 
 const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [] }) => {
@@ -15,6 +15,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const [realisedPL, setRealisedPL] = useState('');
     const [expectsDividends, setExpectsDividends] = useState(false);
     const [marketCap, setMarketCap] = useState('');
+    const [sector, setSector] = useState('');
 
     useEffect(() => {
         if (isOpen && initialData) {
@@ -30,6 +31,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
 
             setExpectsDividends(initialData.expectsDividends || false);
             setMarketCap(initialData.marketCap || '');
+            setSector(initialData.sector || '');
         } else if (isOpen) {
             setName('');
             setTicker('');
@@ -42,6 +44,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setRealisedPL('');
             setExpectsDividends(false);
             setMarketCap('');
+            setSector('');
         }
     }, [isOpen, initialData]);
 
@@ -62,7 +65,8 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             realisedPL: realisedPL ? parseFloat(realisedPL) : null,
             dividends: initialData ? initialData.dividends : {},
             expectsDividends,
-            marketCap: marketCap || null
+            marketCap: marketCap || null,
+            sector: sector || null
         });
         onClose();
     };
@@ -115,7 +119,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
 
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Company Name</label>
                                 <div className="relative">
@@ -138,6 +142,9 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     <Hash size={18} style={iconStyle} />
                                 </div>
                             </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Market Cap</label>
                                 <div className="relative">
@@ -153,6 +160,31 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                         <option value="Small Cap">Small Cap</option>
                                     </select>
                                     <Layers size={18} style={iconStyle} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Market Sector</label>
+                                <div className="relative">
+                                    <select
+                                        value={sector}
+                                        onChange={(e) => setSector(e.target.value)}
+                                        className="w-full px-4 py-3 pl-10 focus:outline-none focus:border-blue-500 transition-colors appearance-none cursor-pointer"
+                                        style={inputStyle}
+                                    >
+                                        <option value="">Select Sector</option>
+                                        <option value="Information Technology">Information Technology</option>
+                                        <option value="Financials">Financials</option>
+                                        <option value="Health Care">Health Care</option>
+                                        <option value="Consumer Discretionary">Consumer Discretionary</option>
+                                        <option value="Consumer Staples">Consumer Staples</option>
+                                        <option value="Industrials">Industrials</option>
+                                        <option value="Communication Services">Communication Services</option>
+                                        <option value="Energy">Energy</option>
+                                        <option value="Utilities">Utilities</option>
+                                        <option value="Materials">Materials</option>
+                                        <option value="Real Estate">Real Estate</option>
+                                    </select>
+                                    <SectorIcon size={18} style={iconStyle} />
                                 </div>
                             </div>
                         </div>
