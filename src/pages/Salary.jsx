@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Briefcase, ChevronDown, Copy, Plus, X as XIcon, EyeOff, Award, Wallet, ShieldCheck, Info } from 'lucide-react';
+import { Briefcase, ChevronDown, Copy, Plus, X as XIcon, EyeOff, Award, Wallet, ShieldCheck, Info, Calendar, Building2, CheckCircle2, AlertTriangle, Trash2, Edit, Check } from 'lucide-react';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -88,12 +88,26 @@ const MultiSelectDropdown = ({ options, selected, onChange, label }) => {
 };
 
 const Salary = () => {
-    const { salaryDetails, addItem, updateItem, formatCurrency, customSalaryFields, hiddenSalaryFields, updateSalaryFieldsConfig } = useFinance();
+    const { salaryDetails, addItem, updateItem, formatCurrency, customSalaryFields, hiddenSalaryFields, updateSalaryFieldsConfig, employments, updateEmploymentsConfig } = useFinance();
     
     // View state
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [entryMode, setEntryMode] = useState('Monthly'); // 'Monthly' or 'Annual'
     const [selectedMonth, setSelectedMonth] = useState(MONTHS[new Date().getMonth()]);
+    
+    // Employment Modal state
+    const [isEmpModalOpen, setIsEmpModalOpen] = useState(false);
+    const [editingEmp, setEditingEmp] = useState(null);
+    const [empFormData, setEmpFormData] = useState({
+        companyName: '',
+        designation: '',
+        startDate: '',
+        endDate: '',
+        isCurrent: true,
+        status: 'active', // 'active' | 'forfeited' | 'claimed'
+        lastDrawnBasic: '',
+        notes: ''
+    });
     
     // Form state
     const [isEditing, setIsEditing] = useState(false);
@@ -313,29 +327,100 @@ const Salary = () => {
         return Array.from(ys).sort((a, b) => b.localeCompare(a));
     }, [salaryDetails]);
 
-    // Calculate Total Gratuity Till Now (sum of annual gratuity across all annual CTC records)
+    // Calculate Tenure-Based Gratuity considering 5-Year Rule and Join/Exit Dates
     const gratuityStats = useMemo(() => {
         let totalGratuityTillNow = 0;
         let selectedYearGratuity = 0;
-        const yearBreakdown = [];
+        const tenureDetails = [];
 
+        // Check if user has configured employment tenures
+        if (employments && employments.length > 0) {
+            employments.forEach(emp => {
+                const start = emp.startDate ? new Date(emp.startDate) : null;
+                const end = emp.isCurrent || !emp.endDate ? new Date() : new Date(emp.endDate);
+                
+                let totalYears = 0;
+                let durationString = 'N/A';
+                let fullYears = 0;
+
+                if (start && !isNaN(start.getTime())) {
+                    const diffTime = Math.max(0, end.getTime() - start.getTime());
+                    totalYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
+                    fullYears = Math.floor(totalYears);
+                    const totalMonths = Math.floor((diffTime / (1000 * 60 * 60 * 24 * 30.4375)) % 12);
+                    durationString = `${fullYears} Yrs, ${totalMonths} Mos`;
+                }
+
+                const isFiveYearEligible = totalYears >= 5.0;
+                let status = emp.status || 'active';
+
+                // Auto-flag as forfeited if left before 5 years unless manually overridden
+                if (!emp.isCurrent && !isFiveYearEligible && status === 'active') {
+                    status = 'forfeited';
+                }
+
+                let calculatedAmount = 0;
+
+                if (status === 'forfeited') {
+                    calculatedAmount = 0; // Forfeited due to leaving < 5 yrs
+                } else if (status === 'claimed') {
+                    calculatedAmount = 0; // Paid out to bank account, active balance resets to 0
+                } else {
+                    // Active or Eligible tenure:
+                    // Calculate using Last Drawn Basic formula if available
+                    if (Number(emp.lastDrawnBasic) > 0 && fullYears > 0) {
+                        // Formula: (15 * Last Drawn Basic * Years) / 26
+                        calculatedAmount = (15 * Number(emp.lastDrawnBasic) * fullYears) / 26;
+                    } else {
+                        // Sum Annual CTC gratuity entries for years spanned by this employment
+                        const startYr = start ? start.getFullYear() : 0;
+                        const endYr = end ? end.getFullYear() : 9999;
+                        
+                        salaryDetails.forEach(s => {
+                            if (s.month === 'Annual') {
+                                const yr = Number(s.year);
+                                if (yr >= startYr && yr <= endYr) {
+                                    calculatedAmount += (Number(s.gratuity) || 0);
+                                }
+                            }
+                        });
+                    }
+                }
+
+                totalGratuityTillNow += calculatedAmount;
+
+                tenureDetails.push({
+                    ...emp,
+                    totalYears,
+                    fullYears,
+                    durationString,
+                    isFiveYearEligible,
+                    computedStatus: status,
+                    calculatedAmount
+                });
+            });
+        } else {
+            // Fallback if no employment tenures are defined yet: Sum all Annual CTC gratuity entries
+            salaryDetails.forEach(s => {
+                if (s.month === 'Annual') {
+                    const amt = Number(s.gratuity) || 0;
+                    totalGratuityTillNow += amt;
+                    if (s.year === selectedYear) {
+                        selectedYearGratuity = amt;
+                    }
+                }
+            });
+        }
+
+        // Calculate selected year gratuity
         salaryDetails.forEach(s => {
-            if (s.month === 'Annual') {
-                const amt = Number(s.gratuity) || 0;
-                totalGratuityTillNow += amt;
-                if (s.year === selectedYear) {
-                    selectedYearGratuity = amt;
-                }
-                if (amt > 0) {
-                    yearBreakdown.push({ year: s.year, amount: amt });
-                }
+            if (s.month === 'Annual' && s.year === selectedYear) {
+                selectedYearGratuity = Number(s.gratuity) || 0;
             }
         });
 
-        yearBreakdown.sort((a, b) => b.year.localeCompare(a.year));
-
-        return { totalGratuityTillNow, selectedYearGratuity, yearBreakdown };
-    }, [salaryDetails, selectedYear]);
+        return { totalGratuityTillNow, selectedYearGratuity, tenureDetails };
+    }, [employments, salaryDetails, selectedYear]);
 
     const annualTotalForSelectedYear = useMemo(() => {
         if (!annualRecordForSelectedYear) return 0;
@@ -405,6 +490,56 @@ const Salary = () => {
     const currentDeductions = activeMonthlyDeductions.reduce((sum, f) => sum + (parseFloat(formData[f.key]) || 0), 0);
     const currentNet = currentGross - currentDeductions;
 
+    // Employment handlers
+    const handleOpenEmpModal = (emp = null) => {
+        if (emp) {
+            setEditingEmp(emp);
+            setEmpFormData({
+                companyName: emp.companyName || '',
+                designation: emp.designation || '',
+                startDate: emp.startDate || '',
+                endDate: emp.endDate || '',
+                isCurrent: emp.isCurrent !== undefined ? emp.isCurrent : true,
+                status: emp.status || 'active',
+                lastDrawnBasic: emp.lastDrawnBasic || '',
+                notes: emp.notes || ''
+            });
+        } else {
+            setEditingEmp(null);
+            setEmpFormData({
+                companyName: '',
+                designation: '',
+                startDate: '',
+                endDate: '',
+                isCurrent: true,
+                status: 'active',
+                lastDrawnBasic: '',
+                notes: ''
+            });
+        }
+        setIsEmpModalOpen(true);
+    };
+
+    const handleSaveEmployment = async (e) => {
+        e.preventDefault();
+        let updated;
+        if (editingEmp) {
+            updated = (employments || []).map(emp => emp.id === editingEmp.id ? { ...empFormData, id: emp.id } : emp);
+        } else {
+            updated = [...(employments || []), { ...empFormData, id: `emp_${Date.now()}` }];
+        }
+        await updateEmploymentsConfig(updated);
+        setIsEmpModalOpen(false);
+        setEditingEmp(null);
+    };
+
+    const handleDeleteEmployment = async (id) => {
+        if (window.confirm("Are you sure you want to delete this employment tenure record?")) {
+            const updated = (employments || []).filter(emp => emp.id !== id);
+            await updateEmploymentsConfig(updated);
+        }
+    };
+
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
@@ -412,7 +547,7 @@ const Salary = () => {
                     <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                         <Briefcase style={{ color: '#3b82f6' }} size={32} /> Salary Dashboard
                     </h2>
-                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track your CTC, Payslips, and Benefits</p>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track your CTC, Payslips, Benefits, and Employment Tenures</p>
                 </div>
                 
                 <div style={{
@@ -432,9 +567,8 @@ const Salary = () => {
                 </div>
             </div>
 
-            {/* Top Summary Card featuring Gratuity */}
+            {/* Top Summary Card featuring Gratuity with Employment Tenures */}
             <div>
-                {/* Total Gratuity Card */}
                 <div style={{
                     background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(24, 24, 27, 0.7) 100%)',
                     backdropFilter: 'blur(16px)',
@@ -448,7 +582,7 @@ const Salary = () => {
                     <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1, color: '#34d399' }}>
                         <Award size={100} />
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                             <div style={{ padding: '0.375rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
                                 <Award size={18} />
@@ -457,19 +591,255 @@ const Salary = () => {
                                 Total Gratuity (Till Now)
                             </span>
                         </div>
-                        <span style={{ fontSize: '9px', fontWeight: '800', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                            Cumulative
-                        </span>
+                        
+                        <button
+                            onClick={() => handleOpenEmpModal()}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.375rem',
+                                padding: '0.375rem 0.75rem',
+                                borderRadius: '0.75rem',
+                                backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                                border: '1px solid rgba(16, 185, 129, 0.4)',
+                                color: '#34d399',
+                                fontSize: '11px',
+                                fontWeight: '800',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s ease'
+                            }}
+                            className="hover:bg-emerald-500/30"
+                        >
+                            <Building2 size={14} />
+                            <span>+ Configure Company Tenures (Join/Exit)</span>
+                        </button>
                     </div>
-                    <h3 style={{ fontSize: '1.875rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0, letterSpacing: '-0.02em' }}>
-                        {formatCurrency(gratuityStats.totalGratuityTillNow)}
-                    </h3>
-                    <div style={{ marginTop: '0.875rem', fontSize: '11px', color: '#a1a1aa', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.625rem' }}>
-                        <span>Year {selectedYear}: <strong style={{ color: '#34d399', fontFamily: 'monospace' }}>{formatCurrency(gratuityStats.selectedYearGratuity)}</strong></span>
-                        <span style={{ fontSize: '10px', color: '#71717a' }}>{gratuityStats.yearBreakdown.length} Yrs Annual CTC</span>
+
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '1rem', flexWrap: 'wrap' }}>
+                        <h3 style={{ fontSize: '2.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0, letterSpacing: '-0.02em' }}>
+                            {formatCurrency(gratuityStats.totalGratuityTillNow)}
+                        </h3>
+                        {gratuityStats.selectedYearGratuity > 0 && (
+                            <span style={{ fontSize: '12px', color: '#a1a1aa' }}>
+                                FY {selectedYear}: <strong style={{ color: '#34d399', fontFamily: 'monospace' }}>{formatCurrency(gratuityStats.selectedYearGratuity)}</strong>
+                            </span>
+                        )}
                     </div>
+
+                    {/* Company Tenures Breakdown Pills */}
+                    {gratuityStats.tenureDetails && gratuityStats.tenureDetails.length > 0 ? (
+                        <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.875rem' }}>
+                            {gratuityStats.tenureDetails.map((t) => {
+                                const isForfeited = t.computedStatus === 'forfeited';
+                                const isClaimed = t.computedStatus === 'claimed';
+                                const isEligible = t.isFiveYearEligible;
+
+                                return (
+                                    <div
+                                        key={t.id}
+                                        onClick={() => handleOpenEmpModal(t)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            backgroundColor: isForfeited ? 'rgba(239, 68, 68, 0.1)' : isClaimed ? 'rgba(59, 130, 246, 0.1)' : isEligible ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                                            border: `1px solid ${isForfeited ? 'rgba(239, 68, 68, 0.3)' : isClaimed ? 'rgba(59, 130, 246, 0.3)' : isEligible ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+                                            borderRadius: '0.75rem',
+                                            padding: '0.375rem 0.75rem',
+                                            fontSize: '11px',
+                                            cursor: 'pointer'
+                                        }}
+                                        className="hover:scale-105 transition-transform"
+                                        title="Click to edit company tenure"
+                                    >
+                                        <Building2 size={12} style={{ color: isForfeited ? '#f87171' : isClaimed ? '#60a5fa' : isEligible ? '#34d399' : '#fbbf24' }} />
+                                        <span style={{ fontWeight: '800', color: 'white' }}>{t.companyName}</span>
+                                        <span style={{ color: '#a1a1aa', fontSize: '10px' }}>({t.durationString})</span>
+                                        
+                                        {isForfeited ? (
+                                            <span style={{ color: '#f87171', fontWeight: 'bold', fontSize: '10px', display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                                <AlertTriangle size={10} /> &lt;5 Yrs (₹0)
+                                            </span>
+                                        ) : isClaimed ? (
+                                            <span style={{ color: '#60a5fa', fontWeight: 'bold', fontSize: '10px' }}>
+                                                Paid Out
+                                            </span>
+                                        ) : (
+                                            <span style={{ color: '#34d399', fontWeight: 'bold', fontFamily: 'monospace' }}>
+                                                {formatCurrency(t.calculatedAmount)}
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div style={{ marginTop: '0.875rem', fontSize: '11px', color: '#71717a', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.625rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                            <Info size={12} />
+                            <span>Add your company joining and exit dates to automatically apply the 5-year eligibility rule and calculate your active gratuity.</span>
+                        </div>
+                    )}
                 </div>
             </div>
+
+            {/* Employment Tenure Modal */}
+            {isEmpModalOpen && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+                    backdropFilter: 'blur(8px)',
+                    zIndex: 999,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '1rem'
+                }}>
+                    <div style={{
+                        backgroundColor: '#18181b',
+                        border: '1px solid rgba(16, 185, 129, 0.3)',
+                        borderRadius: '1.5rem',
+                        width: '100%',
+                        maxWidth: '550px',
+                        padding: '1.75rem',
+                        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                                <div style={{ padding: '0.5rem', borderRadius: '0.75rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
+                                    <Building2 size={20} />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>
+                                        {editingEmp ? 'Edit Employment Tenure' : 'Add Company Tenure'}
+                                    </h3>
+                                    <p style={{ fontSize: '0.75rem', color: '#71717a', margin: 0 }}>Track join/exit dates & 5-year gratuity eligibility</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsEmpModalOpen(false)}
+                                style={{ background: 'none', border: 'none', color: '#71717a', cursor: 'pointer' }}
+                            >
+                                <XIcon size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSaveEmployment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Company Name *</label>
+                                <input
+                                    type="text"
+                                    required
+                                    placeholder="e.g. Tata Consultancy Services"
+                                    value={empFormData.companyName}
+                                    onChange={(e) => setEmpFormData({ ...empFormData, companyName: e.target.value })}
+                                    style={{ width: '100%', backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Designation</label>
+                                    <input
+                                        type="text"
+                                        placeholder="e.g. Senior Engineer"
+                                        value={empFormData.designation}
+                                        onChange={(e) => setEmpFormData({ ...empFormData, designation: e.target.value })}
+                                        style={{ width: '100%', backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                    />
+                                </div>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Status</label>
+                                    <select
+                                        value={empFormData.status}
+                                        onChange={(e) => setEmpFormData({ ...empFormData, status: e.target.value })}
+                                        style={{ width: '100%', backgroundColor: '#27272a', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', fontSize: '0.875rem', outline: 'none', cursor: 'pointer' }}
+                                    >
+                                        <option value="active">Active (Accruing)</option>
+                                        <option value="claimed">Claimed & Paid Out</option>
+                                        <option value="forfeited">Forfeited (Left &lt; 5 Yrs)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Joining / Start Date *</label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={empFormData.startDate}
+                                        onChange={(e) => setEmpFormData({ ...empFormData, startDate: e.target.value })}
+                                        style={{ width: '100%', backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                    />
+                                </div>
+
+                                <div>
+                                    <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Exit Date</label>
+                                    <input
+                                        type="date"
+                                        disabled={empFormData.isCurrent}
+                                        value={empFormData.isCurrent ? '' : empFormData.endDate}
+                                        onChange={(e) => setEmpFormData({ ...empFormData, endDate: e.target.value })}
+                                        style={{ width: '100%', backgroundColor: empFormData.isCurrent ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: empFormData.isCurrent ? '#71717a' : 'white', fontSize: '0.875rem', outline: 'none' }}
+                                    />
+                                </div>
+                            </div>
+
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: '#34d399', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={empFormData.isCurrent}
+                                    onChange={(e) => setEmpFormData({ ...empFormData, isCurrent: e.target.checked })}
+                                    style={{ accentColor: '#10b981' }}
+                                />
+                                <span style={{ fontWeight: '700' }}>Currently Employed at this company</span>
+                            </label>
+
+                            <div>
+                                <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', marginBottom: '0.375rem' }}>Last Drawn Monthly Basic (Optional for formula)</label>
+                                <input
+                                    type="number"
+                                    placeholder="e.g. 50000"
+                                    value={empFormData.lastDrawnBasic}
+                                    onChange={(e) => setEmpFormData({ ...empFormData, lastDrawnBasic: e.target.value })}
+                                    style={{ width: '100%', backgroundColor: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                />
+                            </div>
+
+                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginTop: '1rem' }}>
+                                {editingEmp && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleDeleteEmployment(editingEmp.id)}
+                                        style={{ padding: '0.75rem 1rem', borderRadius: '0.75rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontWeight: '700', fontSize: '0.75rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                                    >
+                                        <Trash2 size={14} /> Delete
+                                    </button>
+                                )}
+                                <div style={{ display: 'flex', gap: '0.75rem', marginLeft: 'auto' }}>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsEmpModalOpen(false)}
+                                        style={{ padding: '0.75rem 1.25rem', borderRadius: '0.75rem', backgroundColor: 'rgba(255,255,255,0.05)', border: 'none', color: '#a1a1aa', fontWeight: '700', fontSize: '0.75rem', cursor: 'pointer' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                    <button
+                                        type="submit"
+                                        style={{ padding: '0.75rem 1.5rem', borderRadius: '0.75rem', backgroundColor: '#10b981', border: 'none', color: 'white', fontWeight: '800', fontSize: '0.75rem', cursor: 'pointer' }}
+                                    >
+                                        Save Company Tenure
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', lg: { gridTemplateColumns: 'repeat(12, 1fr)' }, gap: '2rem' }}>
                 {/* Inputs Column */}

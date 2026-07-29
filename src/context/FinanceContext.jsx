@@ -108,6 +108,7 @@ export function FinanceProvider({ children }) {
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
     const [hiddenSalaryFields, setHiddenSalaryFields] = useState([]);
+    const [employments, setEmployments] = useState([]);
     const [categoryRules, setCategoryRules] = useState({});
     const [groceryCategories, setGroceryCategories] = useState(DEFAULT_GROCERY_CATEGORIES);
     const [isLoading, setIsLoading] = useState(true);
@@ -264,6 +265,7 @@ export function FinanceProvider({ children }) {
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
                 setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
+                setEmployments(appData.employments || JSON.parse(localStorage.getItem('employments') || '[]'));
                 setCustomCategoryMap(appData.customCategoryMap || {});
                 setCustomGroceryItems(appData.customGroceryItems || {});
                 // Handle old flat array if present
@@ -1951,6 +1953,8 @@ export function FinanceProvider({ children }) {
         customSalaryFields,
         hiddenSalaryFields,
         updateSalaryFieldsConfig,
+        employments,
+        updateEmploymentsConfig,
         metalRates,
         fetchMetalRates,
         manualMetalRates,
