@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
-import { Briefcase, ChevronDown, Copy, Plus, X as XIcon, EyeOff } from 'lucide-react';
+import { Briefcase, ChevronDown, Copy, Plus, X as XIcon, EyeOff, Award, Wallet, ShieldCheck, Info } from 'lucide-react';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -313,6 +313,35 @@ const Salary = () => {
         return Array.from(ys).sort((a, b) => b.localeCompare(a));
     }, [salaryDetails]);
 
+    // Calculate Total Gratuity Till Now (sum of annual gratuity across all annual CTC records)
+    const gratuityStats = useMemo(() => {
+        let totalGratuityTillNow = 0;
+        let selectedYearGratuity = 0;
+        const yearBreakdown = [];
+
+        salaryDetails.forEach(s => {
+            if (s.month === 'Annual') {
+                const amt = Number(s.gratuity) || 0;
+                totalGratuityTillNow += amt;
+                if (s.year === selectedYear) {
+                    selectedYearGratuity = amt;
+                }
+                if (amt > 0) {
+                    yearBreakdown.push({ year: s.year, amount: amt });
+                }
+            }
+        });
+
+        yearBreakdown.sort((a, b) => b.year.localeCompare(a.year));
+
+        return { totalGratuityTillNow, selectedYearGratuity, yearBreakdown };
+    }, [salaryDetails, selectedYear]);
+
+    const annualTotalForSelectedYear = useMemo(() => {
+        if (!annualRecordForSelectedYear) return 0;
+        return activeAnnualFields.reduce((sum, f) => sum + (Number(annualRecordForSelectedYear[f.key]) || 0), 0);
+    }, [annualRecordForSelectedYear, activeAnnualFields]);
+
     const CustomTooltip = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
             return (
@@ -400,6 +429,135 @@ const Salary = () => {
                     >
                         {years.map(y => <option key={y} value={y} style={{ backgroundColor: '#121214' }}>{y}</option>)}
                     </select>
+                </div>
+            </div>
+
+            {/* Top Summary Cards featuring Gratuity */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.25rem' }}>
+                {/* Total Gratuity Card */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.12) 0%, rgba(24, 24, 27, 0.7) 100%)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    borderRadius: '1.5rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 8px 32px rgba(16, 185, 129, 0.1)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1, color: '#34d399' }}>
+                        <Award size={100} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <div style={{ padding: '0.375rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
+                                <Award size={18} />
+                            </div>
+                            <span style={{ fontSize: '10px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                                Total Gratuity (Till Now)
+                            </span>
+                        </div>
+                        <span style={{ fontSize: '9px', fontWeight: '800', padding: '0.125rem 0.5rem', borderRadius: '0.375rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                            Cumulative
+                        </span>
+                    </div>
+                    <h3 style={{ fontSize: '1.875rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0, letterSpacing: '-0.02em' }}>
+                        {formatCurrency(gratuityStats.totalGratuityTillNow)}
+                    </h3>
+                    <div style={{ marginTop: '0.875rem', fontSize: '11px', color: '#a1a1aa', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.625rem' }}>
+                        <span>Year {selectedYear}: <strong style={{ color: '#34d399', fontFamily: 'monospace' }}>{formatCurrency(gratuityStats.selectedYearGratuity)}</strong></span>
+                        <span style={{ fontSize: '10px', color: '#71717a' }}>{gratuityStats.yearBreakdown.length} Yrs Annual CTC</span>
+                    </div>
+                </div>
+
+                {/* Annual CTC Card */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(24, 24, 27, 0.7) 100%)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    borderRadius: '1.5rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 8px 32px rgba(59, 130, 246, 0.1)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1, color: '#60a5fa' }}>
+                        <Briefcase size={100} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <div style={{ padding: '0.375rem', borderRadius: '0.5rem', backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa' }}>
+                            <Briefcase size={18} />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: '900', color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                            Annual CTC ({selectedYear})
+                        </span>
+                    </div>
+                    <h3 style={{ fontSize: '1.875rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0, letterSpacing: '-0.02em' }}>
+                        {formatCurrency(annualTotalForSelectedYear)}
+                    </h3>
+                    <div style={{ marginTop: '0.875rem', fontSize: '11px', color: '#a1a1aa', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.625rem' }}>
+                        <span>Monthly Average: <strong style={{ color: '#60a5fa', fontFamily: 'monospace' }}>{formatCurrency(annualTotalForSelectedYear / 12)}</strong></span>
+                    </div>
+                </div>
+
+                {/* Net Take Home Card */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.12) 0%, rgba(24, 24, 27, 0.7) 100%)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(168, 85, 247, 0.3)',
+                    borderRadius: '1.5rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 8px 32px rgba(168, 85, 247, 0.1)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1, color: '#c084fc' }}>
+                        <Wallet size={100} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <div style={{ padding: '0.375rem', borderRadius: '0.5rem', backgroundColor: 'rgba(168, 85, 247, 0.2)', color: '#c084fc' }}>
+                            <Wallet size={18} />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: '900', color: '#c084fc', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                            Net Take Home ({selectedYear})
+                        </span>
+                    </div>
+                    <h3 style={{ fontSize: '1.875rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0, letterSpacing: '-0.02em' }}>
+                        {formatCurrency(monthlyAggregates.totalNet)}
+                    </h3>
+                    <div style={{ marginTop: '0.875rem', fontSize: '11px', color: '#a1a1aa', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.625rem' }}>
+                        <span>Total Gross: <strong style={{ color: '#c084fc', fontFamily: 'monospace' }}>{formatCurrency(monthlyAggregates.totalGross)}</strong></span>
+                    </div>
+                </div>
+
+                {/* EPF Accumulated Card */}
+                <div style={{
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.12) 0%, rgba(24, 24, 27, 0.7) 100%)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    borderRadius: '1.5rem',
+                    padding: '1.5rem',
+                    boxShadow: '0 8px 32px rgba(245, 158, 11, 0.1)',
+                    position: 'relative',
+                    overflow: 'hidden'
+                }}>
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1, color: '#fbbf24' }}>
+                        <ShieldCheck size={100} />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                        <div style={{ padding: '0.375rem', borderRadius: '0.5rem', backgroundColor: 'rgba(245, 158, 11, 0.2)', color: '#fbbf24' }}>
+                            <ShieldCheck size={18} />
+                        </div>
+                        <span style={{ fontSize: '10px', fontWeight: '900', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                            EPF Contributions ({selectedYear})
+                        </span>
+                    </div>
+                    <h3 style={{ fontSize: '1.875rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0, letterSpacing: '-0.02em' }}>
+                        {formatCurrency(monthlyAggregates.totalEpf)}
+                    </h3>
+                    <div style={{ marginTop: '0.875rem', fontSize: '11px', color: '#a1a1aa', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '0.625rem' }}>
+                        <span>Income Tax: <strong style={{ color: '#f87171', fontFamily: 'monospace' }}>{formatCurrency(monthlyAggregates.totalIncomeTax)}</strong></span>
+                    </div>
                 </div>
             </div>
 
