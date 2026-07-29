@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight, Layers } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import BackButton from '../components/BackButton';
@@ -132,6 +132,7 @@ const StockMarketDetails = () => {
     const [activeTab, setActiveTab] = useState('holdings'); // 'holdings' | 'analytics' | 'archive'
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [showPendingOnly, setShowPendingOnly] = useState(false);
+    const [capFilter, setCapFilter] = useState('All'); // 'All' | 'Large Cap' | 'Mid Cap' | 'Small Cap' | 'Unclassified'
 
     const market = useMemo(() => savings.find(s => s.id.toString() === id), [savings, id]);
 
@@ -181,14 +182,58 @@ const StockMarketDetails = () => {
         };
     }, [activeStocks]);
 
-    // Filter display rows based on pending dividend status
+    // Filter display rows based on pending dividend status and cap filter
     const displayStockRows = useMemo(() => {
         return stockRows.filter(stock => {
-            if (!showPendingOnly) return true;
-            const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
-            return isDividendPending;
+            // Cap filter
+            if (capFilter !== 'All') {
+                const stockCap = stock.marketCap || 'Unclassified';
+                if (stockCap !== capFilter) return false;
+            }
+            // Pending dividend filter
+            if (showPendingOnly) {
+                const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+                if (!isDividendPending) return false;
+            }
+            return true;
         });
-    }, [stockRows, showPendingOnly, currentYear]);
+    }, [stockRows, showPendingOnly, currentYear, capFilter]);
+
+    // Market Cap Performance Metrics
+    const capMetrics = useMemo(() => {
+        const caps = ['Large Cap', 'Mid Cap', 'Small Cap', 'Unclassified'];
+        const metrics = {};
+        let totalPortfolioValue = 0;
+
+        caps.forEach(cap => {
+            metrics[cap] = { invested: 0, currentValue: 0, pl: 0, count: 0, stocks: [] };
+        });
+
+        stockRows.forEach(stock => {
+            const cap = stock.marketCap || 'Unclassified';
+            if (!metrics[cap]) {
+                metrics[cap] = { invested: 0, currentValue: 0, pl: 0, count: 0, stocks: [] };
+            }
+            metrics[cap].invested += stock.investedValue;
+            metrics[cap].currentValue += stock.currentValue;
+            metrics[cap].pl += stock.unrealisedPL;
+            metrics[cap].count += 1;
+            metrics[cap].stocks.push(stock.ticker);
+            totalPortfolioValue += stock.currentValue;
+        });
+
+        // Calculate percentage allocation
+        caps.forEach(cap => {
+            metrics[cap].percentAllocation = totalPortfolioValue > 0
+                ? (metrics[cap].currentValue / totalPortfolioValue) * 100
+                : 0;
+            metrics[cap].plPercent = metrics[cap].invested > 0
+                ? (metrics[cap].pl / metrics[cap].invested) * 100
+                : 0;
+        });
+
+        return { metrics, totalPortfolioValue };
+    }, [stockRows]);
 
     const totalProfitLoss = useMemo(() => currentTotalValue - totalInvested, [currentTotalValue, totalInvested]);
     const isTotalProfit = totalProfitLoss >= 0;
@@ -812,6 +857,29 @@ const StockMarketDetails = () => {
                                         <AlertCircle size={14} /> Pending Dividends ({pendingDividendsCount})
                                     </span>
                                 </label>
+
+                                {/* Market Cap Filter */}
+                                <div style={styles.toggleGroup}>
+                                    {['All', 'Large Cap', 'Mid Cap', 'Small Cap'].map(cap => (
+                                        <button
+                                            key={cap}
+                                            onClick={() => setCapFilter(cap)}
+                                            style={{
+                                                ...styles.toggleButton(capFilter === cap),
+                                                fontSize: '0.7rem',
+                                                fontWeight: '700',
+                                                padding: '0.375rem 0.625rem',
+                                                borderRadius: '0.5rem',
+                                                gap: '0.25rem',
+                                                display: 'flex',
+                                                alignItems: 'center'
+                                            }}
+                                        >
+                                            <Layers size={12} />
+                                            {cap === 'All' ? 'All Caps' : cap}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
 
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem' }}>
@@ -918,6 +986,117 @@ const StockMarketDetails = () => {
                         </div>
                     </div>
 
+                    {/* Market Cap Performance Breakdown */}
+                    {stockRows.length > 0 && (
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            {/* Cap Category KPI Cards */}
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
+                                {[{cap: 'Large Cap', color: '#818cf8', bgColor: 'rgba(99, 102, 241, 0.08)', borderColor: 'rgba(99, 102, 241, 0.2)', icon: '🏢'},
+                                  {cap: 'Mid Cap', color: '#fbbf24', bgColor: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.2)', icon: '🏗️'},
+                                  {cap: 'Small Cap', color: '#22d3ee', bgColor: 'rgba(6, 182, 212, 0.08)', borderColor: 'rgba(6, 182, 212, 0.2)', icon: '🚀'}
+                                ].map(({ cap, color, bgColor, borderColor, icon }) => {
+                                    const m = capMetrics.metrics[cap];
+                                    if (m.count === 0) return null;
+                                    const isProfit = m.pl >= 0;
+                                    return (
+                                        <div
+                                            key={cap}
+                                            onClick={() => setCapFilter(capFilter === cap ? 'All' : cap)}
+                                            style={{
+                                                background: `linear-gradient(135deg, ${bgColor} 0%, rgba(255,255,255,0.01) 100%)`,
+                                                border: `1px solid ${capFilter === cap ? color : borderColor}`,
+                                                borderRadius: '1rem',
+                                                padding: '1.25rem',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.3s ease',
+                                                position: 'relative',
+                                                overflow: 'hidden',
+                                                boxShadow: capFilter === cap ? `0 0 20px ${bgColor}` : 'none'
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.75rem' }}>
+                                                <div>
+                                                    <span style={{ fontSize: '0.6rem', textTransform: 'uppercase', letterSpacing: '0.08em', fontWeight: '800', color: color }}>
+                                                        {icon} {cap}
+                                                    </span>
+                                                    <div style={{ fontSize: '0.6rem', color: '#71717a', marginTop: '0.125rem' }}>
+                                                        {m.count} stock{m.count !== 1 ? 's' : ''} · {m.percentAllocation.toFixed(1)}% of portfolio
+                                                    </div>
+                                                </div>
+                                                <span style={{
+                                                    padding: '0.125rem 0.5rem',
+                                                    borderRadius: '0.375rem',
+                                                    fontSize: '0.625rem',
+                                                    fontWeight: '800',
+                                                    fontFamily: 'monospace',
+                                                    backgroundColor: isProfit ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                                                    color: isProfit ? '#34d399' : '#f87171',
+                                                    border: `1px solid ${isProfit ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`
+                                                }}>
+                                                    {isProfit ? '▲' : '▼'} {m.plPercent.toFixed(2)}%
+                                                </span>
+                                            </div>
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem' }}>
+                                                <div>
+                                                    <div style={{ fontSize: '0.575rem', color: '#71717a', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>Invested</div>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: '#d4d4d8', fontFamily: 'monospace' }}>{formatCurrency(m.invested)}</div>
+                                                </div>
+                                                <div>
+                                                    <div style={{ fontSize: '0.575rem', color: '#71717a', textTransform: 'uppercase', fontWeight: '700', letterSpacing: '0.05em' }}>Current</div>
+                                                    <div style={{ fontSize: '0.85rem', fontWeight: '800', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(m.currentValue)}</div>
+                                                </div>
+                                            </div>
+                                            <div style={{ marginTop: '0.625rem', fontSize: '0.75rem', fontWeight: '700', fontFamily: 'monospace', color: isProfit ? '#34d399' : '#f87171' }}>
+                                                {isProfit ? '+' : ''}{formatCurrency(m.pl)}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {/* Stacked Allocation Bar */}
+                            {capMetrics.totalPortfolioValue > 0 && (
+                                <div style={{
+                                    background: 'linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.005) 100%)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    borderRadius: '1rem',
+                                    padding: '1rem 1.25rem'
+                                }}>
+                                    <div style={{ fontSize: '0.625rem', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.625rem' }}>
+                                        Portfolio Allocation by Market Cap
+                                    </div>
+                                    <div style={{ display: 'flex', borderRadius: '0.5rem', overflow: 'hidden', height: '12px', backgroundColor: 'rgba(255,255,255,0.05)' }}>
+                                        {[{cap: 'Large Cap', color: '#818cf8'}, {cap: 'Mid Cap', color: '#fbbf24'}, {cap: 'Small Cap', color: '#22d3ee'}, {cap: 'Unclassified', color: '#71717a'}]
+                                            .filter(({cap}) => capMetrics.metrics[cap].percentAllocation > 0)
+                                            .map(({cap, color}) => (
+                                            <div
+                                                key={cap}
+                                                style={{
+                                                    width: `${capMetrics.metrics[cap].percentAllocation}%`,
+                                                    backgroundColor: color,
+                                                    transition: 'width 0.5s ease',
+                                                    opacity: 0.75
+                                                }}
+                                                title={`${cap}: ${capMetrics.metrics[cap].percentAllocation.toFixed(1)}%`}
+                                            />
+                                        ))}
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '0.625rem' }}>
+                                        {[{cap: 'Large Cap', color: '#818cf8'}, {cap: 'Mid Cap', color: '#fbbf24'}, {cap: 'Small Cap', color: '#22d3ee'}, {cap: 'Unclassified', color: '#71717a'}]
+                                            .filter(({cap}) => capMetrics.metrics[cap].count > 0)
+                                            .map(({cap, color}) => (
+                                            <div key={cap} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.675rem', color: '#a1a1aa' }}>
+                                                <span style={{ width: '8px', height: '8px', borderRadius: '2px', backgroundColor: color, display: 'inline-block' }} />
+                                                <span style={{ fontWeight: '700', color: color }}>{cap}</span>
+                                                <span style={{ fontFamily: 'monospace', fontWeight: '600' }}>{capMetrics.metrics[cap].percentAllocation.toFixed(1)}%</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Stock list empty state or content */}
                     {sortedStockRows.length === 0 ? (
                         <div style={{
@@ -1010,6 +1189,22 @@ const StockMarketDetails = () => {
                                                 }}>
                                                     {stock.ticker}
                                                 </span>
+                                                {stock.marketCap && (
+                                                    <span style={{
+                                                        padding: '0.125rem 0.5rem',
+                                                        borderRadius: '0.375rem',
+                                                        fontSize: '9px',
+                                                        fontWeight: '800',
+                                                        textTransform: 'uppercase',
+                                                        letterSpacing: '0.08em',
+                                                        marginLeft: '0.375rem',
+                                                        backgroundColor: stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.12)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)',
+                                                        color: stock.marketCap === 'Large Cap' ? '#818cf8' : stock.marketCap === 'Mid Cap' ? '#fbbf24' : '#22d3ee',
+                                                        border: `1px solid ${stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
+                                                    }}>
+                                                        {stock.marketCap === 'Large Cap' ? 'LC' : stock.marketCap === 'Mid Cap' ? 'MC' : 'SC'}
+                                                    </span>
+                                                )}
                                                 <h4
                                                     onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
                                                     style={{
@@ -1160,6 +1355,7 @@ const StockMarketDetails = () => {
                                     <tr style={{ backgroundColor: 'rgba(255, 255, 255, 0.015)' }}>
                                         <th style={styles.th('left')}>Company Name</th>
                                         <th style={styles.th('left')}>Ticker</th>
+                                        <th style={styles.th('center')}>Cap</th>
                                         <th style={styles.th('right')}>Shares Held</th>
                                         <th style={styles.th('right')}>Avg Cost</th>
                                         <th style={styles.th('right')}>Invested Value</th>
@@ -1235,6 +1431,25 @@ const StockMarketDetails = () => {
                                                     }}>
                                                         {stock.ticker}
                                                     </span>
+                                                </td>
+                                                <td style={styles.td('center', false, 'var(--text-secondary)', false, isDividendPending)}>
+                                                    {stock.marketCap ? (
+                                                        <span style={{
+                                                            padding: '0.125rem 0.5rem',
+                                                            borderRadius: '0.375rem',
+                                                            fontSize: '9px',
+                                                            fontWeight: '800',
+                                                            textTransform: 'uppercase',
+                                                            letterSpacing: '0.08em',
+                                                            backgroundColor: stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.12)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)',
+                                                            color: stock.marketCap === 'Large Cap' ? '#818cf8' : stock.marketCap === 'Mid Cap' ? '#fbbf24' : '#22d3ee',
+                                                            border: `1px solid ${stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
+                                                        }}>
+                                                            {stock.marketCap === 'Large Cap' ? 'LC' : stock.marketCap === 'Mid Cap' ? 'MC' : 'SC'}
+                                                        </span>
+                                                    ) : (
+                                                        <span style={{ color: '#52525b', fontSize: '10px' }}>—</span>
+                                                    )}
                                                 </td>
                                                 <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
                                                     <span style={{ fontFamily: 'monospace' }}>{stock.shares}</span>

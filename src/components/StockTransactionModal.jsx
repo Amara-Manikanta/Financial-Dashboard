@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, TrendingUp, Hash, FileText, Calendar, DollarSign, PieChart } from 'lucide-react';
+import { X, TrendingUp, Hash, FileText, Calendar, DollarSign, PieChart, Layers } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 
 const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [] }) => {
@@ -14,6 +14,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const [investedAmount, setInvestedAmount] = useState('');
     const [realisedPL, setRealisedPL] = useState('');
     const [expectsDividends, setExpectsDividends] = useState(false);
+    const [marketCap, setMarketCap] = useState('');
 
     useEffect(() => {
         if (isOpen && initialData) {
@@ -28,6 +29,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setRealisedPL(initialData.realisedPL || '');
 
             setExpectsDividends(initialData.expectsDividends || false);
+            setMarketCap(initialData.marketCap || '');
         } else if (isOpen) {
             setName('');
             setTicker('');
@@ -39,6 +41,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setInvestedAmount('');
             setRealisedPL('');
             setExpectsDividends(false);
+            setMarketCap('');
         }
     }, [isOpen, initialData]);
 
@@ -58,7 +61,8 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             manualInvestedAmount: investedAmount ? parseFloat(investedAmount) : null,
             realisedPL: realisedPL ? parseFloat(realisedPL) : null,
             dividends: initialData ? initialData.dividends : {},
-            expectsDividends
+            expectsDividends,
+            marketCap: marketCap || null
         });
         onClose();
     };
@@ -111,7 +115,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
 
                 <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
                     <form onSubmit={handleSubmit} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div>
                                 <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Company Name</label>
                                 <div className="relative">
@@ -132,6 +136,23 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                         style={inputStyle} placeholder="e.g. RELIANCE"
                                     />
                                     <Hash size={18} style={iconStyle} />
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 ml-1">Market Cap</label>
+                                <div className="relative">
+                                    <select
+                                        value={marketCap}
+                                        onChange={(e) => setMarketCap(e.target.value)}
+                                        className="w-full px-4 py-3 pl-10 focus:outline-none focus:border-blue-500 transition-colors appearance-none cursor-pointer"
+                                        style={inputStyle}
+                                    >
+                                        <option value="">Select Cap Type</option>
+                                        <option value="Large Cap">Large Cap</option>
+                                        <option value="Mid Cap">Mid Cap</option>
+                                        <option value="Small Cap">Small Cap</option>
+                                    </select>
+                                    <Layers size={18} style={iconStyle} />
                                 </div>
                             </div>
                         </div>
