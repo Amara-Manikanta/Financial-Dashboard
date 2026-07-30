@@ -57,16 +57,21 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             let initialMain = initialData.mainCategory || '';
             let properCaseCat = initialCat.toLowerCase();
 
-            if (!initialMain && initialCat) {
-                for (const [main, subs] of Object.entries(mergedCategoryMap)) {
-                    const matched = subs.find(s => s.toLowerCase() === initialCat.toLowerCase());
-                    if (matched) {
-                        initialMain = main;
-                        break;
+            // If stored mainCategory is not a recognized dropdown key, try to resolve from subcategory
+            // This prevents the select from falling back to 'Income' (first option) for unknown values like 'Others'
+            if (!initialMain || !mergedCategoryMap[initialMain]) {
+                let resolved = '';
+                if (initialCat) {
+                    for (const [main, subs] of Object.entries(mergedCategoryMap)) {
+                        const matched = subs.find(s => s.toLowerCase() === initialCat.toLowerCase());
+                        if (matched) {
+                            resolved = main;
+                            break;
+                        }
                     }
                 }
+                initialMain = resolved || (mergedCategoryMap[initialMain] ? initialMain : 'Miscellaneous');
             }
-            if (!initialMain && initialCat) initialMain = 'Miscellaneous';
 
             setMainCategory(initialMain);
             setCategory(properCaseCat);
