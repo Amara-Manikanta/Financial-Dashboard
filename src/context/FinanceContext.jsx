@@ -987,13 +987,23 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const parseLocalDate = (dateStr) => {
+        if (!dateStr) return new Date();
+        if (dateStr instanceof Date) return dateStr;
+        const parts = String(dateStr).split('T')[0].split('-').map(Number);
+        if (parts.length === 3 && !isNaN(parts[0]) && !isNaN(parts[1]) && !isNaN(parts[2])) {
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+        }
+        return new Date(dateStr);
+    };
+
     const addItem = async (type, item) => {
         if (type === 'expense') {
-            const dateObj = new Date(item.date);
+            const dateObj = parseLocalDate(item.date);
             const year = dateObj.getFullYear().toString();
             const month = dateObj.toLocaleString('default', { month: 'long' });
             const amount = Number(item.amount) || 0;
-            const category = item.category.toLowerCase();
+            const category = (item.category || 'others').toLowerCase();
 
             // Check and add new category
             if (category && !categories.some(c => c.toLowerCase() === category)) {
@@ -1728,7 +1738,7 @@ export function FinanceProvider({ children }) {
     const updateItem = async (type, item) => {
         if (type === 'expense') {
             const newExpenses = { ...expenses };
-            const dateObj = new Date(item.date);
+            const dateObj = parseLocalDate(item.date);
             const newYear = dateObj.getFullYear().toString();
             const newMonth = dateObj.toLocaleString('default', { month: 'long' });
             const newCategory = item.category;

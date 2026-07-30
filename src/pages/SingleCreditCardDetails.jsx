@@ -226,9 +226,9 @@ const SingleCreditCardDetails = () => {
     // Compute chart data using ALL linked transactions to show a complete trend, not just the filtered ones
     const monthlyAggregates = {};
     linkedTransactions.forEach(tx => {
-        const d = new Date(tx.date);
-        const month = d.toLocaleString('default', { month: 'long' });
-        const year = d.getFullYear();
+        const d = parseLocalDate(tx.date);
+        const month = tx.month || d.toLocaleString('default', { month: 'long' });
+        const year = tx.year || d.getFullYear();
         const key = `${month} ${year}`;
         
         if (!monthlyAggregates[key]) {
@@ -301,20 +301,20 @@ const SingleCreditCardDetails = () => {
         }
     };
 
-    const handleSaveExpenseTx = (txData) => {
+    const handleSaveExpenseTx = async (txData) => {
         if (txData.id) {
-            updateItem('expense', txData);
+            await updateItem('expense', txData);
         } else {
-            addItem('expense', txData);
+            await addItem('expense', txData);
         }
         setEditingExpenseTx(null);
         setIsExpenseModalOpen(false);
     };
 
-    const handleDeleteExpenseTx = (e, txId) => {
+    const handleDeleteExpenseTx = async (e, txId) => {
         e.stopPropagation();
         if (window.confirm('Are you sure you want to delete this expense transaction?')) {
-            deleteItem('expense', txId);
+            await deleteItem('expense', txId);
         }
     };
 
@@ -325,10 +325,12 @@ const SingleCreditCardDetails = () => {
     };
 
     const handleAddExpenseTx = () => {
+        const today = new Date();
+        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
         setEditingExpenseTx({
             paymentMode: 'credit_card',
             creditCardName: card.name,
-            date: new Date().toISOString()
+            date: dateStr
         });
         setIsExpenseModalOpen(true);
     };
