@@ -816,35 +816,15 @@ export function FinanceProvider({ children }) {
     };
 
     const mergedCategoryMap = useMemo(() => {
-        const merged = { ...CATEGORY_MAP };
-        for (const [main, subs] of Object.entries(customCategoryMap)) {
-            if (!merged[main]) {
-                merged[main] = [...subs];
-            } else {
-                merged[main] = [...new Set([...merged[main], ...subs])];
-            }
+        if (customCategoryMap && Object.keys(customCategoryMap).length > 0) {
+            return customCategoryMap;
         }
-        return merged;
+        return CATEGORY_MAP;
     }, [customCategoryMap]);
 
-    const addCustomCategory = async (mainCategory, subCategory) => {
-        if (isGuest) return;
-
-        const newMap = { ...customCategoryMap };
-        if (!newMap[mainCategory]) newMap[mainCategory] = [];
-        
-        if (subCategory && !newMap[mainCategory].includes(subCategory)) {
-            // Also ensure it's not already in the base map before adding
-            const baseSubs = CATEGORY_MAP[mainCategory] || [];
-            const subExistsInBase = baseSubs.some(s => s.toLowerCase() === subCategory.toLowerCase());
-            const subExistsInCustom = newMap[mainCategory].some(s => s.toLowerCase() === subCategory.toLowerCase());
-            
-            if (!subExistsInBase && !subExistsInCustom) {
-                newMap[mainCategory] = [...newMap[mainCategory], subCategory];
-            }
-        }
-
+    const saveCustomCategoryMap = async (newMap) => {
         setCustomCategoryMap(newMap);
+        if (isGuest) return;
 
         try {
             const res = await fetch(`${API_URL}/appData`);
@@ -856,6 +836,74 @@ export function FinanceProvider({ children }) {
             });
         } catch (error) {
             console.error("Failed to save custom category map:", error);
+        }
+    };
+
+    const addCustomCategory = async (mainCategory, subCategory) => {
+        if (isGuest) return;
+
+        const newMap = Object.keys(customCategoryMap).length > 0 
+            ? JSON.parse(JSON.stringify(customCategoryMap))
+            : JSON.parse(JSON.stringify(CATEGORY_MAP));
+            
+        if (!newMap[mainCategory]) newMap[mainCategory] = [];
+        
+        if (subCategory && !newMap[mainCategory].includes(subCategory)) {
+            const subExists = newMap[mainCategory].some(s => s.toLowerCase() === subCategory.toLowerCase());
+            if (!subExists) {
+                newMap[mainCategory] = [...newMap[mainCategory], subCategory];
+            }
+        }
+
+        await saveCustomCategoryMap(newMap);
+    };
+
+    const renameCategoryInTransactions = async (oldName, newName, isMainCategory = false) => {
+        const newExpenses = JSON.parse(JSON.stringify(expenses));
+        let changed = false;
+
+        Object.entries(newExpenses).forEach(([year, months]) => {
+            Object.entries(months).forEach(([month, monthData]) => {
+                if (monthData.transactions) {
+                    monthData.transactions.forEach(tx => {
+                        if (isMainCategory) {
+                            if (tx.mainCategory && tx.mainCategory.toLowerCase() === oldName.toLowerCase()) {
+                                tx.mainCategory = newName;
+                                changed = true;
+                            }
+                        } else {
+                            if (tx.category && tx.category.toLowerCase() === oldName.toLowerCase()) {
+                                tx.category = newName;
+                                changed = true;
+                            }
+                        }
+                    });
+                }
+                if (monthData.categories) {
+                    const oldKey = Object.keys(monthData.categories).find(k => k.toLowerCase() === oldName.toLowerCase());
+                    if (oldKey) {
+                        const val = monthData.categories[oldKey];
+                        delete monthData.categories[oldKey];
+                        monthData.categories[newName] = val;
+                        changed = true;
+                    }
+                }
+            });
+        });
+
+        if (changed) {
+            setExpenses(newExpenses);
+            if (!isGuest) {
+                try {
+                    await fetch(`${API_URL}/expenses`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(newExpenses)
+                    });
+                } catch (err) {
+                    console.error("Failed to save updated transactions after category rename:", err);
+                }
+            }
         }
     };
 
@@ -2015,6 +2063,8 @@ export function FinanceProvider({ children }) {
         updateManualRates,
         mergedCategoryMap,
         addCustomCategory,
+        saveCustomCategoryMap,
+        renameCategoryInTransactions,
         customGroceryItems,
         addCustomGroceryItem,
         removeCustomGroceryItem,
