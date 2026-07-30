@@ -816,10 +816,15 @@ export function FinanceProvider({ children }) {
     };
 
     const mergedCategoryMap = useMemo(() => {
-        if (customCategoryMap && Object.keys(customCategoryMap).length > 0) {
-            return customCategoryMap;
+        const merged = { ...CATEGORY_MAP };
+        for (const [main, subs] of Object.entries(customCategoryMap)) {
+            if (!merged[main]) {
+                merged[main] = [...subs];
+            } else {
+                merged[main] = [...new Set([...merged[main], ...subs])];
+            }
         }
-        return CATEGORY_MAP;
+        return merged;
     }, [customCategoryMap]);
 
     const saveCustomCategoryMap = async (newMap) => {
@@ -842,14 +847,14 @@ export function FinanceProvider({ children }) {
     const addCustomCategory = async (mainCategory, subCategory) => {
         if (isGuest) return;
 
-        const newMap = Object.keys(customCategoryMap).length > 0 
-            ? JSON.parse(JSON.stringify(customCategoryMap))
-            : JSON.parse(JSON.stringify(CATEGORY_MAP));
-            
+        const newMap = { ...customCategoryMap };
         if (!newMap[mainCategory]) newMap[mainCategory] = [];
         
-        if (subCategory && !newMap[mainCategory].includes(subCategory)) {
-            const subExists = newMap[mainCategory].some(s => s.toLowerCase() === subCategory.toLowerCase());
+        if (subCategory) {
+            // Check it doesn't already exist in base or custom
+            const baseSubs = CATEGORY_MAP[mainCategory] || [];
+            const allExisting = [...baseSubs, ...newMap[mainCategory]];
+            const subExists = allExisting.some(s => s.toLowerCase() === subCategory.toLowerCase());
             if (!subExists) {
                 newMap[mainCategory] = [...newMap[mainCategory], subCategory];
             }
