@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { calculateBudgetStatus, generateBudgetSuggestions } from '../utils/budgetUtils';
-import { Target, TrendingUp, AlertTriangle, CheckCircle2, Sparkles, ChevronDown, ChevronUp, Save, RotateCcw, ShieldAlert, Zap, Wallet, Info, Edit2, Trash2, Check, X, Plus, PiggyBank, BarChart3, HelpCircle } from 'lucide-react';
+import { calculateBudgetStatus } from '../utils/budgetUtils';
+import { Target, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Save, Wallet, Edit2, Trash2, Check, X, Plus } from 'lucide-react';
 
 const CategoryBudgets = () => {
     const { 
@@ -31,20 +31,17 @@ const CategoryBudgets = () => {
         return monthsInYear[monthsInYear.length - 1] || currentMonthName;
     });
 
-    // Local states
+    // Local state for editing budget limits before persisting
     const [localBudgets, setLocalBudgets] = useState({ ...categoryBudgets });
     const [expandedCategories, setExpandedCategories] = useState({});
     const [isSaving, setIsSaving] = useState(false);
     const [saveSuccess, setSaveSuccess] = useState(false);
 
-    // Saving Mode: 'normal' (average-based), 'saver' (10% lower), 'super' (20% lower)
-    const [savingStrategy, setSavingStrategy] = useState('saver');
-
     // Editing Categories State
     const [editingKey, setEditingKey] = useState(null); // { type: 'main'|'sub', mainCat: string, subCat?: string }
     const [editValue, setEditValue] = useState('');
     const [newMainCategoryName, setNewMainCategoryName] = useState('');
-    const [newSubCategoryNames, setNewSubCategoryNames] = useState({}); // mainCat -> name
+    const [newSubCategoryNames, setNewSubCategoryNames] = useState({});
     const [showAddMainForm, setShowAddMainForm] = useState(false);
 
     // Keep localBudgets synced if categoryBudgets updates externally
@@ -80,30 +77,6 @@ const CategoryBudgets = () => {
         return { subCatSpend, mainCatSpend };
     }, [expenses, selectedYear, selectedMonth]);
 
-    // Calculate historical spending data per category for Smart Suggestions
-    const getCategoryHistory = (catName) => {
-        const history = [];
-        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-
-        Object.keys(expenses || {}).sort().forEach(year => {
-            monthNames.forEach(month => {
-                if (expenses[year]?.[month]?.transactions) {
-                    let total = 0;
-                    expenses[year][month].transactions.forEach(tx => {
-                        if (tx.isCredited || tx.transactionType === 'credit') return;
-                        if (tx.category === catName || tx.mainCategory === catName) {
-                            total += Number(tx.amount) || 0;
-                        }
-                    });
-                    if (total > 0) {
-                        history.push({ month: `${year}-${month}`, amount: total });
-                    }
-                }
-            });
-        });
-        return history;
-    };
-
     const handleBudgetChange = (catKey, value) => {
         const numVal = value === '' ? 0 : Math.max(0, Number(value));
         setLocalBudgets(prev => ({
@@ -118,48 +91,6 @@ const CategoryBudgets = () => {
         setIsSaving(false);
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
-    };
-
-    const getAdjustedSuggestion = (catKey) => {
-        const history = getCategoryHistory(catKey);
-        const suggestion = generateBudgetSuggestions(history, catKey);
-        let baseVal = suggestion.suggestedBudget;
-        
-        if (baseVal <= 0) return 0;
-
-        // Apply savings strategy discount
-        if (savingStrategy === 'saver') {
-            baseVal = baseVal * 0.90; // 10% savings target
-        } else if (savingStrategy === 'super') {
-            baseVal = baseVal * 0.80; // 20% savings target
-        }
-
-        return Math.ceil(baseVal / 100) * 100;
-    };
-
-    const handleApplySuggestion = (catKey) => {
-        const adjustedVal = getAdjustedSuggestion(catKey);
-        if (adjustedVal > 0) {
-            handleBudgetChange(catKey, adjustedVal);
-        }
-    };
-
-    const handleApplyAllSuggestions = () => {
-        const newBudgets = { ...localBudgets };
-        displayMainCategories.forEach(mainCat => {
-            const subCats = mergedCategoryMap[mainCat] || [];
-            subCats.forEach(sub => {
-                const adjustedSub = getAdjustedSuggestion(sub);
-                if (adjustedSub > 0) {
-                    newBudgets[sub] = adjustedSub;
-                }
-            });
-            const adjustedMain = getAdjustedSuggestion(mainCat);
-            if (adjustedMain > 0) {
-                newBudgets[mainCat] = adjustedMain;
-            }
-        });
-        setLocalBudgets(newBudgets);
     };
 
     const toggleExpand = (mainCat) => {
@@ -191,11 +122,9 @@ const CategoryBudgets = () => {
         }
 
         if (type === 'main') {
-            // Rename key in map
             newMap[newName] = newMap[mainCat];
             delete newMap[mainCat];
         } else {
-            // Rename inside sub-categories array
             newMap[mainCat] = newMap[mainCat].map(sub => sub === subCat ? newName : sub);
         }
 
@@ -211,7 +140,6 @@ const CategoryBudgets = () => {
         await saveCustomCategoryMap(newMap);
         cancelEditing();
 
-        // Ask or notify about updating historical records
         if (window.confirm(`Do you want to rename "${oldName}" to "${newName}" in your historical transaction records too for consistency?`)) {
             await renameCategoryInTransactions(oldName, newName, type === 'main');
         }
@@ -220,7 +148,7 @@ const CategoryBudgets = () => {
     const handleDeleteCategory = async (type, mainCat, subCat = null) => {
         const categoryName = subCat || mainCat;
         const msg = type === 'main' 
-            ? `Are you sure you want to delete the main category "${mainCat}" and all of its sub-categories? Historical transaction data won't be deleted, but this category won't show in lists.` 
+            ? `Are you sure you want to delete the main category "${mainCat}" and all of its sub-categories?` 
             : `Are you sure you want to delete the sub-category "${subCat}" under "${mainCat}"?`;
 
         if (!window.confirm(msg)) return;
@@ -295,17 +223,6 @@ const CategoryBudgets = () => {
             });
         });
 
-        // Calculate potential savings based on average spend vs proposed target
-        let totalHistoricalAvg = 0;
-        displayMainCategories.forEach(mainCat => {
-            const history = getCategoryHistory(mainCat);
-            if (history.length > 0) {
-                const sum = history.reduce((acc, h) => acc + h.amount, 0);
-                totalHistoricalAvg += sum / history.length;
-            }
-        });
-
-        const projectedSavings = totalHistoricalAvg > totalTarget ? (totalHistoricalAvg - totalTarget) : 0;
         const healthScore = totalTrackedCategories > 0 
             ? Math.round(((totalTrackedCategories - overBudgetCount) / totalTrackedCategories) * 100) 
             : 100;
@@ -317,9 +234,7 @@ const CategoryBudgets = () => {
             warningCount, 
             safeCount, 
             totalTrackedCategories, 
-            healthScore,
-            totalHistoricalAvg,
-            projectedSavings
+            healthScore
         };
     }, [displayMainCategories, mergedCategoryMap, localBudgets, actualSpending]);
 
@@ -330,9 +245,9 @@ const CategoryBudgets = () => {
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
                     <h2 style={{ fontSize: '2.25rem', fontWeight: '950', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <Target style={{ color: '#10b981' }} size={32} /> Budget Targets & Category Manager
+                        <Target style={{ color: '#10b981' }} size={32} /> Category Budget Limits
                     </h2>
-                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Manage category mappings and budget limits to optimize your financial habits.</p>
+                    <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Manually configure category monthly spending limits and manage your categories list.</p>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
@@ -398,108 +313,6 @@ const CategoryBudgets = () => {
                 </div>
             </div>
 
-            {/* Smart Savings Optimization Control */}
-            <div style={{
-                background: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(217, 70, 239, 0.05) 100%)',
-                border: '1px solid rgba(139, 92, 246, 0.2)',
-                borderRadius: '1.5rem',
-                padding: '1.5rem',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '1.5rem'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.875rem' }}>
-                    <div style={{
-                        width: '44px',
-                        height: '44px',
-                        borderRadius: '1rem',
-                        backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                        color: '#c084fc',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <PiggyBank size={24} />
-                    </div>
-                    <div>
-                        <h4 style={{ fontSize: '1.1rem', fontWeight: '900', color: 'white', margin: 0 }}>🛡️ Optimize Saving Strategy</h4>
-                        <p style={{ fontSize: '0.8125rem', color: '#a1a1aa', margin: '0.125rem 0 0 0' }}>Analyze transaction history to automatically set targets that help you save.</p>
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', backgroundColor: 'rgba(0,0,0,0.3)', padding: '4px', borderRadius: '0.75rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <button
-                            onClick={() => setSavingStrategy('normal')}
-                            style={{
-                                padding: '0.375rem 0.875rem',
-                                borderRadius: '0.5rem',
-                                border: 'none',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                color: savingStrategy === 'normal' ? 'white' : '#71717a',
-                                backgroundColor: savingStrategy === 'normal' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Balanced
-                        </button>
-                        <button
-                            onClick={() => setSavingStrategy('saver')}
-                            style={{
-                                padding: '0.375rem 0.875rem',
-                                borderRadius: '0.5rem',
-                                border: 'none',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                color: savingStrategy === 'saver' ? '#c084fc' : '#71717a',
-                                backgroundColor: savingStrategy === 'saver' ? 'rgba(139, 92, 246, 0.2)' : 'transparent',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Saver (-10%)
-                        </button>
-                        <button
-                            onClick={() => setSavingStrategy('super')}
-                            style={{
-                                padding: '0.375rem 0.875rem',
-                                borderRadius: '0.5rem',
-                                border: 'none',
-                                fontSize: '11px',
-                                fontWeight: 'bold',
-                                color: savingStrategy === 'super' ? '#f472b6' : '#71717a',
-                                backgroundColor: savingStrategy === 'super' ? 'rgba(219, 39, 119, 0.2)' : 'transparent',
-                                cursor: 'pointer'
-                            }}
-                        >
-                            Super Saver (-20%)
-                        </button>
-                    </div>
-
-                    <button
-                        onClick={handleApplyAllSuggestions}
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '0.5rem',
-                            padding: '0.5rem 1.25rem',
-                            borderRadius: '0.75rem',
-                            backgroundColor: '#8b5cf6',
-                            border: 'none',
-                            color: 'white',
-                            fontSize: '11px',
-                            fontWeight: '800',
-                            cursor: 'pointer',
-                            boxShadow: '0 4px 12px rgba(139, 92, 246, 0.2)'
-                        }}
-                    >
-                        <Sparkles size={14} /> Calculate & Pre-populate
-                    </button>
-                </div>
-            </div>
-
             {/* Main KPI Stat Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.25rem' }}>
                 <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1.25rem', padding: '1.25rem' }}>
@@ -507,7 +320,7 @@ const CategoryBudgets = () => {
                     <h3 style={{ fontSize: '1.75rem', fontWeight: '950', color: 'white', margin: '0.25rem 0', fontFamily: 'monospace' }}>
                         {formatCurrency(stats.totalTarget)}
                     </h3>
-                    <span style={{ fontSize: '11px', color: '#71717a' }}>{stats.totalTrackedCategories} categories customized</span>
+                    <span style={{ fontSize: '11px', color: '#71717a' }}>{stats.totalTrackedCategories} categories with limits</span>
                 </div>
 
                 <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1.25rem', padding: '1.25rem' }}>
@@ -520,12 +333,15 @@ const CategoryBudgets = () => {
                     </span>
                 </div>
 
-                <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1.25rem', padding: '1.25rem' }}>
-                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Projected Savings</span>
-                    <h3 style={{ fontSize: '1.75rem', fontWeight: '950', color: '#c084fc', margin: '0.25rem 0', fontFamily: 'monospace' }}>
-                        {formatCurrency(stats.projectedSavings)}
+                <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(10px)', border: `1px solid ${stats.overBudgetCount > 0 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(16, 185, 129, 0.2)'}`, borderRadius: '1.25rem', padding: '1.25rem' }}>
+                    <span style={{ fontSize: '11px', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        {stats.overBudgetCount > 0 ? <AlertTriangle size={14} style={{ color: '#f87171' }} /> : <CheckCircle2 size={14} style={{ color: '#34d399' }} />}
+                        Over Budget
+                    </span>
+                    <h3 style={{ fontSize: '1.75rem', fontWeight: '950', color: stats.overBudgetCount > 0 ? '#ef4444' : '#34d399', margin: '0.25rem 0' }}>
+                        {stats.overBudgetCount} <span style={{ fontSize: '0.875rem', fontWeight: 'bold', color: '#71717a' }}>Categories</span>
                     </h3>
-                    <span style={{ fontSize: '11px', color: '#71717a' }}>Compared to past spending average</span>
+                    <span style={{ fontSize: '11px', color: '#71717a' }}>{stats.warningCount} near limit (≥80%)</span>
                 </div>
 
                 <div style={{ backgroundColor: 'rgba(24, 24, 27, 0.4)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '1.25rem', padding: '1.25rem' }}>
@@ -533,7 +349,7 @@ const CategoryBudgets = () => {
                     <h3 style={{ fontSize: '1.75rem', fontWeight: '950', color: stats.healthScore >= 80 ? '#34d399' : stats.healthScore >= 50 ? '#fbbf24' : '#ef4444', margin: '0.25rem 0' }}>
                         {stats.healthScore}%
                     </h3>
-                    <span style={{ fontSize: '11px', color: '#71717a' }}>{stats.overBudgetCount} overspent categories</span>
+                    <span style={{ fontSize: '11px', color: '#71717a' }}>{stats.safeCount} categories under limit</span>
                 </div>
             </div>
 
@@ -851,26 +667,6 @@ const CategoryBudgets = () => {
                                                 </div>
 
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                                    <button
-                                                        onClick={() => handleApplySuggestion(subCat)}
-                                                        title="Auto-suggest target based on historical average & savings mode"
-                                                        style={{
-                                                            padding: '0.375rem 0.625rem',
-                                                            borderRadius: '0.625rem',
-                                                            backgroundColor: 'rgba(139, 92, 246, 0.15)',
-                                                            border: '1px solid rgba(139, 92, 246, 0.25)',
-                                                            color: '#c084fc',
-                                                            fontSize: '10px',
-                                                            fontWeight: '800',
-                                                            cursor: 'pointer',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: '0.25rem'
-                                                        }}
-                                                    >
-                                                        <Sparkles size={12} /> Suggest
-                                                    </button>
-
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                                                         <span style={{ fontSize: '10px', color: '#a1a1aa', fontWeight: 'bold' }}>Limit: ₹</span>
                                                         <input
