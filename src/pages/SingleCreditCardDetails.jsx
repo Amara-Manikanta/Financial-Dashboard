@@ -326,7 +326,40 @@ const SingleCreditCardDetails = () => {
 
     const handleAddExpenseTx = () => {
         const today = new Date();
-        const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+        let targetYear = today.getFullYear();
+        let targetMonthIdx = today.getMonth();
+        let targetDay = today.getDate();
+
+        const monthsList = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        if (filterYear !== 'All' && !isNaN(Number(filterYear))) {
+            targetYear = Number(filterYear);
+        } else if (filterFY !== 'All' && filterFY.startsWith('FY ')) {
+            const fyStart = parseInt(filterFY.replace('FY ', '').split('-')[0], 10);
+            if (!isNaN(fyStart)) {
+                targetYear = fyStart;
+            }
+        }
+
+        if (filterMonth !== 'All') {
+            const mIdx = monthsList.findIndex(m => m.toLowerCase() === filterMonth.trim().toLowerCase());
+            if (mIdx !== -1) {
+                targetMonthIdx = mIdx;
+                if (filterFY !== 'All' && filterFY.startsWith('FY ') && filterYear === 'All') {
+                    const fyStart = parseInt(filterFY.replace('FY ', '').split('-')[0], 10);
+                    if (!isNaN(fyStart)) {
+                        targetYear = targetMonthIdx < 3 ? fyStart + 1 : fyStart;
+                    }
+                }
+            }
+        }
+
+        if (targetYear !== today.getFullYear() || targetMonthIdx !== today.getMonth()) {
+            targetDay = 15;
+        }
+
+        const dateStr = `${targetYear}-${String(targetMonthIdx + 1).padStart(2, '0')}-${String(targetDay).padStart(2, '0')}`;
+
         setEditingExpenseTx({
             paymentMode: 'credit_card',
             creditCardName: card.name,
