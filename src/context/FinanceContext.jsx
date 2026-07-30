@@ -99,6 +99,7 @@ export function FinanceProvider({ children }) {
     const [snapshots, setSnapshots] = useState([]);
     const [categoryBudgets, setCategoryBudgets] = useState({});
     const [customCategoryMap, setCustomCategoryMap] = useState({});
+    const [deletedCategories, setDeletedCategories] = useState([]);
     const [customGroceryItems, setCustomGroceryItems] = useState({});
     const [groceryBrands, setGroceryBrands] = useState({});
     const [groceryFlavours, setGroceryFlavours] = useState({});
@@ -267,6 +268,7 @@ export function FinanceProvider({ children }) {
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
                 setEmployments(appData.employments || JSON.parse(localStorage.getItem('employments') || '[]'));
                 setCustomCategoryMap(appData.customCategoryMap || {});
+                setDeletedCategories(appData.deletedCategories || []);
                 setCustomGroceryItems(appData.customGroceryItems || {});
                 // Handle old flat array if present
                 const loadedBrands = appData.groceryBrands || {};
@@ -817,6 +819,8 @@ export function FinanceProvider({ children }) {
 
     const mergedCategoryMap = useMemo(() => {
         const merged = { ...CATEGORY_MAP };
+        
+        // 1. Merge custom additions
         for (const [main, subs] of Object.entries(customCategoryMap)) {
             if (!merged[main]) {
                 merged[main] = [...subs];
@@ -824,8 +828,19 @@ export function FinanceProvider({ children }) {
                 merged[main] = [...new Set([...merged[main], ...subs])];
             }
         }
-        return merged;
-    }, [customCategoryMap]);
+
+        // 2. Filter out deleted categories / sub-categories
+        const finalMap = {};
+        const deletedSet = new Set(deletedCategories);
+
+        for (const [main, subs] of Object.entries(merged)) {
+            if (deletedSet.has(main)) continue;
+            const validSubs = subs.filter(sub => !deletedSet.has(`${main}:${sub}`));
+            finalMap[main] = validSubs;
+        }
+
+        return finalMap;
+    }, [customCategoryMap, deletedCategories]);
 
     const saveCustomCategoryMap = async (newMap) => {
         setCustomCategoryMap(newMap);
@@ -844,14 +859,57 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const deleteCategoryFromMap = async (mainCategory, subCategory = null) => {
+        const itemToDelete = subCategory ? `${mainCategory}:${subCategory}` : mainCategory;
+        const newDeletedList = deletedCategories.includes(itemToDelete)
+            ? deletedCategories
+            : [...deletedCategories, itemToDelete];
+
+        const newCustomMap = { ...customCategoryMap };
+        if (subCategory) {
+            if (newCustomMap[mainCategory]) {
+                newCustomMap[mainCategory] = newCustomMap[mainCategory].filter(s => s !== subCategory);
+            }
+        } else {
+            delete newCustomMap[mainCategory];
+        }
+
+        setDeletedCategories(newDeletedList);
+        setCustomCategoryMap(newCustomMap);
+
+        if (isGuest) return;
+
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ...currentAppData, 
+                    deletedCategories: newDeletedList,
+                    customCategoryMap: newCustomMap
+                })
+            });
+        } catch (error) {
+            console.error("Failed to save category deletion:", error);
+        }
+    };
+
     const addCustomCategory = async (mainCategory, subCategory) => {
         if (isGuest) return;
+
+        // If it was previously in deletedCategories, remove it from deleted list
+        const itemKey = subCategory ? `${mainCategory}:${subCategory}` : mainCategory;
+        const newDeletedList = deletedCategories.filter(item => item !== itemKey);
+        if (newDeletedList.length !== deletedCategories.length) {
+            setDeletedCategories(newDeletedList);
+        }
 
         const newMap = { ...customCategoryMap };
         if (!newMap[mainCategory]) newMap[mainCategory] = [];
         
         if (subCategory) {
-            // Check it doesn't already exist in base or custom
             const baseSubs = CATEGORY_MAP[mainCategory] || [];
             const allExisting = [...baseSubs, ...newMap[mainCategory]];
             const subExists = allExisting.some(s => s.toLowerCase() === subCategory.toLowerCase());
@@ -860,7 +918,24 @@ export function FinanceProvider({ children }) {
             }
         }
 
-        await saveCustomCategoryMap(newMap);
+        setCustomCategoryMap(newMap);
+
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    ...currentAppData, 
+                    deletedCategories: newDeletedList,
+                    customCategoryMap: newMap 
+                })
+            });
+        } catch (error) {
+            console.error("Failed to save custom category map:", error);
+        }
     };
 
     const renameCategoryInTransactions = async (oldName, newName, isMainCategory = false) => {
@@ -2069,6 +2144,7 @@ export function FinanceProvider({ children }) {
         mergedCategoryMap,
         addCustomCategory,
         saveCustomCategoryMap,
+        deleteCategoryFromMap,
         renameCategoryInTransactions,
         customGroceryItems,
         addCustomGroceryItem,

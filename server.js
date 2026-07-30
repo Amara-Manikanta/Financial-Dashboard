@@ -133,13 +133,14 @@ const proxy = http.createServer((req, res) => {
 
     proxyReq.on('error', (e) => {
         console.error(`[SafetyGuard] Headers Proxy error: ${e.message}`);
-        // If internal server is not ready yet
-        if (e.code === 'ECONNREFUSED') {
-            res.writeHead(503, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ error: 'Service Unavailable. Server is starting...' }));
-        } else {
-            res.writeHead(502);
-            res.end('Bad Gateway');
+        if (!res.headersSent) {
+            if (e.code === 'ECONNREFUSED') {
+                res.writeHead(503, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ error: 'Service Unavailable. Server is starting...' }));
+            } else {
+                res.writeHead(502);
+                res.end('Bad Gateway');
+            }
         }
     });
 

@@ -10,6 +10,7 @@ const CategoryBudgets = () => {
         saveCategoryBudgets, 
         mergedCategoryMap, 
         saveCustomCategoryMap,
+        deleteCategoryFromMap,
         renameCategoryInTransactions,
         formatCurrency 
     } = useFinance();
@@ -224,21 +225,14 @@ const CategoryBudgets = () => {
 
         if (!window.confirm(msg)) return;
 
-        const newMap = { ...mergedCategoryMap };
-
-        if (type === 'main') {
-            delete newMap[mainCat];
-        } else {
-            newMap[mainCat] = newMap[mainCat].filter(sub => sub !== subCat);
-        }
-
         // Clean up budgets
         const updatedBudgets = { ...localBudgets };
         delete updatedBudgets[categoryName];
         setLocalBudgets(updatedBudgets);
         await saveCategoryBudgets(updatedBudgets);
 
-        await saveCustomCategoryMap(newMap);
+        // Delete from category map state and persist to database
+        await deleteCategoryFromMap(mainCat, subCat);
     };
 
     const handleAddMainCategory = async () => {
