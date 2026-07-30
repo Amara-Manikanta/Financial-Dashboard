@@ -58,24 +58,58 @@ const CategoryBudgets = () => {
 
     // Calculate actual spending per category & sub-category for the selected month
     const actualSpending = useMemo(() => {
-        const monthData = expenses?.[selectedYear]?.[selectedMonth];
+        const monthData = expenses?.[selectedYear]?.[selectedMonth] || {};
         const subCatSpend = {};
         const mainCatSpend = {};
 
-        if (monthData?.transactions) {
-            monthData.transactions.forEach(tx => {
+        const getMainCategory = (subCatName) => {
+            const lowerSub = (subCatName || '').toLowerCase().trim();
+            for (const [main, subs] of Object.entries(mergedCategoryMap || {})) {
+                if (subs.some(s => s.toLowerCase().trim() === lowerSub)) {
+                    return main;
+                }
+            }
+            const matchingKey = Object.keys(mergedCategoryMap || {}).find(k => k.toLowerCase().trim() === lowerSub);
+            if (matchingKey) return matchingKey;
+            return 'Miscellaneous';
+        };
+
+        const activeTransactions = monthData.transactions || [];
+
+        if (activeTransactions.length > 0) {
+            activeTransactions.forEach(tx => {
                 if (tx.isCredited || tx.transactionType === 'credit') return;
 
-                const cat = tx.category || 'Miscellaneous';
-                const mainCat = tx.mainCategory || 'Miscellaneous';
+                const subCat = tx.category || 'Miscellaneous';
+                const mainCat = tx.mainCategory || getMainCategory(subCat);
                 const amt = Number(tx.amount) || 0;
 
-                subCatSpend[cat] = (subCatSpend[cat] || 0) + amt;
-                mainCatSpend[mainCat] = (mainCatSpend[mainCat] || 0) + amt;
+                const lowerSub = subCat.toLowerCase().trim();
+                const lowerMain = mainCat.toLowerCase().trim();
+
+                subCatSpend[lowerSub] = (subCatSpend[lowerSub] || 0) + amt;
+                mainCatSpend[lowerMain] = (mainCatSpend[lowerMain] || 0) + amt;
+            });
+        } else if (monthData.categories || monthData) {
+            const categories = monthData.categories || monthData;
+            Object.entries(categories).forEach(([cat, val]) => {
+                if (['salary received', 'salary', 'income', 'transactions'].includes(cat.toLowerCase().trim())) return;
+                const amt = Number(val) || 0;
+                const mainCat = getMainCategory(cat);
+
+                const lowerSub = cat.toLowerCase().trim();
+                const lowerMain = mainCat.toLowerCase().trim();
+
+                subCatSpend[lowerSub] = (subCatSpend[lowerSub] || 0) + amt;
+                mainCatSpend[lowerMain] = (mainCatSpend[lowerMain] || 0) + amt;
             });
         }
-        return { subCatSpend, mainCatSpend };
-    }, [expenses, selectedYear, selectedMonth]);
+
+        const getSubSpend = (subCatName) => subCatSpend[String(subCatName || '').toLowerCase().trim()] || 0;
+        const getMainSpend = (mainCatName) => mainCatSpend[String(mainCatName || '').toLowerCase().trim()] || 0;
+
+        return { subCatSpend, mainCatSpend, getSubSpend, getMainSpend };
+    }, [expenses, selectedYear, selectedMonth, mergedCategoryMap]);
 
     const handleBudgetChange = (catKey, value) => {
         const numVal = value === '' ? 0 : Math.max(0, Number(value));
@@ -206,20 +240,38 @@ const CategoryBudgets = () => {
         let totalTrackedCategories = 0;
 
         displayMainCategories.forEach(mainCat => {
+            const mainSpend = actualSpending.getMainSpend(mainCat);
+            totalActual += mainSpend;
+
+            const mainTarget = Number(localBudgets[mainCat]) || 0;
             const subCats = mergedCategoryMap[mainCat] || [];
+            
+            // Track Main Category cap if configured directly
+            if (mainTarget > 0) {
+                totalTarget += mainTarget;
+                totalTrackedCategories++;
+                const statusInfo = calculateBudgetStatus(mainTarget, mainSpend);
+                if (statusInfo.status === 'overspent') overBudgetCount++;
+                else if (statusInfo.status === 'warning') warningCount++;
+                else safeCount++;
+            }
+
+            // Track Sub-Category limits
             subCats.forEach(subCat => {
                 const target = Number(localBudgets[subCat]) || 0;
-                const actual = actualSpending.subCatSpend[subCat] || 0;
+                const actual = actualSpending.getSubSpend(subCat);
                 
                 if (target > 0) {
-                    totalTarget += target;
+                    // Only add to totalTarget if mainTarget was not already added to avoid double counting
+                    if (mainTarget === 0) {
+                        totalTarget += target;
+                    }
                     totalTrackedCategories++;
                     const statusInfo = calculateBudgetStatus(target, actual);
                     if (statusInfo.status === 'overspent') overBudgetCount++;
                     else if (statusInfo.status === 'warning') warningCount++;
                     else safeCount++;
                 }
-                totalActual += actual;
             });
         });
 
@@ -423,7 +475,7 @@ const CategoryBudgets = () => {
                     const mainTarget = Number(localBudgets[mainCat]) || 0;
                     const subTargetsSum = subCats.reduce((sum, sub) => sum + (Number(localBudgets[sub]) || 0), 0);
                     const effectiveMainTarget = mainTarget > 0 ? mainTarget : subTargetsSum;
-                    const mainActual = actualSpending.mainCatSpend[mainCat] || 0;
+                    const mainActual = actualSpending.getMainSpend(mainCat);
                     const mainStatus = calculateBudgetStatus(effectiveMainTarget, mainActual);
 
                     const isMainOver = mainStatus.status === 'overspent';
@@ -577,7 +629,7 @@ const CategoryBudgets = () => {
 
                                     {subCats.map(subCat => {
                                         const subTarget = Number(localBudgets[subCat]) || 0;
-                                        const subActual = actualSpending.subCatSpend[subCat] || 0;
+                                        const subActual = actualSpending.getSubSpend(subCat);
                                         const subStatus = calculateBudgetStatus(subTarget, subActual);
 
                                         const isSubOver = subStatus.status === 'overspent';
