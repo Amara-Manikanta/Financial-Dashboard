@@ -8,7 +8,8 @@ export function guessCategory(remarks, isCredit) {
     if (isCredit) {
         if (raw.includes('salary') || raw.includes('sal')) return { main: 'Income', sub: 'Salary Received' };
         if (raw.includes('int.pd') || raw.includes('interest')) return { main: 'Income', sub: 'Interest Income' };
-        if (raw.includes('refund') || raw.includes('reversal')) return { main: 'Income', sub: 'Refund' };
+        // CC refunds/waivers/cashbacks are NOT income - they reduce the outstanding balance
+        if (raw.includes('refund') || raw.includes('reversal') || raw.includes('waiver') || raw.includes('cashback')) return { main: 'Finance', sub: 'Refund' };
         if (raw.includes('dividend') || raw.includes('div')) return { main: 'Income', sub: 'Dividend' };
         return { main: 'Transfers', sub: 'Bank Transfer' };
     }
@@ -166,7 +167,7 @@ export const mergeTransactionsIntoExpenses = (expenses, newTransactions) => {
                     const cat = t.category || 'others';
                     const amt = Number(t.amount) || 0;
                     const isIncome = t.mainCategory === 'Income' ||
-                        ['salary received', 'income', 'salary', 'bonus', 'interest income', 'dividend', 'refund'].includes(cat.toLowerCase());
+                        ['salary received', 'income', 'salary', 'bonus', 'interest income', 'dividend'].includes(cat.toLowerCase());
                     const effective = isIncome
                         ? (t.isCredited ? amt : -amt)
                         : (t.isCredited ? -amt : amt);

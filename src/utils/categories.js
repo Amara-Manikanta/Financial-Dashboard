@@ -4,8 +4,7 @@ export const CATEGORY_MAP = {
     "Bonus",
     "Freelance",
     "Interest Income",
-    "Dividend",
-    "Refund"
+    "Dividend"
   ],
   "Transfers": [
     "Savings Account",
@@ -88,7 +87,9 @@ export const CATEGORY_MAP = {
     "Loan EMI",
     "Insurance Premium",
     "Tax Payment",
-    "LIC Premium"
+    "LIC Premium",
+    "Refund",
+    "Cashback"
   ],
   "Subscriptions": [
     "OTT",
