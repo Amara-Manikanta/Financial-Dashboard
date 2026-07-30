@@ -31,10 +31,19 @@ export const generateBudgetSuggestions = (history, currentCategory) => {
     // History should be an array of { month: 'YYYY-MM', amount: number }
     // Sort by date descending to get recent months, but we need 3-6 months.
 
-    if (!history || history.length < 3) {
+    if (!history || history.length === 0) {
         return {
             suggestedBudget: 0,
-            reason: "Insufficient data (need at least 3 months)"
+            reason: "No historical data available"
+        };
+    }
+
+    if (history.length < 3) {
+        const sum = history.reduce((acc, val) => acc + val.amount, 0);
+        const average = sum / history.length;
+        return {
+            suggestedBudget: Math.ceil(average / 100) * 100,
+            reason: "Based on limited spending history"
         };
     }
 
