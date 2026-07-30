@@ -75,8 +75,23 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
         if (e.target === e.currentTarget) onClose();
     };
 
-    const inputBaseStyle = "w-full px-4 py-3 rounded-xl bg-zinc-800/90 border border-zinc-700/80 text-white font-medium placeholder-zinc-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm";
-    const selectBaseStyle = "w-full px-4 py-3 rounded-xl bg-zinc-800/90 border border-zinc-700/80 text-white font-medium focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all text-sm cursor-pointer";
+    const inputStyle = {
+        backgroundColor: '#27272a',
+        color: '#ffffff',
+        border: '1px solid #3f3f46',
+        borderRadius: '0.75rem',
+        padding: '0.75rem 1rem',
+        width: '100%',
+        outline: 'none',
+        fontSize: '0.875rem',
+        fontWeight: '500'
+    };
+
+    const selectStyle = {
+        ...inputStyle,
+        cursor: 'pointer'
+    };
+
     const labelStyle = "flex items-center gap-1.5 text-xs font-bold text-zinc-400 uppercase tracking-wider mb-2 ml-1";
 
     return createPortal(
@@ -84,7 +99,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             style={{
                 position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
-                backgroundColor: 'rgba(0, 0, 0, 0.8)', zIndex: 2147483647,
+                backgroundColor: 'rgba(0, 0, 0, 0.85)', zIndex: 2147483647,
                 padding: '1rem', backdropFilter: 'blur(8px)'
             }}
             onClick={handleBackdropClick}
@@ -101,7 +116,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                             <TrendingUp className="text-blue-500" size={22} />
                             {initialData ? 'Edit Stock Details' : 'Add New Stock'}
                         </h2>
-                        <p className="text-xs color-zinc-400 text-zinc-400 mt-0.5">Configure company details, shares held, costs, and market sector.</p>
+                        <p className="text-xs text-zinc-400 mt-0.5">Configure company details, shares held, costs, and market sector.</p>
                     </div>
                     <button 
                         type="button"
@@ -128,7 +143,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     required 
                                     value={name} 
                                     onChange={(e) => setName(e.target.value)}
-                                    className={inputBaseStyle} 
+                                    style={inputStyle} 
                                     placeholder="e.g. Tata Motors Commercial Vehicles"
                                 />
                             </div>
@@ -142,7 +157,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     required 
                                     value={ticker} 
                                     onChange={(e) => setTicker(e.target.value)}
-                                    className={inputBaseStyle} 
+                                    style={inputStyle} 
                                     placeholder="e.g. TMCV"
                                 />
                             </div>
@@ -158,12 +173,12 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                 <select
                                     value={marketCap}
                                     onChange={(e) => setMarketCap(e.target.value)}
-                                    className={selectBaseStyle}
+                                    style={selectStyle}
                                 >
-                                    <option value="" style={{ backgroundColor: '#18181b' }}>Select Cap Type</option>
-                                    <option value="Large Cap" style={{ backgroundColor: '#18181b' }}>Large Cap</option>
-                                    <option value="Mid Cap" style={{ backgroundColor: '#18181b' }}>Mid Cap</option>
-                                    <option value="Small Cap" style={{ backgroundColor: '#18181b' }}>Small Cap</option>
+                                    <option value="" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Select Cap Type</option>
+                                    <option value="Large Cap" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Large Cap</option>
+                                    <option value="Mid Cap" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Mid Cap</option>
+                                    <option value="Small Cap" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Small Cap</option>
                                 </select>
                             </div>
                             <div>
@@ -174,20 +189,20 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                 <select
                                     value={sector}
                                     onChange={(e) => setSector(e.target.value)}
-                                    className={selectBaseStyle}
+                                    style={selectStyle}
                                 >
-                                    <option value="" style={{ backgroundColor: '#18181b' }}>Select Sector</option>
-                                    <option value="Information Technology" style={{ backgroundColor: '#18181b' }}>Information Technology</option>
-                                    <option value="Financials" style={{ backgroundColor: '#18181b' }}>Financials</option>
-                                    <option value="Health Care" style={{ backgroundColor: '#18181b' }}>Health Care</option>
-                                    <option value="Consumer Discretionary" style={{ backgroundColor: '#18181b' }}>Consumer Discretionary</option>
-                                    <option value="Consumer Staples" style={{ backgroundColor: '#18181b' }}>Consumer Staples</option>
-                                    <option value="Industrials" style={{ backgroundColor: '#18181b' }}>Industrials</option>
-                                    <option value="Communication Services" style={{ backgroundColor: '#18181b' }}>Communication Services</option>
-                                    <option value="Energy" style={{ backgroundColor: '#18181b' }}>Energy</option>
-                                    <option value="Utilities" style={{ backgroundColor: '#18181b' }}>Utilities</option>
-                                    <option value="Materials" style={{ backgroundColor: '#18181b' }}>Materials</option>
-                                    <option value="Real Estate" style={{ backgroundColor: '#18181b' }}>Real Estate</option>
+                                    <option value="" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Select Sector</option>
+                                    <option value="Information Technology" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Information Technology</option>
+                                    <option value="Financials" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Financials</option>
+                                    <option value="Health Care" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Health Care</option>
+                                    <option value="Consumer Discretionary" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Consumer Discretionary</option>
+                                    <option value="Consumer Staples" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Consumer Staples</option>
+                                    <option value="Industrials" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Industrials</option>
+                                    <option value="Communication Services" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Communication Services</option>
+                                    <option value="Energy" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Energy</option>
+                                    <option value="Utilities" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Utilities</option>
+                                    <option value="Materials" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Materials</option>
+                                    <option value="Real Estate" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Real Estate</option>
                                 </select>
                             </div>
                         </div>
@@ -205,7 +220,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     required 
                                     value={shares} 
                                     onChange={(e) => setShares(e.target.value)}
-                                    className={`${inputBaseStyle} font-mono`} 
+                                    style={{ ...inputStyle, fontFamily: 'monospace' }} 
                                     placeholder="0"
                                 />
                             </div>
@@ -218,7 +233,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     required
                                     value={avgCost}
                                     onChange={(e) => setAvgCost(e.target.value)}
-                                    className={`${inputBaseStyle} font-mono`}
+                                    style={{ ...inputStyle, fontFamily: 'monospace' }}
                                     placeholder="0.00"
                                 />
                             </div>
@@ -231,7 +246,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     required
                                     value={currentPrice}
                                     onChange={(e) => setCurrentPrice(e.target.value)}
-                                    className={`${inputBaseStyle} font-mono`}
+                                    style={{ ...inputStyle, fontFamily: 'monospace' }}
                                     placeholder="0.00"
                                 />
                             </div>
@@ -252,7 +267,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     <CurrencyInput
                                         value={investedAmount}
                                         onChange={(e) => setInvestedAmount(e.target.value)}
-                                        className={`${inputBaseStyle} font-mono`}
+                                        style={{ ...inputStyle, fontFamily: 'monospace' }}
                                         placeholder="Auto-calculated if empty"
                                     />
                                     <p className="text-[10px] text-zinc-500 mt-1 ml-1 flex items-center gap-1">
@@ -267,7 +282,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     <CurrencyInput
                                         value={realisedPL}
                                         onChange={(e) => setRealisedPL(e.target.value)}
-                                        className={`${inputBaseStyle} font-mono`}
+                                        style={{ ...inputStyle, fontFamily: 'monospace' }}
                                         placeholder="0.00"
                                     />
                                     <p className="text-[10px] text-zinc-500 mt-1 ml-1 flex items-center gap-1">
@@ -287,7 +302,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                             type="text"
                                             value={customValues[col] || ''}
                                             onChange={(e) => setCustomValues(prev => ({ ...prev, [col]: e.target.value }))}
-                                            className={inputBaseStyle}
+                                            style={inputStyle}
                                             placeholder={col}
                                         />
                                     </div>
@@ -306,7 +321,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     type="text" 
                                     value={remarks} 
                                     onChange={(e) => setRemarks(e.target.value)}
-                                    className={inputBaseStyle} 
+                                    style={inputStyle} 
                                     placeholder="Optional notes"
                                 />
                             </div>
