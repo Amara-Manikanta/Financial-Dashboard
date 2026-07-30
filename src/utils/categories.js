@@ -10,7 +10,8 @@ export const CATEGORY_MAP = {
     "Savings Account",
     "Emergency Fund",
     "Cash Reserve",
-    "Bank Transfer"
+    "Bank Transfer",
+    "Personal Transfer"
   ],
   "Investments": [
     "Stocks",
@@ -114,6 +115,7 @@ export const CATEGORY_MAP = {
   "Miscellaneous": [
     "Donation",
     "Temple",
+    "Personal Transfer",
     "Other"
   ]
 };

@@ -41,6 +41,18 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const mainCategoriesList = Object.keys(mergedCategoryMap);
     const subCategoriesList = mainCategory ? (mergedCategoryMap[mainCategory] || []) : [];
     
+    const displaySubCategories = useMemo(() => {
+        const list = [...subCategoriesList];
+        if (category && category !== '__add_custom__') {
+            const lowerCat = category.toLowerCase();
+            const exists = list.some(s => s.toLowerCase() === lowerCat);
+            if (!exists) {
+                list.push(category);
+            }
+        }
+        return list;
+    }, [subCategoriesList, category]);
+    
     const availableCreditCards = creditCards && creditCards.length > 0
         ? creditCards.map(c => c.name)
         : ["Scapia", "Amazon", "Icici Rupay", "ICICI HP card"];
@@ -370,7 +382,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                         className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-12 text-white font-bold appearance-none focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all text-sm cursor-pointer disabled:opacity-50"
                                     >
                                         <option value="" disabled className="bg-[#0c0c0e]">{mainCategory ? "Select Sub" : "Select Main First"}</option>
-                                        {subCategoriesList.map(cat => <option key={cat} value={cat.toLowerCase()} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
+                                        {displaySubCategories.map(cat => <option key={cat} value={cat.toLowerCase()} className="bg-[#0c0c0e] capitalize">{cat}</option>)}
                                         {mainCategory && <option value="__add_custom__" className="bg-[#0c0c0e] text-emerald-400 font-bold">+ Add New Sub Category</option>}
                                     </select>
                                     <ChevronDown size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none" />
