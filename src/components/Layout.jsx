@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
@@ -126,6 +126,7 @@ const Layout = () => {
                             icon={Wallet} 
                             items={[
                                 { to: '/expenses', label: 'All Expenses', icon: Receipt },
+                                { to: '/category-budgets', label: 'Budget Limits', icon: Target },
                                 { to: '/fuel', label: 'Fuel Analytics', icon: Fuel },
                                 { to: '/grocery-analytics', label: 'Grocery Analytics', icon: ShoppingBag },
                                 { to: '/grocery-master-list', label: 'Grocery Builder', icon: Edit2 }

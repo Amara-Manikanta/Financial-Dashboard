@@ -784,6 +784,34 @@ export function FinanceProvider({ children }) {
             });
         } catch (error) {
             console.error("Failed to update category budget:", error);
+            localStorage.setItem('categoryBudgets', JSON.stringify(updatedBudgets));
+        }
+    };
+
+    const saveCategoryBudgets = async (updatedBudgets) => {
+        setCategoryBudgets(updatedBudgets);
+        if (isGuest) {
+            localStorage.setItem('categoryBudgets', JSON.stringify(updatedBudgets));
+            return;
+        }
+
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+
+            const payload = {
+                ...currentAppData,
+                categoryBudgets: updatedBudgets
+            };
+
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+        } catch (error) {
+            console.error("Failed to save category budgets:", error);
+            localStorage.setItem('categoryBudgets', JSON.stringify(updatedBudgets));
         }
     };
 
@@ -1970,7 +1998,7 @@ export function FinanceProvider({ children }) {
     const value = {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,
-        addNewYear, takeSnapshot, updateCategoryBudget,
+        addNewYear, takeSnapshot, updateCategoryBudget, saveCategoryBudgets,
         formatCurrency,
         calculateItemCurrentValue,
         calculateItemInvestedValue,

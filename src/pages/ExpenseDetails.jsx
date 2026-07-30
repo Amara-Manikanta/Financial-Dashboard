@@ -44,7 +44,7 @@ const SummaryCard = ({ title, subtitle, amount, percentage, color }) => (
     </div>
 );
 
-const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = false, showActions = true, hideDate = false, onClick, isHighlighted = false, isDimmed = false }) => {
+const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = false, showActions = true, hideDate = false, onClick, isHighlighted = false, isDimmed = false, categoryBudget = 0 }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const IconComponent = CATEGORY_ICONS[item.category?.toLowerCase()] || Tag;
 
@@ -177,6 +177,25 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
                         }}>
                             {isCredit ? '+' : ''}{formatCurrency(item.amount)}
                         </p>
+                        {categoryBudget > 0 && !showActions && (
+                            <span style={{
+                                fontSize: '8px',
+                                fontWeight: '800',
+                                padding: '0.1rem 0.35rem',
+                                borderRadius: '0.25rem',
+                                backgroundColor: item.amount > categoryBudget ? 'rgba(239, 68, 68, 0.2)' : (item.amount / categoryBudget) >= 0.8 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
+                                color: item.amount > categoryBudget ? '#f87171' : (item.amount / categoryBudget) >= 0.8 ? '#fbbf24' : '#34d399',
+                                display: 'inline-block',
+                                marginTop: '0.25rem',
+                                textTransform: 'uppercase'
+                            }}>
+                                {item.amount > categoryBudget 
+                                    ? `🔴 Over limit` 
+                                    : (item.amount / categoryBudget) >= 0.8 
+                                    ? `🟡 Near limit` 
+                                    : `🟢 Under limit`}
+                            </span>
+                        )}
                     </div>
                 </div>
             </div>
@@ -284,7 +303,7 @@ const CATEGORY_ICONS = {
 const ExpenseDetails = () => {
     const { year, month } = useParams();
     const navigate = useNavigate();
-    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap, categoryBudgets } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentMainPage, setCurrentMainPage] = useState(1);
     const [currentSubPage, setCurrentSubPage] = useState(1);
@@ -1026,6 +1045,7 @@ const ExpenseDetails = () => {
                                         )}
                                         isHighlighted={selectedCategoryHighlight?.type === 'main' && selectedCategoryHighlight?.name === item.category}
                                         isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'main' || selectedCategoryHighlight.name !== item.category)}
+                                        categoryBudget={categoryBudgets?.[item.category]}
                                     />
                                 ))
                             }
@@ -1071,6 +1091,7 @@ const ExpenseDetails = () => {
                                         )}
                                         isHighlighted={selectedCategoryHighlight?.type === 'sub' && selectedCategoryHighlight?.name === item.category}
                                         isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'sub' || selectedCategoryHighlight.name !== item.category)}
+                                        categoryBudget={categoryBudgets?.[item.category]}
                                     />
                                 ))
                             }
