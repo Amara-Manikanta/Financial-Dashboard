@@ -2,7 +2,7 @@ import * as XLSX from 'xlsx';
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-export function guessCategory(remarks, isCredit) {
+export function guessCategory(remarks, isCredit, isCreditCard = false) {
     const raw = remarks.toLowerCase();
     
     if (isCredit) {
@@ -11,7 +11,8 @@ export function guessCategory(remarks, isCredit) {
         // CC refunds/waivers/cashbacks are NOT income - they reduce the outstanding balance
         if (raw.includes('refund') || raw.includes('reversal') || raw.includes('waiver') || raw.includes('cashback')) return { main: 'Finance', sub: 'Refund' };
         if (raw.includes('dividend') || raw.includes('div')) return { main: 'Income', sub: 'Dividend' };
-        return { main: 'Transfers', sub: 'Bank Transfer' };
+        // For CC credited transactions that don't match anything specific, use Miscellaneous
+        return isCreditCard ? { main: 'Miscellaneous', sub: 'Other' } : { main: 'Transfers', sub: 'Bank Transfer' };
     }
     
     if (raw.includes('payment against loan') || raw.includes('loan account')) return { main: 'Finance', sub: 'Loan EMI' };
@@ -32,7 +33,8 @@ export function guessCategory(remarks, isCredit) {
     if (raw.includes('zerodha') || raw.includes('groww') || raw.includes('upstox') || raw.includes('mutual fund') || raw.includes('sip')) return { main: 'Investments', sub: 'Mutual Funds' };
     if (raw.includes('ppf') || raw.includes('nps')) return { main: 'Investments', sub: 'PPF' };
     if (raw.includes('iwish')) return { main: 'Investments', sub: 'Fixed Deposit' };
-    if (raw.includes('atm') || raw.includes('cash')) return { main: 'Transfers', sub: 'Cash Reserve' };
+    // ATM/cash on CC = cash advance (expense), not a transfer
+    if (raw.includes('atm') || raw.includes('cash')) return isCreditCard ? { main: 'Finance', sub: 'Other' } : { main: 'Transfers', sub: 'Cash Reserve' };
     if (raw.includes('tax') || raw.includes('tds')) return { main: 'Finance', sub: 'Tax Payment' };
     if (raw.includes('lic') || raw.includes('insurance')) return { main: 'Finance', sub: 'Insurance Premium' };
     if (raw.includes('hospital') || raw.includes('clinic') || raw.includes('pharmacy') || raw.includes('apollo') || raw.includes('medical')) return { main: 'Health', sub: 'Medical' };

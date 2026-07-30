@@ -330,7 +330,7 @@ const CreditCardImportModal = ({ isOpen, onClose, onSave, existingTransactions, 
             const amount = Math.abs(rawAmt);
             
             // Auto categorize
-            const category = guessCategory(title, isCredited);
+            const category = guessCategory(title, isCredited, true);
 
             const tx = {
                 id: `import_${Date.now()}_${i}`,
