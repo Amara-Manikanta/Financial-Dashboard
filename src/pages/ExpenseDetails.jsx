@@ -114,6 +114,22 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
                     }}>
                         <IconComponent size={compact ? 14 : 18} />
                     </div>
+
+                    {!showActions && (
+                        <div style={{
+                            width: '8px',
+                            height: '8px',
+                            borderRadius: '50%',
+                            backgroundColor: categoryBudget > 0 
+                                ? (item.amount > categoryBudget ? '#ef4444' : (item.amount / categoryBudget) >= 0.8 ? '#f59e0b' : '#10b981')
+                                : '#52525b',
+                            boxShadow: categoryBudget > 0
+                                ? (item.amount > categoryBudget ? '0 0 8px rgba(239, 68, 68, 0.6)' : (item.amount / categoryBudget) >= 0.8 ? '0 0 8px rgba(245, 158, 11, 0.6)' : '0 0 8px rgba(16, 185, 129, 0.6)')
+                                : 'none',
+                            flexShrink: 0
+                        }} title={categoryBudget > 0 ? (item.amount > categoryBudget ? 'Over Limit' : (item.amount / categoryBudget) >= 0.8 ? 'Near Limit' : 'Under Limit') : 'No Target Set'} />
+                    )}
+
                     <div style={{ overflow: 'hidden', flex: 1 }}>
                         <h4 style={{ fontSize: compact ? '0.75rem' : '0.875rem', fontWeight: 'bold', color: 'white', textTransform: 'capitalize', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {item.title || fullCategoryString || 'Untitled'}
@@ -177,23 +193,25 @@ const TransactionItem = ({ item, formatCurrency, onEdit, onDelete, compact = fal
                         }}>
                             {isCredit ? '+' : ''}{formatCurrency(item.amount)}
                         </p>
-                        {categoryBudget > 0 && !showActions && (
+                        {!showActions && (
                             <span style={{
                                 fontSize: '8px',
                                 fontWeight: '800',
                                 padding: '0.1rem 0.35rem',
                                 borderRadius: '0.25rem',
-                                backgroundColor: item.amount > categoryBudget ? 'rgba(239, 68, 68, 0.2)' : (item.amount / categoryBudget) >= 0.8 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)',
-                                color: item.amount > categoryBudget ? '#f87171' : (item.amount / categoryBudget) >= 0.8 ? '#fbbf24' : '#34d399',
+                                backgroundColor: categoryBudget > 0 
+                                    ? (item.amount > categoryBudget ? 'rgba(239, 68, 68, 0.2)' : (item.amount / categoryBudget) >= 0.8 ? 'rgba(245, 158, 11, 0.2)' : 'rgba(16, 185, 129, 0.2)')
+                                    : 'rgba(255, 255, 255, 0.05)',
+                                color: categoryBudget > 0 
+                                    ? (item.amount > categoryBudget ? '#f87171' : (item.amount / categoryBudget) >= 0.8 ? '#fbbf24' : '#34d399')
+                                    : '#71717a',
                                 display: 'inline-block',
                                 marginTop: '0.25rem',
                                 textTransform: 'uppercase'
                             }}>
-                                {item.amount > categoryBudget 
-                                    ? `🔴 Over limit` 
-                                    : (item.amount / categoryBudget) >= 0.8 
-                                    ? `🟡 Near limit` 
-                                    : `🟢 Under limit`}
+                                {categoryBudget > 0 
+                                    ? (item.amount > categoryBudget ? `🔴 Over limit` : (item.amount / categoryBudget) >= 0.8 ? `🟡 Near limit` : `🟢 Under limit`)
+                                    : `⚪ No Target`}
                             </span>
                         )}
                     </div>
@@ -304,6 +322,14 @@ const ExpenseDetails = () => {
     const { year, month } = useParams();
     const navigate = useNavigate();
     const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap, categoryBudgets } = useFinance();
+
+    const getCategoryBudget = (catName) => {
+        if (!catName || !categoryBudgets) return 0;
+        if (categoryBudgets[catName] !== undefined) return Number(categoryBudgets[catName]) || 0;
+        const lowerName = String(catName).toLowerCase().trim();
+        const foundKey = Object.keys(categoryBudgets).find(k => k.toLowerCase().trim() === lowerName);
+        return foundKey ? (Number(categoryBudgets[foundKey]) || 0) : 0;
+    };
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [currentMainPage, setCurrentMainPage] = useState(1);
     const [currentSubPage, setCurrentSubPage] = useState(1);
@@ -1045,7 +1071,7 @@ const ExpenseDetails = () => {
                                         )}
                                         isHighlighted={selectedCategoryHighlight?.type === 'main' && selectedCategoryHighlight?.name === item.category}
                                         isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'main' || selectedCategoryHighlight.name !== item.category)}
-                                        categoryBudget={categoryBudgets?.[item.category]}
+                                        categoryBudget={getCategoryBudget(item.category)}
                                     />
                                 ))
                             }
@@ -1091,7 +1117,7 @@ const ExpenseDetails = () => {
                                         )}
                                         isHighlighted={selectedCategoryHighlight?.type === 'sub' && selectedCategoryHighlight?.name === item.category}
                                         isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'sub' || selectedCategoryHighlight.name !== item.category)}
-                                        categoryBudget={categoryBudgets?.[item.category]}
+                                        categoryBudget={getCategoryBudget(item.category)}
                                     />
                                 ))
                             }
