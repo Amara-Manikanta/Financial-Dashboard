@@ -107,14 +107,33 @@ const Nifty50Exposure = () => {
         const avgCost = Number(stock.avgCost || 0);
 
         const val = valuationMode === 'current' ? (shares * currentPrice) : (shares * avgCost);
+        const cleanName = (str) => {
+          return (str || '')
+            .toLowerCase()
+            .replace(/\blimited\b|\bltd\b|\bcorp\b|\bcorporation\b/g, '')
+            .replace(/[^a-z0-9&]/g, ' ')
+            .trim();
+        };
+
         const rawTitle = (stock.name || stock.title || stock.symbol || '').trim().toLowerCase();
+        const rawClean = cleanName(rawTitle);
 
         let matched = ALL_BENCHMARK_STOCKS.find(s => {
           if (!s || !s.symbol) return false;
-          const sym = s.symbol.toLowerCase();
-          if (sym === rawTitle) return true;
+          const stockSym = (stock.symbol || '').trim().toUpperCase();
+          if (stockSym && stockSym === s.symbol.toUpperCase()) return true;
+
+          const benchmarkSymClean = cleanName(s.symbol);
+          const benchmarkNameClean = cleanName(s.name);
+
+          if (rawClean === benchmarkSymClean || rawClean === benchmarkNameClean) return true;
+
           const aliases = s.aliases || [];
-          return aliases.some(alias => alias && rawTitle && (rawTitle.includes(alias.toLowerCase()) || alias.toLowerCase().includes(rawTitle)));
+          return aliases.some(alias => {
+            const cleanAlias = cleanName(alias);
+            if (!cleanAlias || cleanAlias.length < 3) return false;
+            return rawClean === cleanAlias || rawClean.startsWith(cleanAlias + ' ') || rawClean.endsWith(' ' + cleanAlias);
+          });
         });
 
         const key = matched ? matched.symbol : rawTitle;

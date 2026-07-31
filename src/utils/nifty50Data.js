@@ -7,7 +7,7 @@ export const NIFTY_50_STOCKS = [
   { symbol: "INFY", name: "Infosys Limited", sector: "Information Technology", cap: "Large Cap", weight: 5.92, aliases: ["infosys", "infosys limited", "infy", "infosys ltd"] },
   { symbol: "ITC", name: "ITC Limited", sector: "Consumer Goods (FMCG)", cap: "Large Cap", weight: 4.15, aliases: ["itc", "itc limited", "itc ltd"] },
   { symbol: "TCS", name: "Tata Consultancy Services Limited", sector: "Information Technology", cap: "Large Cap", weight: 3.82, aliases: ["tcs", "tata consultancy services", "tata consultancy services limited"] },
-  { symbol: "LT", name: "Larsen & Toubro Limited", sector: "Construction", cap: "Large Cap", weight: 3.71, aliases: ["larsen & toubro", "l&t", "larsen & toubro limited", "lt"] },
+  { symbol: "LT", name: "Larsen & Toubro Limited", sector: "Construction", cap: "Large Cap", weight: 3.71, aliases: ["larsen & toubro", "l&t", "larsen & toubro limited"] },
   { symbol: "AXISBANK", name: "Axis Bank Limited", sector: "Financial Services", cap: "Large Cap", weight: 3.12, aliases: ["axis bank", "axis bank limited", "axisbank"] },
   { symbol: "KOTAKBANK", name: "Kotak Mahindra Bank Limited", sector: "Financial Services", cap: "Large Cap", weight: 2.88, aliases: ["kotak mahindra bank", "kotak bank", "kotak mahindra bank limited", "kotakbank"] },
   { symbol: "BHARTIARTL", name: "Bharti Airtel Limited", sector: "Telecommunication", cap: "Large Cap", weight: 2.84, aliases: ["bharti airtel", "bharti airtel limited", "airtel", "bhartiartl"] },
