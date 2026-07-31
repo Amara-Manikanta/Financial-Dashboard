@@ -1,352 +1,138 @@
+// Comprehensive Master Stock & Mutual Fund Holding Database
+
 export const NIFTY_50_STOCKS = [
-  {
-    symbol: "HDFCBANK",
-    name: "HDFC Bank Limited",
-    sector: "Financial Services",
-    weight: 11.52,
-    aliases: ["hdfc bank", "hdfc bank limited", "hdfcbank", "hdfc bank ltd"]
-  },
-  {
-    symbol: "RELIANCE",
-    name: "Reliance Industries Limited",
-    sector: "Oil & Gas",
-    weight: 9.78,
-    aliases: ["reliance", "reliance industries", "reliance industries limited", "ril"]
-  },
-  {
-    symbol: "ICICIBANK",
-    name: "ICICI Bank Limited",
-    sector: "Financial Services",
-    weight: 7.84,
-    aliases: ["icici bank", "icici bank limited", "icicibank", "icici bank ltd"]
-  },
-  {
-    symbol: "INFY",
-    name: "Infosys Limited",
-    sector: "Information Technology",
-    weight: 5.92,
-    aliases: ["infosys", "infosys limited", "infy", "infosys ltd"]
-  },
-  {
-    symbol: "ITC",
-    name: "ITC Limited",
-    sector: "Consumer Goods (FMCG)",
-    weight: 4.15,
-    aliases: ["itc", "itc limited", "itc ltd"]
-  },
-  {
-    symbol: "TCS",
-    name: "Tata Consultancy Services Limited",
-    sector: "Information Technology",
-    weight: 3.82,
-    aliases: ["tcs", "tata consultancy services", "tata consultancy services limited"]
-  },
-  {
-    symbol: "LT",
-    name: "Larsen & Toubro Limited",
-    sector: "Construction",
-    weight: 3.71,
-    aliases: ["larsen & toubro", "l&t", "larsen & toubro limited", "lt"]
-  },
-  {
-    symbol: "AXISBANK",
-    name: "Axis Bank Limited",
-    sector: "Financial Services",
-    weight: 3.12,
-    aliases: ["axis bank", "axis bank limited", "axisbank"]
-  },
-  {
-    symbol: "KOTAKBANK",
-    name: "Kotak Mahindra Bank Limited",
-    sector: "Financial Services",
-    weight: 2.88,
-    aliases: ["kotak mahindra bank", "kotak bank", "kotak mahindra bank limited", "kotakbank"]
-  },
-  {
-    symbol: "BHARTIARTL",
-    name: "Bharti Airtel Limited",
-    sector: "Telecommunication",
-    weight: 2.84,
-    aliases: ["bharti airtel", "bharti airtel limited", "airtel", "bhartiartl"]
-  },
-  {
-    symbol: "SBIN",
-    name: "State Bank of India",
-    sector: "Financial Services",
-    weight: 2.74,
-    aliases: ["state bank of india", "sbi", "sbin"]
-  },
-  {
-    symbol: "HINDUNILVR",
-    name: "Hindustan Unilever Limited",
-    sector: "Consumer Goods (FMCG)",
-    weight: 2.48,
-    aliases: ["hindustan unilever", "hindustan unilever limited", "hul", "hindunilvr"]
-  },
-  {
-    symbol: "BAJFINANCE",
-    name: "Bajaj Finance Limited",
-    sector: "Financial Services",
-    weight: 2.12,
-    aliases: ["bajaj finance", "bajaj finance limited", "bajfinance"]
-  },
-  {
-    symbol: "M&M",
-    name: "Mahindra & Mahindra Limited",
-    sector: "Automobile",
-    weight: 2.05,
-    aliases: ["mahindra & mahindra", "m&m", "mahindra & mahindra limited", "mahindra"]
-  },
-  {
-    symbol: "MARUTI",
-    name: "Maruti Suzuki India Limited",
-    sector: "Automobile",
-    weight: 1.64,
-    aliases: ["maruti suzuki", "maruti suzuki india limited", "maruti"]
-  },
-  {
-    symbol: "TATAMOTORS",
-    name: "Tata Motors Limited",
-    sector: "Automobile",
-    weight: 1.61,
-    aliases: ["tata motors", "tata motors limited", "tata motors commercial vehicles", "tata motars pass veh ltd", "tatamotors"]
-  },
-  {
-    symbol: "SUNPHARMA",
-    name: "Sun Pharmaceutical Industries Limited",
-    sector: "Healthcare",
-    weight: 1.52,
-    aliases: ["sun pharma", "sun pharmaceutical industries limited", "sunpharma"]
-  },
-  {
-    symbol: "HCLTECH",
-    name: "HCL Technologies Limited",
-    sector: "Information Technology",
-    weight: 1.49,
-    aliases: ["hcl technologies", "hcl technologies limited", "hcltech", "hcl tech"]
-  },
-  {
-    symbol: "NTPC",
-    name: "NTPC Limited",
-    sector: "Power",
-    weight: 1.44,
-    aliases: ["ntpc", "ntpc limited"]
-  },
-  {
-    symbol: "TATASTEEL",
-    name: "Tata Steel Limited",
-    sector: "Metals & Mining",
-    weight: 1.36,
-    aliases: ["tata steel", "tata steel limited", "tatasteel"]
-  },
-  {
-    symbol: "POWERGRID",
-    name: "Power Grid Corporation of India Limited",
-    sector: "Power",
-    weight: 1.25,
-    aliases: ["power grid", "power grid corporation of india limited", "powergrid"]
-  },
-  {
-    symbol: "TITAN",
-    name: "Titan Company Limited",
-    sector: "Consumer Durables",
-    weight: 1.22,
-    aliases: ["titan", "titan company limited", "titan company"]
-  },
-  {
-    symbol: "ASIANPAINT",
-    name: "Asian Paints Limited",
-    sector: "Consumer Durables",
-    weight: 1.15,
-    aliases: ["asian paints", "asian paints limited", "asianpaint"]
-  },
-  {
-    symbol: "ULTRACEMCO",
-    name: "UltraTech Cement Limited",
-    sector: "Construction Materials",
-    weight: 1.12,
-    aliases: ["ultratech cement", "ultratech cement limited", "ultracemco"]
-  },
-  {
-    symbol: "BAJAJFINSV",
-    name: "Bajaj Finserv Limited",
-    sector: "Financial Services",
-    weight: 1.04,
-    aliases: ["bajaj finserv", "bajaj finserv limited", "bajajfinsv"]
-  },
-  {
-    symbol: "COALINDIA",
-    name: "Coal India Limited",
-    sector: "Metals & Mining",
-    weight: 0.96,
-    aliases: ["coal india", "coal india ltd", "coal india limited", "coalindia"]
-  },
-  {
-    symbol: "ADANIPORTS",
-    name: "Adani Ports & Special Economic Zone Limited",
-    sector: "Services",
-    weight: 0.94,
-    aliases: ["adani ports", "adani ports and special economic zone limited", "adani ports & special economic zone limited", "adaniports"]
-  },
-  {
-    symbol: "HINDALCO",
-    name: "Hindalco Industries Limited",
-    sector: "Metals & Mining",
-    weight: 0.91,
-    aliases: ["hindalco", "hindalco industries limited"]
-  },
-  {
-    symbol: "NESTLEIND",
-    name: "Nestle India Limited",
-    sector: "Consumer Goods (FMCG)",
-    weight: 0.88,
-    aliases: ["nestle india", "nestle india limited", "nestleind"]
-  },
-  {
-    symbol: "TECHM",
-    name: "Tech Mahindra Limited",
-    sector: "Information Technology",
-    weight: 0.85,
-    aliases: ["tech mahindra", "tech mahindra limited", "techm"]
-  },
-  {
-    symbol: "GRASIM",
-    name: "Grasim Industries Limited",
-    sector: "Construction Materials",
-    weight: 0.83,
-    aliases: ["grasim", "grasim industries limited"]
-  },
-  {
-    symbol: "ONGC",
-    name: "Oil & Natural Gas Corporation Limited",
-    sector: "Oil & Gas",
-    weight: 0.81,
-    aliases: ["ongc", "oil & natural gas corporation limited", "oil and natural gas corporation"]
-  },
-  {
-    symbol: "TATACONSUM",
-    name: "Tata Consumer Products Limited",
-    sector: "Consumer Goods (FMCG)",
-    weight: 0.79,
-    aliases: ["tata consumer", "tata consumer products limited", "tataconsum"]
-  },
-  {
-    symbol: "WIPRO",
-    name: "Wipro Limited",
-    sector: "Information Technology",
-    weight: 0.76,
-    aliases: ["wipro", "wipro limited"]
-  },
-  {
-    symbol: "JSWSTEEL",
-    name: "JSW Steel Limited",
-    sector: "Metals & Mining",
-    weight: 0.74,
-    aliases: ["jsw steel", "jsw steel limited", "jswsteel"]
-  },
-  {
-    symbol: "CIPLA",
-    name: "Cipla Limited",
-    sector: "Healthcare",
-    weight: 0.72,
-    aliases: ["cipla", "cipla limited"]
-  },
-  {
-    symbol: "SBILIFE",
-    name: "SBI Life Insurance Company Limited",
-    sector: "Financial Services",
-    weight: 0.70,
-    aliases: ["sbi life", "sbi life insurance company limited", "sbilife"]
-  },
-  {
-    symbol: "DRREDDY",
-    name: "Dr. Reddy's Laboratories Limited",
-    sector: "Healthcare",
-    weight: 0.68,
-    aliases: ["dr reddy", "dr. reddy's laboratories limited", "drreddy"]
-  },
-  {
-    symbol: "ADANIENT",
-    name: "Adani Enterprises Limited",
-    sector: "Metals & Mining",
-    weight: 0.67,
-    aliases: ["adani enterprises", "adani enterprises limited", "adanient"]
-  },
-  {
-    symbol: "BPCL",
-    name: "Bharat Petroleum Corporation Limited",
-    sector: "Oil & Gas",
-    weight: 0.65,
-    aliases: ["bpcl", "bharat petroleum", "bharat petroleum corp", "bharat petroleum corporation limited"]
-  },
-  {
-    symbol: "EICHERMOT",
-    name: "Eicher Motors Limited",
-    sector: "Automobile",
-    weight: 0.63,
-    aliases: ["eicher motors", "eicher motors limited", "eichermot"]
-  },
-  {
-    symbol: "APOLLOHOSP",
-    name: "Apollo Hospitals Enterprise Limited",
-    sector: "Healthcare",
-    weight: 0.61,
-    aliases: ["apollo hospitals", "apollo hospitals enterprise limited", "apollohosp"]
-  },
-  {
-    symbol: "BRITANNIA",
-    name: "Britannia Industries Limited",
-    sector: "Consumer Goods (FMCG)",
-    weight: 0.59,
-    aliases: ["britannia", "britannia industries limited"]
-  },
-  {
-    symbol: "SHRIRAMFIN",
-    name: "Shriram Finance Limited",
-    sector: "Financial Services",
-    weight: 0.57,
-    aliases: ["shriram finance", "shriram finance limited", "shriramfin"]
-  },
-  {
-    symbol: "HEROMOTOCO",
-    name: "Hero MotoCorp Limited",
-    sector: "Automobile",
-    weight: 0.55,
-    aliases: ["hero motocorp", "hero motocorp limited", "heromotoco"]
-  },
-  {
-    symbol: "TRENT",
-    name: "Trent Limited",
-    sector: "Consumer Durables",
-    weight: 0.53,
-    aliases: ["trent", "trent limited"]
-  },
-  {
-    symbol: "INDUSINDBK",
-    name: "IndusInd Bank Limited",
-    sector: "Financial Services",
-    weight: 0.51,
-    aliases: ["indusind bank", "indusind bank limited", "indusindbk"]
-  },
-  {
-    symbol: "DIVISLAB",
-    name: "Divi's Laboratories Limited",
-    sector: "Healthcare",
-    weight: 0.49,
-    aliases: ["divis lab", "divi's laboratories limited", "divislab"]
-  },
-  {
-    symbol: "BAJAJ-AUTO",
-    name: "Bajaj Auto Limited",
-    sector: "Automobile",
-    weight: 0.47,
-    aliases: ["bajaj auto", "bajaj auto limited", "bajaj-auto"]
-  },
-  {
-    symbol: "HDFCLIFE",
-    name: "HDFC Life Insurance Company Limited",
-    sector: "Financial Services",
-    weight: 0.45,
-    aliases: ["hdfc life", "hdfc life insurance company limited", "hdfclife"]
-  }
+  { symbol: "HDFCBANK", name: "HDFC Bank Limited", sector: "Financial Services", cap: "Large Cap", weight: 11.52, aliases: ["hdfc bank", "hdfc bank limited", "hdfcbank", "hdfc bank ltd"] },
+  { symbol: "RELIANCE", name: "Reliance Industries Limited", sector: "Oil & Gas", cap: "Large Cap", weight: 9.78, aliases: ["reliance", "reliance industries", "reliance industries limited", "ril"] },
+  { symbol: "ICICIBANK", name: "ICICI Bank Limited", sector: "Financial Services", cap: "Large Cap", weight: 7.84, aliases: ["icici bank", "icici bank limited", "icicibank", "icici bank ltd"] },
+  { symbol: "INFY", name: "Infosys Limited", sector: "Information Technology", cap: "Large Cap", weight: 5.92, aliases: ["infosys", "infosys limited", "infy", "infosys ltd"] },
+  { symbol: "ITC", name: "ITC Limited", sector: "Consumer Goods (FMCG)", cap: "Large Cap", weight: 4.15, aliases: ["itc", "itc limited", "itc ltd"] },
+  { symbol: "TCS", name: "Tata Consultancy Services Limited", sector: "Information Technology", cap: "Large Cap", weight: 3.82, aliases: ["tcs", "tata consultancy services", "tata consultancy services limited"] },
+  { symbol: "LT", name: "Larsen & Toubro Limited", sector: "Construction", cap: "Large Cap", weight: 3.71, aliases: ["larsen & toubro", "l&t", "larsen & toubro limited", "lt"] },
+  { symbol: "AXISBANK", name: "Axis Bank Limited", sector: "Financial Services", cap: "Large Cap", weight: 3.12, aliases: ["axis bank", "axis bank limited", "axisbank"] },
+  { symbol: "KOTAKBANK", name: "Kotak Mahindra Bank Limited", sector: "Financial Services", cap: "Large Cap", weight: 2.88, aliases: ["kotak mahindra bank", "kotak bank", "kotak mahindra bank limited", "kotakbank"] },
+  { symbol: "BHARTIARTL", name: "Bharti Airtel Limited", sector: "Telecommunication", cap: "Large Cap", weight: 2.84, aliases: ["bharti airtel", "bharti airtel limited", "airtel", "bhartiartl"] },
+  { symbol: "SBIN", name: "State Bank of India", sector: "Financial Services", cap: "Large Cap", weight: 2.74, aliases: ["state bank of india", "sbi", "sbin"] },
+  { symbol: "HINDUNILVR", name: "Hindustan Unilever Limited", sector: "Consumer Goods (FMCG)", cap: "Large Cap", weight: 2.48, aliases: ["hindustan unilever", "hindustan unilever limited", "hul", "hindunilvr"] },
+  { symbol: "BAJFINANCE", name: "Bajaj Finance Limited", sector: "Financial Services", cap: "Large Cap", weight: 2.12, aliases: ["bajaj finance", "bajaj finance limited", "bajfinance"] },
+  { symbol: "M&M", name: "Mahindra & Mahindra Limited", sector: "Automobile", cap: "Large Cap", weight: 2.05, aliases: ["mahindra & mahindra", "m&m", "mahindra & mahindra limited", "mahindra"] },
+  { symbol: "MARUTI", name: "Maruti Suzuki India Limited", sector: "Automobile", cap: "Large Cap", weight: 1.64, aliases: ["maruti suzuki", "maruti suzuki india limited", "maruti"] },
+  { symbol: "TATAMOTORS", name: "Tata Motors Limited", sector: "Automobile", cap: "Large Cap", weight: 1.61, aliases: ["tata motors", "tata motors limited", "tata motors commercial vehicles", "tata motars pass veh ltd", "tatamotors"] },
+  { symbol: "SUNPHARMA", name: "Sun Pharmaceutical Industries Limited", sector: "Healthcare", cap: "Large Cap", weight: 1.52, aliases: ["sun pharma", "sun pharmaceutical industries limited", "sunpharma"] },
+  { symbol: "HCLTECH", name: "HCL Technologies Limited", sector: "Information Technology", cap: "Large Cap", weight: 1.49, aliases: ["hcl technologies", "hcl technologies limited", "hcltech", "hcl tech"] },
+  { symbol: "NTPC", name: "NTPC Limited", sector: "Power", cap: "Large Cap", weight: 1.44, aliases: ["ntpc", "ntpc limited"] },
+  { symbol: "TATASTEEL", name: "Tata Steel Limited", sector: "Metals & Mining", cap: "Large Cap", weight: 1.36, aliases: ["tata steel", "tata steel limited", "tatasteel"] },
+  { symbol: "POWERGRID", name: "Power Grid Corporation of India Limited", sector: "Power", cap: "Large Cap", weight: 1.25, aliases: ["power grid", "power grid corporation of india limited", "powergrid"] },
+  { symbol: "TITAN", name: "Titan Company Limited", sector: "Consumer Durables", cap: "Large Cap", weight: 1.22, aliases: ["titan", "titan company limited", "titan company"] },
+  { symbol: "ASIANPAINT", name: "Asian Paints Limited", sector: "Consumer Durables", cap: "Large Cap", weight: 1.15, aliases: ["asian paints", "asian paints limited", "asianpaint"] },
+  { symbol: "ULTRACEMCO", name: "UltraTech Cement Limited", sector: "Construction Materials", cap: "Large Cap", weight: 1.12, aliases: ["ultratech cement", "ultratech cement limited", "ultracemco"] },
+  { symbol: "BAJAJFINSV", name: "Bajaj Finserv Limited", sector: "Financial Services", cap: "Large Cap", weight: 1.04, aliases: ["bajaj finserv", "bajaj finserv limited", "bajajfinsv"] },
+  { symbol: "COALINDIA", name: "Coal India Limited", sector: "Metals & Mining", cap: "Large Cap", weight: 0.96, aliases: ["coal india", "coal india ltd", "coal india limited", "coalindia"] },
+  { symbol: "ADANIPORTS", name: "Adani Ports & Special Economic Zone Limited", sector: "Services", cap: "Large Cap", weight: 0.94, aliases: ["adani ports", "adani ports and special economic zone limited", "adaniports"] },
+  { symbol: "HINDALCO", name: "Hindalco Industries Limited", sector: "Metals & Mining", cap: "Large Cap", weight: 0.91, aliases: ["hindalco", "hindalco industries limited"] },
+  { symbol: "NESTLEIND", name: "Nestle India Limited", sector: "Consumer Goods (FMCG)", cap: "Large Cap", weight: 0.88, aliases: ["nestle india", "nestle india limited", "nestleind"] },
+  { symbol: "TECHM", name: "Tech Mahindra Limited", sector: "Information Technology", cap: "Large Cap", weight: 0.85, aliases: ["tech mahindra", "tech mahindra limited", "techm"] },
+  { symbol: "GRASIM", name: "Grasim Industries Limited", sector: "Construction Materials", cap: "Large Cap", weight: 0.83, aliases: ["grasim", "grasim industries limited"] },
+  { symbol: "ONGC", name: "Oil & Natural Gas Corporation Limited", sector: "Oil & Gas", cap: "Large Cap", weight: 0.81, aliases: ["ongc", "oil & natural gas corporation limited"] },
+  { symbol: "TATACONSUM", name: "Tata Consumer Products Limited", sector: "Consumer Goods (FMCG)", cap: "Large Cap", weight: 0.79, aliases: ["tata consumer", "tata consumer products limited", "tataconsum"] },
+  { symbol: "WIPRO", name: "Wipro Limited", sector: "Information Technology", cap: "Large Cap", weight: 0.76, aliases: ["wipro", "wipro limited"] },
+  { symbol: "JSWSTEEL", name: "JSW Steel Limited", sector: "Metals & Mining", cap: "Large Cap", weight: 0.74, aliases: ["jsw steel", "jsw steel limited", "jswsteel"] },
+  { symbol: "CIPLA", name: "Cipla Limited", sector: "Healthcare", cap: "Large Cap", weight: 0.72, aliases: ["cipla", "cipla limited"] },
+  { symbol: "SBILIFE", name: "SBI Life Insurance Company Limited", sector: "Financial Services", cap: "Large Cap", weight: 0.70, aliases: ["sbi life", "sbi life insurance company limited", "sbilife"] },
+  { symbol: "DRREDDY", name: "Dr. Reddy's Laboratories Limited", sector: "Healthcare", cap: "Large Cap", weight: 0.68, aliases: ["dr reddy", "dr. reddy's laboratories limited", "drreddy"] },
+  { symbol: "ADANIENT", name: "Adani Enterprises Limited", sector: "Metals & Mining", cap: "Large Cap", weight: 0.67, aliases: ["adani enterprises", "adani enterprises limited", "adanient"] },
+  { symbol: "BPCL", name: "Bharat Petroleum Corporation Limited", sector: "Oil & Gas", cap: "Large Cap", weight: 0.65, aliases: ["bpcl", "bharat petroleum", "bharat petroleum corp"] },
+  { symbol: "EICHERMOT", name: "Eicher Motors Limited", sector: "Automobile", cap: "Large Cap", weight: 0.63, aliases: ["eicher motors", "eicher motors limited", "eichermot"] },
+  { symbol: "APOLLOHOSP", name: "Apollo Hospitals Enterprise Limited", sector: "Healthcare", cap: "Large Cap", weight: 0.61, aliases: ["apollo hospitals", "apollohosp"] },
+  { symbol: "BRITANNIA", name: "Britannia Industries Limited", sector: "Consumer Goods (FMCG)", cap: "Large Cap", weight: 0.59, aliases: ["britannia", "britannia industries limited"] },
+  { symbol: "SHRIRAMFIN", name: "Shriram Finance Limited", sector: "Financial Services", cap: "Large Cap", weight: 0.57, aliases: ["shriram finance", "shriramfin"] },
+  { symbol: "HEROMOTOCO", name: "Hero MotoCorp Limited", sector: "Automobile", cap: "Large Cap", weight: 0.55, aliases: ["hero motocorp", "heromotoco"] },
+  { symbol: "TRENT", name: "Trent Limited", sector: "Consumer Durables", cap: "Large Cap", weight: 0.53, aliases: ["trent", "trent limited"] },
+  { symbol: "INDUSINDBK", name: "IndusInd Bank Limited", sector: "Financial Services", cap: "Large Cap", weight: 0.51, aliases: ["indusind bank", "indusindbk"] },
+  { symbol: "DIVISLAB", name: "Divi's Laboratories Limited", sector: "Healthcare", cap: "Large Cap", weight: 0.49, aliases: ["divis lab", "divislab"] },
+  { symbol: "BAJAJ-AUTO", name: "Bajaj Auto Limited", sector: "Automobile", cap: "Large Cap", weight: 0.47, aliases: ["bajaj auto", "bajaj-auto"] },
+  { symbol: "HDFCLIFE", name: "HDFC Life Insurance Company Limited", sector: "Financial Services", cap: "Large Cap", weight: 0.45, aliases: ["hdfc life", "hdfclife"] }
+];
+
+export const NIFTY_NEXT_50_STOCKS = [
+  { symbol: "BEL", name: "Bharat Electronics Limited", sector: "Capital Goods", cap: "Mid Cap", weight: 4.45, aliases: ["bharat electronics", "bharat electronics limited", "bel"] },
+  { symbol: "TATAPOWER", name: "Tata Power Company Limited", sector: "Power", cap: "Mid Cap", weight: 3.82, aliases: ["tata power", "tata power company limited", "tatapower"] },
+  { symbol: "REC", name: "REC Limited", sector: "Financial Services", cap: "Mid Cap", weight: 3.65, aliases: ["rec", "rec limited"] },
+  { symbol: "PFC", name: "Power Finance Corporation Limited", sector: "Financial Services", cap: "Mid Cap", weight: 3.52, aliases: ["pfc", "power finance corporation"] },
+  { symbol: "INDHOTEL", name: "The Indian Hotels Company Limited", sector: "Services", cap: "Mid Cap", weight: 3.24, aliases: ["the indian hotels company limited", "indian hotels", "indhotel"] },
+  { symbol: "IOC", name: "Indian Oil Corporation Limited", sector: "Oil & Gas", cap: "Mid Cap", weight: 3.10, aliases: ["indian oil corporation", "indian oil corporation limited", "ioc"] },
+  { symbol: "HAL", name: "Hindustan Aeronautics Limited", sector: "Capital Goods", cap: "Mid Cap", weight: 3.05, aliases: ["hindustan aeronautics", "hal"] },
+  { symbol: "DLF", name: "DLF Limited", sector: "Realty", cap: "Mid Cap", weight: 2.92, aliases: ["dlf", "dlf limited"] },
+  { symbol: "SIEMENS", name: "Siemens Limited", sector: "Capital Goods", cap: "Mid Cap", weight: 2.85, aliases: ["siemens", "siemens limited"] },
+  { symbol: "INDIGO", name: "InterGlobe Aviation Limited", sector: "Services", cap: "Mid Cap", weight: 2.78, aliases: ["interglobe aviation", "indigo"] },
+  { symbol: "ETERNAL", name: "Eternal Limited (Zomato)", sector: "Services", cap: "Mid Cap", weight: 2.72, aliases: ["eternal limited", "zomato", "eternal"] },
+  { symbol: "BANKBARODA", name: "Bank of Baroda", sector: "Financial Services", cap: "Mid Cap", weight: 2.65, aliases: ["bank of baroda", "bankbaroda"] },
+  { symbol: "VBL", name: "Varun Beverages Limited", sector: "Consumer Goods (FMCG)", cap: "Mid Cap", weight: 2.58, aliases: ["varun beverages", "vbl"] },
+  { symbol: "GAIL", name: "GAIL (India) Limited", sector: "Oil & Gas", cap: "Mid Cap", weight: 2.45, aliases: ["gail", "gail (india) limited"] },
+  { symbol: "PNB", name: "Punjab National Bank", sector: "Financial Services", cap: "Mid Cap", weight: 2.32, aliases: ["punjab national bank", "pnb"] },
+  { symbol: "JIOFIN", name: "Jio Financial Services Limited", sector: "Financial Services", cap: "Mid Cap", weight: 2.25, aliases: ["jio financial", "jiofin"] },
+  { symbol: "ADANIGREEN", name: "Adani Green Energy Limited", sector: "Power", cap: "Mid Cap", weight: 2.18, aliases: ["adani green", "adanigreen"] },
+  { symbol: "ADANIPOWER", name: "Adani Power Limited", sector: "Power", cap: "Mid Cap", weight: 2.10, aliases: ["adani power", "adani power ltd", "adanipower"] },
+  { symbol: "SRF", name: "SRF Limited", sector: "Chemicals", cap: "Mid Cap", weight: 1.95, aliases: ["srf", "srf limited"] },
+  { symbol: "AMBUJACEM", name: "Ambuja Cements Limited", sector: "Construction Materials", cap: "Mid Cap", weight: 1.88, aliases: ["ambuja cements", "ambujacem"] },
+  { symbol: "HAVELLS", name: "Havells India Limited", sector: "Consumer Durables", cap: "Mid Cap", weight: 1.82, aliases: ["havells", "havells india"] },
+  { symbol: "ICICIGI", name: "ICICI Lombard General Insurance", sector: "Financial Services", cap: "Mid Cap", weight: 1.75, aliases: ["icici lombard", "icicigi"] },
+  { symbol: "PIDILITIND", name: "Pidilite Industries Limited", sector: "Chemicals", cap: "Mid Cap", weight: 1.68, aliases: ["pidilite", "pidilitind"] },
+  { symbol: "MCDOWELL-N", name: "United Spirits Limited", sector: "Consumer Goods (FMCG)", cap: "Mid Cap", weight: 1.62, aliases: ["united spirits", "mcdowell"] },
+  { symbol: "DABUR", name: "Dabur India Limited", sector: "Consumer Goods (FMCG)", cap: "Mid Cap", weight: 1.55, aliases: ["dabur", "dabur india"] },
+  { symbol: "MARICO", name: "Marico Limited", sector: "Consumer Goods (FMCG)", cap: "Mid Cap", weight: 1.48, aliases: ["marico", "marico limited"] },
+  { symbol: "TVSMOTOR", name: "TVS Motor Company Limited", sector: "Automobile", cap: "Mid Cap", weight: 1.42, aliases: ["tvs motor", "tvsmotor"] },
+  { symbol: "CHOLAFIN", name: "Cholamandalam Investment & Finance", sector: "Financial Services", cap: "Mid Cap", weight: 1.38, aliases: ["cholamandalam", "cholafin"] },
+  { symbol: "GODREJCP", name: "Godrej Consumer Products Limited", sector: "Consumer Goods (FMCG)", cap: "Mid Cap", weight: 1.32, aliases: ["godrej consumer", "godrejcp"] },
+  { symbol: "ICICIPRULI", name: "ICICI Prudential Life Insurance", sector: "Financial Services", cap: "Mid Cap", weight: 1.25, aliases: ["icici prudential life", "icicipruli"] },
+  { symbol: "CUMMINSIND", name: "Cummins India Limited", sector: "Capital Goods", cap: "Mid Cap", weight: 1.18, aliases: ["cummins", "cumminsind"] },
+  { symbol: "UNIONBANK", name: "Union Bank of India", sector: "Financial Services", cap: "Mid Cap", weight: 1.15, aliases: ["union bank of india", "union bank", "unionbank"] },
+  { symbol: "IRCTC", name: "Indian Railway Catering & Tourism", sector: "Services", cap: "Mid Cap", weight: 1.12, aliases: ["irctc", "indian railway catering"] }
+];
+
+// Fund Weight Maps for HDFC Flexi Cap and SBI Small Cap
+export const HDFC_FLEXI_CAP_WEIGHTS = {
+  "HDFCBANK": 9.85,
+  "ICICIBANK": 8.42,
+  "RELIANCE": 7.15,
+  "AXISBANK": 5.68,
+  "BHARTIARTL": 4.92,
+  "INFY": 4.35,
+  "LT": 3.88,
+  "SBIN": 3.45,
+  "NTPC": 3.12,
+  "COALINDIA": 2.85,
+  "CIPLA": 2.48,
+  "TCS": 2.15,
+  "HCLTECH": 1.92,
+  "TATAMOTORS": 1.75,
+  "SUNPHARMA": 1.62,
+  "MARUTI": 1.48,
+  "M&M": 1.35,
+  "ULTRACEMCO": 1.22,
+  "POWERGRID": 1.15,
+  "TECHM": 1.05
+};
+
+export const SBI_SMALL_CAP_WEIGHTS = {
+  "BLUESTARCO": { name: "Blue Star Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 4.85, aliases: ["blue star"] },
+  "KALPATPOWR": { name: "Kalpataru Projects International", sector: "Construction", cap: "Small Cap", weight: 4.22, aliases: ["kalpataru"] },
+  "CARBORUNIV": { name: "Carborundum Universal Limited", sector: "Capital Goods", cap: "Small Cap", weight: 3.85, aliases: ["carborundum"] },
+  "LEMONTREE": { name: "Lemon Tree Hotels Limited", sector: "Services", cap: "Small Cap", weight: 3.52, aliases: ["lemon tree", "lemontree"] },
+  "SHEELAFOAM": { name: "Sheela Foam Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 3.25, aliases: ["sheela foam"] },
+  "ELGIEQUIP": { name: "Elgi Equipments Limited", sector: "Capital Goods", cap: "Small Cap", weight: 3.02, aliases: ["elgi equipments"] },
+  "HAWKINCOOK": { name: "Hawkins Cookers Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 2.85, aliases: ["hawkins"] },
+  "VGUARD": { name: "V-Guard Industries Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 2.68, aliases: ["v-guard", "vguard"] },
+  "KIRLOSENG": { name: "Kirloskar Oil Engines Limited", sector: "Capital Goods", cap: "Small Cap", weight: 2.45, aliases: ["kirloskar"] },
+  "TRIVENI": { name: "Triveni Turbine Limited", sector: "Capital Goods", cap: "Small Cap", weight: 2.28, aliases: ["triveni turbine"] },
+  "PRICOL": { name: "Pricol Limited", sector: "Automobile", cap: "Small Cap", weight: 2.12, aliases: ["pricol", "pricol limited"] },
+  "LTFOODS": { name: "LT Foods Limited", sector: "Consumer Goods (FMCG)", cap: "Small Cap", weight: 1.95, aliases: ["lt foods", "lt foods limited"] },
+  "UNIONBANK": { name: "Union Bank of India", sector: "Financial Services", cap: "Small Cap", weight: 1.78, aliases: ["union bank of india"] },
+  "IRCTC": { name: "Indian Railway Catering & Tourism", sector: "Services", cap: "Small Cap", weight: 1.62, aliases: ["irctc"] }
+};
+
+// Master list combining all benchmark stocks
+export const ALL_BENCHMARK_STOCKS = [
+  ...NIFTY_50_STOCKS,
+  ...NIFTY_NEXT_50_STOCKS,
+  ...Object.values(SBI_SMALL_CAP_WEIGHTS)
 ];
