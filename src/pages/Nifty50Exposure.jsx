@@ -557,7 +557,12 @@ const Nifty50Exposure = () => {
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
                   <XAxis dataKey="shortName" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" />
                   <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 100000 ? (val / 100000).toFixed(1) + 'L' : val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`} />
-                  <RechartsTooltip formatter={(val) => formatCurrency(val)} contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />
+                  <RechartsTooltip 
+                    formatter={(val, name) => [formatCurrency(val), name]} 
+                    contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', color: '#ffffff' }} 
+                    itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                    labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                  />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
                   <Bar dataKey="directVal" name="Direct Stocks" fill="#34d399" radius={[4, 4, 0, 0]} stackId="a" />
                   <Bar dataKey="indirectVal" name="Indirect MFs" fill="#818cf8" radius={[4, 4, 0, 0]} stackId="a" />
@@ -591,6 +596,7 @@ const Nifty50Exposure = () => {
                       cy="50%"
                       outerRadius={80}
                       dataKey="totalVal"
+                      nameKey="sector"
                       stroke="#18181b"
                       strokeWidth={2}
                     >
@@ -598,7 +604,12 @@ const Nifty50Exposure = () => {
                         <Cell key={`cell-${index}`} fill={SECTOR_COLORS[index % SECTOR_COLORS.length]} />
                       ))}
                     </Pie>
-                    <RechartsTooltip formatter={(val) => formatCurrency(val)} contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />
+                    <RechartsTooltip 
+                      formatter={(val, name) => [formatCurrency(val), name]} 
+                      contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', color: '#ffffff' }} 
+                      itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                      labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>
