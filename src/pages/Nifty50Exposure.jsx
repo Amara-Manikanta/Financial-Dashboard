@@ -507,27 +507,6 @@ const Nifty50Exposure = () => {
           </div>
         </div>
 
-        {/* Largest Holding */}
-        <div style={{
-          backgroundColor: '#18181b',
-          border: '1px solid rgba(255,255,255,0.05)',
-          borderRadius: '1.5rem',
-          padding: '1.5rem',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between'
-        }}>
-          <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#fbbf24', margin: '0 0 0.5rem 0' }}>
-            Largest Consolidated Stock Exposure
-          </p>
-          <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>
-            {topStock?.name || 'HDFC Bank'}
-          </h3>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: '#fbbf24', marginTop: '0.75rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
-            <span>{formatCurrency(topStock?.totalVal || 0)}</span>
-            <span>{(topStock?.totalPctOfPortfolio || 0).toFixed(2)}% of Portfolio</span>
-          </div>
-        </div>
 
         {/* Market Cap Distribution */}
         <div style={{
