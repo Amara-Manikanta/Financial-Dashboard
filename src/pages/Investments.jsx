@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -120,9 +120,49 @@ const Investments = () => {
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
             {/* Header Title Panel */}
-            <div style={{ marginBottom: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Investments</h2>
-                <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Track your mutual funds and stocks</p>
+            <div style={{ marginBottom: '2.5rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+                <div>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Investments</h2>
+                    <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: '0.25rem 0 0 0' }}>Track your mutual funds and stocks</p>
+                </div>
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => navigate('/investments/nifty50-exposure')}
+                        style={{
+                            padding: '0.625rem 1.25rem',
+                            borderRadius: '0.875rem',
+                            backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                            border: '1px solid rgba(99, 102, 241, 0.3)',
+                            color: '#818cf8',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <Layers size={16} /> Nifty 50 Direct & MF Overlap
+                    </button>
+                    <button
+                        onClick={() => setIsModalOpen(true)}
+                        style={{
+                            padding: '0.625rem 1.25rem',
+                            borderRadius: '0.875rem',
+                            backgroundColor: '#6366f1',
+                            color: 'white',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                        }}
+                    >
+                        <Plus size={16} /> Add Account
+                    </button>
+                </div>
             </div>
 
             {/* Modern Premium Stat Cards */}

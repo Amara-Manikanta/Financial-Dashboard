@@ -13,6 +13,7 @@ import Analytics from './pages/Analytics';
 import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
+import Nifty50Exposure from './pages/Nifty50Exposure';
 import Metals from './pages/Metals';
 import Assets from './pages/Assets';
 import AssetCategoryDetails from './pages/AssetCategoryDetails';
@@ -130,6 +131,7 @@ function App() {
                                     <Route path="salary" element={<Salary />} />
                                     <Route path="savings" element={<Savings />} />
                                     <Route path="investments" element={<Investments />} />
+                                    <Route path="investments/nifty50-exposure" element={<Nifty50Exposure />} />
                                     <Route path="savings/mutual-fund/:id" element={<MutualFundDetails />} />
                                     <Route path="savings/fixed-deposit/:id" element={<FixedDepositDetails />} />
                                     <Route path="savings/fixed-deposit/:id/deposit/:depositId" element={<SingleDepositDetails />} />
