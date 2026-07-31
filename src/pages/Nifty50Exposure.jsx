@@ -265,6 +265,37 @@ const Nifty50Exposure = () => {
     ];
   }, [consolidatedExposures]);
 
+  // Sector Analytics Breakdown
+  const sectorAnalytics = useMemo(() => {
+    const sectorMap = {};
+    consolidatedExposures.forEach(s => {
+      if (!sectorMap[s.sector]) {
+        sectorMap[s.sector] = {
+          sector: s.sector,
+          directVal: 0,
+          indirectVal: 0,
+          totalVal: 0,
+          count: 0
+        };
+      }
+      sectorMap[s.sector].directVal += s.directVal;
+      sectorMap[s.sector].indirectVal += s.totalIndirectVal;
+      sectorMap[s.sector].totalVal += s.totalVal;
+      sectorMap[s.sector].count += 1;
+    });
+
+    return Object.values(sectorMap).map(sec => ({
+      ...sec,
+      pctOfPortfolio: totalPortfolioValue > 0 ? (sec.totalVal / totalPortfolioValue) * 100 : 0,
+      shortName: sec.sector.length > 15 ? sec.sector.substring(0, 15) + '...' : sec.sector
+    })).sort((a, b) => b.totalVal - a.totalVal);
+  }, [consolidatedExposures, totalPortfolioValue]);
+
+  const SECTOR_COLORS = [
+    '#818cf8', '#34d399', '#f59e0b', '#ec4899', '#3b82f6', 
+    '#84cc16', '#f97316', '#06b6d4', '#a855f7', '#ef4444', '#64748b'
+  ];
+
   // Sectors list
   const allSectors = useMemo(() => {
     const sectors = new Set(consolidatedExposures.map(s => s.sector));
@@ -521,6 +552,95 @@ const Nifty50Exposure = () => {
           </div>
         </div>
       </div>
+
+      {/* Sector Analytics Visual Panel (Bar Chart & Pie Chart) */}
+      {sectorAnalytics.length > 0 && (
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
+          gap: '1.5rem'
+        }}>
+          {/* Sector Bar Chart (Direct vs Indirect) */}
+          <div style={{
+            backgroundColor: 'rgba(24, 24, 27, 0.4)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            borderRadius: '2rem',
+            padding: '1.75rem',
+            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+          }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'white', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Building2 size={16} style={{ color: '#818cf8' }} /> Sector Exposure Breakdown (₹ Value)
+            </h4>
+            <div style={{ height: 300, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sectorAnalytics.slice(0, 8)} margin={{ top: 10, right: 10, left: -15, bottom: 25 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                  <XAxis dataKey="shortName" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" />
+                  <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 100000 ? (val / 100000).toFixed(1) + 'L' : val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`} />
+                  <RechartsTooltip formatter={(val) => formatCurrency(val)} contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
+                  <Bar dataKey="directVal" name="Direct Stocks" fill="#34d399" radius={[4, 4, 0, 0]} stackId="a" />
+                  <Bar dataKey="indirectVal" name="Indirect MFs" fill="#818cf8" radius={[4, 4, 0, 0]} stackId="a" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Sector Allocation Pie Chart */}
+          <div style={{
+            backgroundColor: 'rgba(24, 24, 27, 0.4)',
+            backdropFilter: 'blur(10px)',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            borderRadius: '2rem',
+            padding: '1.75rem',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+          }}>
+            <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'white', margin: '0 0 1rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <PieChartIcon2 size={16} style={{ color: '#34d399' }} /> Sector Portfolio Allocation (%)
+            </h4>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1.5rem', height: '100%' }}>
+              <div style={{ width: '200px', height: '200px', flexShrink: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart key={JSON.stringify(sectorAnalytics.map(s => s.totalVal))}>
+                    <Pie
+                      data={sectorAnalytics.slice(0, 8)}
+                      cx="50%"
+                      cy="50%"
+                      outerRadius={80}
+                      dataKey="totalVal"
+                      stroke="#18181b"
+                      strokeWidth={2}
+                    >
+                      {sectorAnalytics.slice(0, 8).map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={SECTOR_COLORS[index % SECTOR_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <RechartsTooltip formatter={(val) => formatCurrency(val)} contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minWidth: '180px' }}>
+                {sectorAnalytics.slice(0, 6).map((sec, index) => (
+                  <div key={sec.sector} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
+                    <span style={{ color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: SECTOR_COLORS[index % SECTOR_COLORS.length] }}></span>
+                      {sec.shortName}
+                    </span>
+                    <span style={{ fontFamily: 'monospace', color: '#a1a1aa', fontWeight: 'bold' }}>
+                      {sec.pctOfPortfolio.toFixed(1)}%
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Controls & Filter Bar */}
       <div style={{
