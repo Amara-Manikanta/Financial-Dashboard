@@ -318,7 +318,7 @@ const Savings = () => {
                     {/* Pie Chart Column */}
                     <div style={{ width: '260px', height: '260px', position: 'relative', flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
+                            <PieChart key={JSON.stringify(pieData)}>
                                 <Pie
                                     data={pieData}
                                     cx="50%"

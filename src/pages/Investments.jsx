@@ -56,28 +56,36 @@ const Investments = () => {
     const totalProfitLoss = totalPortfolioValue - totalInvestedValue;
     const isTotalProfit = totalProfitLoss >= 0;
 
-    const stockMarketTotal = activeInvestments.filter(i => i.type === 'stock_market').reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
+    const pieData = React.useMemo(() => {
+        let data = [];
 
-    let pieData = [];
-    if (stockMarketTotal > 0) {
-        pieData.push({ name: 'Stock Market', value: stockMarketTotal });
-    }
+        // Aggregate Stock Market accounts
+        const stockMarketVal = activeInvestments
+            .filter(i => i.type === 'stock_market')
+            .reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
 
-    activeInvestments.filter(i => i.type === 'sgb').forEach(sgb => {
-        const val = calculateItemCurrentValue(sgb);
-        if (val > 0) {
-            pieData.push({ name: sgb.title || 'Gold Bonds (SGB)', value: val });
+        if (stockMarketVal > 0) {
+            data.push({ name: 'Stock Market', value: stockMarketVal });
         }
-    });
 
-    activeInvestments.filter(i => i.type === 'mutual_fund').forEach(fund => {
-        const val = calculateItemInvestedValue(fund);
-        if (val > 0) {
-            pieData.push({ name: fund.title || 'Mutual Fund', value: val });
-        }
-    });
+        // Individual Gold Bonds (SGB)
+        activeInvestments.filter(i => i.type === 'sgb').forEach(sgb => {
+            const val = calculateItemCurrentValue(sgb);
+            if (val > 0) {
+                data.push({ name: sgb.title || 'Gold Bonds (SGB)', value: val });
+            }
+        });
 
-    pieData.sort((a, b) => b.value - a.value);
+        // Individual Mutual Funds
+        activeInvestments.filter(i => i.type === 'mutual_fund').forEach(fund => {
+            const val = calculateItemCurrentValue(fund);
+            if (val > 0) {
+                data.push({ name: fund.title || 'Mutual Fund', value: val });
+            }
+        });
+
+        return data.sort((a, b) => b.value - a.value);
+    }, [activeInvestments, calculateItemCurrentValue]);
 
     const PIE_COLORS = [
         '#8b5cf6', // Purple
@@ -268,7 +276,7 @@ const Investments = () => {
                     {/* Pie Chart Column */}
                     <div style={{ width: '260px', height: '260px', position: 'relative', flexShrink: 0 }}>
                         <ResponsiveContainer width="100%" height="100%">
-                            <PieChart>
+                            <PieChart key={JSON.stringify(pieData)}>
                                 <Pie
                                     data={pieData}
                                     cx="50%"
@@ -297,7 +305,7 @@ const Investments = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', flex: 1, minWidth: '280px' }}>
                         <h4 style={{ fontSize: '0.875rem', fontWeight: '800', color: '#a1a1aa', textTransform: 'uppercase', letterSpacing: '0.05em', margin: 0 }}>Portfolio Asset Allocation</h4>
                         {pieData.map((entry, index) => {
-                            const percentage = ((entry.value / totalInvestedValue) * 100).toFixed(1);
+                            const percentage = totalPortfolioValue > 0 ? ((entry.value / totalPortfolioValue) * 100).toFixed(1) : '0.0';
                             return (
                                 <div key={entry.name} style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.875rem' }}>
