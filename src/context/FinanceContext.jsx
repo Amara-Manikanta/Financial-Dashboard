@@ -134,7 +134,7 @@ export function FinanceProvider({ children }) {
                 setMetalRates({ gold: goldPerGram, silver: silverPerGram });
             }
         } catch (error) {
-            console.error("Failed to fetch metal rates:", error);
+            console.warn("Metal rates API currently unavailable, using cached rates.");
         }
     };
 

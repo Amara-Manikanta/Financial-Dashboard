@@ -110,8 +110,11 @@ const Nifty50Exposure = () => {
         const rawTitle = (stock.name || stock.title || stock.symbol || '').trim().toLowerCase();
 
         let matched = ALL_BENCHMARK_STOCKS.find(s => {
-          if (s.symbol.toLowerCase() === rawTitle) return true;
-          return s.aliases.some(alias => rawTitle.includes(alias) || alias.includes(rawTitle));
+          if (!s || !s.symbol) return false;
+          const sym = s.symbol.toLowerCase();
+          if (sym === rawTitle) return true;
+          const aliases = s.aliases || [];
+          return aliases.some(alias => alias && rawTitle && (rawTitle.includes(alias.toLowerCase()) || alias.toLowerCase().includes(rawTitle)));
         });
 
         const key = matched ? matched.symbol : rawTitle;

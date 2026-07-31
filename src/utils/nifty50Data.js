@@ -114,20 +114,20 @@ export const HDFC_FLEXI_CAP_WEIGHTS = {
 };
 
 export const SBI_SMALL_CAP_WEIGHTS = {
-  "BLUESTARCO": { name: "Blue Star Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 4.85, aliases: ["blue star"] },
-  "KALPATPOWR": { name: "Kalpataru Projects International", sector: "Construction", cap: "Small Cap", weight: 4.22, aliases: ["kalpataru"] },
-  "CARBORUNIV": { name: "Carborundum Universal Limited", sector: "Capital Goods", cap: "Small Cap", weight: 3.85, aliases: ["carborundum"] },
-  "LEMONTREE": { name: "Lemon Tree Hotels Limited", sector: "Services", cap: "Small Cap", weight: 3.52, aliases: ["lemon tree", "lemontree"] },
-  "SHEELAFOAM": { name: "Sheela Foam Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 3.25, aliases: ["sheela foam"] },
-  "ELGIEQUIP": { name: "Elgi Equipments Limited", sector: "Capital Goods", cap: "Small Cap", weight: 3.02, aliases: ["elgi equipments"] },
-  "HAWKINCOOK": { name: "Hawkins Cookers Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 2.85, aliases: ["hawkins"] },
-  "VGUARD": { name: "V-Guard Industries Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 2.68, aliases: ["v-guard", "vguard"] },
-  "KIRLOSENG": { name: "Kirloskar Oil Engines Limited", sector: "Capital Goods", cap: "Small Cap", weight: 2.45, aliases: ["kirloskar"] },
-  "TRIVENI": { name: "Triveni Turbine Limited", sector: "Capital Goods", cap: "Small Cap", weight: 2.28, aliases: ["triveni turbine"] },
-  "PRICOL": { name: "Pricol Limited", sector: "Automobile", cap: "Small Cap", weight: 2.12, aliases: ["pricol", "pricol limited"] },
-  "LTFOODS": { name: "LT Foods Limited", sector: "Consumer Goods (FMCG)", cap: "Small Cap", weight: 1.95, aliases: ["lt foods", "lt foods limited"] },
-  "UNIONBANK": { name: "Union Bank of India", sector: "Financial Services", cap: "Small Cap", weight: 1.78, aliases: ["union bank of india"] },
-  "IRCTC": { name: "Indian Railway Catering & Tourism", sector: "Services", cap: "Small Cap", weight: 1.62, aliases: ["irctc"] }
+  "BLUESTARCO": { symbol: "BLUESTARCO", name: "Blue Star Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 4.85, aliases: ["blue star"] },
+  "KALPATPOWR": { symbol: "KALPATPOWR", name: "Kalpataru Projects International", sector: "Construction", cap: "Small Cap", weight: 4.22, aliases: ["kalpataru"] },
+  "CARBORUNIV": { symbol: "CARBORUNIV", name: "Carborundum Universal Limited", sector: "Capital Goods", cap: "Small Cap", weight: 3.85, aliases: ["carborundum"] },
+  "LEMONTREE": { symbol: "LEMONTREE", name: "Lemon Tree Hotels Limited", sector: "Services", cap: "Small Cap", weight: 3.52, aliases: ["lemon tree", "lemontree"] },
+  "SHEELAFOAM": { symbol: "SHEELAFOAM", name: "Sheela Foam Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 3.25, aliases: ["sheela foam"] },
+  "ELGIEQUIP": { symbol: "ELGIEQUIP", name: "Elgi Equipments Limited", sector: "Capital Goods", cap: "Small Cap", weight: 3.02, aliases: ["elgi equipments"] },
+  "HAWKINCOOK": { symbol: "HAWKINCOOK", name: "Hawkins Cookers Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 2.85, aliases: ["hawkins"] },
+  "VGUARD": { symbol: "VGUARD", name: "V-Guard Industries Limited", sector: "Consumer Durables", cap: "Small Cap", weight: 2.68, aliases: ["v-guard", "vguard"] },
+  "KIRLOSENG": { symbol: "KIRLOSENG", name: "Kirloskar Oil Engines Limited", sector: "Capital Goods", cap: "Small Cap", weight: 2.45, aliases: ["kirloskar"] },
+  "TRIVENI": { symbol: "TRIVENI", name: "Triveni Turbine Limited", sector: "Capital Goods", cap: "Small Cap", weight: 2.28, aliases: ["triveni turbine"] },
+  "PRICOL": { symbol: "PRICOL", name: "Pricol Limited", sector: "Automobile", cap: "Small Cap", weight: 2.12, aliases: ["pricol", "pricol limited"] },
+  "LTFOODS": { symbol: "LTFOODS", name: "LT Foods Limited", sector: "Consumer Goods (FMCG)", cap: "Small Cap", weight: 1.95, aliases: ["lt foods", "lt foods limited"] },
+  "UNIONBANK": { symbol: "UNIONBANK", name: "Union Bank of India", sector: "Financial Services", cap: "Small Cap", weight: 1.78, aliases: ["union bank of india"] },
+  "IRCTC": { symbol: "IRCTC", name: "Indian Railway Catering & Tourism", sector: "Services", cap: "Small Cap", weight: 1.62, aliases: ["irctc"] }
 };
 
 // Master list combining all benchmark stocks
