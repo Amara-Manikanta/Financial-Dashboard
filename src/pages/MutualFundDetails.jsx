@@ -224,37 +224,9 @@ const MutualFundDetails = () => {
         if (editingTx) {
             // Edit existing
             updatedTransactions = updatedTransactions.map(t => t.id === tx.id ? tx : t);
-            updateItem('expense', {
-                 id: tx.id,
-                 title: `${tx.type === 'sell' ? 'Sell' : 'Buy'} ${fund.title || fund.name || 'Mutual Fund'}`,
-                 amount: Number(tx.amount || (tx.units * (tx.nav || fund.currentNav || 0))),
-                 category: 'mutual funds',
-                 mainCategory: 'Investments',
-                 date: tx.date,
-                 paymentMode: 'direct',
-                 isCredited: tx.type === 'sell' || tx.type === 'withdraw',
-                 transactionType: tx.type === 'sell' || tx.type === 'withdraw' ? 'credit' : 'debit',
-                 deductFromSalary: true,
-                 skipInvestmentSync: true,
-                 investmentData: { type: 'mutual_fund', assetId: fund.id, action: tx.type, nav: fund.currentNav, units: tx.units, remarks: tx.remarks }
-            });
         } else {
             // Add new
             updatedTransactions.push(tx);
-            addItem('expense', {
-                 id: tx.id,
-                 title: `${tx.type === 'sell' ? 'Sell' : 'Buy'} ${fund.title || fund.name || 'Mutual Fund'}`,
-                 amount: Number(tx.amount || (tx.units * (tx.nav || fund.currentNav || 0))),
-                 category: 'mutual funds',
-                 mainCategory: 'Investments',
-                 date: tx.date,
-                 paymentMode: 'direct',
-                 isCredited: tx.type === 'sell' || tx.type === 'withdraw',
-                 transactionType: tx.type === 'sell' || tx.type === 'withdraw' ? 'credit' : 'debit',
-                 deductFromSalary: true,
-                 skipInvestmentSync: true,
-                 investmentData: { type: 'mutual_fund', assetId: fund.id, action: tx.type, nav: fund.currentNav, units: tx.units, remarks: tx.remarks }
-            });
         }
 
         updatedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -282,7 +254,6 @@ const MutualFundDetails = () => {
             const updatedFund = { ...fund, transactions: updatedTransactions };
             updatedFund.amount = calculateItemCurrentValue(updatedFund);
             updateItem('savings', updatedFund);
-            deleteItem('expense', txId);
         }
     };
 
