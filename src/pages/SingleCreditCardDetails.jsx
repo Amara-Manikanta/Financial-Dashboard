@@ -264,7 +264,16 @@ const SingleCreditCardDetails = () => {
         name: `${agg.month.substring(0, 3)} '${String(agg.year).substring(2)}`
     }));
 
-    const sortedFilteredTransactions = [...filteredTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
+    const sortedFilteredTransactions = filteredTransactions
+        .map((t, idx) => ({ ...t, _savedIndex: idx }))
+        .sort((a, b) => {
+            const timeA = new Date(a.date).getTime();
+            const timeB = new Date(b.date).getTime();
+            if (timeB !== timeA) {
+                return timeB - timeA;
+            }
+            return a._savedIndex - b._savedIndex;
+        });
     const totalPages = Math.max(1, Math.ceil(sortedFilteredTransactions.length / itemsPerPage));
     const paginatedTransactions = sortedFilteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 

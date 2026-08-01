@@ -504,10 +504,18 @@ const ExpenseDetails = () => {
         // Spending Trend Data
         const daysInMonth = new Date(year, new Date(`${month} 1, ${year}`).getMonth() + 1, 0).getDate();
 
-        // Extract individual transactions
+        // Extract individual transactions preserving exact saved insertion order
         const rawTransactions = (monthData.transactions || [])
+            .map((t, idx) => ({ ...t, _savedIndex: idx }))
             .filter(t => t.id && (t.amount || t.category))
-            .sort((a, b) => new Date(b.date) - new Date(a.date));
+            .sort((a, b) => {
+                const timeA = new Date(a.date).getTime();
+                const timeB = new Date(b.date).getTime();
+                if (timeB !== timeA) {
+                    return timeB - timeA;
+                }
+                return a._savedIndex - b._savedIndex;
+            });
 
         // Group actual transactions by day (excluding credit card bill repayments to prevent double counting with card spends)
         const transactionsByDay = rawTransactions
