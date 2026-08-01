@@ -511,7 +511,7 @@ const ExpenseDetails = () => {
             return ['salary received', 'salary'].includes(cat) || mainCat === 'income' || title.includes('salary');
         };
 
-        // Extract individual transactions: Salary first, then Date descending & saved order
+        // Extract individual transactions: Salary at the VERY END (last transaction on last tab)
         const rawTransactions = (monthData.transactions || [])
             .map((t, idx) => ({ ...t, _savedIndex: idx }))
             .filter(t => t.id && (t.amount || t.category))
@@ -519,9 +519,9 @@ const ExpenseDetails = () => {
                 const isSalA = isSalaryTx(a);
                 const isSalB = isSalaryTx(b);
 
-                // Priority 1: Salary/Income transaction ALWAYS comes first
-                if (isSalA && !isSalB) return -1;
-                if (!isSalA && isSalB) return 1;
+                // Priority 1: Salary/Income transaction ALWAYS goes to the very end (last transaction on last tab)
+                if (isSalA && !isSalB) return 1;
+                if (!isSalA && isSalB) return -1;
 
                 // Priority 2: Date descending (newest date first)
                 const timeA = new Date(a.date).getTime();
@@ -530,7 +530,7 @@ const ExpenseDetails = () => {
                     return timeB - timeA;
                 }
 
-                // Priority 3: Same day -> newest saved transaction comes first (last saved at top)
+                // Priority 3: Same day -> newest saved transaction first
                 return b._savedIndex - a._savedIndex;
             });
 
