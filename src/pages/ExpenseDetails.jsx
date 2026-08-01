@@ -504,16 +504,33 @@ const ExpenseDetails = () => {
         // Spending Trend Data
         const daysInMonth = new Date(year, new Date(`${month} 1, ${year}`).getMonth() + 1, 0).getDate();
 
-        // Extract individual transactions preserving exact saved insertion order
+        const isSalaryTx = (t) => {
+            const cat = (t.category || '').toLowerCase();
+            const mainCat = (t.mainCategory || '').toLowerCase();
+            const title = (t.title || '').toLowerCase();
+            return ['salary received', 'salary'].includes(cat) || mainCat === 'income' || title.includes('salary');
+        };
+
+        // Extract individual transactions: Salary first, then Date descending & saved order
         const rawTransactions = (monthData.transactions || [])
             .map((t, idx) => ({ ...t, _savedIndex: idx }))
             .filter(t => t.id && (t.amount || t.category))
             .sort((a, b) => {
+                const isSalA = isSalaryTx(a);
+                const isSalB = isSalaryTx(b);
+
+                // Priority 1: Salary/Income transaction ALWAYS comes first
+                if (isSalA && !isSalB) return -1;
+                if (!isSalA && isSalB) return 1;
+
+                // Priority 2: Date descending (newest date first)
                 const timeA = new Date(a.date).getTime();
                 const timeB = new Date(b.date).getTime();
                 if (timeB !== timeA) {
                     return timeB - timeA;
                 }
+
+                // Priority 3: Same day -> preserve exact saved insertion order
                 return a._savedIndex - b._savedIndex;
             });
 
