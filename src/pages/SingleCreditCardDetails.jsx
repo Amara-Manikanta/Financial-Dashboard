@@ -272,7 +272,7 @@ const SingleCreditCardDetails = () => {
             if (timeB !== timeA) {
                 return timeB - timeA;
             }
-            return a._savedIndex - b._savedIndex;
+            return b._savedIndex - a._savedIndex;
         });
     const totalPages = Math.max(1, Math.ceil(sortedFilteredTransactions.length / itemsPerPage));
     const paginatedTransactions = sortedFilteredTransactions.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);

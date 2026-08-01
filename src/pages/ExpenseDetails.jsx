@@ -530,8 +530,8 @@ const ExpenseDetails = () => {
                     return timeB - timeA;
                 }
 
-                // Priority 3: Same day -> preserve exact saved insertion order
-                return a._savedIndex - b._savedIndex;
+                // Priority 3: Same day -> newest saved transaction comes first (last saved at top)
+                return b._savedIndex - a._savedIndex;
             });
 
         // Group actual transactions by day (excluding credit card bill repayments to prevent double counting with card spends)
