@@ -562,9 +562,16 @@ const FixedDepositDetails = () => {
 
             {/* View Mode Switcher Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <Building2 size={20} style={{ color: '#34d399' }} /> Active Fixed Deposits ({filteredDeposits.length})
-                </h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', flexWrap: 'wrap' }}>
+                    <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#ffffff', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Building2 size={20} style={{ color: '#34d399' }} /> Active Fixed Deposits ({filteredDeposits.length})
+                    </h3>
+                    {archivedDeposits.length > 0 && (
+                        <span style={{ fontSize: '11px', color: '#fbbf24', backgroundColor: 'rgba(245, 158, 11, 0.15)', padding: '0.2rem 0.6rem', borderRadius: '9999px', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 'bold' }}>
+                            +{archivedDeposits.length} Closed ({activeDeposits.length + archivedDeposits.length} Total)
+                        </span>
+                    )}
+                </div>
                 <div style={{ display: 'flex', backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '0.875rem', padding: '0.25rem', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                     <button
                         onClick={() => setViewMode('cards')}
