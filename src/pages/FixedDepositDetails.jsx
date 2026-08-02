@@ -216,13 +216,25 @@ const FixedDepositDetails = () => {
         if (!fund?.deposits?.length) return [];
 
         fund.deposits.forEach(deposit => {
-            (deposit.tdsTransactions || []).forEach(tx => {
-                const rawFy = tx.financialYear || tx.date;
-                const fyLabel = normalizeFYString(rawFy);
-                if (fyLabel) {
-                    breakdown[fyLabel] = (breakdown[fyLabel] || 0) + (tx.amount || 0);
+            if (deposit.tdsTransactions && deposit.tdsTransactions.length > 0) {
+                deposit.tdsTransactions.forEach(tx => {
+                    const rawFy = tx.financialYear || tx.date;
+                    const fyLabel = normalizeFYString(rawFy);
+                    if (fyLabel) {
+                        breakdown[fyLabel] = (breakdown[fyLabel] || 0) + (tx.amount || 0);
+                    }
+                });
+            } else if (deposit.tds && deposit.tds > 0) {
+                const refDate = deposit.endDate || deposit.startDate;
+                if (refDate) {
+                    const dt = new Date(refDate);
+                    if (!isNaN(dt.getTime())) {
+                        const y = dt.getMonth() >= 3 ? dt.getFullYear() : dt.getFullYear() - 1;
+                        const fyLabel = `FY ${y}-${(y + 1).toString().slice(-2)}`;
+                        breakdown[fyLabel] = (breakdown[fyLabel] || 0) + deposit.tds;
+                    }
                 }
-            });
+            }
         });
 
         return Object.entries(breakdown)
