@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2, Archive, ArchiveRestore, ChevronDown, ChevronUp, LayoutGrid, Table, Percent, Clock, MapPin } from 'lucide-react';
+import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2, Archive, ArchiveRestore, ChevronDown, ChevronUp, LayoutGrid, Table, Percent, Clock, MapPin, FileText } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import FixedDepositModal from '../components/FixedDepositModal';
 import CloseDepositModal from '../components/CloseDepositModal';
@@ -790,17 +790,37 @@ const FixedDepositDetails = () => {
                                         </div>
                                     </div>
 
+                                    {/* Dedicated Remarks Note Box */}
+                                    {deposit.remarks && (
+                                        <div style={{
+                                            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                                            borderRadius: '0.75rem',
+                                            padding: '0.5rem 0.75rem',
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: '0.5rem'
+                                        }}>
+                                            <FileText size={13} style={{ color: '#fbbf24', marginTop: '2px', flexShrink: 0 }} />
+                                            <span style={{
+                                                fontSize: '11px',
+                                                color: '#d4d4d8',
+                                                lineHeight: '1.4',
+                                                fontWeight: '500',
+                                                fontStyle: 'italic',
+                                                wordBreak: 'break-word'
+                                            }}>
+                                                "{deposit.remarks}"
+                                            </span>
+                                        </div>
+                                    )}
+
                                     {/* Card Footer Actions */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                             {deposit.renewalCount > 0 && (
                                                 <span style={{ fontSize: '10px', fontWeight: 'bold', color: '#60a5fa', backgroundColor: 'rgba(96, 165, 250, 0.15)', padding: '0.125rem 0.5rem', borderRadius: '9999px', border: '1px solid rgba(96, 165, 250, 0.3)' }}>
                                                     {deposit.renewalCount} Renewals
-                                                </span>
-                                            )}
-                                            {deposit.remarks && (
-                                                <span style={{ fontSize: '10px', color: '#71717a', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={deposit.remarks}>
-                                                    {deposit.remarks}
                                                 </span>
                                             )}
                                         </div>
