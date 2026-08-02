@@ -802,6 +802,27 @@ const FixedDepositDetails = () => {
                                         </div>
                                     </div>
 
+                                    {/* Interest Line & TDS Line below Duration Bar */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', backgroundColor: 'rgba(255, 255, 255, 0.02)', padding: '0.625rem 0.875rem', borderRadius: '0.875rem', border: '1px solid rgba(255, 255, 255, 0.04)' }}>
+                                        {/* Interest Line */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                                            <span style={{ color: '#a1a1aa', fontWeight: '600' }}>Interest (Till Today / Maturity):</span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                <span style={{ color: '#34d399' }}>{formatCurrency(accruedInterest)}</span>
+                                                <span style={{ color: '#71717a' }}>/</span>
+                                                <span style={{ color: '#10b981' }}>{formatCurrency(totalInterest)}</span>
+                                            </div>
+                                        </div>
+
+                                        {/* TDS Line */}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '11px' }}>
+                                            <span style={{ color: '#a1a1aa', fontWeight: '600' }}>TDS Deducted:</span>
+                                            <span style={{ fontFamily: 'monospace', fontWeight: 'bold', color: totalTds > 0 ? '#f87171' : '#71717a' }}>
+                                                {totalTds > 0 ? formatCurrency(totalTds) : '₹0'}
+                                            </span>
+                                        </div>
+                                    </div>
+
                                     {/* Dedicated Remarks Note Box */}
                                     {deposit.remarks && (
                                         <div style={{
