@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2, Archive, ArchiveRestore, ChevronDown, ChevronUp, LayoutGrid, Table, Percent, Clock } from 'lucide-react';
+import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2, Archive, ArchiveRestore, ChevronDown, ChevronUp, LayoutGrid, Table, Percent, Clock, MapPin } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import FixedDepositModal from '../components/FixedDepositModal';
 import CloseDepositModal from '../components/CloseDepositModal';
@@ -681,9 +681,16 @@ const FixedDepositDetails = () => {
                                                 <span style={{ fontSize: '1.05rem', fontWeight: '900', color: '#ffffff', letterSpacing: '-0.01em' }}>
                                                     {deposit.bank}
                                                 </span>
-                                                <span style={{ fontSize: '11px', color: '#818cf8', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                                                    A/C: {deposit.accountNo}
-                                                </span>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', flexWrap: 'wrap', marginTop: '0.125rem' }}>
+                                                    <span style={{ fontSize: '11px', color: '#818cf8', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                                                        A/C: {deposit.accountNo}
+                                                    </span>
+                                                    {deposit.branchName && (
+                                                        <span style={{ fontSize: '10px', color: '#34d399', backgroundColor: 'rgba(52, 211, 153, 0.12)', padding: '0.1rem 0.45rem', borderRadius: '6px', border: '1px solid rgba(52, 211, 153, 0.25)', fontWeight: 'bold', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                                            <MapPin size={10} /> {deposit.branchName}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
 
@@ -849,6 +856,7 @@ const FixedDepositDetails = () => {
                                 <tr>
                                     <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Account No</th>
                                     <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Bank</th>
+                                    <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Branch</th>
                                     <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Rate (%)</th>
                                     <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Start Date</th>
                                     <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>End Date</th>
@@ -902,6 +910,13 @@ const FixedDepositDetails = () => {
                                                             </span>
                                                         )}
                                                     </div>
+                                                </td>
+                                                <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa', fontSize: '13px' }}>
+                                                    {deposit.branchName ? (
+                                                        <span className="inline-flex items-center gap-1 text-emerald-400 font-medium">
+                                                            <MapPin size={12} /> {deposit.branchName}
+                                                        </span>
+                                                    ) : '—'}
                                                 </td>
                                                 <td style={{ padding: '1.25rem 1rem', fontWeight: 'bold', color: 'var(--text-accent)' }}>{deposit.interestRate || '—'}%</td>
                                                 <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.startDate)}</td>
@@ -1105,6 +1120,7 @@ const FixedDepositDetails = () => {
                                         <tr>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Account No</th>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Bank</th>
+                                            <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Branch</th>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Rate (%)</th>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>Start Date</th>
                                             <th style={{ padding: '1.25rem 1rem', textAlign: 'left' }}>End Date</th>
@@ -1125,6 +1141,7 @@ const FixedDepositDetails = () => {
                                                 <tr key={deposit.id} style={{ opacity: 0.8 }}>
                                                     <td style={{ padding: '1.25rem 1rem', fontFamily: 'monospace' }}>{deposit.accountNo}</td>
                                                     <td style={{ padding: '1.25rem 1rem', color: '#ffffff' }}>{deposit.bank}</td>
+                                                    <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{deposit.branchName || '—'}</td>
                                                     <td style={{ padding: '1.25rem 1rem' }}>{deposit.interestRate}%</td>
                                                     <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.startDate)}</td>
                                                     <td style={{ padding: '1.25rem 1rem', color: '#a1a1aa' }}>{formatDate(deposit.endDate)}</td>

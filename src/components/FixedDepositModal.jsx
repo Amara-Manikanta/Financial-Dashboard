@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Building, Hash, Percent, FileText } from 'lucide-react';
+import { X, Calendar, Building, Hash, Percent, FileText, MapPin } from 'lucide-react';
 import { toISODate } from '../utils/dateUtils';
 import CurrencyInput from './CurrencyInput';
 
@@ -29,6 +29,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
     const [formData, setFormData] = useState({
         accountNo: '',
         bank: '',
+        branchName: '',
         startDate: '',
         endDate: '',
         originalAmount: '',
@@ -46,6 +47,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                     setFormData({
                         accountNo: initialData.accountNo || '',
                         bank: initialData.bank || '',
+                        branchName: initialData.branchName || '',
                         startDate: toISODate(initialData.endDate) || '',
                         endDate: '',
                         originalAmount: initialData.maturityAmount || '',
@@ -61,6 +63,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                     setFormData({
                         accountNo: initialData.accountNo || '',
                         bank: initialData.bank || '',
+                        branchName: initialData.branchName || '',
                         startDate: toISODate(initialData.startDate) || '',
                         endDate: toISODate(initialData.endDate) || '',
                         originalAmount: initialData.originalAmount || '',
@@ -77,6 +80,7 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                 setFormData({
                     accountNo: '',
                     bank: '',
+                    branchName: '',
                     startDate: toISODate(new Date()) || '',
                     endDate: '',
                     originalAmount: '',
@@ -194,6 +198,14 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
                                 <input type="text" name="bank" required value={formData.bank} onChange={handleChange} style={inputStyle} placeholder="Bank" />
                                 <Building style={iconStyle} />
                             </div>
+                        </div>
+                    </div>
+
+                    <div className="relative">
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Branch Name (Optional)</label>
+                        <div className="relative">
+                            <input type="text" name="branchName" value={formData.branchName || ''} onChange={handleChange} style={inputStyle} placeholder="e.g. Main Branch, Vizag" />
+                            <MapPin style={iconStyle} />
                         </div>
                     </div>
 

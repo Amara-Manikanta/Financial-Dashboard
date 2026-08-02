@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, Calendar, Archive, ArchiveRestore } from 'lucide-react';
+import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, Calendar, Archive, ArchiveRestore, MapPin } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import InterestTransactionModal from '../components/InterestTransactionModal';
 import BackButton from '../components/BackButton';
@@ -252,6 +252,12 @@ const SingleDepositDetails = () => {
                         <Calendar size={16} className="text-teal-400" />
                         <span>{formatDate(deposit.startDate)} — {formatDate(deposit.endDate)}</span>
                     </div>
+                    {deposit.branchName && (
+                        <div className="flex items-center gap-1.5 text-teal-400 font-bold">
+                            <MapPin size={16} />
+                            <span>Branch: {deposit.branchName}</span>
+                        </div>
+                    )}
                     {deposit.bank?.toLowerCase().includes('slice') && (
                         <div className="text-purple-400 font-semibold text-xs flex items-center gap-1">
                             Interest accrued daily @ {(deposit.interestRate / 365).toFixed(4)}% per day
