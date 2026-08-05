@@ -59,6 +59,7 @@ const SingleCreditCardDetails = () => {
     const monthlyData = React.useMemo(() => card?.monthlyData || [], [card?.monthlyData]);
 
     const [baselineOpeningBalance, setBaselineOpeningBalance] = useState(card?.baselineOpeningBalance || '');
+    const [baselineError, setBaselineError] = useState('');
 
     // Sync local baseline state when card loads
     useEffect(() => {
@@ -232,13 +233,29 @@ const SingleCreditCardDetails = () => {
             const updatedCard = { ...card, carryForwardBaseline: null, baselineOpeningBalance: 0 };
             await updateItem('creditCards', updatedCard);
         } else {
+            // An empty field must not silently wipe an opening balance that is
+            // already set. The month alone means nothing — the opening balance
+            // is what carries the history from before the baseline, and losing
+            // it makes the card read as owing nothing, which then displays as a
+            // plausible-looking ₹0 rather than an obvious error.
+            const typed = String(baselineOpeningBalance).trim();
+            const parsed = parseFloat(typed);
+            if (typed !== '' && Number.isNaN(parsed)) {
+                setBaselineError('Opening balance must be a number.');
+                return;
+            }
+            const nextOpening = typed === ''
+                ? (Number(card?.baselineOpeningBalance) || 0)
+                : parsed;
+
             const updatedCard = {
                 ...card,
                 carryForwardBaseline: `${baselineMonth}/${baselineYear}`,
-                baselineOpeningBalance: parseFloat(baselineOpeningBalance) || 0
+                baselineOpeningBalance: nextOpening
             };
             await updateItem('creditCards', updatedCard);
         }
+        setBaselineError('');
         setIsBaselineModalOpen(false);
     };
 
@@ -438,10 +455,23 @@ const SingleCreditCardDetails = () => {
                         borderRadius: '1rem',
                         minWidth: '160px'
                     }}>
-                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Outstanding</span>
+                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            {totalOutstanding < 0 ? 'Credit Balance' : 'Total Outstanding'}
+                        </span>
+                        {/*
+                          * Show a negative balance as the credit it is. This used to be
+                          * clamped with Math.max(0, …), so a baseline saved without an
+                          * opening balance — which makes the card look like it owes
+                          * nothing — read as a plausible ₹0 instead of an obvious error.
+                          */}
                         <p style={{ fontSize: '1.5rem', fontWeight: '950', color: totalOutstanding > 0 ? '#f87171' : '#34d399', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>
-                            {formatCurrency(Math.max(0, totalOutstanding))}
+                            {formatCurrency(Math.abs(totalOutstanding))}
                         </p>
+                        {totalOutstanding < 0 && (
+                            <p style={{ fontSize: '9px', color: '#34d399', margin: '0.25rem 0 0 0' }}>
+                                Paid more than spent — check the baseline opening balance
+                            </p>
+                        )}
                         {baselineDate && (
                             <p style={{ fontSize: '9px', color: '#f59e0b', margin: '0.25rem 0 0 0' }}>
                                 From {card.carryForwardBaseline.split('/')[0]} {card.carryForwardBaseline.split('/')[1]}
@@ -528,14 +558,23 @@ const SingleCreditCardDetails = () => {
                         </div>
 
                         <div style={{ marginBottom: '1.5rem' }}>
-                            <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Opening / Carry Forward Balance (₹) (Optional)</label>
+                            <label style={{ fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'block', marginBottom: '0.5rem' }}>Opening / Carry Forward Balance (₹)</label>
                             <input
                                 type="number"
-                                placeholder="0.00 (e.g. initial outstanding amount at baseline)"
+                                placeholder="What the card owed on the 1st of that month"
                                 value={baselineOpeningBalance}
-                                onChange={e => setBaselineOpeningBalance(e.target.value)}
-                                style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
+                                onChange={e => { setBaselineOpeningBalance(e.target.value); setBaselineError(''); }}
+                                style={{ width: '100%', padding: '0.75rem 1rem', backgroundColor: 'rgba(255,255,255,0.05)', border: `1px solid ${baselineError ? 'rgba(239,68,68,0.5)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '0.75rem', color: 'white', fontSize: '0.875rem', outline: 'none' }}
                             />
+                            {baselineError ? (
+                                <p style={{ fontSize: '0.7rem', color: '#f87171', margin: '0.5rem 0 0 0' }}>{baselineError}</p>
+                            ) : (
+                                <p style={{ fontSize: '0.7rem', color: '#71717a', margin: '0.5rem 0 0 0' }}>
+                                    Leave blank to keep the current value
+                                    {card?.baselineOpeningBalance ? ` (₹${Number(card.baselineOpeningBalance).toLocaleString('en-IN')})` : ''}.
+                                    Set it to ₹0 only if the card genuinely owed nothing.
+                                </p>
+                            )}
                         </div>
 
                         {baselineMonth && baselineYear && (
