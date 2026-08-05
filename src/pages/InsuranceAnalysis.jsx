@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ShieldCheck, AlertTriangle, CheckCircle, Info, Edit3, HeartPulse, Bike, Car, Plus, Upload, Trash2, FileText, Calendar, Landmark } from 'lucide-react';
+import { ShieldCheck, AlertTriangle, CheckCircle, Info, Edit3, HeartPulse, Bike, Car, Plus, Upload, Trash2, FileText, Calendar, Landmark, Archive, ArchiveRestore } from 'lucide-react';
 import PolicyScannerModal from '../components/PolicyScannerModal';
 
 const InsuranceAnalysis = () => {
@@ -12,6 +12,7 @@ const InsuranceAnalysis = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPolicy, setEditingPolicy] = useState(null);
     const [activeTab, setActiveTab] = useState('all');
+    const [showArchived, setShowArchived] = useState(false);
 
     // Default or stored profile state
     const [age, setAge] = useState(30);
@@ -82,8 +83,25 @@ const InsuranceAnalysis = () => {
         }
     ];
 
-    const rawPolicyItems = (savings || []).filter(s => s.type === 'Policy' || s.type === 'policy');
-    const policyItems = rawPolicyItems.length > 0 ? rawPolicyItems : DEFAULT_POLICIES;
+    const allPolicyItems = (savings || []).filter(s => s.type === 'Policy' || s.type === 'policy');
+
+    // Archived policies are lapsed cover kept for reference. They are hidden by
+    // default and, importantly, excluded from the coverage totals below — an
+    // expired policy must not count towards the gap analysis.
+    const archivedCount = allPolicyItems.filter(p => p.isArchived).length;
+    const rawPolicyItems = showArchived
+        ? allPolicyItems
+        : allPolicyItems.filter(p => !p.isArchived);
+    const policyItems = allPolicyItems.length > 0 ? rawPolicyItems : DEFAULT_POLICIES;
+
+    const toggleArchived = async (policy) => {
+        await updateItem('savings', { ...policy, isArchived: !policy.isArchived });
+    };
+
+    const isExpired = (policy) => {
+        const exp = policy.policyDetails?.expiryDate || policy.policyDetails?.maturityDate;
+        return Boolean(exp) && exp < new Date().toISOString().split('T')[0];
+    };
 
     // Aggregate coverage by categories
     let existingLifeCover = 0;
@@ -413,6 +431,25 @@ const InsuranceAnalysis = () => {
                         >
                             🏥 Health
                         </button>
+
+                        {archivedCount > 0 && (
+                            <button
+                                onClick={() => setShowArchived(v => !v)}
+                                title="Archived policies are excluded from coverage totals"
+                                style={{
+                                    marginLeft: 'auto',
+                                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                    padding: '0.4rem 0.8rem', borderRadius: '0.5rem',
+                                    backgroundColor: showArchived ? 'rgba(161,161,170,0.15)' : 'transparent',
+                                    border: '1px solid rgba(255,255,255,0.1)',
+                                    color: showArchived ? '#e4e4e7' : '#a1a1aa',
+                                    fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer'
+                                }}
+                            >
+                                <Archive size={13} />
+                                {showArchived ? 'Hide' : 'Show'} archived ({archivedCount})
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -472,12 +509,25 @@ const InsuranceAnalysis = () => {
                                             {details.maturityDate || details.expiryDate || '-'}
                                         </td>
                                         <td style={{ padding: '0.75rem 1rem' }}>
-                                            <span style={{
-                                                fontSize: '0.75rem', padding: '0.2rem 0.55rem', borderRadius: '0.4rem',
-                                                backgroundColor: 'rgba(52, 211, 153, 0.15)', color: '#34d399', fontWeight: 'bold'
-                                            }}>
-                                                Active
-                                            </span>
+                                            {/* Status reflects the expiry date rather than always
+                                                claiming Active, and marks archived cover clearly. */}
+                                            {(() => {
+                                                const expired = isExpired(p);
+                                                const label = p.isArchived ? 'Archived' : expired ? 'Expired' : 'Active';
+                                                const tone = p.isArchived
+                                                    ? { bg: 'rgba(161,161,170,0.15)', fg: '#a1a1aa' }
+                                                    : expired
+                                                        ? { bg: 'rgba(248,113,113,0.15)', fg: '#f87171' }
+                                                        : { bg: 'rgba(52,211,153,0.15)', fg: '#34d399' };
+                                                return (
+                                                    <span style={{
+                                                        fontSize: '0.75rem', padding: '0.2rem 0.55rem', borderRadius: '0.4rem',
+                                                        backgroundColor: tone.bg, color: tone.fg, fontWeight: 'bold'
+                                                    }}>
+                                                        {label}
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                         <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -486,6 +536,13 @@ const InsuranceAnalysis = () => {
                                                     style={{ padding: '0.3rem 0.6rem', backgroundColor: 'rgba(255,255,255,0.05)', color: '#a1a1aa', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.4rem', cursor: 'pointer' }}
                                                 >
                                                     <Edit3 size={14} />
+                                                </button>
+                                                <button
+                                                    onClick={() => toggleArchived(p)}
+                                                    title={p.isArchived ? 'Restore to active policies' : 'Archive this policy'}
+                                                    style={{ padding: '0.3rem 0.6rem', backgroundColor: p.isArchived ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.05)', color: p.isArchived ? '#34d399' : '#a1a1aa', border: `1px solid ${p.isArchived ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.1)'}`, borderRadius: '0.4rem', cursor: 'pointer' }}
+                                                >
+                                                    {p.isArchived ? <ArchiveRestore size={14} /> : <Archive size={14} />}
                                                 </button>
                                                 <button
                                                     onClick={() => handleDeletePolicy(p.id)}
