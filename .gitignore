@@ -38,6 +38,7 @@ db/
 db.json.*
 *db-backup*.json
 nps_legacy_tx_backup.json
+category_rules.json
 data.json
 src/data.js
 temp_expenses.json
