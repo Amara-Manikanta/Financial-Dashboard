@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, Shield, CheckCircle, Clock, Plus, Edit2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, Clock, Plus, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import PolicyPremiumModal from '../components/PolicyPremiumModal';
 import BackButton from '../components/BackButton';
 
@@ -46,6 +46,19 @@ const PolicyDetails = () => {
         const totalAmountToBePaid = (details.premiumAmount || 0) * (details.premiumPayingTerm || 0);
         const remainingAmountToBePaid = totalAmountToBePaid - totalPaid;
 
+        // Outstanding premiums, split by whether the due date has passed, so an
+        // overdue instalment is obvious rather than buried in the table.
+        const today = new Date().toISOString().split('T')[0];
+        const pending = premiums.filter(p => p.status === 'To Pay');
+        const overdue = pending.filter(p => p.dueDate && p.dueDate < today);
+        const upcoming = pending.filter(p => !p.dueDate || p.dueDate >= today);
+        const pendingAmount = pending.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+        // Earliest unpaid due date across all pending premiums. Looking only at
+        // upcoming ones reported "no due date" whenever everything was overdue.
+        const nextDue = pending
+            .filter(p => p.dueDate)
+            .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0] || null;
+
         return {
             totalPaid,
             amountReceivedBack,
@@ -53,7 +66,13 @@ const PolicyDetails = () => {
             totalAmountToBePaid,
             remainingAmountToBePaid,
             details,
-            premiums
+            premiums,
+            pending,
+            overdue,
+            upcoming,
+            pendingAmount,
+            nextDue,
+            today
         };
     }, [policy]);
 
@@ -78,7 +97,13 @@ const PolicyDetails = () => {
         totalAmountToBePaid,
         remainingAmountToBePaid,
         details,
-        premiums
+        premiums,
+        pending,
+        overdue,
+        upcoming,
+        pendingAmount,
+        nextDue,
+        today
     } = policyCalcs;
 
     const handleSavePremium = (premium) => {
@@ -264,6 +289,41 @@ const PolicyDetails = () => {
                 </div>
             </div>
 
+            {/* Outstanding premiums, surfaced above the table so a missed payment
+                is visible without reading every row. */}
+            {pending.length > 0 && (
+                <div style={{
+                    marginBottom: '1.5rem',
+                    padding: '1.25rem 1.5rem',
+                    borderRadius: '1.25rem',
+                    border: `1px solid ${overdue.length > 0 ? 'rgba(248,113,113,0.25)' : 'rgba(251,191,36,0.25)'}`,
+                    backgroundColor: overdue.length > 0 ? 'rgba(248,113,113,0.06)' : 'rgba(251,191,36,0.06)',
+                    display: 'flex', flexWrap: 'wrap', gap: '2rem', alignItems: 'center', justifyContent: 'space-between'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <AlertTriangle size={22} style={{ color: overdue.length > 0 ? '#f87171' : '#fbbf24' }} />
+                        <div>
+                            <p style={{ margin: 0, fontWeight: 900, color: overdue.length > 0 ? '#f87171' : '#fbbf24' }}>
+                                {overdue.length > 0
+                                    ? `${overdue.length} premium${overdue.length > 1 ? 's' : ''} overdue`
+                                    : `${upcoming.length} premium${upcoming.length > 1 ? 's' : ''} pending`}
+                            </p>
+                            <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.75rem', color: '#a1a1aa' }}>
+                                {nextDue
+                                    ? `${overdue.length > 0 ? 'Was due' : 'Next due'} ${nextDue.dueDate}`
+                                    : 'No due date recorded'}
+                            </p>
+                        </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <p style={{ margin: 0, fontSize: '0.65rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#71717a' }}>Amount Pending</p>
+                        <p style={{ margin: '0.15rem 0 0 0', fontSize: '1.5rem', fontWeight: 900, fontFamily: 'monospace', color: overdue.length > 0 ? '#f87171' : '#fbbf24' }}>
+                            {formatCurrency(pendingAmount)}
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <div className="pol-table-container">
                 <h3 className="text-lg font-bold tracking-tight text-white pol-table-header">Premium History</h3>
                 <div style={{ overflowX: 'auto' }}>
@@ -277,12 +337,27 @@ const PolicyDetails = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {premiums.map((p, index) => (
-                                <tr key={index} className="group">
-                                    <td style={{ padding: '1.25rem 1rem', color: 'var(--text-primary)' }}>{p.paidDate || '-'}</td>
+                            {premiums.map((p, index) => {
+                                const isPending = p.status === 'To Pay';
+                                const isOverdue = isPending && p.dueDate && p.dueDate < today;
+                                return (
+                                <tr key={index} className="group" style={{
+                                    backgroundColor: isOverdue ? 'rgba(248,113,113,0.06)' : isPending ? 'rgba(251,191,36,0.05)' : 'transparent'
+                                }}>
+                                    <td style={{ padding: '1.25rem 1rem', color: 'var(--text-primary)' }}>
+                                        {p.paidDate || (p.dueDate ? `Due ${p.dueDate}` : '-')}
+                                    </td>
                                     <td style={{ padding: '1.25rem 1rem', textAlign: 'right', fontFamily: 'monospace', fontWeight: '500' }}>{formatCurrency(p.amount)}</td>
                                     <td style={{ padding: '1.25rem 1rem', paddingLeft: '2rem', color: 'var(--text-secondary)' }}>
-                                        {p.status === 'Paid' ? `Receipt: ${p.receiptNo}` : p.status}
+                                        {p.status === 'Paid' ? `Receipt: ${p.receiptNo}` : (
+                                            <span style={{
+                                                padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.7rem', fontWeight: 900,
+                                                backgroundColor: isOverdue ? 'rgba(248,113,113,0.15)' : isPending ? 'rgba(251,191,36,0.15)' : 'rgba(255,255,255,0.06)',
+                                                color: isOverdue ? '#f87171' : isPending ? '#fbbf24' : '#a1a1aa'
+                                            }}>
+                                                {isOverdue ? 'OVERDUE' : p.status}
+                                            </span>
+                                        )}
                                     </td>
                                     <td style={{ padding: '1.25rem 1rem', textAlign: 'center' }}>
                                         <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -303,7 +378,8 @@ const PolicyDetails = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                                );
+                            })}
                             {!premiums.length && (
                                 <tr>
                                     <td colSpan="4" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-secondary)' }}>

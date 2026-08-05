@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ShieldCheck, AlertTriangle, CheckCircle, Info, Edit3, HeartPulse, Bike, Car, Plus, Upload, Trash2, FileText, Calendar, Landmark } from 'lucide-react';
 import PolicyScannerModal from '../components/PolicyScannerModal';
 
 const InsuranceAnalysis = () => {
+    const navigate = useNavigate();
     const { savings, salaryDetails, insuranceProfile, updateInsuranceProfile, addItem, updateItem, deleteItem, formatCurrency } = useFinance();
     
     const [isEditingProfile, setIsEditingProfile] = useState(false);
@@ -436,12 +438,22 @@ const InsuranceAnalysis = () => {
 
                                 return (
                                     <tr key={p.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', color: 'white' }}>
+                                        {/* The policy's full record, including its premium
+                                            history, lives under savings — so the name links
+                                            there rather than duplicating it here. */}
                                         <td style={{ padding: '0.75rem 1rem', fontWeight: 'bold' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <div
+                                                onClick={() => navigate(`/savings/policy/${p.id}`)}
+                                                title="Open full policy and premium history"
+                                                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}
+                                                className="hover:text-sky-400 transition-colors"
+                                            >
                                                 {(cat === 'bike' || cat === 'car') && <Bike size={16} style={{ color: '#38bdf8' }} />}
                                                 {cat === 'health' && <HeartPulse size={16} style={{ color: '#fbbf24' }} />}
                                                 {cat === 'life' && <ShieldCheck size={16} style={{ color: '#34d399' }} />}
-                                                <span>{details.planName || p.title}</span>
+                                                <span style={{ textDecoration: 'underline', textDecorationColor: 'rgba(255,255,255,0.2)', textUnderlineOffset: '3px' }}>
+                                                    {details.planName || p.title}
+                                                </span>
                                             </div>
                                         </td>
                                         <td style={{ padding: '0.75rem 1rem', textTransform: 'capitalize', color: '#a1a1aa' }}>

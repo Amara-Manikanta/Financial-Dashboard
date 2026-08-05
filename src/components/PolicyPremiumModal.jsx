@@ -26,16 +26,22 @@ const iconStyle = {
 
 const PolicyPremiumModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [formData, setFormData] = useState({
+        dueDate: '',
         paidDate: '',
         amount: '',
         status: 'Paid',
         receiptNo: ''
     });
 
+    // A premium that has not been paid yet has no paid date; requiring one made
+    // it impossible to record an upcoming or overdue instalment.
+    const isPending = formData.status === 'To Pay';
+
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
                 setFormData({
+                    dueDate: initialData.dueDate || '',
                     paidDate: initialData.paidDate || '',
                     amount: initialData.amount || '',
                     status: initialData.status || 'Paid',
@@ -43,6 +49,7 @@ const PolicyPremiumModal = ({ isOpen, onClose, onSave, initialData }) => {
                 });
             } else {
                 setFormData({
+                    dueDate: new Date().toISOString().split('T')[0],
                     paidDate: new Date().toISOString().split('T')[0],
                     amount: '',
                     status: 'Paid',
@@ -102,9 +109,20 @@ const PolicyPremiumModal = ({ isOpen, onClose, onSave, initialData }) => {
 
                     <div className="grid grid-cols-2 gap-4">
                         <div className="relative">
-                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Paid Date</label>
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Due Date</label>
                             <div className="relative">
-                                <input type="date" name="paidDate" required value={formData.paidDate} onChange={handleChange} style={inputStyle} />
+                                <input type="date" name="dueDate" required value={formData.dueDate} onChange={handleChange} style={inputStyle} />
+                                <Calendar style={iconStyle} />
+                            </div>
+                        </div>
+                        <div className="relative">
+                            <label className="block text-xs font-bold text-gray-400 uppercase mb-1">
+                                Paid Date {isPending && <span className="text-gray-600 normal-case font-medium">(not paid yet)</span>}
+                            </label>
+                            <div className="relative">
+                                <input type="date" name="paidDate" required={!isPending} disabled={isPending}
+                                    value={isPending ? '' : formData.paidDate} onChange={handleChange}
+                                    style={{ ...inputStyle, opacity: isPending ? 0.4 : 1 }} />
                                 <Calendar style={iconStyle} />
                             </div>
                         </div>
