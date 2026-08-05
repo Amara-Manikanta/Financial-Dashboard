@@ -33,9 +33,11 @@ const Dashboard = () => {
         const goldGms = metals.gold?.reduce((sum, item) => sum + (item.weightGm || 0), 0) || 0;
         const silverVal = metals.silver?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
         const silverGms = metals.silver?.reduce((sum, item) => sum + (item.weightGm || 0), 0) || 0;
+        const platinumVal = metals.platinum?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
+        const platinumGms = metals.platinum?.reduce((sum, item) => sum + (item.weightGm || 0), 0) || 0;
         const antiqueCoinsVal = metals.antique_coins?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
         const currenciesVal = metals.currencies?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
-        const totalMetals = goldVal + silverVal + antiqueCoinsVal + currenciesVal;
+        const totalMetals = goldVal + silverVal + platinumVal + antiqueCoinsVal + currenciesVal;
 
         const totalAssets = assets.reduce((total, cat) =>
             total + cat.items.reduce((sum, item) => sum + (Number(item.currentValue) || Number(item.purchasePrice) || 0), 0), 0
@@ -58,6 +60,7 @@ const Dashboard = () => {
         );
         const totalInvestedMetals = (metals.gold?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0) +
                                     (metals.silver?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0) +
+                                    (metals.platinum?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0) +
                                     (metals.antique_coins?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0) +
                                     (metals.currencies?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0);
 
@@ -89,6 +92,8 @@ const Dashboard = () => {
             goldGms,
             silverVal,
             silverGms,
+            platinumVal,
+            platinumGms,
             antiqueCoinsVal,
             currenciesVal,
             fd,
@@ -295,6 +300,14 @@ const Dashboard = () => {
                             <span style={{ fontSize: '9px', color: '#71717a', fontWeight: 'black', fontFamily: 'monospace' }}>{stats.silverGms.toFixed(2)}g</span>
                         </div>
                         <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.silverVal)}</p>
+                    </div>
+
+                    <div style={{ backgroundColor: 'rgba(148, 163, 184, 0.02)', border: '1px solid rgba(148, 163, 184, 0.1)', borderRadius: '1.5rem', padding: '1.5rem' }}>
+                        <div style={{ display: 'flex', justify: 'space-between', alignItems: 'center' }}>
+                            <span style={{ fontSize: '8px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Physical Platinum</span>
+                            <span style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 'black', fontFamily: 'monospace' }}>{stats.platinumGms.toFixed(2)}g</span>
+                        </div>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.platinumVal)}</p>
                     </div>
 
                     {/* Collectibles */}

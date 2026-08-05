@@ -131,10 +131,14 @@ const calculateSalaryStats = (expensesData, salaryDetailsData = []) => {
     return stats;
 };
 
+// The complete set of metal categories. Anything outside this list is a bug,
+// not a new category — adding one means updating this constant deliberately.
+export const METAL_CATEGORIES = ['gold', 'silver', 'platinum', 'antique_coins', 'currencies'];
+
 export function FinanceProvider({ children }) {
     const [expenses, setExpenses] = useState({});
     const [savings, setSavings] = useState([]);
-    const [metals, setMetals] = useState({ gold: [], silver: [], antique_coins: [], currencies: [] });
+    const [metals, setMetals] = useState({ gold: [], silver: [], platinum: [], antique_coins: [], currencies: [] });
     const [assets, setAssets] = useState([]);
     const [lents, setLents] = useState([]);
     const [categories, setCategories] = useState([]);
@@ -297,7 +301,10 @@ export function FinanceProvider({ children }) {
 
                 setExpenses(modifiedExpenses);
                 setSavings(savData);
-                setMetals(metData);
+                // Guarantee every category exists. A category the database has
+                // not seen yet (platinum, until the first item is added) would
+                // otherwise be undefined, and adding to it would spread undefined.
+                setMetals({ gold: [], silver: [], platinum: [], antique_coins: [], currencies: [], ...metData });
                 setAssets(assData);
                 setLents(lentData || []);
                 setCreditCards(ccData || []);
@@ -1486,6 +1493,14 @@ export function FinanceProvider({ children }) {
      */
     const saveMetalCategory = async (type, items) => {
         if (isGuest || !canWrite()) return;
+
+        // Refuse to write anything but a known category holding an array.
+        // A bad call once wrote the entire metals object under a stray key,
+        // which nested the real categories out of reach on every save.
+        if (!METAL_CATEGORIES.includes(type) || !Array.isArray(items)) {
+            console.error(`[FinanceContext] Refusing to save metals: type "${type}" is not a known category, or the payload is not an array.`);
+            return;
+        }
         try {
             const res = await fetch(`${API_URL}/metals`, {
                 method: 'PATCH',
@@ -1503,19 +1518,19 @@ export function FinanceProvider({ children }) {
 
     const addMetal = async (type, item) => {
         const newItem = { ...item, id: Date.now() };
-        const nextItems = [...metals[type], newItem];
+        const nextItems = [...(metals[type] || []), newItem];
         setMetals({ ...metals, [type]: nextItems });
         await saveMetalCategory(type, nextItems);
     };
 
     const updateMetal = async (type, item) => {
-        const nextItems = metals[type].map(i => i.id === item.id ? item : i);
+        const nextItems = (metals[type] || []).map(i => i.id === item.id ? item : i);
         setMetals({ ...metals, [type]: nextItems });
         await saveMetalCategory(type, nextItems);
     };
 
     const deleteMetal = async (type, id) => {
-        const nextItems = metals[type].filter(i => i.id !== id);
+        const nextItems = (metals[type] || []).filter(i => i.id !== id);
         setMetals({ ...metals, [type]: nextItems });
         await saveMetalCategory(type, nextItems);
     };
@@ -1666,6 +1681,9 @@ export function FinanceProvider({ children }) {
                 if (item.currentValue > 0) return item;
                 return { ...item, currentValue: item.weightGm * SILVER_RATE };
             }),
+            // Platinum has no live rate feed, so its value is whatever was
+            // entered manually on the item.
+            platinum: metals.platinum || [],
             antique_coins: metals.antique_coins || [],
             currencies: metals.currencies || []
         };

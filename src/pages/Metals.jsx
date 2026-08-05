@@ -18,9 +18,10 @@ const Metals = () => {
     // Calculate aggregated metrics
     const goldValue = (metals.gold || []).reduce((sum, item) => sum + (item.currentValue || 0), 0);
     const silverValue = (metals.silver || []).reduce((sum, item) => sum + (item.currentValue || 0), 0);
+    const platinumValue = (metals.platinum || []).reduce((sum, item) => sum + (item.currentValue || 0), 0);
     const coinsValue = (metals.antique_coins || []).reduce((sum, item) => sum + (item.currentValue || 0), 0);
     const currenciesValue = (metals.currencies || []).reduce((sum, item) => sum + (item.currentValue || 0), 0);
-    const totalMetalsValue = goldValue + silverValue + coinsValue + currenciesValue;
+    const totalMetalsValue = goldValue + silverValue + platinumValue + coinsValue + currenciesValue;
 
     const goldWeight = (metals.gold || []).reduce((sum, item) => sum + (item.weightGm || 0), 0);
     const silverWeight = (metals.silver || []).reduce((sum, item) => sum + (item.weightGm || 0), 0);
@@ -210,6 +211,27 @@ const Metals = () => {
                     <Plus size={16} /> Add Silver
                 </button>
                 <button
+                    onClick={() => handleAddItem('platinum')}
+                    style={{
+                        padding: '0.75rem 1.5rem',
+                        borderRadius: '0.75rem',
+                        backgroundColor: '#6b7280',
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.05em',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.375rem',
+                        cursor: 'pointer',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        boxShadow: '0 4px 6px -1px rgba(107, 114, 128, 0.2)'
+                    }}
+                >
+                    <Plus size={16} /> Add Platinum
+                </button>
+                <button
                     onClick={() => handleAddItem('antique_coins')}
                     style={{
                         padding: '0.75rem 1.5rem',
@@ -256,6 +278,7 @@ const Metals = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 {renderMetalSection('Gold', metals.gold, 'rgba(234, 179, 8, 0.5)', 'rgba(234, 179, 8, 0.02)')}
                 {renderMetalSection('Silver', metals.silver, 'rgba(203, 213, 225, 0.5)', 'rgba(203, 213, 225, 0.02)')}
+                {renderMetalSection('Platinum', metals.platinum, 'rgba(148, 163, 184, 0.5)', 'rgba(148, 163, 184, 0.02)')}
                 {renderMetalSection('Antique Coins', metals.antique_coins, 'rgba(205, 133, 63, 0.5)', 'rgba(205, 133, 63, 0.02)')}
                 {renderMetalSection('Currencies', metals.currencies, 'rgba(52, 211, 153, 0.5)', 'rgba(52, 211, 153, 0.02)')}
             </div>

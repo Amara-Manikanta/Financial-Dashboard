@@ -91,7 +91,28 @@ export const inspectWrite = ({ method, url, body, dbFile }) => {
         }
     }
 
-    // Rule 2: a write must not shrink the collection beyond the threshold.
+    // Rule 2: a collection stored as a map of arrays (metals, expenses) must
+    // stay that shape. A write once nested the whole metals object under a
+    // stray "item" key, burying gold and silver one level deeper on every
+    // save until the real categories were unreachable. Any value arriving
+    // where an array is expected is a malformed write, not an edit.
+    if (isPlainObject(existing) && isPlainObject(incoming)) {
+        const existingValues = Object.values(existing);
+        const isMapOfArrays = existingValues.length > 0 && existingValues.every(Array.isArray);
+        if (isMapOfArrays) {
+            const malformed = Object.entries(incoming)
+                .filter(([, value]) => !Array.isArray(value))
+                .map(([key]) => key);
+            if (malformed.length > 0) {
+                return {
+                    safe: false,
+                    reason: `${method} /${collection} sent non-array value(s) for: ${malformed.join(', ')} — every entry in this collection must be an array`,
+                };
+            }
+        }
+    }
+
+    // Rule 3: a write must not shrink the collection beyond the threshold.
     // For PATCH, judge the merged result rather than the payload, because
     // json-server merges shallowly: keys that are sent replace what was there.
     const resulting = (method === 'PATCH' && isPlainObject(existing) && isPlainObject(incoming))

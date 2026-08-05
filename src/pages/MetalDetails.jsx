@@ -31,10 +31,10 @@ const MetalDetails = () => {
     );
 
     const formattedType = type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
-    const colorHex = type === 'gold' ? '#eab308' : type === 'silver' ? '#cbd5e1' : type === 'antique_coins' ? '#cd853f' : '#34d399';
-    const accentBgHex = type === 'gold' ? '#eab308' : type === 'silver' ? '#64748b' : type === 'antique_coins' ? '#8b5a2b' : '#059669';
-    const accentBorderHex = type === 'gold' ? 'rgba(234, 179, 8, 0.2)' : type === 'silver' ? 'rgba(100, 116, 139, 0.2)' : type === 'antique_coins' ? 'rgba(139, 90, 43, 0.2)' : 'rgba(5, 150, 105, 0.2)';
-    const accentGlowHex = type === 'gold' ? 'rgba(234, 179, 8, 0.05)' : type === 'silver' ? 'rgba(100, 116, 139, 0.05)' : type === 'antique_coins' ? 'rgba(139, 90, 43, 0.05)' : 'rgba(5, 150, 105, 0.05)';
+    const colorHex = type === 'gold' ? '#eab308' : type === 'silver' ? '#cbd5e1' : type === 'platinum' ? '#94a3b8' : type === 'antique_coins' ? '#cd853f' : '#34d399';
+    const accentBgHex = type === 'gold' ? '#eab308' : type === 'silver' ? '#64748b' : type === 'platinum' ? '#6b7280' : type === 'antique_coins' ? '#8b5a2b' : '#059669';
+    const accentBorderHex = type === 'gold' ? 'rgba(234, 179, 8, 0.2)' : type === 'silver' ? 'rgba(100, 116, 139, 0.2)' : type === 'platinum' ? 'rgba(148, 163, 184, 0.2)' : type === 'antique_coins' ? 'rgba(139, 90, 43, 0.2)' : 'rgba(5, 150, 105, 0.2)';
+    const accentGlowHex = type === 'gold' ? 'rgba(234, 179, 8, 0.05)' : type === 'silver' ? 'rgba(100, 116, 139, 0.05)' : type === 'platinum' ? 'rgba(148, 163, 184, 0.05)' : type === 'antique_coins' ? 'rgba(139, 90, 43, 0.05)' : 'rgba(5, 150, 105, 0.05)';
 
     // Calculate aggregate stats (on all items, not filtered)
     const totalWeight = metalItems.reduce((sum, item) => sum + item.weightGm, 0);
@@ -454,7 +454,7 @@ const MetalDetails = () => {
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', fontSize: '8px', color: '#52525b', fontWeight: 'bold', letterSpacing: '0.05em' }}>
                                 <span>{formatDate(item.purchaseDate)}</span>
                                 <span>
-                                    ID: {type === 'gold' ? 'G' : type === 'silver' ? 'S' : type === 'antique_coins' ? 'A' : 'C'}{(filteredItems.indexOf(item) + 1)}
+                                    ID: {type === 'gold' ? 'G' : type === 'silver' ? 'S' : type === 'platinum' ? 'P' : type === 'antique_coins' ? 'A' : 'C'}{(filteredItems.indexOf(item) + 1)}
                                 </span>
                             </div>
                         </div>
