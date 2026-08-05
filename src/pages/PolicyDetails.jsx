@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Shield, CheckCircle, Clock, Plus, Edit2, Trash2, AlertTriangle } from 'lucide-react';
 import PolicyPremiumModal from '../components/PolicyPremiumModal';
+import PolicyRecordModal from '../components/PolicyRecordModal';
 import BackButton from '../components/BackButton';
 
 const PolicyDetails = () => {
@@ -13,6 +14,12 @@ const PolicyDetails = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPremium, setEditingPremium] = useState(null);
     const [editingIndex, setEditingIndex] = useState(null);
+
+    // Benefits and claims share one modal; `recordKind` decides which it edits.
+    const [recordKind, setRecordKind] = useState('benefit');
+    const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+    const [editingRecord, setEditingRecord] = useState(null);
+    const [editingRecordIndex, setEditingRecordIndex] = useState(null);
 
     const policy = savings.find(s => s.id.toString() === id);
 
@@ -25,7 +32,9 @@ const PolicyDetails = () => {
                 totalAmountToBePaid: 0,
                 remainingAmountToBePaid: 0,
                 details: {},
-                premiums: []
+                premiums: [],
+                benefits: [],
+                claims: []
             };
         }
 
@@ -59,6 +68,24 @@ const PolicyDetails = () => {
             .filter(p => p.dueDate)
             .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0] || null;
 
+        // Benefits the policy pays out (survival, maturity, bonus) and claims
+        // made against it. Both are stored on the policy record.
+        const benefits = policy.benefits || [];
+        const claims = policy.claims || [];
+
+        const benefitsReceived = benefits
+            .filter(b => b.status === 'Received')
+            .reduce((sum, b) => sum + (Number(b.settledAmount) || Number(b.amount) || 0), 0);
+        const benefitsExpected = benefits
+            .filter(b => b.status !== 'Received')
+            .reduce((sum, b) => sum + (Number(b.amount) || 0), 0);
+
+        const claimsSettled = claims
+            .filter(c => c.status === 'Settled')
+            .reduce((sum, c) => sum + (Number(c.settledAmount) || Number(c.amount) || 0), 0);
+        const claimsOpen = claims.filter(c => !['Settled', 'Rejected'].includes(c.status));
+        const claimsOpenAmount = claimsOpen.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
         return {
             totalPaid,
             amountReceivedBack,
@@ -67,6 +94,13 @@ const PolicyDetails = () => {
             remainingAmountToBePaid,
             details,
             premiums,
+            benefits,
+            claims,
+            benefitsReceived,
+            benefitsExpected,
+            claimsSettled,
+            claimsOpen,
+            claimsOpenAmount,
             pending,
             overdue,
             upcoming,
@@ -98,6 +132,13 @@ const PolicyDetails = () => {
         remainingAmountToBePaid,
         details,
         premiums,
+        benefits,
+        claims,
+        benefitsReceived,
+        benefitsExpected,
+        claimsSettled,
+        claimsOpen,
+        claimsOpenAmount,
         pending,
         overdue,
         upcoming,
@@ -124,6 +165,32 @@ const PolicyDetails = () => {
         setIsModalOpen(false);
         setEditingPremium(null);
         setEditingIndex(null);
+    };
+
+    /** Benefits and claims are stored as arrays on the policy, like premiums. */
+    const saveRecord = (record) => {
+        const key = recordKind === 'claim' ? 'claims' : 'benefits';
+        const list = [...(policy[key] || [])];
+        if (editingRecordIndex !== null) list[editingRecordIndex] = record;
+        else list.push(record);
+
+        updateItem('savings', { ...policy, [key]: list });
+        setIsRecordModalOpen(false);
+        setEditingRecord(null);
+        setEditingRecordIndex(null);
+    };
+
+    const deleteRecord = (kind, index) => {
+        const key = kind === 'claim' ? 'claims' : 'benefits';
+        if (!window.confirm(`Delete this ${kind}?`)) return;
+        updateItem('savings', { ...policy, [key]: (policy[key] || []).filter((_, i) => i !== index) });
+    };
+
+    const openRecordModal = (kind, record = null, index = null) => {
+        setRecordKind(kind);
+        setEditingRecord(record);
+        setEditingRecordIndex(index);
+        setIsRecordModalOpen(true);
     };
 
     const handleDeletePremium = (index) => {
@@ -392,11 +459,140 @@ const PolicyDetails = () => {
                 </div>
             </div>
 
+            {/* Benefits the policy pays out, and claims made against it. Both
+                use the same table shape; only the columns differ in meaning. */}
+            {[
+                {
+                    kind: 'benefit',
+                    heading: 'Benefits',
+                    rows: benefits,
+                    empty: 'No benefits recorded. Add survival benefits, maturity or bonuses as they fall due.',
+                    dateHead: 'Due / Expected',
+                    amountHead: 'Amount',
+                    settledHead: 'Received',
+                    doneStatus: 'Received',
+                    summary: [
+                        { label: 'Received', value: benefitsReceived, color: '#34d399' },
+                        { label: 'Expected', value: benefitsExpected, color: '#fbbf24' }
+                    ]
+                },
+                {
+                    kind: 'claim',
+                    heading: 'Claims',
+                    rows: claims,
+                    empty: 'No claims filed against this policy.',
+                    dateHead: 'Claim Date',
+                    amountHead: 'Claimed',
+                    settledHead: 'Settled',
+                    doneStatus: 'Settled',
+                    summary: [
+                        { label: 'Settled', value: claimsSettled, color: '#34d399' },
+                        { label: `Open (${claimsOpen.length})`, value: claimsOpenAmount, color: '#fbbf24' }
+                    ]
+                }
+            ].map(section => (
+                <div key={section.kind} className="pol-table-container" style={{ marginTop: '2rem' }}>
+                    <div className="pol-table-header" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+                            <h3 className="text-lg font-bold tracking-tight text-white">{section.heading}</h3>
+                            {section.rows.length > 0 && section.summary.map(s => (
+                                <div key={s.label}>
+                                    <span style={{ fontSize: '0.6rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#71717a' }}>{s.label}</span>
+                                    <p style={{ margin: 0, fontFamily: 'monospace', fontWeight: 900, color: s.color }}>{formatCurrency(s.value)}</p>
+                                </div>
+                            ))}
+                        </div>
+                        <button
+                            onClick={() => openRecordModal(section.kind)}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+                        >
+                            <Plus size={14} /> Add {section.kind}
+                        </button>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table className="pol-table">
+                            <thead>
+                                <tr>
+                                    <th style={{ padding: '1rem', textAlign: 'left' }}>{section.heading.slice(0, -1)}</th>
+                                    <th style={{ padding: '1rem', textAlign: 'left' }}>{section.dateHead}</th>
+                                    <th style={{ padding: '1rem', textAlign: 'right' }}>{section.amountHead}</th>
+                                    <th style={{ padding: '1rem', textAlign: 'right' }}>{section.settledHead}</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Status</th>
+                                    <th style={{ padding: '1rem', textAlign: 'center' }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {section.rows.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                                            {section.empty}
+                                        </td>
+                                    </tr>
+                                ) : section.rows.map((r, index) => {
+                                    const done = r.status === section.doneStatus;
+                                    const rejected = r.status === 'Rejected';
+                                    return (
+                                        <tr key={index} className="group">
+                                            <td style={{ padding: '1rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                                                {r.title}
+                                                {r.category && <span style={{ display: 'block', fontSize: '0.7rem', color: '#71717a' }}>{r.category}</span>}
+                                                {r.reference && <span style={{ display: 'block', fontSize: '0.7rem', color: '#52525b' }}>{r.reference}</span>}
+                                            </td>
+                                            <td style={{ padding: '1rem', color: 'var(--text-secondary)' }}>{r.date || '-'}</td>
+                                            <td style={{ padding: '1rem', textAlign: 'right', fontFamily: 'monospace' }}>{formatCurrency(r.amount || 0)}</td>
+                                            <td style={{ padding: '1rem', textAlign: 'right', fontFamily: 'monospace', color: done ? '#34d399' : '#52525b' }}>
+                                                {done ? formatCurrency(r.settledAmount || r.amount || 0) : '-'}
+                                                {done && r.settledDate && <span style={{ display: 'block', fontSize: '0.7rem', color: '#71717a' }}>{r.settledDate}</span>}
+                                            </td>
+                                            <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                                <span style={{
+                                                    padding: '0.2rem 0.6rem', borderRadius: '0.4rem', fontSize: '0.7rem', fontWeight: 900,
+                                                    backgroundColor: done ? 'rgba(52,211,153,0.15)' : rejected ? 'rgba(248,113,113,0.15)' : 'rgba(251,191,36,0.15)',
+                                                    color: done ? '#34d399' : rejected ? '#f87171' : '#fbbf24'
+                                                }}>
+                                                    {r.status}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '1rem', textAlign: 'center' }}>
+                                                <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <button
+                                                        onClick={() => openRecordModal(section.kind, r, index)}
+                                                        className="p-1.5 rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-colors"
+                                                        title="Edit"
+                                                    >
+                                                        <Edit2 size={14} />
+                                                    </button>
+                                                    <button
+                                                        onClick={() => deleteRecord(section.kind, index)}
+                                                        className="p-1.5 rounded bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-white transition-colors"
+                                                        title="Delete"
+                                                    >
+                                                        <Trash2 size={14} />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            ))}
+
             <PolicyPremiumModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSavePremium}
                 initialData={editingPremium}
+            />
+
+            <PolicyRecordModal
+                isOpen={isRecordModalOpen}
+                onClose={() => setIsRecordModalOpen(false)}
+                onSave={saveRecord}
+                initialData={editingRecord}
+                kind={recordKind}
             />
         </div>
     );
