@@ -20,7 +20,7 @@ const NavItem = ({ to, icon: Icon, label }) => (
                 <span className={`p-1.5 rounded-lg transition-colors ${isActive ? 'bg-orange-500/10' : 'group-hover:bg-white/5'}`}>
                     <Icon size={18} />
                 </span>
-                <span>{label}</span>
+                <span className="hidden xl:inline">{label}</span>
                 {isActive && (
                     <span className="absolute -bottom-[21px] left-0 right-0 h-0.5 bg-orange-500 rounded-t-full shadow-[0_-2px_6px_rgba(249,115,22,0.5)]" />
                 )}
@@ -41,7 +41,7 @@ const NavDropdown = ({ label, icon: Icon, items }) => {
                 <span className="p-1.5 rounded-lg transition-colors group-hover:bg-white/5">
                     <Icon size={18} />
                 </span>
-                <span>{label}</span>
+                <span className="hidden xl:inline">{label}</span>
             </div>
             {isOpen && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 w-48 bg-[#18181b] border border-white/10 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] flex flex-col py-1 overflow-hidden animate-fade-in">
@@ -122,10 +122,13 @@ const Layout = () => {
                     </div>
 
                     {/* Navigation Items - Centered */}
-                    {/* min-w-0 lets the nav shrink inside the flex row, and the
-                        scroll fallback guarantees no link is ever unreachable
-                        on a narrow window. */}
-                    <nav className="flex-1 min-w-0 flex items-center justify-center gap-1.5 xl:gap-3 overflow-x-auto scrollbar-none">
+                    {/* Overflow must stay visible: the dropdown menus are absolutely
+                        positioned below this bar, and any overflow value other than
+                        visible clips them vertically as well as horizontally, which
+                        makes every grouped link unreachable. Space is managed by
+                        grouping links into dropdowns and by hiding labels on
+                        narrower windows, never by scrolling this container. */}
+                    <nav className="flex-1 min-w-0 flex items-center justify-center gap-1.5 xl:gap-3">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         <NavDropdown
                             label="Income"

@@ -146,12 +146,21 @@ off-screen — this already happened and made the Cards, All Transactions, Asset
 and Loans & Lents pages look "missing" when the pages were fine.
 
 Group related destinations into a `NavDropdown` instead of adding top-level
-items. The nav also has `overflow-x-auto` as a fallback so a link is never
-unreachable. After changing it, verify nothing is clipped:
+items, and let labels hide below `xl` if more room is needed.
+
+**Never put `overflow` on the `<nav>`.** The dropdown menus are absolutely
+positioned below the bar, and CSS cannot clip one axis while leaving the other
+visible — setting `overflow-x-auto` to stop horizontal clipping silently clips
+the menus vertically too, making every grouped link unreachable. This was tried
+and broke all dropdown navigation.
+
+After changing the header, verify both that nothing is clipped and that a
+dropdown still opens:
 
 ```js
 const n = document.querySelector('header nav');
-n.scrollWidth <= n.clientWidth;   // must be true at 1280px
+getComputedStyle(n).overflowY === 'visible';   // must stay true
+n.scrollWidth <= n.clientWidth;                // must be true at 1280px
 ```
 
 ---
