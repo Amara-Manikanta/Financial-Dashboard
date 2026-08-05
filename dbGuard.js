@@ -49,8 +49,10 @@ export const inspectWrite = ({ method, url, body, dbFile }) => {
     // Single-record writes and deletes are bounded in blast radius by design.
     if (recordId) return { safe: true };
 
-    // PATCH cannot drop sibling keys, but it replaces the keys it does send —
-    // so it can still shrink a collection from within and must be checked.
+    // Both verbs replace the keys they carry, so either can shrink a collection
+    // from within. (server.js merges PATCH into a full PUT before it gets here,
+    // because json-server beta.3 does not merge PATCH itself — see the note on
+    // mergePatchIntoPut. What arrives is therefore usually already a PUT.)
     if (method !== 'PUT' && method !== 'PATCH' && method !== 'DELETE') {
         return { safe: true };
     }
@@ -91,11 +93,24 @@ export const inspectWrite = ({ method, url, body, dbFile }) => {
         }
     }
 
-    // Rule 2: a collection stored as a map of arrays (metals, expenses) must
-    // stay that shape. A write once nested the whole metals object under a
-    // stray "item" key, burying gold and silver one level deeper on every
-    // save until the real categories were unreachable. Any value arriving
-    // where an array is expected is a malformed write, not an edit.
+    // Rule 2: nothing may introduce a top-level "item" key.
+    //
+    // This is the signature of json-server 1.0.0-beta.3's broken PATCH, which
+    // writes `{ item, ...body }` and so buries the entire existing collection
+    // under a literal "item" key — one level deeper on every save. It is what
+    // corrupted metals, and it silently doubled the size of expenses and
+    // appData. server.js now merges PATCH itself so this should never arrive,
+    // and if it does, something is bypassing that path.
+    if (isPlainObject(incoming) && 'item' in incoming && isPlainObject(existing) && !('item' in existing)) {
+        return {
+            safe: false,
+            reason: `${method} /${collection} would add a top-level "item" key — the signature of json-server's broken PATCH nesting the collection inside itself`,
+        };
+    }
+
+    // Rule 3: a collection stored as a map of arrays (metals) must stay that
+    // shape. Any value arriving where an array is expected is a malformed
+    // write, not an edit.
     if (isPlainObject(existing) && isPlainObject(incoming)) {
         const existingValues = Object.values(existing);
         const isMapOfArrays = existingValues.length > 0 && existingValues.every(Array.isArray);
@@ -112,7 +127,7 @@ export const inspectWrite = ({ method, url, body, dbFile }) => {
         }
     }
 
-    // Rule 3: a write must not shrink the collection beyond the threshold.
+    // Rule 4: a write must not shrink the collection beyond the threshold.
     // For PATCH, judge the merged result rather than the payload, because
     // json-server merges shallowly: keys that are sent replace what was there.
     const resulting = (method === 'PATCH' && isPlainObject(existing) && isPlainObject(incoming))

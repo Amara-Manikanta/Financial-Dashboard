@@ -26,11 +26,12 @@ starting with `db-backup-`, so safepoints survive.
 
 ### Never test writes against the live database
 
-Copy the data to a throwaway file and run an isolated server against it. Both
-ports are overridable:
+Copy the data to a throwaway file and run an isolated server against it. The
+database path and both ports are overridable — set all three, or the "isolated"
+instance still reads and writes the real `db.json`:
 
 ```bash
-PROXY_PORT=4000 INTERNAL_PORT=4001 node server.js
+DB_FILE=/tmp/test-db.json PROXY_PORT=4000 INTERNAL_PORT=4001 node server.js
 ```
 
 ### Never commit database exports
@@ -66,6 +67,32 @@ npm run dev      # Vite (5173)
 npm run build
 ```
 
+### Run the pinned `json-server`, never one from `PATH`
+
+`server.js` spawns `node_modules/.bin/json-server` by absolute path on purpose.
+It used to spawn plain `json-server`, which resolved to a globally installed
+**1.0.0-beta.5** instead of the pinned **1.0.0-beta.3**. beta.5 ships a body
+parser that rejects any request body over **100 KB** with a 500.
+
+Every write here sends a whole collection, and three are over that line —
+`expenses` ~1.8 MB, `savings` ~168 KB, `appData` ~122 KB. So saving an expense
+returned 500, `saveExpenses` swallowed it in `catch { console.error }`, the
+change stayed in React state and looked saved, and it was gone on the next
+reload. It presents as data mysteriously reverting, not as an error.
+
+If writes start failing again, check which binary is actually running:
+
+```bash
+ps -eo args | grep json-server
+```
+
+`DB_FILE` is also env-overridable now, so an isolated instance really is
+isolated — the guard, the backups and json-server all read that one value:
+
+```bash
+DB_FILE=/tmp/test-db.json PROXY_PORT=4000 INTERNAL_PORT=4001 node server.js
+```
+
 ### Never import `db.json` into source code
 
 ```js
@@ -86,13 +113,11 @@ All data must be fetched from the API at runtime. When the initial load fails,
 state stays empty, `loadError` is set, and `canWrite()` refuses saves — never
 write state that was never successfully loaded.
 
-### Use PATCH, not PUT, for collections
+### Use PATCH, not PUT, for collections — and know why it works
 
 `PUT /appData` with a partial body returns **HTTP 200** and silently deletes
-every key you did not send. This was the main corruption mechanism.
-
-PATCH merges server-side and cannot drop sibling keys. All writes to `appData`,
-`expenses` and `metals` use PATCH. Send only what changed:
+every key you did not send. So client code sends PATCH. All writes to `appData`,
+`expenses` and `metals` use it, and send only what changed:
 
 ```js
 await fetch(`${API_URL}/metals`, {
@@ -101,14 +126,36 @@ await fetch(`${API_URL}/metals`, {
 });
 ```
 
-json-server merges **shallowly**, so a key you send replaces what was there.
-That is what makes deleting a month inside a year still work.
+**The merge happens in `server.js`, not in json-server.** Do not assume the
+database does it. json-server 1.0.0-beta.3 has a genuine bug in
+`lib/service.js` — it writes
+
+```js
+db.data[name] = { item, ...body }     // meant: { ...item, ...body }
+```
+
+so the *entire existing collection* is buried under a literal `"item"` key while
+the body replaces everything at the top level. The example above would have moved
+silver into `metals.item` and left `metals.silver` gone. It nests one level
+deeper on every save. **This is what corrupted the metals collection**, and it
+had silently doubled `expenses` (1.8 MB → 3.6 MB) and `appData` before it was
+found. beta.5 fixes the merge but rejects bodies over 100 KB, so no released
+version behaves correctly on its own.
+
+`mergePatchIntoPut()` in `server.js` therefore merges the body against the
+current `db.json` and forwards it as a PUT, which beta.3 stores verbatim.
+Requests carrying an id (`/savings/123`) are left alone — the per-item path
+merges correctly.
+
+If a collection ever grows an `item` key again, that is the signature of this
+bug and something has bypassed the proxy.
 
 ### The write guard (`dbGuard.js`)
 
 Every mutation is inspected before it reaches json-server and rejected with
-**409** if it would drop a top-level key, empty a collection, delete a whole
-collection, shrink one by more than 20%, or carry malformed JSON.
+**409** if it would drop a top-level key, introduce a stray `item` key, empty a
+collection, delete a whole collection, shrink one by more than 20%, or carry
+malformed JSON.
 
 If a legitimate bulk edit is ever blocked, adjust `MAX_SHRINK_RATIO`
 deliberately — do not bypass the guard.

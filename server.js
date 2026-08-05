@@ -8,7 +8,12 @@ import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKUP_DIR = path.join(__dirname, 'backups');
-const DB_FILE = path.join(__dirname, 'db.json');
+// Overridable so an isolated instance can be pointed at a throwaway copy of the
+// database. The guard, the backups and json-server itself all read this one
+// value, so a test instance never touches the live file by accident.
+const DB_FILE = process.env.DB_FILE
+    ? path.resolve(process.env.DB_FILE)
+    : path.join(__dirname, 'db.json');
 
 // Collections that must always exist. Used to validate snapshots before they
 // are trusted, so we never keep a "backup" that is already missing data.
@@ -48,10 +53,21 @@ if (!fs.existsSync(BACKUP_DIR)) {
 
 console.log(`[SafetyGuard] Starting internal json-server on port ${INTERNAL_PORT}...`);
 
-// Spawn the actual json-server
-const jsonServerProcess = spawn('json-server', ['--watch', 'db.json', '--port', String(INTERNAL_PORT)], {
-    stdio: 'inherit',
-    shell: true
+// Spawn the actual json-server.
+//
+// Always the copy pinned in node_modules, never whatever `json-server` happens
+// to resolve to on PATH. A globally installed 1.0.0-beta.5 was being picked up
+// instead of the pinned beta.3, and beta.5 ships a body parser that rejects any
+// request over 100 KB with a 500. Every write here sends a whole collection —
+// expenses alone is ~1.8 MB — so saving an expense failed silently, the change
+// stayed in React state, looked saved, and vanished on the next reload.
+const JSON_SERVER_BIN = path.join(__dirname, 'node_modules', '.bin', 'json-server');
+if (!fs.existsSync(JSON_SERVER_BIN)) {
+    console.error(`[SafetyGuard] ✖ json-server not found at ${JSON_SERVER_BIN}. Run "npm install" first.`);
+    process.exit(1);
+}
+const jsonServerProcess = spawn(JSON_SERVER_BIN, ['--watch', DB_FILE, '--port', String(INTERNAL_PORT)], {
+    stdio: 'inherit'
 });
 
 const ICLOUD_DIR = path.join(process.env.HOME || '/Users/manikantaamara', 'Library/Mobile Documents/com~apple~CloudDocs/FinanceAnalyser');
@@ -265,8 +281,35 @@ const proxy = http.createServer((req, res) => {
 
     const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 
+    // Turn `PATCH /<collection>` into the merged `PUT` that json-server beta.3
+    // should have performed itself. Anything else is passed through untouched:
+    // requests with an id (`/savings/123`) take json-server's per-item path,
+    // which merges correctly, and array collections are replaced wholesale by
+    // design. Returns the verb and body to actually send.
+    const mergePatchIntoPut = (request, rawBody) => {
+        const untouched = { verb: request.method, body: rawBody };
+        if (request.method !== 'PATCH') return untouched;
+
+        const name = /^\/([A-Za-z0-9_-]+)$/.exec(request.url.split('?')[0])?.[1];
+        if (!name) return untouched;
+
+        try {
+            const incoming = JSON.parse(rawBody);
+            if (!incoming || typeof incoming !== 'object' || Array.isArray(incoming)) return untouched;
+
+            const existing = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))[name];
+            if (!existing || typeof existing !== 'object' || Array.isArray(existing)) return untouched;
+
+            return { verb: 'PUT', body: JSON.stringify({ ...existing, ...incoming }) };
+        } catch (err) {
+            // A body that will not parse is the guard's problem, not ours.
+            console.error(`[SafetyGuard] ⚠️  Could not merge PATCH ${request.url}: ${err.message}`);
+            return untouched;
+        }
+    };
+
     // bufferedBody is null for reads, which stay streamed as before.
-    const forward = (bufferedBody) => {
+    const forward = (bufferedBody, methodOverride) => {
         const headers = { ...req.headers };
         if (bufferedBody !== null) {
             // The body was consumed to inspect it, so re-declare its length.
@@ -278,7 +321,7 @@ const proxy = http.createServer((req, res) => {
             hostname: '127.0.0.1',
             port: INTERNAL_PORT,
             path: req.url,
-            method: req.method,
+            method: methodOverride || req.method,
             headers,
         };
 
@@ -321,8 +364,29 @@ const proxy = http.createServer((req, res) => {
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {
-        const body = Buffer.concat(chunks).toString('utf8');
-        const verdict = inspectWrite({ method: req.method, url: req.url, body, dbFile: DB_FILE });
+        let body = Buffer.concat(chunks).toString('utf8');
+
+        // json-server 1.0.0-beta.3 does not merge PATCH. lib/service.js writes
+        //     db.data[name] = { item, ...body }
+        // where the author meant `{ ...item, ...body }`. The shorthand buries the
+        // entire existing collection under a literal "item" key and lets the body
+        // replace everything at the top level — so PATCH /metals { gold } moves
+        // silver into metals.item and leaves metals.silver gone. That is what
+        // corrupted the metals collection, and it nests one level deeper on every
+        // repeat. beta.5 fixes it but rejects bodies over 100 KB, which is every
+        // write here, so neither release is usable as shipped.
+        //
+        // Do the merge in the proxy instead — the one place every write passes
+        // through — and forward it as PUT, which beta.3 stores verbatim. The
+        // guard below then judges the merged result, and a merged body can never
+        // drop a sibling key.
+        const method = mergePatchIntoPut(req, body);
+        if (method.body !== body) {
+            console.log(`[SafetyGuard] 🔀 PATCH ${req.url} merged server-side and sent as PUT`);
+        }
+        body = method.body;
+
+        const verdict = inspectWrite({ method: method.verb, url: req.url, body, dbFile: DB_FILE });
 
         if (!verdict.safe) {
             console.error(`[SafetyGuard] ⛔ BLOCKED ${req.method} ${req.url}`);
@@ -337,7 +401,7 @@ const proxy = http.createServer((req, res) => {
 
         // 2. BACKUP: only once the write is known to be sane.
         createVerifiedBackup();
-        forward(body);
+        forward(body, method.verb);
     });
 });
 
