@@ -2,7 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from './AuthContext';
 import { getLastWorkingDayOfMonth } from '../utils/dateUtils';
 import { CATEGORY_MAP } from '../utils/categories';
-import initialDb from '../../db.json';
+// NOTE: db.json is deliberately NOT imported here.
+// Vite inlines a JSON import at build time, producing a snapshot that never
+// refreshes (vite.config.js also excludes db.json from the watcher). Seeding
+// React state from that snapshot meant a failed fetch could load months-old
+// data into state, and the next save would write it back over the live DB —
+// which is how uploaded metal images reverted to their original seed paths.
+// All data must come from the server at runtime.
 
 
 const FinanceContext = createContext();
@@ -126,20 +132,23 @@ const calculateSalaryStats = (expensesData, salaryDetailsData = []) => {
 };
 
 export function FinanceProvider({ children }) {
-    const [expenses, setExpenses] = useState(initialDb.expenses || {});
-    const [savings, setSavings] = useState(initialDb.savings || []);
-    const [metals, setMetals] = useState(initialDb.metals || { gold: [], silver: [], antique_coins: [], currencies: [] });
-    const [assets, setAssets] = useState(initialDb.assets || []);
-    const [lents, setLents] = useState(initialDb.lents || []);
-    const [categories, setCategories] = useState(initialDb.appData?.categories || []);
-    const [creditCards, setCreditCards] = useState(initialDb.creditCards || []);
-    const [taxes, setTaxes] = useState(initialDb.taxes || []);
-    const [salaryDetails, setSalaryDetails] = useState(initialDb.salaryDetails || []);
-    const [goals, setGoals] = useState(initialDb.goals || []);
-    const [loans, setLoans] = useState(initialDb.loans || []);
-    const [insuranceProfile, setInsuranceProfile] = useState(initialDb.appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
+    const [expenses, setExpenses] = useState({});
+    const [savings, setSavings] = useState([]);
+    const [metals, setMetals] = useState({ gold: [], silver: [], antique_coins: [], currencies: [] });
+    const [assets, setAssets] = useState([]);
+    const [lents, setLents] = useState([]);
+    const [categories, setCategories] = useState([]);
+    const [creditCards, setCreditCards] = useState([]);
+    const [taxes, setTaxes] = useState([]);
+    const [salaryDetails, setSalaryDetails] = useState([]);
+    const [goals, setGoals] = useState([]);
+    const [loans, setLoans] = useState([]);
+    const [insuranceProfile, setInsuranceProfile] = useState({ age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
     const [salaryStats, setSalaryStats] = useState({});
-    const [snapshots, setSnapshots] = useState(initialDb.snapshots || []);
+    // True when the wallet auto-credit backfill produced rows that exist in memory
+    // but have deliberately not been written to the DB. See applyWalletAutoCredits.
+    const [pendingWalletCredits, setPendingWalletCredits] = useState(false);
+    const [snapshots, setSnapshots] = useState([]);
     const [categoryBudgets, setCategoryBudgets] = useState({});
     const [customCategoryMap, setCustomCategoryMap] = useState({});
     const [deletedCategories, setDeletedCategories] = useState([]);
@@ -156,6 +165,19 @@ export function FinanceProvider({ children }) {
     const [categoryRules, setCategoryRules] = useState({});
     const [groceryCategories, setGroceryCategories] = useState(DEFAULT_GROCERY_CATEGORIES);
     const [isLoading, setIsLoading] = useState(true);
+    // Set when the initial load failed. State is empty in that situation, so
+    // saving would write emptiness over real records — writes are refused until
+    // a successful load has actually populated state.
+    const [loadError, setLoadError] = useState(null);
+
+    /** Guard every write: never persist state that was never successfully loaded. */
+    const canWrite = () => {
+        if (loadError) {
+            console.error('[FinanceContext] Save refused: initial data load failed, so in-memory state is not a valid basis for a write. Reload once the API server is reachable.');
+            return false;
+        }
+        return true;
+    };
     const [dataError, setDataError] = useState(null);
 
     const { user, isGuest } = useAuth();
@@ -261,14 +283,18 @@ export function FinanceProvider({ children }) {
                     }
                 });
 
+                // The wallet auto-credit backfill used to PUT the whole expense tree
+                // on every app load. That made a bug in any newly added feature able
+                // to overwrite ten years of records before the user clicked anything.
+                // The backfill now stays in memory only; persisting it is an explicit
+                // action (see applyWalletAutoCredits) so a boot can never rewrite data.
                 if (isModified) {
-                    await fetch(`${API_URL}/expenses`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(modifiedExpenses)
-                    });
+                    setPendingWalletCredits(true);
+                    console.warn('[FinanceContext] Wallet auto-credits are pending. They are shown in the UI but not saved. Call applyWalletAutoCredits() to persist them.');
+                } else {
+                    setPendingWalletCredits(false);
                 }
-                
+
                 setExpenses(modifiedExpenses);
                 setSavings(savData);
                 setMetals(metData);
@@ -321,20 +347,15 @@ export function FinanceProvider({ children }) {
                 setInsuranceProfile(appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
 
             } catch (error) {
-                console.error("Failed to fetch data, falling back to local dataset:", error);
-                if (initialDb) {
-                    if (initialDb.expenses) setExpenses(initialDb.expenses);
-                    if (initialDb.savings) setSavings(initialDb.savings);
-                    if (initialDb.metals) setMetals(initialDb.metals);
-                    if (initialDb.assets) setAssets(initialDb.assets);
-                    if (initialDb.lents) setLents(initialDb.lents);
-                    if (initialDb.creditCards) setCreditCards(initialDb.creditCards);
-                    if (initialDb.taxes) setTaxes(initialDb.taxes);
-                    if (initialDb.salaryDetails) setSalaryDetails(initialDb.salaryDetails);
-                    if (initialDb.goals) setGoals(initialDb.goals);
-                    if (initialDb.loans) setLoans(initialDb.loans);
-                    setCategoryBudgets(initialDb?.appData?.categoryBudgets || JSON.parse(localStorage.getItem('categoryBudgets') || 'null') || DEFAULT_CATEGORY_BUDGETS);
-                }
+                // Previously this fell back to a bundled snapshot of db.json. That
+                // snapshot was frozen at build time, so a transient fetch failure
+                // (most often the API server restarting after a code change) put
+                // stale records into state — and the next save wrote them back,
+                // silently reverting real data. Leaving state empty and surfacing
+                // the failure is the only safe response: better to show nothing
+                // than to show old data the user might then overwrite good data with.
+                console.error("Failed to fetch data from the API:", error);
+                setLoadError(error?.message || 'Could not reach the data server.');
             } finally {
                 setIsLoading(false);
             }
@@ -358,7 +379,7 @@ export function FinanceProvider({ children }) {
             };
 
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedAppData)
             });
@@ -374,7 +395,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, categoryRules: newRules })
             });
@@ -390,7 +411,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryCategories: newCategories })
             });
@@ -468,7 +489,7 @@ export function FinanceProvider({ children }) {
             const currentAppData = await res.json();
             
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     ...currentAppData, 
@@ -480,7 +501,7 @@ export function FinanceProvider({ children }) {
 
             if (expensesChanged) {
                 await fetch(`${API_URL}/expenses`, {
-                    method: 'PUT',
+                    method: 'PATCH',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(newExpenses)
                 });
@@ -506,7 +527,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, customGroceryItems: newCustomItems })
             });
@@ -522,7 +543,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryBrands: newBrandsObj })
             });
@@ -538,7 +559,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryFlavours: newFlavoursObj })
             });
@@ -566,7 +587,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryBrands: newBrandsObj })
             });
@@ -593,7 +614,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryFlavours: newFlavoursObj })
             });
@@ -616,7 +637,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, customGroceryItems: newCustomItems })
             });
@@ -639,7 +660,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryBrands: newBrandsObj })
             });
@@ -665,7 +686,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryFlavours: newFlavoursObj })
             });
@@ -681,7 +702,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryItemBrandMap: newMap })
             });
@@ -697,7 +718,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, groceryItemFlavourMap: newMap })
             });
@@ -739,7 +760,7 @@ export function FinanceProvider({ children }) {
             };
             
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -764,7 +785,7 @@ export function FinanceProvider({ children }) {
             };
             
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -811,7 +832,7 @@ export function FinanceProvider({ children }) {
         if (isGuest) return;
         try {
             await fetch(`${API_URL}/expenses`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(sanitizedExpenses)
             });
@@ -836,7 +857,7 @@ export function FinanceProvider({ children }) {
             };
 
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -863,7 +884,7 @@ export function FinanceProvider({ children }) {
             };
 
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
@@ -906,7 +927,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, customCategoryMap: newMap })
             });
@@ -939,7 +960,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     ...currentAppData, 
@@ -981,7 +1002,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
                     ...currentAppData, 
@@ -1032,7 +1053,7 @@ export function FinanceProvider({ children }) {
             if (!isGuest) {
                 try {
                     await fetch(`${API_URL}/expenses`, {
-                        method: 'PUT',
+                        method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(newExpenses)
                     });
@@ -1070,7 +1091,7 @@ export function FinanceProvider({ children }) {
                     const res = await fetch(`${API_URL}/appData`);
                     const currentAppData = await res.json();
                     await fetch(`${API_URL}/appData`, {
-                        method: 'PUT',
+                        method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ ...currentAppData, categories: newCategories })
                     });
@@ -1457,56 +1478,46 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    /**
+     * Persist a single metal category (gold, silver, ...).
+     * PATCH sends only the category that changed, so editing a gold item can no
+     * longer rewrite — or lose — the silver array. A whole-collection PUT here
+     * is what previously reverted uploaded item images across every category.
+     */
+    const saveMetalCategory = async (type, items) => {
+        if (isGuest || !canWrite()) return;
+        try {
+            const res = await fetch(`${API_URL}/metals`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ [type]: items })
+            });
+            if (!res.ok) {
+                const detail = await res.json().catch(() => ({}));
+                console.error(`[FinanceContext] Save of metals.${type} was rejected:`, detail.reason || res.status);
+            }
+        } catch (error) {
+            console.error(`Error saving metals.${type}:`, error);
+        }
+    };
+
     const addMetal = async (type, item) => {
         const newItem = { ...item, id: Date.now() };
-        const updated = { ...metals, [type]: [...metals[type], newItem] };
-        setMetals(updated);
-        if (isGuest) return;
-        try {
-            await fetch(`${API_URL}/metals`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated)
-            });
-        } catch (error) {
-            console.error("Error adding metal:", error);
-        }
+        const nextItems = [...metals[type], newItem];
+        setMetals({ ...metals, [type]: nextItems });
+        await saveMetalCategory(type, nextItems);
     };
 
     const updateMetal = async (type, item) => {
-        const updated = {
-            ...metals,
-            [type]: metals[type].map(i => i.id === item.id ? item : i)
-        };
-        setMetals(updated);
-        if (isGuest) return;
-        try {
-            await fetch(`${API_URL}/metals`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated)
-            });
-        } catch (error) {
-            console.error("Error updating metal:", error);
-        }
+        const nextItems = metals[type].map(i => i.id === item.id ? item : i);
+        setMetals({ ...metals, [type]: nextItems });
+        await saveMetalCategory(type, nextItems);
     };
 
     const deleteMetal = async (type, id) => {
-        const updated = {
-            ...metals,
-            [type]: metals[type].filter(i => i.id !== id)
-        };
-        setMetals(updated);
-        if (isGuest) return;
-        try {
-            await fetch(`${API_URL}/metals`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updated)
-            });
-        } catch (error) {
-            console.error("Error deleting metal:", error);
-        }
+        const nextItems = metals[type].filter(i => i.id !== id);
+        setMetals({ ...metals, [type]: nextItems });
+        await saveMetalCategory(type, nextItems);
     };
 
     const deleteItem = async (type, id) => {
@@ -2061,7 +2072,7 @@ export function FinanceProvider({ children }) {
 
         try {
             await fetch(`${API_URL}/expenses`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updatedExpenses)
             });
@@ -2205,7 +2216,7 @@ export function FinanceProvider({ children }) {
             const res = await fetch(`${API_URL}/appData`);
             const currentAppData = await res.json();
             await fetch(`${API_URL}/appData`, {
-                method: 'PUT',
+                method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ...currentAppData, insuranceProfile: profile })
             });
@@ -2214,9 +2225,38 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    /**
+     * Persist the wallet auto-credit rows that the loader computed in memory.
+     * This is deliberately manual: it rewrites the whole expense tree, so it
+     * should happen when the user asks for it, not silently on every boot.
+     */
+    const applyWalletAutoCredits = async () => {
+        if (isGuest || !pendingWalletCredits) return { applied: false };
+        try {
+            const res = await fetch(`${API_URL}/expenses`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(expenses)
+            });
+            if (!res.ok) {
+                // The SafetyGuard proxy rejects writes that would lose records.
+                const detail = await res.json().catch(() => ({}));
+                console.error('[FinanceContext] Wallet auto-credit save was rejected:', detail.reason || res.status);
+                return { applied: false, reason: detail.reason || `HTTP ${res.status}` };
+            }
+            setPendingWalletCredits(false);
+            return { applied: true };
+        } catch (error) {
+            console.error('[FinanceContext] Failed to apply wallet auto-credits:', error);
+            return { applied: false, reason: error.message };
+        }
+    };
+
     const value = {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         goals, loans, insuranceProfile,
+        pendingWalletCredits, applyWalletAutoCredits,
+        loadError,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,
         addNewYear, takeSnapshot, updateCategoryBudget, saveCategoryBudgets,
         formatCurrency,

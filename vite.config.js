@@ -16,6 +16,16 @@ export default defineConfig({
       ]
     },
     proxy: {
+      // Uploaded images are stored and served by the API server, not by Vite.
+      // Proxying lets the DB hold portable relative URLs like /api/images/x.jpg.
+      '/api/images': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      },
+      '/api/upload': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      },
       '/api/goldprice': {
         target: 'https://data-asg.goldprice.org',
         changeOrigin: true,

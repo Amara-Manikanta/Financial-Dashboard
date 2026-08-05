@@ -20,6 +20,8 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
     const [place, setPlace] = useState('');
     const [remarks, setRemarks] = useState('');
     const [image, setImage] = useState('');
+    const [isUploading, setIsUploading] = useState(false);
+    const [imageError, setImageError] = useState('');
 
     // Sync state with initialData
     useEffect(() => {
@@ -93,8 +95,11 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                     canvas.height = height;
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-                    setImage(compressedBase64);
+                    // Hold the compressed image locally as a preview only. It is
+                    // uploaded on save, once the item's final name is known, so the
+                    // stored file is named after the item it belongs to.
+                    setImage(canvas.toDataURL('image/jpeg', 0.7));
+                    setImageError('');
                 };
             };
             reader.readAsDataURL(file);
@@ -102,8 +107,43 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
         e.target.value = '';
     };
 
-    const handleSubmit = (e) => {
+    /**
+     * Store a freshly picked photo as a file and return its URL.
+     * Done here rather than at pick time so the file is named after the item's
+     * final name, which makes the contents of db/images browsable by eye.
+     * Values that are already URLs (an unchanged photo) are passed through.
+     */
+    const persistImage = async () => {
+        if (!image || !image.startsWith('data:')) return image;
+
+        const res = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ dataUrl: image, name: name || metalType || 'metal' })
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || `Upload failed (${res.status})`);
+        return payload.url;
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isUploading) return;
+
+        // Never fall back to embedding the base64 blob in db.json: that is the
+        // behaviour that bloated the database and made photos fragile.
+        let storedImageUrl;
+        try {
+            setIsUploading(true);
+            setImageError('');
+            storedImageUrl = await persistImage();
+        } catch (err) {
+            console.error('Image upload failed:', err);
+            setImageError(`${err.message || 'Image upload failed'} — the item was not saved.`);
+            setIsUploading(false);
+            return;
+        }
+        setIsUploading(false);
 
         let calculatedCurrentValue = initialData?.currentValue || 0;
         if (metalType === 'currencies') {
@@ -124,8 +164,8 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             purchaseDate: (purchaseDate && !isNaN(purchaseDate.getTime())) ? purchaseDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             place,
             remarks,
-            image,
-            imageUrl: image,
+            image: storedImageUrl,
+            imageUrl: storedImageUrl,
             currentValue: calculatedCurrentValue
         };
         onAdd(dataToSubmit);
@@ -362,15 +402,23 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                                             <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 hover:opacity-100 transition-opacity rounded-xl">
                                                 <span className="text-white text-xs font-bold">Change Photo</span>
                                             </div>
+                                            {isUploading && (
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black/60 rounded-xl">
+                                                    <span className="text-white text-xs font-bold">Saving photo...</span>
+                                                </div>
+                                            )}
                                         </div>
                                     ) : (
                                         <div className="flex flex-col items-center gap-2 text-gray-500">
                                             <Image size={24} />
-                                            <span className="text-xs font-bold">Upload Photo</span>
+                                            <span className="text-xs font-bold">{isUploading ? 'Saving photo...' : 'Upload Photo'}</span>
                                         </div>
                                     )}
                                 </label>
                             </div>
+                            {imageError && (
+                                <p className="text-[10px] font-bold text-rose-400 ml-1">{imageError}</p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -397,9 +445,10 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                     <button
                         form="metal-form"
                         type="submit"
-                        className={`flex-[2] py-4 rounded-2xl ${accentBg} text-white font-black hover:opacity-90 transition-all text-xs uppercase tracking-[0.15em] shadow-lg`}
+                        disabled={isUploading}
+                        className={`flex-[2] py-4 rounded-2xl ${accentBg} text-white font-black hover:opacity-90 transition-all text-xs uppercase tracking-[0.15em] shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
                     >
-                        {initialData ? 'Update Item' : 'Add Item'}
+                        {isUploading ? 'Saving Photo...' : (initialData ? 'Update Item' : 'Add Item')}
                     </button>
                 </div>
             </div>
