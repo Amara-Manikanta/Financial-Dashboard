@@ -1,5 +1,6 @@
 import http from 'http';
 import fs from 'fs';
+import crypto from 'crypto';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
@@ -50,6 +51,24 @@ const PROXY_PORT = Number(process.env.PROXY_PORT) || 3000;
 if (!fs.existsSync(BACKUP_DIR)) {
     fs.mkdirSync(BACKUP_DIR);
 }
+
+/**
+ * A short fingerprint of one collection as it currently stands on disk.
+ *
+ * Used for the lost-update check: a client sends back the version it read, and
+ * a write is only allowed on top of that exact version. Content-based rather
+ * than a counter, so it survives restarts and stays correct no matter who wrote
+ * last — including edits made to db.json by hand.
+ */
+const collectionVersion = (name) => {
+    try {
+        const value = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))[name];
+        if (value === undefined) return null;
+        return crypto.createHash('sha1').update(JSON.stringify(value)).digest('hex').slice(0, 16);
+    } catch {
+        return null;
+    }
+};
 
 console.log(`[SafetyGuard] Starting internal json-server on port ${INTERNAL_PORT}...`);
 
@@ -281,6 +300,8 @@ const proxy = http.createServer((req, res) => {
 
     const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 
+    const collectionOf = (url) => /^\/([A-Za-z0-9_-]+)$/.exec(url.split('?')[0])?.[1] || null;
+
     // Turn `PATCH /<collection>` into the merged `PUT` that json-server beta.3
     // should have performed itself. Anything else is passed through untouched:
     // requests with an id (`/savings/123`) take json-server's per-item path,
@@ -290,7 +311,7 @@ const proxy = http.createServer((req, res) => {
         const untouched = { verb: request.method, body: rawBody };
         if (request.method !== 'PATCH') return untouched;
 
-        const name = /^\/([A-Za-z0-9_-]+)$/.exec(request.url.split('?')[0])?.[1];
+        const name = collectionOf(request.url);
         if (!name) return untouched;
 
         try {
@@ -326,7 +347,22 @@ const proxy = http.createServer((req, res) => {
         };
 
         const proxyReq = http.request(options, (proxyRes) => {
-            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            const outHeaders = { ...proxyRes.headers };
+
+            // Hand back the version of the collection as it now stands, so the
+            // client can base its next write on it. json-server has already
+            // written db.json by the time it responds, so this reads the result.
+            const name = collectionOf(req.url);
+            if (name) {
+                const version = collectionVersion(name);
+                if (version) {
+                    outHeaders['x-db-version'] = version;
+                    // Custom headers are invisible to fetch() unless exposed.
+                    outHeaders['access-control-expose-headers'] = 'X-DB-Version';
+                }
+            }
+
+            res.writeHead(proxyRes.statusCode, outHeaders);
             proxyRes.pipe(res);
             if (isMutation) {
                 proxyRes.on('end', () => {
@@ -365,6 +401,28 @@ const proxy = http.createServer((req, res) => {
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {
         let body = Buffer.concat(chunks).toString('utf8');
+
+        // LOST-UPDATE CHECK. A whole-collection write replaces everything, so a
+        // client working from a stale copy silently erases whatever it never saw
+        // — two browser tabs, or a tab left open while something else wrote.
+        // Clients that send the version they read may only write on top of that
+        // exact version; if the database has moved, the write is refused and the
+        // client is told to reload rather than quietly winning.
+        const baseVersion = req.headers['if-match'];
+        const targetCollection = collectionOf(req.url);
+        if (baseVersion && targetCollection) {
+            const current = collectionVersion(targetCollection);
+            if (current && current !== baseVersion) {
+                console.error(`[SafetyGuard] ⛔ STALE ${req.method} ${req.url} (based on ${baseVersion}, current ${current})`);
+                res.writeHead(409, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    error: 'Write refused: this data changed since you loaded it',
+                    reason: 'Another tab or device saved first. Reload before saving, or this write would erase their changes.',
+                    currentVersion: current,
+                }));
+                return;
+            }
+        }
 
         // json-server 1.0.0-beta.3 does not merge PATCH. lib/service.js writes
         //     db.data[name] = { item, ...body }

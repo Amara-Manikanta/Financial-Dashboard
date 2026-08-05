@@ -160,6 +160,36 @@ malformed JSON.
 If a legitimate bulk edit is ever blocked, adjust `MAX_SHRINK_RATIO`
 deliberately — do not bypass the guard.
 
+### Writes carry the version they were based on
+
+Every save sends a whole collection, so a client working from a stale copy
+overwrites everything it never loaded. Two browser tabs was enough to lose a
+whole evening's entries: each tab held its own snapshot, and whichever saved
+last silently erased the other's rows.
+
+`server.js` fingerprints each collection (`collectionVersion`, a sha1 of its
+current JSON) and returns it as `X-DB-Version` on every request. A client that
+sends that value back as `If-Match` may only write on top of that exact
+version; if the database has moved, the write is refused with **409** and the
+banner tells the user to reload.
+
+Clients that send no `If-Match` are still accepted, so nothing breaks — but any
+new whole-collection write path should send it. `FinanceContext` does this for
+`expenses`, which is the collection that actually suffers.
+
+### A failed write must never look like a successful one
+
+`saveExpenses` used to swallow errors into `console.error`. React state had
+already been updated, so the row sat on screen looking saved and was gone on
+the next reload — which is why this presents as "the database keeps losing my
+data" rather than as an error.
+
+Failed and refused writes now set `saveError`, rendered as a red **NOT SAVED**
+banner across the top of every page. Guest mode sets it too: guest saves are a
+deliberate no-op, and that was previously invisible.
+
+Any new write path must do the same. Never leave a `catch` that only logs.
+
 ---
 
 ## 3. Styling: Tailwind is required

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { getLastWorkingDayOfMonth } from '../utils/dateUtils';
 import { CATEGORY_MAP } from '../utils/categories';
@@ -190,6 +190,17 @@ export function FinanceProvider({ children }) {
     // a successful load has actually populated state.
     const [loadError, setLoadError] = useState(null);
 
+    // Set whenever a write does not reach the database. Rendered as a banner, so
+    // a lost write is visible immediately rather than being discovered on the
+    // next reload, when the record is already gone.
+    const [saveError, setSaveError] = useState(null);
+
+    // The version of `expenses` this tab last read. Sent with every save; the
+    // server refuses the write if the collection has moved on since. A whole
+    // collection is written on each save, so without this a second tab — or the
+    // same tab left open — silently erases everything it never loaded.
+    const expensesVersion = useRef(null);
+
     /** Guard every write: never persist state that was never successfully loaded. */
     const canWrite = () => {
         if (loadError) {
@@ -240,6 +251,11 @@ export function FinanceProvider({ children }) {
                     fetch(`${API_URL}/goals`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
                     fetch(`${API_URL}/loans`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
                 ]);
+
+                // Remember which version of expenses this tab is working from, so
+                // a save can be refused if something else wrote in the meantime
+                // rather than overwriting it.
+                expensesVersion.current = expRes.headers?.get?.('X-DB-Version') || null;
 
                 const expData = await expRes.json();
                 const savData = await savRes.json();
@@ -852,15 +868,44 @@ export function FinanceProvider({ children }) {
         });
 
         setExpenses(sanitizedExpenses);
-        if (isGuest) return;
+
+        // A save that fails must never look like a save that worked. React state
+        // has already been updated above, so the row is on screen either way —
+        // if the write does not land, the only thing standing between the user
+        // and silent data loss is this banner.
+        if (isGuest) {
+            setSaveError('Signed in as guest — nothing you enter is being saved. Sign in as admin and re-enter it.');
+            return;
+        }
         try {
-            await fetch(`${API_URL}/expenses`, {
+            const res = await fetch(`${API_URL}/expenses`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    // Only write on top of the version this tab actually read.
+                    ...(expensesVersion.current ? { 'If-Match': expensesVersion.current } : {})
+                },
                 body: JSON.stringify(sanitizedExpenses)
             });
+
+            if (res.status === 409) {
+                const info = await res.json().catch(() => ({}));
+                setSaveError(
+                    info.reason
+                    || 'Another tab saved first. Reload this page before saving, or your change would erase theirs.'
+                );
+                return;
+            }
+            if (!res.ok) {
+                const detail = await res.text().catch(() => '');
+                throw new Error(`server returned ${res.status}. ${detail.slice(0, 300)}`);
+            }
+
+            expensesVersion.current = res.headers?.get?.('X-DB-Version') || null;
+            setSaveError(null);
         } catch (error) {
-            console.error("Failed to save expenses:", error);
+            console.error('Failed to save expenses:', error);
+            setSaveError(`This did not save: ${error.message}. It is only on screen — do not reload until it is fixed.`);
         }
     };
 
@@ -2337,11 +2382,34 @@ export function FinanceProvider({ children }) {
         saveGroceryCategories,
         mergeGroceryItem,
         dataError,
+        saveError,
+        dismissSaveError: () => setSaveError(null),
         isLoading
     };
 
     return (
         <FinanceContext.Provider value={value}>
+            {(saveError || loadError) && (
+                <div
+                    role="alert"
+                    className="fixed inset-x-0 top-0 z-[100] bg-rose-600 text-white px-4 py-3 shadow-lg shadow-rose-900/40"
+                >
+                    <div className="max-w-4xl mx-auto flex items-start gap-3">
+                        <span className="font-black text-sm shrink-0">NOT SAVED</span>
+                        <p className="text-xs font-medium leading-relaxed flex-1">
+                            {saveError || `Could not load your data (${loadError}). Nothing you enter now will be saved.`}
+                        </p>
+                        {saveError && (
+                            <button
+                                onClick={() => setSaveError(null)}
+                                className="shrink-0 text-xs font-bold underline underline-offset-2 hover:opacity-80"
+                            >
+                                Dismiss
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
             {children}
         </FinanceContext.Provider>
     );
