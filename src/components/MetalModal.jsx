@@ -363,6 +363,11 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                                         onChange={(date) => setPurchaseDate(date)}
                                         dateFormat="dd/MM/yy"
                                         className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-2 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-xs"
+                                        wrapperClassName="w-full"
+                                        portalId="datepicker-portal"
+                                        showMonthDropdown
+                                        showYearDropdown
+                                        dropdownMode="select"
                                     />
                                 </div>
                             </div>

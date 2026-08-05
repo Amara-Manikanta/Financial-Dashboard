@@ -263,7 +263,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             onClick={handleBackdropClick}
         >
             <div
-                className="w-full max-w-sm bg-modal rounded-[40px] overflow-hidden border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up flex flex-col"
+                className="w-full max-w-md bg-modal rounded-[40px] overflow-hidden border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up flex flex-col"
                 style={{ maxHeight: '82vh' }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -302,15 +302,24 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                     />
                                 </div>
                             </div>
-                            <div className="w-[140px] space-y-2">
+                            <div className="w-[152px] space-y-2">
                                 <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Date</label>
                                 <div className="relative group">
-                                    <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-400 transition-colors" />
+                                    <Calendar size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 group-focus-within:text-emerald-400 transition-colors z-10" />
                                     <DatePicker
                                         selected={date}
                                         onChange={(date) => setDate(date)}
                                         dateFormat="dd/MM/yy"
                                         className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 text-white font-bold text-sm focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all"
+                                        wrapperClassName="w-full"
+                                        /* Render the calendar at the end of <body>. Inside the modal it was
+                                           clipped by the scroll container, cutting off Saturday and the last
+                                           week of the month. */
+                                        portalId="datepicker-portal"
+                                        popperPlacement="bottom-end"
+                                        showMonthDropdown
+                                        showYearDropdown
+                                        dropdownMode="select"
                                         required
                                     />
                                 </div>

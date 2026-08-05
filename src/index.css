@@ -138,6 +138,128 @@
   display: none;
 }
 
+/* react-datepicker ships a light theme sized for a desktop form. These rules
+   restyle it to match the dark modals it opens from and enlarge the hit areas,
+   which were too small to tap comfortably. Third-party component styling, so it
+   belongs here rather than as Tailwind classes on the element.
+
+   The calendar is rendered through `portalId` into a node at the end of <body>,
+   so it escapes the modal's `overflow-hidden` — inside it, the last column and
+   the lower rows were being clipped. */
+.react-datepicker-popper {
+  z-index: 60;
+}
+
+.react-datepicker {
+  font-family: inherit;
+  font-size: 0.9rem;
+  background-color: #17171a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1.25rem;
+  box-shadow: 0 24px 48px -12px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+}
+
+.react-datepicker__header {
+  background-color: #202024;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding-top: 0.875rem;
+}
+
+.react-datepicker__current-month,
+.react-datepicker__day-name {
+  color: #f4f4f5;
+}
+
+.react-datepicker__current-month {
+  font-size: 1rem;
+  font-weight: 700;
+  padding-bottom: 0.25rem;
+}
+
+.react-datepicker__day-name {
+  color: #8e8e93;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.react-datepicker__day-name,
+.react-datepicker__day {
+  width: 2.4rem;
+  line-height: 2.4rem;
+  margin: 0.15rem;
+}
+
+.react-datepicker__day {
+  color: #e4e4e7;
+  border-radius: 0.75rem;
+}
+
+.react-datepicker__day:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.react-datepicker__day--selected,
+.react-datepicker__day--keyboard-selected {
+  background-color: #10b981;
+  color: #05140e;
+  font-weight: 700;
+}
+
+.react-datepicker__day--selected:hover {
+  background-color: #34d399;
+}
+
+.react-datepicker__day--today {
+  font-weight: 700;
+  color: #34d399;
+}
+
+.react-datepicker__day--outside-month {
+  color: #52525b;
+}
+
+.react-datepicker__day--disabled {
+  color: #3f3f46;
+}
+
+.react-datepicker__navigation {
+  top: 0.9rem;
+}
+
+.react-datepicker__navigation-icon::before {
+  border-color: #a1a1aa;
+}
+
+.react-datepicker__navigation:hover .react-datepicker__navigation-icon::before {
+  border-color: #ffffff;
+}
+
+.react-datepicker__triangle {
+  display: none;
+}
+
+/* Month and year selects, so a date months away is one choice rather than
+   many clicks on the arrows. */
+.react-datepicker__header__dropdown {
+  padding: 0.5rem 0 0.25rem;
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.react-datepicker__month-select,
+.react-datepicker__year-select {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  color: #f4f4f5;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.4rem;
+}
+
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
