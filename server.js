@@ -19,6 +19,10 @@ const REQUIRED_COLLECTIONS = ['expenses', 'savings', 'metals', 'assets', 'appDat
 // images collateral damage whenever a bad write landed. This directory is
 // gitignored: the pictures are personal and are not source code.
 const UPLOAD_DIR = path.join(__dirname, 'db', 'images');
+// Policy paperwork — receipts, RC copies, original insurance documents — is
+// kept apart from item photos so the folders stay meaningful when browsed.
+const DOCUMENT_DIR = path.join(__dirname, 'db', 'documents');
+const UPLOAD_FOLDERS = { images: UPLOAD_DIR, documents: DOCUMENT_DIR };
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 // Photos plus PDF, so purchase bills can be kept alongside the item.
 const UPLOAD_TYPES = {
@@ -29,9 +33,9 @@ const UPLOAD_TYPES = {
     'application/pdf': '.pdf',
 };
 
-if (!fs.existsSync(UPLOAD_DIR)) {
-    fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-}
+Object.values(UPLOAD_FOLDERS).forEach((dir) => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
 // Overridable so an isolated instance can be run against a throwaway copy of the
 // database for testing, without disturbing the live server or the real db.json.
 const INTERNAL_PORT = Number(process.env.INTERNAL_PORT) || 3001;
@@ -178,7 +182,11 @@ const handleImageUpload = (req, res) => {
     req.on('end', () => {
         if (aborted) return;
         try {
-            const { dataUrl, name } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            const { dataUrl, name, folder } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+            // Only the folders declared above are writable; anything else is
+            // rejected rather than being coerced into a path.
+            const targetKey = folder === 'documents' ? 'documents' : 'images';
+            const targetDir = UPLOAD_FOLDERS[targetKey];
             const match = /^data:([\w/+.-]+);base64,(.+)$/s.exec(dataUrl || '');
             if (!match) {
                 return sendJson(res, 400, { error: 'Expected a file data URL' });
@@ -204,11 +212,11 @@ const handleImageUpload = (req, res) => {
                 .slice(0, 40) || 'image';
             const fileName = `${slug}-${Date.now()}${extension}`;
 
-            fs.writeFileSync(path.join(UPLOAD_DIR, fileName), buffer);
-            console.log(`[SafetyGuard] 🖼️  Saved upload: db/images/${fileName} (${(buffer.length / 1024).toFixed(0)} KB)`);
+            fs.writeFileSync(path.join(targetDir, fileName), buffer);
+            console.log(`[SafetyGuard] 📎 Saved upload: db/${targetKey}/${fileName} (${(buffer.length / 1024).toFixed(0)} KB)`);
 
             // Relative URL keeps the DB portable across hosts and ports.
-            sendJson(res, 201, { url: `/api/images/${fileName}` });
+            sendJson(res, 201, { url: `/api/${targetKey}/${fileName}` });
         } catch (err) {
             console.error('[SafetyGuard] Upload failed:', err.message);
             sendJson(res, 400, { error: 'Could not process upload' });
@@ -218,11 +226,13 @@ const handleImageUpload = (req, res) => {
 
 /** Serve a stored image. The filename is confined to UPLOAD_DIR. */
 const handleImageRequest = (req, res) => {
+    const folderKey = req.url.startsWith('/api/documents/') ? 'documents' : 'images';
+    const baseDir = UPLOAD_FOLDERS[folderKey];
     // basename strips any traversal ("../"), so the path cannot escape the dir.
-    const requested = path.basename(decodeURIComponent(req.url.replace('/api/images/', '').split('?')[0]));
-    const filePath = path.join(UPLOAD_DIR, requested);
+    const requested = path.basename(decodeURIComponent(req.url.replace(`/api/${folderKey}/`, '').split('?')[0]));
+    const filePath = path.join(baseDir, requested);
 
-    if (!filePath.startsWith(UPLOAD_DIR) || !fs.existsSync(filePath)) {
+    if (!filePath.startsWith(baseDir) || !fs.existsSync(filePath)) {
         return sendJson(res, 404, { error: 'Image not found' });
     }
 
@@ -238,7 +248,7 @@ const proxy = http.createServer((req, res) => {
     if (req.url === '/api/upload' && req.method === 'POST') {
         return handleImageUpload(req, res);
     }
-    if (req.url.startsWith('/api/images/') && req.method === 'GET') {
+    if ((req.url.startsWith('/api/images/') || req.url.startsWith('/api/documents/')) && req.method === 'GET') {
         return handleImageRequest(req, res);
     }
 

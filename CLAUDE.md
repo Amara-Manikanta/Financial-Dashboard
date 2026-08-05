@@ -171,10 +171,16 @@ Photos and bills are stored **as files**, never as base64 in `db.json`.
 Embedding them bloated every read and write and made them collateral damage of
 any bad write.
 
-- `POST /api/upload` — accepts `{ dataUrl, name }`, returns `{ url }`
-- `GET /api/images/<file>` — serves it
-- Stored in `db/images/`, gitignored, named after the item so the folder stays
-  browsable (`diamond-necklace-1785922752366.png`)
+- `POST /api/upload` — accepts `{ dataUrl, name, folder }`, returns `{ url }`
+- `GET /api/images/<file>` and `GET /api/documents/<file>` — serve them
+- Two folders, both gitignored under `db/`: `db/images/` for item photos and
+  bills, `db/documents/` for policy paperwork (receipts, RC copies, original
+  insurance documents). `folder` defaults to `images`; anything other than
+  those two names is rejected rather than turned into a path.
+- Files are named after the item so the folders stay browsable
+  (`diamond-necklace-1785922752366.png`)
+- Document scans are stored at full resolution so small print stays readable;
+  only item photos are downscaled
 - Accepts JPEG, PNG, WebP, GIF, PDF; 10 MB limit
 - Filenames are always built server-side from a slug — never trust client input
   in a path

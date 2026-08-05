@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, Shield, CheckCircle, Clock, Plus, Edit2, Trash2, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Shield, CheckCircle, Clock, Plus, Edit2, Trash2, AlertTriangle, FileText, Download, Paperclip } from 'lucide-react';
 import PolicyPremiumModal from '../components/PolicyPremiumModal';
 import PolicyRecordModal from '../components/PolicyRecordModal';
+import { uploadFile, isImageRef } from '../utils/uploadFile';
 import BackButton from '../components/BackButton';
 
 const PolicyDetails = () => {
@@ -21,6 +22,10 @@ const PolicyDetails = () => {
     const [editingRecord, setEditingRecord] = useState(null);
     const [editingRecordIndex, setEditingRecordIndex] = useState(null);
 
+    const docInputRef = useRef(null);
+    const [isUploadingDoc, setIsUploadingDoc] = useState(false);
+    const [docError, setDocError] = useState('');
+
     const policy = savings.find(s => s.id.toString() === id);
 
     const policyCalcs = useMemo(() => {
@@ -34,7 +39,8 @@ const PolicyDetails = () => {
                 details: {},
                 premiums: [],
                 benefits: [],
-                claims: []
+                claims: [],
+                documents: []
             };
         }
 
@@ -72,6 +78,7 @@ const PolicyDetails = () => {
         // made against it. Both are stored on the policy record.
         const benefits = policy.benefits || [];
         const claims = policy.claims || [];
+        const documents = policy.documents || [];
 
         const benefitsReceived = benefits
             .filter(b => b.status === 'Received')
@@ -96,6 +103,7 @@ const PolicyDetails = () => {
             premiums,
             benefits,
             claims,
+            documents,
             benefitsReceived,
             benefitsExpected,
             claimsSettled,
@@ -134,6 +142,7 @@ const PolicyDetails = () => {
         premiums,
         benefits,
         claims,
+        documents,
         benefitsReceived,
         benefitsExpected,
         claimsSettled,
@@ -184,6 +193,36 @@ const PolicyDetails = () => {
         const key = kind === 'claim' ? 'claims' : 'benefits';
         if (!window.confirm(`Delete this ${kind}?`)) return;
         updateItem('savings', { ...policy, [key]: (policy[key] || []).filter((_, i) => i !== index) });
+    };
+
+    /**
+     * Store policy paperwork — receipts, RC copies, original insurance
+     * documents — as files under db/documents rather than in the database.
+     */
+    const handleAddDocument = async (e) => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
+
+        setIsUploadingDoc(true);
+        setDocError('');
+        try {
+            const stored = await uploadFile(file, `${details.planName || policy.title}`, 'documents');
+            updateItem('savings', {
+                ...policy,
+                documents: [...documents, { ...stored, uploadedAt: new Date().toISOString() }]
+            });
+        } catch (err) {
+            console.error('Document upload failed:', err);
+            setDocError(err.message || 'Document upload failed');
+        } finally {
+            setIsUploadingDoc(false);
+        }
+    };
+
+    const handleDeleteDocument = (index) => {
+        if (!window.confirm('Remove this document?')) return;
+        updateItem('savings', { ...policy, documents: documents.filter((_, i) => i !== index) });
     };
 
     const openRecordModal = (kind, record = null, index = null) => {
@@ -579,6 +618,96 @@ const PolicyDetails = () => {
                     </div>
                 </div>
             ))}
+
+            {/* Policy paperwork. Files live under db/documents on disk, which is
+                gitignored, so nothing here is ever committed or put in db.json. */}
+            <div className="pol-table-container" style={{ marginTop: '2rem' }}>
+                <div className="pol-table-header" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <Paperclip size={18} style={{ color: '#38bdf8' }} />
+                        <h3 className="text-lg font-bold tracking-tight text-white">Documents &amp; Receipts</h3>
+                        {documents.length > 0 && (
+                            <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-gray-400">
+                                {documents.length}
+                            </span>
+                        )}
+                    </div>
+                    <button
+                        onClick={() => docInputRef.current?.click()}
+                        disabled={isUploadingDoc}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-xs font-black uppercase tracking-widest hover:bg-white/10 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        <Plus size={14} /> {isUploadingDoc ? 'Uploading...' : 'Add Document'}
+                    </button>
+                    <input
+                        type="file"
+                        ref={docInputRef}
+                        className="hidden"
+                        accept="image/*,application/pdf"
+                        onChange={handleAddDocument}
+                    />
+                </div>
+
+                <div style={{ padding: '1.25rem' }}>
+                    {docError && (
+                        <div className="flex items-center gap-2 px-4 py-3 mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                            <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+                            <span className="text-xs font-bold text-rose-300">{docError}</span>
+                        </div>
+                    )}
+
+                    {documents.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12">
+                            <FileText size={36} className="text-gray-600 mb-3" />
+                            <p className="text-gray-500 font-bold">No documents uploaded</p>
+                            <p className="text-gray-600 text-xs mt-1">Policy copies, premium receipts, RC book — image or PDF</p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {documents.map((doc, index) => {
+                                const url = typeof doc === 'string' ? doc : doc.url;
+                                const label = (typeof doc === 'string' ? '' : doc.name) || `Document ${index + 1}`;
+                                return (
+                                    <div key={`${url}-${index}`} className="group flex items-center gap-4 p-4 rounded-2xl border border-white/5 bg-white/[0.02] hover:border-white/15 transition-all">
+                                        <a href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                            {isImageRef(url) ? (
+                                                <img src={url} alt={label} className="w-14 h-14 rounded-xl object-cover border border-white/10" />
+                                            ) : (
+                                                <div className="w-14 h-14 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                                                    <FileText size={22} className="text-rose-300" />
+                                                </div>
+                                            )}
+                                        </a>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-white truncate">{label}</p>
+                                            {doc.uploadedAt && (
+                                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">
+                                                    {doc.uploadedAt.split('T')[0]}
+                                                </p>
+                                            )}
+                                            <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold text-gray-400 hover:text-white transition-colors"
+                                            >
+                                                <Download size={12} /> Open
+                                            </a>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteDocument(index)}
+                                            className="p-2.5 rounded-full text-gray-600 hover:text-white hover:bg-red-500 transition-all shrink-0"
+                                            title="Remove document"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
 
             <PolicyPremiumModal
                 isOpen={isModalOpen}

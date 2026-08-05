@@ -42,19 +42,21 @@ const compressImage = (dataUrl, maxWidth = 1200, maxHeight = 1200) => new Promis
  * Store a File and return { url, name, mimeType }.
  * `label` names the file on disk so db/images stays browsable by eye.
  */
-export const uploadFile = async (file, label) => {
+export const uploadFile = async (file, label, folder = 'images') => {
     if (!file) throw new Error('No file selected');
     if (file.size > MAX_BYTES) throw new Error('File is larger than 10MB');
 
     let dataUrl = await readAsDataUrl(file);
-    if (file.type.startsWith('image/')) {
+    // Scanned paperwork is left at full resolution so small print stays legible;
+    // only item photos are downsized.
+    if (file.type.startsWith('image/') && folder !== 'documents') {
         dataUrl = await compressImage(dataUrl);
     }
 
     const res = await fetch('/api/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataUrl, name: label || file.name || 'file' })
+        body: JSON.stringify({ dataUrl, name: label || file.name || 'file', folder })
     });
 
     const payload = await res.json().catch(() => ({}));
