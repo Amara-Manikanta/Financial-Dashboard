@@ -31,6 +31,13 @@ yarn-error.log*
 db.json
 # Uploaded item photos: personal data, stored on disk, never committed.
 db/
+# Database backups/exports. These hold full transaction, salary and account
+# data, so they must never be committed — one of them was previously pushed
+# to a public repository and had to be purged from history.
+*.backup
+db.json.*
+*db-backup*.json
+nps_legacy_tx_backup.json
 data.json
 src/data.js
 temp_expenses.json
