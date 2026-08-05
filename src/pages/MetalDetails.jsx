@@ -308,17 +308,27 @@ const MetalDetails = () => {
                     >
                         {/* Image Header Block */}
                         <div style={{ position: 'relative', height: '160px', backgroundColor: 'rgba(255, 255, 255, 0.02)', overflow: 'hidden' }}>
-                            {item.image ? (
-                                <img
-                                    src={item.image}
-                                    alt={item.name}
-                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                />
-                            ) : (
-                                <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                    <Coins size={40} style={{ opacity: 0.15, color: colorHex }} />
-                                </div>
-                            )}
+                            {(() => {
+                                const itemImg = item.imageUrl || item.image || item.photo || (item.images && item.images[0]) || (type === 'gold' ? '/images/gold_coins.png' : type === 'silver' ? '/images/silver_coins.png' : null);
+                                if (itemImg) {
+                                    return (
+                                        <img
+                                            src={itemImg}
+                                            alt={item.name}
+                                            onError={(e) => {
+                                                e.target.onerror = null;
+                                                e.target.src = type === 'gold' ? '/images/gold_coins.png' : '/images/silver_coins.png';
+                                            }}
+                                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                        />
+                                    );
+                                }
+                                return (
+                                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                        <Coins size={40} style={{ opacity: 0.15, color: colorHex }} />
+                                    </div>
+                                );
+                            })()}
 
                             {/* Tags overlay */}
                             {type === 'gold' && item.purity && (

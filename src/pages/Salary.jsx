@@ -109,6 +109,23 @@ const Salary = () => {
         notes: ''
     });
     
+    // Auto-select latest recorded month if the default month has no data
+    useEffect(() => {
+        if (salaryDetails && salaryDetails.length > 0 && entryMode === 'Monthly') {
+            const yearRecords = salaryDetails.filter(s => s.year === selectedYear && s.month !== 'Annual');
+            if (yearRecords.length > 0) {
+                const hasCurrentMonthData = yearRecords.some(r => r.month === selectedMonth);
+                if (!hasCurrentMonthData) {
+                    const recordedMonths = yearRecords.map(r => r.month);
+                    const latestMonth = [...MONTHS].reverse().find(m => recordedMonths.includes(m));
+                    if (latestMonth) {
+                        setSelectedMonth(latestMonth);
+                    }
+                }
+            }
+        }
+    }, [salaryDetails, selectedYear, entryMode]);
+
     // Form state
     const [isEditing, setIsEditing] = useState(false);
     const [formData, setFormData] = useState({});

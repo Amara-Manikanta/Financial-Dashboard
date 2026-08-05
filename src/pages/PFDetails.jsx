@@ -23,10 +23,10 @@ const PFDetails = () => {
     const pf = useMemo(() => savings.find(s => s.id === id), [savings, id]);
 
     useEffect(() => {
-        if (pf && uan === '' && !isEditingUan) {
-            setUan(pf.uan || '');
+        if (pf && !isEditingUan) {
+            setUan(pf.uan || pf.uanNumber || pf.accountNumber || '');
         }
-    }, [pf, uan, isEditingUan]);
+    }, [pf, isEditingUan]);
 
     const getFinancialYear = (dateStr) => {
         const date = new Date(dateStr);
@@ -549,7 +549,7 @@ const PFDetails = () => {
                                 onClick={() => setIsEditingUan(true)}
                             >
                                 <span style={{ color: 'white', fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 'bold' }}>
-                                    {pf.uan ? pf.uan : <span style={{ color: '#71717a', fontStyle: 'italic', fontSize: '0.875rem' }}>Not specified</span>}
+                                    {(pf.uan || pf.uanNumber || uan) ? (pf.uan || pf.uanNumber || uan) : <span style={{ color: '#71717a', fontStyle: 'italic', fontSize: '0.875rem' }}>Not specified</span>}
                                 </span>
                                 <Edit2 size={12} style={{ color: '#818cf8', opacity: 0.6 }} />
                             </div>

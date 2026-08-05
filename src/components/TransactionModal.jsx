@@ -115,6 +115,12 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setIsCredited(!!initialData.isCredited);
             setIsCreditCardBill(initialCat.toLowerCase() === 'credit card bill' || initialCat.toLowerCase() === 'credit card payment');
             
+            // Fuel fields
+            setKm(initialData.km || initialData.odometer || initialData.reading || initialData.odometerReading || '');
+            setLiters(initialData.liters || initialData.litres || initialData.fuelLiters || '');
+            setPricePerLiter(initialData.pricePerLiter || (initialData.amount && (initialData.liters || initialData.litres) ? (Number(initialData.amount) / Number(initialData.liters || initialData.litres)).toFixed(2) : ''));
+            setVehicleType(initialData.vehicleType || 'scooty');
+
             // Investment logic
             const isInv = initialMain === 'Investments';
             if (isInv && initialData.investmentData) {
@@ -198,8 +204,14 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
         const parsedAmount = parseFloat(amount);
         if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) return;
         if (paymentMode === 'credit_card' && !creditCardName) return;
+
+        const isFuelCategory = (category || '').toLowerCase().includes('fuel') ||
+                               (category || '').toLowerCase().includes('petrol') ||
+                               (category || '').toLowerCase().includes('diesel') ||
+                               (mainCategory || '').toLowerCase().includes('vehicle');
+
         let computedLiters = null;
-        if (category && category.toLowerCase().includes('fuel') && km && pricePerLiter) {
+        if (isFuelCategory && amount && pricePerLiter) {
             computedLiters = Number((Number(amount) / Number(pricePerLiter)).toFixed(2));
         }
 
@@ -226,7 +238,13 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             isCredited,
             transactionType: isCredited ? 'credit' : 'debit',
             type: 'monthly',
-            ...(category && category.toLowerCase().includes('fuel') && { km: km ? Number(km) : null, liters: computedLiters || (liters ? Number(liters) : null), vehicleType }),
+            ...(isFuelCategory && { 
+                km: km ? Number(km) : null, 
+                odometer: km ? Number(km) : null, 
+                liters: computedLiters || (liters ? Number(liters) : null), 
+                pricePerLiter: pricePerLiter ? Number(pricePerLiter) : null, 
+                vehicleType 
+            }),
             ...(investmentData && { investmentData }),
             ...(category && category.toLowerCase() === 'groceries' && groceryItems.length > 0 && { groceryItems })
         });
@@ -398,7 +416,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                             />
                         )}
 
-                        {category && category.toLowerCase().includes('fuel') && (
+                        {((category || '').toLowerCase().includes('fuel') || (category || '').toLowerCase().includes('petrol') || (category || '').toLowerCase().includes('diesel') || (mainCategory || '').toLowerCase().includes('vehicle')) && (
                             <div className="space-y-4 bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10">
                                 <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest">Fuel Details</h3>
                                 <div className="grid grid-cols-2 gap-4">

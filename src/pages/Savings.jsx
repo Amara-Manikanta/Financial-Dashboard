@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, ArrowUpRight, Info, Award, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, Edit2, ArrowUpRight, Info, Award, Archive, ArchiveRestore } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import SavingsItemModal from '../components/SavingsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -12,12 +12,29 @@ const Savings = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [editingItem, setEditingItem] = useState(null);
     const [showArchived, setShowArchived] = useState(false);
 
     const handleDeleteClick = (e, item) => {
         e.stopPropagation();
         setItemToDelete(item);
         setIsDeleteModalOpen(true);
+    };
+
+    const handleEditClick = (e, item) => {
+        e.stopPropagation();
+        setEditingItem(item);
+        setIsModalOpen(true);
+    };
+
+    const handleSaveItem = async (itemData) => {
+        if (editingItem) {
+            await updateItem('savings', itemData);
+        } else {
+            await addItem('savings', itemData);
+        }
+        setEditingItem(null);
+        setIsModalOpen(false);
     };
 
     const handleArchiveClick = async (e, item) => {
@@ -530,7 +547,17 @@ const Savings = () => {
 
                                 <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>{item.title}</h3>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                            <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
+                                                {item.title || item.name}
+                                            </h3>
+                                            <Edit2 
+                                                size={13} 
+                                                style={{ color: '#818cf8', opacity: 0.6, cursor: 'pointer' }}
+                                                onClick={(e) => handleEditClick(e, item)}
+                                                title="Edit Account Name"
+                                            />
+                                        </div>
                                         <span style={{
                                             fontSize: '9px',
                                             padding: '0.125rem 0.5rem',
@@ -593,6 +620,20 @@ const Savings = () => {
                                 </div>
 
                                 <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', display: 'flex', gap: '0.375rem', zIndex: 20 }}>
+                                    <button
+                                        onClick={(e) => handleEditClick(e, item)}
+                                        style={{
+                                            padding: '0.5rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                            color: '#60a5fa',
+                                            border: 'none',
+                                            cursor: 'pointer'
+                                        }}
+                                        title="Edit Account Name & Details"
+                                    >
+                                        <Edit2 size={16} />
+                                    </button>
                                     <button
                                         onClick={(e) => handleArchiveClick(e, item)}
                                         style={{
@@ -753,8 +794,12 @@ const Savings = () => {
 
             <SavingsItemModal
                 isOpen={isModalOpen}
-                onClose={() => setIsModalOpen(false)}
-                onSave={handleSaveNewItem}
+                initialData={editingItem}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setEditingItem(null);
+                }}
+                onSave={handleSaveItem}
             />
 
             <ConfirmModal

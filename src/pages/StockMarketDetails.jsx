@@ -157,13 +157,13 @@ const StockMarketDetails = () => {
     // Filter and Separating Stocks
     const filteredStocks = useMemo(() => {
         return stocks.filter(stock =>
-            stock.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            stock.ticker.toLowerCase().includes(searchTerm.toLowerCase())
+            (stock.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (stock.ticker || stock.symbol || '').toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [stocks, searchTerm]);
 
-    const activeStocks = useMemo(() => filteredStocks.filter(stock => !stock.isArchived && stock.shares > 0), [filteredStocks]);
-    const archivedStocks = useMemo(() => filteredStocks.filter(stock => stock.isArchived || stock.shares === 0), [filteredStocks]);
+    const activeStocks = useMemo(() => filteredStocks.filter(stock => !stock.isArchived && Number(stock.shares || 0) > 0), [filteredStocks]);
+    const archivedStocks = useMemo(() => filteredStocks.filter(stock => stock.isArchived || Number(stock.shares || 0) === 0), [filteredStocks]);
 
     const currentYear = new Date().getFullYear();
 
@@ -173,8 +173,12 @@ const StockMarketDetails = () => {
         let currentVal = 0;
 
         const rows = activeStocks.map(stock => {
-            const investedValue = stock.shares * stock.avgCost;
-            const currentValue = stock.shares * stock.currentPrice;
+            const sharesCount = Number(stock.shares || 0);
+            const avgCostPrice = Number(stock.avgCost || stock.avgPrice || 0);
+            const currentMktPrice = Number(stock.currentPrice || 0);
+
+            const investedValue = sharesCount * avgCostPrice;
+            const currentValue = sharesCount * currentMktPrice;
             const unrealisedPL = currentValue - investedValue;
             const unrealisedPercent = investedValue > 0 ? (unrealisedPL / investedValue) * 100 : 0;
 
@@ -183,6 +187,7 @@ const StockMarketDetails = () => {
 
             return {
                 ...stock,
+                ticker: stock.ticker || stock.symbol || stock.name,
                 investedValue,
                 currentValue,
                 unrealisedPL,
@@ -200,17 +205,14 @@ const StockMarketDetails = () => {
     // Filter display rows based on pending dividend status, cap filter, and sector filter
     const displayStockRows = useMemo(() => {
         return stockRows.filter(stock => {
-            // Cap filter
             if (capFilter !== 'All') {
                 const stockCap = stock.marketCap || 'Unclassified';
                 if (stockCap !== capFilter) return false;
             }
-            // Sector filter
             if (sectorFilter !== 'All') {
                 const stockSector = stock.sector || 'Unclassified';
                 if (stockSector !== sectorFilter) return false;
             }
-            // Pending dividend filter
             if (showPendingOnly) {
                 const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
                 if (!isDividendPending) return false;
@@ -238,11 +240,10 @@ const StockMarketDetails = () => {
             metrics[cap].currentValue += stock.currentValue;
             metrics[cap].pl += stock.unrealisedPL;
             metrics[cap].count += 1;
-            metrics[cap].stocks.push(stock.ticker);
+            metrics[cap].stocks.push(stock.ticker || stock.symbol || stock.name);
             totalPortfolioValue += stock.currentValue;
         });
 
-        // Calculate percentage allocation
         caps.forEach(cap => {
             metrics[cap].percentAllocation = totalPortfolioValue > 0
                 ? (metrics[cap].currentValue / totalPortfolioValue) * 100
@@ -274,11 +275,10 @@ const StockMarketDetails = () => {
             metrics[secName].currentValue += stock.currentValue;
             metrics[secName].pl += stock.unrealisedPL;
             metrics[secName].count += 1;
-            metrics[secName].stocks.push(stock.ticker);
+            metrics[secName].stocks.push(stock.ticker || stock.symbol || stock.name);
             totalPortfolioValue += stock.currentValue;
         });
 
-        // Calculate percentage allocation & P/L %
         Object.keys(metrics).forEach(secName => {
             metrics[secName].percentAllocation = totalPortfolioValue > 0
                 ? (metrics[secName].currentValue / totalPortfolioValue) * 100
@@ -296,7 +296,6 @@ const StockMarketDetails = () => {
     const totalProfitLoss = useMemo(() => currentTotalValue - totalInvested, [currentTotalValue, totalInvested]);
     const isTotalProfit = totalProfitLoss >= 0;
 
-    // Sort rows based on profit
     const sortedStockRows = useMemo(() => {
         return [...displayStockRows].sort((a, b) => {
             if (!sortOrder) return 0;
@@ -312,7 +311,6 @@ const StockMarketDetails = () => {
         }).length;
     }, [activeStocks, currentYear]);
 
-    // Calculate Total Dividends (Active + Archived)
     const activeDividendsData = useMemo(() => {
         const data = filteredStocks.reduce((acc, stock) => {
             const stockDividends = stock.dividends || {};
@@ -330,13 +328,13 @@ const StockMarketDetails = () => {
     const dividendGraphData = useMemo(() => {
         return Object.entries(activeDividendsData.yearly)
             .map(([year, amount]) => ({ year, amount: Number(amount.toFixed(2)) }))
-            .sort((a, b) => a.year.localeCompare(b.year)); // Sort by year ascending
+            .sort((a, b) => a.year.localeCompare(b.year));
     }, [activeDividendsData]);
 
     const stockTreemapData = useMemo(() => {
         return stockRows.map(stock => ({
             name: stock.name,
-            ticker: stock.ticker,
+            ticker: stock.ticker || stock.symbol || stock.name,
             value: stock.currentValue,
             percentage: stock.unrealisedPercent
         })).filter(item => item.value > 0);
@@ -348,7 +346,7 @@ const StockMarketDetails = () => {
             const totalStockDividend = Object.values(stockDividends).reduce((sum, amount) => sum + Number(amount), 0);
             return {
                 name: stock.name,
-                ticker: stock.ticker,
+                ticker: stock.ticker || stock.symbol || stock.name,
                 value: totalStockDividend
             };
         }).filter(item => item.value > 0);
@@ -1385,7 +1383,7 @@ const StockMarketDetails = () => {
                                                     letterSpacing: '0.1em',
                                                     border: '1px solid rgba(99, 102, 241, 0.2)'
                                                 }}>
-                                                    {stock.ticker}
+                                                    {stock.ticker || stock.symbol || '-'}
                                                 </span>
                                                 {stock.marketCap && (
                                                     <span style={{
@@ -1643,7 +1641,7 @@ const StockMarketDetails = () => {
                                                         border: '1px solid rgba(255, 255, 255, 0.08)',
                                                         fontFamily: 'monospace'
                                                     }}>
-                                                        {stock.ticker}
+                                                        {stock.ticker || stock.symbol || '-'}
                                                     </span>
                                                 </td>
                                                 <td style={styles.td('center', false, 'var(--text-secondary)', false, isDividendPending)}>
@@ -2039,7 +2037,7 @@ const StockMarketDetails = () => {
                                                                 {stock.name}
                                                             </span>
                                                         </td>
-                                                        <td style={styles.td('left', false, '#71717a')}><span style={{ fontFamily: 'monospace' }}>{stock.ticker}</span></td>
+                                                        <td style={styles.td('left', false, '#71717a')}><span style={{ fontFamily: 'monospace' }}>{stock.ticker || stock.symbol || '-'}</span></td>
                                                         <td style={styles.td('right', false, '#71717a')}>
                                                             <span style={{ fontFamily: 'monospace' }}>{formatCurrency(finalInvested)}</span>
                                                             {hasTransactions && <span style={{ marginLeft: '0.25rem', fontSize: '9px', color: '#60a5fa' }} title="Calculated from transactions">(Auto)</span>}

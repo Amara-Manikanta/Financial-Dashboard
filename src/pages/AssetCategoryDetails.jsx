@@ -13,7 +13,7 @@ const AssetCategoryDetails = () => {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState(null);
 
-    const category = assets.find(a => a.id === id);
+    const category = assets.find(a => String(a.id) === String(id) || String(a.type) === String(id));
 
     if (!category) {
         return <div className="p-8 text-center bg-modal m-10 rounded-3xl border border-white/5">
@@ -22,20 +22,22 @@ const AssetCategoryDetails = () => {
         </div>;
     }
 
+    const categoryTitle = category.title || category.name || category.type?.replace('_', ' ') || 'Asset Category';
     const isRealEstate = category.type === 'real_estate';
 
     // Helper to safely get value
     const getValue = (item, field) => item[field] || '-';
 
-    const totalPurchaseValue = category.items.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.purchasedValue) || 0), 0);
-    const totalCurrentValue = category.items.reduce((sum, item) => sum + (Number(item.currentValue) || 0), 0);
+    const categoryItems = category.items || [];
+    const totalPurchaseValue = categoryItems.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.purchasedValue) || 0), 0);
+    const totalCurrentValue = categoryItems.reduce((sum, item) => sum + (Number(item.currentValue) || 0), 0);
 
     const handleSaveItem = async (data) => {
         let updatedItems;
         if (editingItem) {
-            updatedItems = category.items.map(i => i.id === data.id ? data : i);
+            updatedItems = categoryItems.map(i => i.id === data.id ? data : i);
         } else {
-            updatedItems = [...category.items, data];
+            updatedItems = [...categoryItems, data];
         }
 
         await updateItem('asset', { ...category, items: updatedItems });
@@ -46,7 +48,7 @@ const AssetCategoryDetails = () => {
     const handleDeleteItem = async (itemId, e) => {
         e.stopPropagation();
         if (window.confirm('Are you sure you want to delete this asset?')) {
-            const updatedItems = category.items.filter(i => i.id !== itemId);
+            const updatedItems = categoryItems.filter(i => i.id !== itemId);
             await updateItem('asset', { ...category, items: updatedItems });
         }
     };
@@ -67,8 +69,8 @@ const AssetCategoryDetails = () => {
                             <Briefcase className="text-blue-400" size={32} />
                         </div>
                         <div>
-                            <h2 className="text-4xl font-black tracking-tight">{category.title} <span className="text-gray-500">Inventory</span></h2>
-                            <p className="text-secondary text-sm font-medium mt-1">Detailed management of your {category.title.toLowerCase()}</p>
+                            <h2 className="text-4xl font-black tracking-tight">{categoryTitle} <span className="text-gray-500">Inventory</span></h2>
+                            <p className="text-secondary text-sm font-medium mt-1">Detailed management of your {categoryTitle.toLowerCase()}</p>
                         </div>
                     </div>
                 </div>
@@ -77,7 +79,7 @@ const AssetCategoryDetails = () => {
                     className="flex items-center gap-2 bg-blue-600 text-white font-black px-6 py-4 rounded-2xl hover:bg-blue-500 transition-all shadow-xl shadow-blue-500/20 text-xs uppercase tracking-widest"
                 >
                     <Plus size={20} />
-                    <span>Add {category.title.slice(0, -1)}</span>
+                    <span>Add {categoryTitle.slice(0, -1)}</span>
                 </button>
             </div>
 

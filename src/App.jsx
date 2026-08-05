@@ -46,6 +46,10 @@ import GroceryAnalytics from './pages/GroceryAnalytics';
 import GroceryMasterList from './pages/GroceryMasterList';
 import CategoryBudgets from './pages/CategoryBudgets';
 import Taxes from './pages/Taxes';
+import FinancialGoals from './pages/FinancialGoals';
+import InsuranceAnalysis from './pages/InsuranceAnalysis';
+import TaxPlanning from './pages/TaxPlanning';
+import LoanTracker from './pages/LoanTracker';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {
@@ -163,6 +167,10 @@ function App() {
                                     <Route path="credit-cards/:id" element={<SingleCreditCardDetails />} />
                                     <Route path="all-transactions" element={<AllTransactions />} />
                                     <Route path="taxes" element={<Taxes />} />
+                                     <Route path="goals" element={<FinancialGoals />} />
+                                     <Route path="insurance-analysis" element={<InsuranceAnalysis />} />
+                                     <Route path="tax-planning" element={<Navigate to="/taxes?tab=planning" replace />} />
+                                     <Route path="loan-tracker" element={<Navigate to="/lents-loans?tab=loans" replace />} />
                                     
                                     {/* 404 Catch-all Route inside authenticated area */}
                                     <Route path="*" element={<NotFound />} />

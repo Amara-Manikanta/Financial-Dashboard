@@ -321,7 +321,7 @@ const CATEGORY_ICONS = {
 const ExpenseDetails = () => {
     const { year, month } = useParams();
     const navigate = useNavigate();
-    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap, categoryBudgets } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap, categoryBudgets, lents } = useFinance();
 
     const getCategoryBudget = (catName) => {
         if (!catName || !categoryBudgets) return 0;
@@ -374,8 +374,103 @@ const ExpenseDetails = () => {
             }
         });
 
-        // Re-aggregate from transactions to handle mixed deductible states correctly
+        // Re-aggregate from transactions
         const activeTransactions = (monthData.transactions || []);
+
+        const isIncomeTx = (t) => {
+            if (!t) return false;
+            const cat = (t.category || '').toLowerCase();
+            const mainCat = (t.mainCategory || '').toLowerCase();
+            if (mainCat === 'income') return true;
+            const KNOWN_INCOME_CATS = [
+                'salary received', 'salary', 'income', 'bonus', 'freelance', 
+                'interest income', 'bank interest', 'dividend', 'stocks sell', 
+                'company claims', 'rental income', 'mutual fund redemption', 'other income'
+            ];
+            return KNOWN_INCOME_CATS.some(k => cat === k || cat.startsWith(k));
+        };
+
+        const getMainCategory = (subCatName) => {
+            const lowerSub = (subCatName || '').toLowerCase();
+            if (isIncomeTx({ category: subCatName })) return 'Income';
+            if (
+                lowerSub.includes('family lent') ||
+                lowerSub.includes('family borrowed') ||
+                lowerSub.includes('family transfer') ||
+                lowerSub.includes('peer') ||
+                lowerSub.includes('kitty party') ||
+                lowerSub.includes('money received back') ||
+                lowerSub.includes('friend lent') ||
+                lowerSub.includes('friend borrowed') ||
+                lowerSub.includes('received back') ||
+                lowerSub.includes('people transfer')
+            ) {
+                return 'People Transfers';
+            }
+            if (
+                lowerSub.includes('bank transfer') ||
+                lowerSub.includes('savings account') ||
+                lowerSub.includes('emergency fund') ||
+                lowerSub.includes('cash reserve') ||
+                lowerSub.includes('transfer')
+            ) {
+                return 'Transfers';
+            }
+            for (const [main, subs] of Object.entries(mergedCategoryMap || {})) {
+                if (subs.some(s => s.toLowerCase() === lowerSub)) {
+                    return main;
+                }
+            }
+            const matchingKey = Object.keys(mergedCategoryMap || {}).find(k => k.toLowerCase() === lowerSub);
+            if (matchingKey) return matchingKey;
+            return 'Miscellaneous';
+        };
+
+        // Calculate Income Breakdown across all income categories & sub-sections
+        const incomeTotals = {};
+        let calculatedIncomeTotal = 0;
+
+        activeTransactions.forEach(t => {
+            if (isIncomeTx(t)) {
+                const catName = t.category || 'Salary';
+                const amt = Number(t.amount) || 0;
+                incomeTotals[catName] = (incomeTotals[catName] || 0) + amt;
+                calculatedIncomeTotal += amt;
+            }
+        });
+
+        const findSalary = (obj) => {
+            if (!obj) return 0;
+            const key = Object.keys(obj).find(k => ['salary received', 'salary', 'income'].includes(k.toLowerCase()));
+            return key ? Number(obj[key]) : 0;
+        };
+
+        let baseConfiguredSalary = salaryStats[year]?.months[month] || 0;
+        if (baseConfiguredSalary === 0) {
+            baseConfiguredSalary = findSalary(categories);
+            if (baseConfiguredSalary === 0 && monthData['salary received']) {
+                baseConfiguredSalary = Number(monthData['salary received']);
+            }
+        }
+
+        const hasSalaryInTotals = Object.keys(incomeTotals).some(k => ['salary received', 'salary'].includes(k.toLowerCase()));
+        if (!hasSalaryInTotals && baseConfiguredSalary > 0) {
+            incomeTotals['Salary'] = baseConfiguredSalary;
+            calculatedIncomeTotal += baseConfiguredSalary;
+        }
+
+        const salary = calculatedIncomeTotal;
+
+        const incomeItems = Object.entries(incomeTotals)
+            .filter(([_, amt]) => amt > 0)
+            .map(([cat, amt], idx) => ({
+                id: `inc_${year}_${month}_${idx}`,
+                category: cat,
+                amount: amt,
+                percentage: salary > 0 ? Math.round((amt / salary) * 100) : 0
+            }))
+            .sort((a, b) => b.amount - a.amount);
+
         if (activeTransactions.length > 0) {
             // Reset to 0 to rebuild strictly from transactions if they exist
             Object.keys(categoryTotals).forEach(k => { categoryTotals[k] = 0; categoryDeductibles[k] = 0; });
@@ -383,8 +478,8 @@ const ExpenseDetails = () => {
             activeTransactions.forEach(t => {
                 const cat = t.category || 'others';
 
-                // Skip income categories from expense calculation
-                if (['salary received', 'salary', 'income'].includes(cat.toLowerCase())) return;
+                // Skip income categories from expense calculation so they don't distort expense categories
+                if (isIncomeTx(t)) return;
 
                 const amt = Number(t.amount) || 0;
                 // Logic: isCredited ? -amt : amt
@@ -394,7 +489,7 @@ const ExpenseDetails = () => {
                 const targetKey = Object.keys(categoryTotals).find(k => k.toLowerCase() === cat.toLowerCase()) || cat;
                 categoryTotals[targetKey] = (categoryTotals[targetKey] || 0) + effective;
 
-                const mainCat = t.mainCategory || 'Miscellaneous';
+                const mainCat = t.mainCategory || getMainCategory(cat);
                 mainCategoryTotals[mainCat] = (mainCategoryTotals[mainCat] || 0) + effective;
 
                 const isCreditCardBill = cat.toLowerCase().includes('credit card bill') || cat.toLowerCase().includes('credit card payment');
@@ -407,20 +502,8 @@ const ExpenseDetails = () => {
             });
         }
 
-        const getMainCategory = (subCatName) => {
-            const lowerSub = (subCatName || '').toLowerCase();
-            for (const [main, subs] of Object.entries(mergedCategoryMap || {})) {
-                if (subs.some(s => s.toLowerCase() === lowerSub)) {
-                    return main;
-                }
-            }
-            const matchingKey = Object.keys(mergedCategoryMap || {}).find(k => k.toLowerCase() === lowerSub);
-            if (matchingKey) return matchingKey;
-            return 'Miscellaneous';
-        };
-
         const items = Object.entries(categoryTotals)
-            .filter(([_, amount]) => amount !== 0) // Filter empty categories
+            .filter(([cat, amount]) => amount !== 0 && !isIncomeTx({ category: cat })) // Filter empty categories & income
             .map(([category, amount], index) => {
                 const tx = activeTransactions.find(t => (t.category || '').toLowerCase() === category.toLowerCase());
                 const mainCategory = tx?.mainCategory || getMainCategory(category);
@@ -436,7 +519,7 @@ const ExpenseDetails = () => {
             }).sort((a, b) => b.amount - a.amount);
 
         const mainItems = Object.entries(mainCategoryTotals)
-            .filter(([_, amount]) => amount !== 0)
+            .filter(([cat, amount]) => amount !== 0 && cat.toLowerCase() !== 'income')
             .map(([category, amount], index) => ({
                 id: `${year}-${month}-main-${category}-${index}`,
                 date: new Date(`${month} 1, ${year}`).toISOString(),
@@ -446,7 +529,7 @@ const ExpenseDetails = () => {
                 type: 'monthly-main'
             })).sort((a, b) => b.amount - a.amount);
 
-        const SAVINGS_MAIN_CATEGORIES = ['Investments', 'Transfers', 'Loans'];
+        const SAVINGS_MAIN_CATEGORIES = ['Investments', 'Transfers', 'People Transfers', 'Loans'];
 
         // Calculate totalNetExpenses using ONLY the deductible amounts of true expenses
         const totalNetExpenses = items
@@ -468,33 +551,6 @@ const ExpenseDetails = () => {
             .filter(item => SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
             .reduce((sum, item) => sum + item.amount, 0);
 
-        const findSalary = (obj) => {
-            if (!obj) return 0;
-            const key = Object.keys(obj).find(k => ['salary received', 'salary', 'income'].includes(k.toLowerCase()));
-            return key ? Number(obj[key]) : 0;
-        };
-
-        // Get configured salary from salaryStats first, fallback to categories
-        let salary = salaryStats[year]?.months[month] || 0;
-        if (salary === 0) {
-            salary = findSalary(categories);
-            if (salary === 0 && monthData['salary received']) {
-                salary = Number(monthData['salary received']);
-            }
-        }
-
-        // Add manual incomes from transactions
-        if (activeTransactions.length > 0) {
-            const hasSalaryTx = activeTransactions.some(t => ['salary received', 'salary'].includes((t.category || '').toLowerCase()));
-            const baseSalary = hasSalaryTx ? 0 : salary; 
-            
-            const manualIncome = activeTransactions
-                .filter(t => t.isCredited && (t.mainCategory === 'Income' || ['salary received', 'salary'].includes((t.category || '').toLowerCase())))
-                .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
-                
-            salary = baseSalary + manualIncome;
-        }
-
         const balance = salary - totalNetExpenses - totalInvestments;
         const expensePercentage = salary > 0 ? Math.round((totalNetExpenses / salary) * 100) : 0;
         const investmentPercentage = salary > 0 ? Math.round((totalInvestments / salary) * 100) : 0;
@@ -504,11 +560,12 @@ const ExpenseDetails = () => {
         // Spending Trend Data
         const daysInMonth = new Date(year, new Date(`${month} 1, ${year}`).getMonth() + 1, 0).getDate();
 
+        // Only the actual salary credit is pinned to the end. Other income
+        // (kitty party, freelance, etc.) stays in its normal date position.
         const isSalaryTx = (t) => {
             const cat = (t.category || '').toLowerCase();
-            const mainCat = (t.mainCategory || '').toLowerCase();
             const title = (t.title || '').toLowerCase();
-            return ['salary received', 'salary'].includes(cat) || mainCat === 'income' || title.includes('salary');
+            return ['salary received', 'salary'].includes(cat) || title.includes('salary');
         };
 
         // Extract individual transactions: Salary at the VERY END (last transaction on last tab)
@@ -530,8 +587,8 @@ const ExpenseDetails = () => {
                     return timeB - timeA;
                 }
 
-                // Priority 3: Same day -> newest saved transaction first
-                return b._savedIndex - a._savedIndex;
+                // Priority 3: Same day -> preserve the order the user entered them in
+                return a._savedIndex - b._savedIndex;
             });
 
         // Group actual transactions by day (excluding credit card bill repayments to prevent double counting with card spends)
@@ -710,6 +767,7 @@ const ExpenseDetails = () => {
 
         return {
             items,
+            incomeItems,
             rawTransactions,
             totalExpenses: totalNetExpenses,
             totalGrossExpenses,
@@ -730,7 +788,7 @@ const ExpenseDetails = () => {
             walletStats,
             mainItems
         };
-    }, [expenses, creditCards, year, month, salaryStats, mergedCategoryMap]);
+    }, [expenses, creditCards, year, month, salaryStats, mergedCategoryMap, lents]);
 
     React.useEffect(() => {
         if (highlightTxId && monthDetails?.rawTransactions) {
@@ -1067,6 +1125,64 @@ const ExpenseDetails = () => {
                             </ResponsiveContainer>
                         </div>
                     </div>
+
+                    {/* Income & Inflows Sub-Sections Breakdown Area */}
+                    {monthDetails.incomeItems && monthDetails.incomeItems.length > 0 && (
+                        <div style={{
+                            backgroundColor: 'rgba(16, 185, 129, 0.03)',
+                            backdropFilter: 'blur(10px)',
+                            borderRadius: '2rem',
+                            border: '1px solid rgba(16, 185, 129, 0.12)',
+                            padding: '1.5rem',
+                            boxShadow: '0 10px 15px -3px rgba(0,0,0,0.3)'
+                        }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+                                <div>
+                                    <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <TrendingUp style={{ color: '#10b981' }} size={20} /> Income & Inflows Sub-Sections
+                                    </h3>
+                                    <p style={{ fontSize: '0.75rem', color: '#a1a1aa', margin: 0 }}>Detailed breakdown of all income sources for this month</p>
+                                </div>
+                                <span style={{ fontSize: '0.95rem', fontWeight: '900', color: '#10b981', fontFamily: 'monospace', backgroundColor: 'rgba(16, 185, 129, 0.1)', padding: '0.35rem 0.85rem', borderRadius: '0.75rem' }}>
+                                    Total Inflow: {formatCurrency(monthDetails.salary)}
+                                </span>
+                            </div>
+
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem' }}>
+                                {monthDetails.incomeItems.map((inc) => (
+                                    <div
+                                        key={inc.id}
+                                        style={{
+                                            backgroundColor: 'rgba(24, 24, 27, 0.6)',
+                                            border: '1px solid rgba(16, 185, 129, 0.2)',
+                                            borderRadius: '1.25rem',
+                                            padding: '1rem 1.25rem',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            justifyContent: 'space-between',
+                                            gap: '0.5rem'
+                                        }}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'white', textTransform: 'capitalize' }}>
+                                                {inc.category}
+                                            </span>
+                                            <span style={{
+                                                fontSize: '9px', fontWeight: '900', color: '#10b981',
+                                                backgroundColor: 'rgba(16, 185, 129, 0.15)', padding: '0.2rem 0.5rem',
+                                                borderRadius: '0.5rem'
+                                            }}>
+                                                {inc.percentage}%
+                                            </span>
+                                        </div>
+                                        <span style={{ fontSize: '1.3rem', fontWeight: '950', color: '#10b981', fontFamily: 'monospace' }}>
+                                            {formatCurrency(inc.amount)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Main Category Breakdown Area */}
                     <div style={{

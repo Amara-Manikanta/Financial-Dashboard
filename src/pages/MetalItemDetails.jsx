@@ -32,13 +32,14 @@ const MetalItemDetails = () => {
 
     // Normalize images: legacy 'image' field vs new 'images' array
     const getImages = () => {
-        if (item.images && Array.isArray(item.images)) {
+        if (item.images && Array.isArray(item.images) && item.images.length > 0) {
             return item.images;
         }
-        if (item.image) {
-            return [item.image];
+        const singleImg = item.imageUrl || item.image || item.photo;
+        if (singleImg) {
+            return [singleImg];
         }
-        return [];
+        return [type === 'gold' ? '/images/gold_coins.png' : '/images/silver_coins.png'];
     };
 
     const images = getImages();

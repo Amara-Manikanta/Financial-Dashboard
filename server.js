@@ -24,80 +24,75 @@ const jsonServerProcess = spawn('json-server', ['--watch', 'db.json', '--port', 
     shell: true
 });
 
+const ICLOUD_DIR = path.join(process.env.HOME || '/Users/manikantaamara', 'Library/Mobile Documents/com~apple~CloudDocs/FinanceAnalyser');
+const ICLOUD_DB_FILE = path.join(ICLOUD_DIR, 'db.json');
+
+const syncToICloud = () => {
+    try {
+        if (!fs.existsSync(ICLOUD_DIR)) {
+            fs.mkdirSync(ICLOUD_DIR, { recursive: true });
+        }
+        if (fs.existsSync(DB_FILE)) {
+            fs.copyFileSync(DB_FILE, ICLOUD_DB_FILE);
+            console.log(`[SafetyGuard] ☁️  Synced db.json to iCloud Drive: ${ICLOUD_DB_FILE}`);
+        }
+    } catch (err) {
+        console.error('[SafetyGuard] ⚠️  iCloud sync failed:', err.message);
+    }
+};
+
 const proxy = http.createServer((req, res) => {
+    const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
     // 1. BACKUP LOGIC: Only for destructive methods
-    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
+    if (isMutation) {
         try {
             // Check if db.json exists before backing up
             if (fs.existsSync(DB_FILE)) {
-                const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                const nowObj = new Date();
+                const timestamp = nowObj.toISOString().replace(/[:.]/g, '-');
+                const dateStr = nowObj.toISOString().split('T')[0]; // YYYY-MM-DD
+                
+                // 1. Save standard mutation backup
                 const backupFile = path.join(BACKUP_DIR, `db-backup-${timestamp}.json`);
-
-                // Synchronous copy to ensure backup completes before request is forwarded
                 fs.copyFileSync(DB_FILE, backupFile);
                 console.log(`[SafetyGuard] 🛡️  Backup created: ${path.basename(backupFile)}`);
 
-                // Rotation: Cleanup old backups
+                // 2. Save permanent daily backup (one per day, never auto-deleted by short-term rotation)
+                const dailyBackupFile = path.join(BACKUP_DIR, `db-daily-${dateStr}.json`);
+                if (!fs.existsSync(dailyBackupFile)) {
+                    fs.copyFileSync(DB_FILE, dailyBackupFile);
+                    console.log(`[SafetyGuard] 📅 Permanent daily backup saved: db-daily-${dateStr}.json`);
+                }
+
+                // Rotation: Cleanup mutation backups older than 30 days
                 const files = fs.readdirSync(BACKUP_DIR)
                     .filter(f => f.startsWith('db-backup-'))
-                    .sort(); // Oldest first (default string sort works for ISO timestamps)
+                    .sort(); // Oldest first
 
-                const RETENTION_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+                const RETENTION_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
                 const now = Date.now();
                 let remainingFiles = [];
 
                 files.forEach(f => {
-                    // Extract timestamp from filename: db-backup-2023-10-27T10-00-00-000Z.json
-                    // Format: db-backup-YYYY-MM-DDTHH-mm-ss-sssZ.json
-                    const match = f.match(/db-backup-(.+)\.json/);
-                    if (match) {
-                        try {
-                            // Convert filename timestamp back to valid ISO string (replace - with : where needed)
-                            // Actually, simpler: construct date from parts or use consistent format
-                            // Our format: 2023-10-27T10-00-00-000Z with - replacing :.
-                            // Reverting to standard ISO for parsing
-                            const isoStr = match[1].replace(/-/g, (m, offset) => {
-                                // Replace dashes with colons only in the time part?
-                                // Actually, simpler approach: The filename sorts correctly.
-                                // We need accurate time parsing.
-                                // Current format: YYYY-MM-DDTHH-mm-ss-sssZ
-                                // Standard ISO: YYYY-MM-DDTHH:mm:ss.sssZ
-                                // Let's try to parse carefully.
-                                const parts = match[1].split('T');
-                                if (parts.length === 2) {
-                                    const datePart = parts[0];
-                                    const timePart = parts[1].replace(/-/g, ':').replace('Z', '');
-                                    // The milliseconds part might be tricky if it has dashes.
-                                    // Let's assume standard stats.mtime is easier!
-                                    return m;
-                                }
-                                return m;
-                            });
-
-                            // BETTER APPROACH: Use file metadata (mtime)
-                            const filePath = path.join(BACKUP_DIR, f);
-                            const stats = fs.statSync(filePath);
-
-                            if (now - stats.mtimeMs > RETENTION_MS) {
-                                fs.unlinkSync(filePath);
-                                console.log(`[SafetyGuard] 🧹 Deleted old backup: ${f}`);
-                            } else {
-                                remainingFiles.push(f);
-                            }
-                        } catch (e) {
-                            // If stat fails or anything else, keep the file to be safe
+                    const filePath = path.join(BACKUP_DIR, f);
+                    try {
+                        const stats = fs.statSync(filePath);
+                        if (now - stats.mtimeMs > RETENTION_MS) {
+                            fs.unlinkSync(filePath);
+                            console.log(`[SafetyGuard] 🧹 Deleted old backup: ${f}`);
+                        } else {
                             remainingFiles.push(f);
                         }
-                    } else {
+                    } catch (e) {
                         remainingFiles.push(f);
                     }
                 });
 
-                // Secondary Safety: Keep max 10 recent files
-                if (remainingFiles.length > 10) {
-                    const toDelete = remainingFiles.slice(0, remainingFiles.length - 10);
+                // Keep up to 100 mutation backups (instead of just 10)
+                if (remainingFiles.length > 100) {
+                    const toDelete = remainingFiles.slice(0, remainingFiles.length - 100);
                     toDelete.forEach(f => {
-                        fs.unlinkSync(path.join(BACKUP_DIR, f));
+                        try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch(e){}
                     });
                 }
             }
@@ -129,6 +124,11 @@ const proxy = http.createServer((req, res) => {
     const proxyReq = http.request(options, (proxyRes) => {
         res.writeHead(proxyRes.statusCode, proxyRes.headers);
         proxyRes.pipe(res);
+        if (isMutation) {
+            proxyRes.on('end', () => {
+                setTimeout(syncToICloud, 200);
+            });
+        }
     });
 
     proxyReq.on('error', (e) => {

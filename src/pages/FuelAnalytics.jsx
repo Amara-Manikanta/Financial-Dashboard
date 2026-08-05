@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
 const FuelAnalytics = () => {
     const { expenses, formatCurrency } = useFinance();
     const navigate = useNavigate();
-    const [selectedVehicle, setSelectedVehicle] = useState('scooty');
+    const [selectedVehicle, setSelectedVehicle] = useState('All');
     const [selectedYear, setSelectedYear] = useState('All');
     const [selectedMonth, setSelectedMonth] = useState('All');
     
@@ -50,7 +50,13 @@ const FuelAnalytics = () => {
             Object.entries(months).forEach(([month, data]) => {
                 if (data.transactions) {
                     data.transactions.forEach(tx => {
-                        if (tx.category && tx.category.toLowerCase().includes('fuel')) {
+                        const cat = (tx.category || '').toLowerCase();
+                        const sub = (tx.subCategory || '').toLowerCase();
+                        const title = (tx.title || '').toLowerCase();
+                        
+                        const isFuel = cat.includes('fuel') || sub.includes('fuel') || title.includes('fuel') || title.includes('petrol') || title.includes('diesel') || title.includes('bharat petroleum') || title.includes('indian oil') || title.includes('hpcl');
+                        
+                        if (isFuel) {
                             txs.push({
                                 ...tx,
                                 year: parseInt(year),
@@ -67,17 +73,19 @@ const FuelAnalytics = () => {
     }, [expenses]);
 
     const availableYears = useMemo(() => {
-        return [...new Set(fuelTransactions.filter(tx => (tx.vehicleType || 'bike') === selectedVehicle).map(tx => tx.year))].sort((a,b) => b-a);
-    }, [fuelTransactions, selectedVehicle]);
+        return [...new Set(fuelTransactions.map(tx => tx.year))].sort((a,b) => b-a);
+    }, [fuelTransactions]);
 
     const availableMonths = useMemo(() => {
         if (selectedYear === 'All') return [];
-        return [...new Set(fuelTransactions.filter(tx => (tx.vehicleType || 'bike') === selectedVehicle && tx.year === parseInt(selectedYear)).map(tx => tx.monthName))];
-    }, [fuelTransactions, selectedVehicle, selectedYear]);
+        return [...new Set(fuelTransactions.filter(tx => tx.year === parseInt(selectedYear)).map(tx => tx.monthName))];
+    }, [fuelTransactions, selectedYear]);
 
     const filteredTransactions = useMemo(() => {
         return fuelTransactions.filter(tx => {
-            const matchVehicle = (tx.vehicleType || 'bike') === selectedVehicle;
+            const matchVehicle = selectedVehicle === 'All' || 
+                (tx.vehicleType && tx.vehicleType.toLowerCase() === selectedVehicle.toLowerCase()) || 
+                (tx.title && tx.title.toLowerCase().includes(selectedVehicle.toLowerCase()));
             const matchYear = selectedYear === 'All' || tx.year === parseInt(selectedYear);
             const matchMonth = selectedMonth === 'All' || tx.monthName === selectedMonth;
             return matchVehicle && matchYear && matchMonth;
@@ -96,9 +104,9 @@ const FuelAnalytics = () => {
         let totalSpentWithLiters = 0;
 
         filteredTransactions.forEach((tx) => {
-            const amt = Number(tx.amount) || 0;
-            const l = Number(tx.liters) || null;
-            const k = Number(tx.km) || null;
+            const amt = Math.abs(Number(tx.amount) || 0);
+            const l = Number(tx.liters || tx.litres || tx.fuelLiters) || null;
+            const k = Number(tx.km || tx.odometer || tx.reading || tx.odometerReading) || null;
             
             totalSpent += amt;
             
@@ -112,26 +120,20 @@ const FuelAnalytics = () => {
                 pricePerLiter = amt / l;
             }
 
-            if (k) {
+            if (k && k > 0) {
                 if (previousKm && k > previousKm) {
                     distance = k - previousKm;
                     totalDistance += distance;
-                    // Use the previous fill-up's liters (which was actually burned over this distance)
                     const litersUsed = (previousLiters && previousLiters > 0) ? previousLiters : l;
                     if (litersUsed && litersUsed > 0) {
                         mileage = distance / litersUsed;
                     }
                 }
                 previousKm = k;
-            } else if (!tx.isCredited) {
-                // If a regular fuel expense is logged without an odometer reading, 
-                // we must break the continuous chain so we don't calculate an invalid, 
-                // inflated distance/mileage on the next transaction.
-                previousKm = null;
-                previousLiters = null;
-            }
-
-            if (l && l > 0) {
+                if (l && l > 0) {
+                    previousLiters = l;
+                }
+            } else if (l && l > 0) {
                 previousLiters = l;
             }
 
@@ -239,7 +241,7 @@ const FuelAnalytics = () => {
                     width: 'max-content',
                     gap: '2px'
                 }}>
-                    {['scooty', 'bike', 'car', 'other'].map(vType => (
+                    {['All', 'scooty', 'bike', 'car', 'other'].map(vType => (
                         <button
                             key={vType}
                             onClick={() => setSelectedVehicle(vType)}

@@ -7,6 +7,14 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
+    watch: {
+      ignored: [
+        '**/db.json',
+        '**/*.backup',
+        '**/backups/**',
+        '**/scratch/**'
+      ]
+    },
     proxy: {
       '/api/goldprice': {
         target: 'https://data-asg.goldprice.org',

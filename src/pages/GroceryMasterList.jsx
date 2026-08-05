@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X, Search, Merge } from 'lucide-react';
 
@@ -9,7 +9,7 @@ const GroceryMasterList = () => {
         groceryFlavours, addGroceryFlavour, removeGroceryFlavour, saveGroceryFlavours,
         groceryItemBrandMap, groceryItemFlavourMap,
         saveGroceryItemBrandMap, saveGroceryItemFlavourMap,
-        mergeGroceryItem
+        mergeGroceryItem, expenses, customGroceryItems
     } = useFinance();
     const [selectedCategory, setSelectedCategory] = useState(Object.keys(groceryCategories)[0] || '');
     const [activeTab, setActiveTab] = useState('items'); // items, brands, flavours
@@ -147,7 +147,30 @@ const GroceryMasterList = () => {
         }
     };
 
-    const currentItems = groceryCategories[selectedCategory] || [];
+    const currentItems = useMemo(() => {
+        const base = groceryCategories[selectedCategory] || [];
+        const custom = customGroceryItems?.[selectedCategory] || [];
+        const set = new Set(base);
+        custom.forEach(i => set.add(i));
+
+        if (expenses) {
+            Object.values(expenses).forEach(yearData => {
+                Object.values(yearData).forEach(monthData => {
+                    (monthData.transactions || []).forEach(tx => {
+                        (tx.groceryItems || []).forEach(gi => {
+                            const cat = gi.subcategory || 'General Groceries';
+                            if (cat === selectedCategory && gi.name && gi.name !== 'GST / Carry Bag') {
+                                set.add(gi.name);
+                            }
+                        });
+                    });
+                });
+            });
+        }
+
+        return Array.from(set).sort();
+    }, [groceryCategories, selectedCategory, customGroceryItems, expenses]);
+
     const currentBrands = groceryBrands[selectedCategory] || [];
     const currentFlavours = groceryFlavours[selectedCategory] || [];
 

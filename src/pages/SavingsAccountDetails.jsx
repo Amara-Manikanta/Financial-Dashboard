@@ -30,9 +30,30 @@ const SavingsAccountDetails = () => {
     const syncInterest = () => {
         if (!account) return;
 
+        // If interest rate is explicitly 0 or disableAutoInterest is enabled
+        const isAutoInterestDisabled = account.disableAutoInterest || account.interestRate === 0;
+        const annualRate = isAutoInterestDisabled ? 0 : (account.interestRate !== undefined ? Number(account.interestRate) : 5.4);
+
+        if (isAutoInterestDisabled || annualRate === 0) {
+            const hasAutoInterest = (account.transactions || []).some(t => t.remarks === 'Auto Daily Interest');
+            if (hasAutoInterest) {
+                const cleanedTxs = (account.transactions || []).filter(t => t.remarks !== 'Auto Daily Interest');
+                let finalAmount = 0;
+                cleanedTxs.forEach(t => {
+                    const val = Number(t.amount) || 0;
+                    if (t.type === 'deposit' || t.type === 'interest' || t.type === 'monnies_redeemed') finalAmount += val;
+                    else if (t.type === 'withdraw') finalAmount -= val;
+                });
+                updateItem('savings', {
+                    ...account,
+                    transactions: cleanedTxs,
+                    amount: finalAmount
+                });
+            }
+            return;
+        }
+
         const transactions = [...(account.transactions || [])].sort((a, b) => new Date(a.date) - new Date(b.date));
-        // Use interestRate from account or default to 5.4%
-        const annualRate = account.interestRate || 5.4;
         const ratePerDay = annualRate / 100 / 365;
 
         if (transactions.length === 0) return;

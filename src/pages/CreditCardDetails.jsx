@@ -176,11 +176,44 @@ const CreditCardDetails = () => {
                 gap: '2rem'
             }}>
                 {creditCards.map((card) => {
-                    const pointsSpent = (expenses ? Object.values(expenses).flatMap(year => Object.values(year).flatMap(month => month.transactions || [])) : [])
-                        .filter(tx => tx.paymentMode === 'credit_card' && tx.creditCardName && tx.creditCardName.trim().toLowerCase() === card.name.trim().toLowerCase() && tx.isRewardPoints)
-                        .reduce((sum, tx) => sum + (Number(tx.amount) * 5), 0);
-                    
-                    const totalPoints = (card.monthlyData || []).reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
+                    const getCardRewardPoints = (c) => {
+                        const cardName = c.name.trim().toLowerCase();
+                        const ptsSpent = (expenses ? Object.values(expenses).flatMap(year => Object.values(year).flatMap(month => month.transactions || [])) : [])
+                            .filter(tx => tx.paymentMode === 'credit_card' && tx.creditCardName && tx.creditCardName.trim().toLowerCase() === cardName && tx.isRewardPoints)
+                            .reduce((sum, tx) => sum + (Number(tx.amount) * 5), 0);
+
+                        const stmtPts = (c.monthlyData || []).reduce((sum, m) => sum + (Number(m.points) || 0), 0);
+                        const manualPts = Number(c.manualPoints || c.rewardPoints || 0);
+
+                        if (stmtPts > 0 || manualPts > 0) {
+                            return Math.max(0, stmtPts + manualPts - ptsSpent);
+                        }
+
+                        // Auto-calculate reward points from transaction spends
+                        let autoEarned = 0;
+                        if (expenses) {
+                            Object.values(expenses).forEach(yearData => {
+                                Object.values(yearData).forEach(monthData => {
+                                    (monthData.transactions || []).forEach(tx => {
+                                        if (tx.paymentMode === 'credit_card' && tx.creditCardName) {
+                                            const txName = tx.creditCardName.trim().toLowerCase();
+                                            if (txName === cardName || cardName.includes(txName) || txName.includes(cardName)) {
+                                                const cat = (tx.category || '').toLowerCase();
+                                                const amt = Number(tx.amount) || 0;
+                                                if (cat !== 'credit card bill' && cat !== 'credit card payment' && !tx.isCredited && !tx.isRewardPoints) {
+                                                    const rate = cardName.includes('scapia') ? 0.10 : 0.02;
+                                                    autoEarned += Math.round(amt * rate);
+                                                }
+                                            }
+                                        }
+                                    });
+                                });
+                            });
+                        }
+                        return Math.max(0, autoEarned - ptsSpent);
+                    };
+
+                    const totalPoints = getCardRewardPoints(card);
                     const pendingAmount = (card.monthlyData || [])
                         .filter(m => !m.isPaid)
                         .reduce((sum, m) => sum + (Number(m.billAmount) || 0), 0);
@@ -304,14 +337,18 @@ const CreditCardDetails = () => {
                                     </div>
                                 </div>
                             ) : (
-                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', backgroundColor: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
                                     <div>
                                         <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Limit</span>
-                                        <p style={{ fontSize: '1rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(card.creditLimit)}</p>
+                                        <p style={{ fontSize: '0.875rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(card.creditLimit)}</p>
                                     </div>
                                     <div>
                                         <span style={{ fontSize: '8px', fontWeight: '900', color: displayDue > 0 ? '#f87171' : '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{isUnbilled ? 'Unbilled' : 'To Pay'}</span>
-                                        <p style={{ fontSize: '1rem', fontWeight: '950', color: displayDue > 0 ? '#f87171' : '#34d399', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(displayDue)}</p>
+                                        <p style={{ fontSize: '0.875rem', fontWeight: '950', color: displayDue > 0 ? '#f87171' : '#34d399', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(displayDue)}</p>
+                                    </div>
+                                    <div>
+                                        <span style={{ fontSize: '8px', fontWeight: '900', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Points</span>
+                                        <p style={{ fontSize: '0.875rem', fontWeight: '950', color: '#fbbf24', fontFamily: 'monospace', margin: 0 }}>{totalPoints.toLocaleString()}</p>
                                     </div>
                                 </div>
                             )}

@@ -13,6 +13,16 @@ export const CATEGORY_MAP = {
     "Bank Transfer",
     "Personal Transfer"
   ],
+  "People Transfers": [
+    "Family Lent",
+    "Family Borrowed",
+    "Family Transfers",
+    "Kitty Party",
+    "Peer Transfer",
+    "Friend Lent",
+    "Friend Borrowed",
+    "Money Received Back"
+  ],
   "Investments": [
     "Stocks",
     "Mutual Funds",

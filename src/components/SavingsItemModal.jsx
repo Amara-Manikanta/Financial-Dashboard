@@ -26,7 +26,7 @@ const iconStyle = {
     height: '16px'
 };
 
-const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
+const SavingsItemModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [type, setType] = useState('fixed_deposit');
     const [title, setTitle] = useState('');
     const [amount, setAmount] = useState('');
@@ -34,6 +34,23 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
 
     // Type specific fields
     const [extra, setExtra] = useState({});
+
+    useEffect(() => {
+        if (initialData) {
+            setType(initialData.type || 'fixed_deposit');
+            setTitle(initialData.title || initialData.name || '');
+            setAmount(initialData.amount !== undefined ? initialData.amount : '');
+            setDate(initialData.date || new Date().toISOString().split('T')[0]);
+            setExtra({
+                policyNo: initialData.policyNo || initialData.policyDetails?.policyNumber || '',
+                insurer: initialData.insurer || initialData.policyDetails?.insurer || '',
+                pran: initialData.pran || '',
+                bank: initialData.bank || initialData.bankName || ''
+            });
+        } else {
+            resetForm();
+        }
+    }, [initialData, isOpen]);
 
     const types = [
         { id: 'policy', label: 'Insurance Policy', icon: <Shield size={16} /> },
@@ -52,33 +69,37 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
 
-        const newItem = {
-            id: Date.now().toString(),
+        const updatedItem = {
+            ...(initialData || {}),
+            id: initialData ? initialData.id : Date.now().toString(),
             title,
+            name: title,
             amount: parseFloat(amount || 0),
             type,
             date,
             ...extra
         };
 
-        // Add default structures for certain types
-        if (type === 'nps') {
-            newItem.holdings = [];
-            newItem.transactions = [];
-            newItem.investedAmount = parseFloat(amount || 0);
-        } else if (type === 'ppf') {
-            newItem.details = [];
-        } else if (type === 'recurring_deposit') {
-            newItem.recurringDeposits = [];
-            newItem.amount = 0; // RD containers start with 0 val usually as they sum up children
-        } else if (type === 'savings_account') {
-            newItem.transactions = [];
-            newItem.interestRate = 5.4;
-        } else if (type === 'pf') {
-            newItem.details = [];
+        if (!initialData) {
+            // Add default structures for new items
+            if (type === 'nps') {
+                updatedItem.holdings = [];
+                updatedItem.transactions = [];
+                updatedItem.investedAmount = parseFloat(amount || 0);
+            } else if (type === 'ppf') {
+                updatedItem.details = [];
+            } else if (type === 'recurring_deposit') {
+                updatedItem.recurringDeposits = [];
+                updatedItem.amount = 0;
+            } else if (type === 'savings_account') {
+                updatedItem.transactions = [];
+                updatedItem.interestRate = 5.4;
+            } else if (type === 'pf') {
+                updatedItem.details = [];
+            }
         }
 
-        onSave(newItem);
+        onSave(updatedItem);
         resetForm();
         onClose();
     };
@@ -110,8 +131,12 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
                     <div>
-                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>Add New Account</h3>
-                        <p style={{ fontSize: '9px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>Select type and enter details</p>
+                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: 0 }}>
+                            {initialData ? 'Edit Account Details' : 'Add New Account'}
+                        </h3>
+                        <p style={{ fontSize: '9px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem' }}>
+                            {initialData ? 'Update title and account details' : 'Select type and enter details'}
+                        </p>
                     </div>
                     <button onClick={onClose} style={{ padding: '0.5rem', borderRadius: '0.75rem', border: 'none', backgroundColor: 'rgba(255,255,255,0.03)', color: '#71717a', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         <X size={16} />
@@ -160,7 +185,7 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                                     value={title}
                                     onChange={e => setTitle(e.target.value)}
                                     style={inputStyle}
-                                    placeholder="e.g. HDFC Bluechip, LIC Jeevan Anand"
+                                    placeholder="e.g. HDFC Savings, LIC Jeevan Anand"
                                 />
                                 <Layout style={iconStyle} />
                             </div>
@@ -200,14 +225,14 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                                 <div>
                                     <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Policy No</label>
                                     <div style={{ position: 'relative' }}>
-                                        <input type="text" onChange={e => handleExtraChange('policyNo', e.target.value)} style={inputStyle} placeholder="POL-12345" />
+                                        <input type="text" value={extra.policyNo || ''} onChange={e => handleExtraChange('policyNo', e.target.value)} style={inputStyle} placeholder="POL-12345" />
                                         <FileText style={iconStyle} />
                                     </div>
                                 </div>
                                 <div>
                                     <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Insurer</label>
                                     <div style={{ position: 'relative' }}>
-                                        <input type="text" onChange={e => handleExtraChange('insurer', e.target.value)} style={inputStyle} placeholder="LIC, ICICI Pru" />
+                                        <input type="text" value={extra.insurer || ''} onChange={e => handleExtraChange('insurer', e.target.value)} style={inputStyle} placeholder="LIC, ICICI Pru" />
                                         <Shield style={iconStyle} />
                                     </div>
                                 </div>
@@ -218,7 +243,7 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                             <div>
                                 <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>PRAN Number</label>
                                 <div style={{ position: 'relative' }}>
-                                    <input type="text" onChange={e => handleExtraChange('pran', e.target.value)} style={inputStyle} placeholder="1234-5678-9012" />
+                                    <input type="text" value={extra.pran || ''} onChange={e => handleExtraChange('pran', e.target.value)} style={inputStyle} placeholder="1234-5678-9012" />
                                     <CreditCard style={iconStyle} />
                                 </div>
                             </div>
@@ -228,7 +253,7 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                             <div>
                                 <label style={{ display: 'block', fontSize: '9px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.5rem' }}>Bank / Account Number</label>
                                 <div style={{ position: 'relative' }}>
-                                    <input type="text" onChange={e => handleExtraChange('bank', e.target.value)} style={inputStyle} placeholder="HDFC, SBI, etc." />
+                                    <input type="text" value={extra.bank || ''} onChange={e => handleExtraChange('bank', e.target.value)} style={inputStyle} placeholder="HDFC, SBI, etc." />
                                     <Landmark style={iconStyle} />
                                 </div>
                             </div>
@@ -253,7 +278,7 @@ const SavingsItemModal = ({ isOpen, onClose, onSave }) => {
                             marginTop: '1rem'
                         }}
                     >
-                        Create Account
+                        {initialData ? 'Save Changes' : 'Create Account'}
                     </button>
                 </form>
             </div>

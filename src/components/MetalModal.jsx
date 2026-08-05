@@ -40,7 +40,7 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
 
             setPlace(initialData.place || '');
             setRemarks(initialData.remarks || '');
-            setImage(initialData.image || '');
+            setImage(initialData.image || initialData.imageUrl || initialData.photo || '');
         } else if (isOpen && !initialData) {
             setName('');
             setWeightGm('');
@@ -125,6 +125,7 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             place,
             remarks,
             image,
+            imageUrl: image,
             currentValue: calculatedCurrentValue
         };
         onAdd(dataToSubmit);

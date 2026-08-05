@@ -9,25 +9,56 @@ import BackButton from '../components/BackButton';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
 const getSchemeCalculations = (h) => {
-    if (!h.transactions || h.transactions.length === 0) {
-        return {
-            units: Number(h.totalunits || 0),
-            amount: Number(h.amount || 0),
-            current: Number(h.totalunits || 0) * Number(h.nav || 0)
-        };
-    }
     let units = 0;
     let invested = 0;
-    h.transactions.forEach(tx => {
-        units += Number(tx.units || 0);
-        if (tx.type !== 'billing' && tx.amount > 0) {
-            invested += Number(tx.amount || 0);
-        }
+    if (h.transactions && h.transactions.length > 0) {
+        h.transactions.forEach(tx => {
+            units += Number(tx.units || 0);
+            if (tx.type !== 'billing' && Number(tx.amount || 0) > 0) {
+                invested += Number(tx.amount || 0);
+            }
+        });
+    } else {
+        units = Number(h.totalunits !== undefined ? h.totalunits : (h.totalUnits !== undefined ? h.totalUnits : (h.units || 0)));
+        invested = Number(h.amount || h.investedAmount || 0);
+    }
+    
+    // Extract last non-zero nav from transactions if available
+    let lastTxNav = 0;
+    if (h.transactions && h.transactions.length > 0) {
+        const txWithNav = [...h.transactions].reverse().find(t => Number(t.nav || 0) > 0);
+        if (txWithNav) lastTxNav = Number(txWithNav.nav);
+    }
+
+    const nav = Number(h.nav || h.currentPrice || lastTxNav || 0);
+    const current = units * nav;
+    return { units, amount: invested, current, nav };
+};
+
+const processAndSyncHoldings = (rawHoldings) => {
+    let totalCurrent = 0;
+    let totalInvested = 0;
+    
+    const computed = rawHoldings.map(h => {
+        const calcs = getSchemeCalculations(h);
+        totalCurrent += calcs.current;
+        totalInvested += calcs.amount;
+        return {
+            ...h,
+            totalunits: parseFloat(calcs.units.toFixed(4)),
+            totalUnits: parseFloat(calcs.units.toFixed(4)),
+            amount: parseFloat(calcs.amount.toFixed(2)),
+            current: parseFloat(calcs.current.toFixed(2))
+        };
     });
+
     return {
-        units,
-        amount: invested,
-        current: units * Number(h.nav || 0)
+        totalCurrent,
+        totalInvested,
+        holdings: computed.map(h => ({
+            ...h,
+            percentage: totalCurrent > 0 ? parseFloat((h.current / totalCurrent * 100).toFixed(2)) : 0
+        }))
     };
 };
 
@@ -53,9 +84,9 @@ const NPSDetails = () => {
         if (!nps?.holdings) return [];
         let txs = [];
         nps.holdings.forEach(h => {
+            const schemeTitle = h.scheme || h.name || h.issueName || 'NPS Scheme';
             (h.transactions || []).forEach(tx => {
-                // Attach schemeId so the tab filter works correctly
-                txs.push({ ...tx, schemeName: h.scheme, schemeId: h.id });
+                txs.push({ ...tx, schemeName: schemeTitle, schemeId: h.id });
             });
         });
         return txs.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -69,9 +100,14 @@ const NPSDetails = () => {
     const pieData = useMemo(() => {
         if (!nps?.holdings) return [];
         return nps.holdings.map(h => ({
-            name: h.scheme.split('-')[0].trim(),
+            name: (h.scheme || h.name || h.issueName || 'NPS Scheme').split('-')[0].trim(),
             value: getSchemeCalculations(h).current
         })).filter(d => d.value > 0);
+    }, [nps?.holdings]);
+
+    const totalUnits = useMemo(() => {
+        if (!nps?.holdings) return 0;
+        return nps.holdings.reduce((sum, h) => sum + getSchemeCalculations(h).units, 0);
     }, [nps?.holdings]);
 
     if (!nps) {
@@ -97,22 +133,13 @@ const NPSDetails = () => {
             updatedHoldings.push(holdingData);
         }
 
-        let totalCurrent = 0;
-        updatedHoldings.forEach(h => {
-            totalCurrent += getSchemeCalculations(h).current;
-        });
-
-        const holdingsWithPercentage = updatedHoldings.map(h => {
-            const hCurrent = getSchemeCalculations(h).current;
-            return {
-                ...h,
-                percentage: totalCurrent > 0 ? parseFloat((hCurrent / totalCurrent * 100).toFixed(2)) : 0
-            };
-        });
+        const { totalCurrent, totalInvested, holdings } = processAndSyncHoldings(updatedHoldings);
 
         updateItem('savings', {
             ...nps,
-            holdings: holdingsWithPercentage,
+            amount: parseFloat(totalCurrent.toFixed(2)),
+            investedAmount: parseFloat(totalInvested.toFixed(2)),
+            holdings,
         });
 
         setIsModalOpen(false);
@@ -123,23 +150,13 @@ const NPSDetails = () => {
     const handleDeleteHolding = (index) => {
         if (window.confirm('Delete this scheme and all its transactions?')) {
             const updatedHoldings = nps.holdings.filter((_, i) => i !== index);
-            
-            let totalCurrent = 0;
-            updatedHoldings.forEach(h => {
-                totalCurrent += getSchemeCalculations(h).current;
-            });
-
-            const holdingsWithPercentage = updatedHoldings.map(h => {
-                const hCurrent = getSchemeCalculations(h).current;
-                return {
-                    ...h,
-                    percentage: totalCurrent > 0 ? parseFloat((hCurrent / totalCurrent * 100).toFixed(2)) : 0
-                };
-            });
+            const { totalCurrent, totalInvested, holdings } = processAndSyncHoldings(updatedHoldings);
 
             updateItem('savings', {
                 ...nps,
-                holdings: holdingsWithPercentage,
+                amount: parseFloat(totalCurrent.toFixed(2)),
+                investedAmount: parseFloat(totalInvested.toFixed(2)),
+                holdings,
             });
         }
     };
@@ -169,23 +186,13 @@ const NPSDetails = () => {
             updatedHoldings[holdingIndex] = { ...updatedHoldings[holdingIndex], transactions: txs };
         }
 
-        // Recalculate percentages
-        let totalCurrent = 0;
-        updatedHoldings.forEach(h => {
-            totalCurrent += getSchemeCalculations(h).current;
-        });
-
-        const holdingsWithPercentage = updatedHoldings.map(h => {
-            const hCurrent = getSchemeCalculations(h).current;
-            return {
-                ...h,
-                percentage: totalCurrent > 0 ? parseFloat((hCurrent / totalCurrent * 100).toFixed(2)) : 0
-            };
-        });
+        const { totalCurrent, totalInvested, holdings } = processAndSyncHoldings(updatedHoldings);
 
         updateItem('savings', {
             ...nps,
-            holdings: holdingsWithPercentage,
+            amount: parseFloat(totalCurrent.toFixed(2)),
+            investedAmount: parseFloat(totalInvested.toFixed(2)),
+            holdings,
         });
 
         setIsTxModalOpen(false);
@@ -203,22 +210,13 @@ const NPSDetails = () => {
                 };
             }
 
-            let totalCurrent = 0;
-            updatedHoldings.forEach(h => {
-                totalCurrent += getSchemeCalculations(h).current;
-            });
-
-            const holdingsWithPercentage = updatedHoldings.map(h => {
-                const hCurrent = getSchemeCalculations(h).current;
-                return {
-                    ...h,
-                    percentage: totalCurrent > 0 ? parseFloat((hCurrent / totalCurrent * 100).toFixed(2)) : 0
-                };
-            });
+            const { totalCurrent, totalInvested, holdings } = processAndSyncHoldings(updatedHoldings);
 
             updateItem('savings', {
                 ...nps,
-                holdings: holdingsWithPercentage,
+                amount: parseFloat(totalCurrent.toFixed(2)),
+                investedAmount: parseFloat(totalInvested.toFixed(2)),
+                holdings,
             });
         }
     };
@@ -308,6 +306,14 @@ const NPSDetails = () => {
                 </div>
                 <div className="card p-6" style={{
                     ...glassCardStyle,
+                    background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.08), rgba(168, 85, 247, 0.02))',
+                    border: '1px solid rgba(168, 85, 247, 0.15)'
+                }}>
+                    <p className="text-[10px] font-black text-purple-400 uppercase tracking-widest mb-2">Total Accumulated Units</p>
+                    <p className="text-3xl font-black text-purple-300 font-mono">{totalUnits.toFixed(3)} <span className="text-xs font-bold text-purple-400">UNITS</span></p>
+                </div>
+                <div className="card p-6" style={{
+                    ...glassCardStyle,
                     background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.08), rgba(16, 185, 129, 0.02))',
                     border: '1px solid rgba(16, 185, 129, 0.15)'
                 }}>
@@ -346,11 +352,11 @@ const NPSDetails = () => {
                                             onClick={() => setSelectedSchemeFilter(item.id)}
                                         >
                                             <td className="py-5 px-8 text-zinc-200">
-                                                {item.scheme}
+                                                {item.scheme || item.name || item.issueName || 'NPS Scheme'}
                                                 <div className="text-[9px] text-zinc-500 mt-1 uppercase font-semibold">{item.percentage}% Allocation</div>
                                             </td>
                                             <td className="py-5 px-6 text-right font-mono text-zinc-400">{formatCurrency(calcs.amount)}</td>
-                                            <td className="py-5 px-6 text-right font-mono text-zinc-400">{formatCurrency(item.nav)}</td>
+                                            <td className="py-5 px-6 text-right font-mono text-zinc-400">{formatCurrency(calcs.nav)}</td>
                                             <td className="py-5 px-6 text-right font-mono text-zinc-400">{calcs.units.toFixed(3)}</td>
                                             <td className="py-5 px-6 text-right font-mono text-emerald-400">{formatCurrency(calcs.current)}</td>
                                             <td className="py-5 px-8 text-center" onClick={e => e.stopPropagation()}>
@@ -450,7 +456,7 @@ const NPSDetails = () => {
                                 }}
                                 onClick={() => setSelectedSchemeFilter(h.id)}
                             >
-                                {h.scheme.split('-')[0].trim()}
+                                {(h.scheme || h.name || h.issueName || 'NPS Scheme').split('-')[0].trim()}
                             </button>
                         ))}
                     </div>

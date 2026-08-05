@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers, Archive, ArchiveRestore } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
 
 const Investments = () => {
-    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, deleteItem } = useFinance();
+    const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, updateItem, deleteItem } = useFinance();
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -18,6 +18,11 @@ const Investments = () => {
     const investments = savings.filter(item => item.type === 'mutual_fund' || item.type === 'stock_market' || item.type === 'sgb');
     const activeInvestments = investments.filter(item => !item.isArchived);
     const archivedInvestments = investments.filter(item => item.isArchived);
+
+    const handleArchiveClick = async (e, item) => {
+        e.stopPropagation();
+        await updateItem('savings', { ...item, isArchived: !item.isArchived });
+    };
 
     const handleDeleteClick = (e, item) => {
         e.stopPropagation();
@@ -507,23 +512,36 @@ const Investments = () => {
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={(e) => handleDeleteClick(e, item)}
-                                    style={{
-                                        position: 'absolute',
-                                        bottom: '1rem',
-                                        right: '1rem',
-                                        padding: '0.5rem',
-                                        borderRadius: '0.5rem',
-                                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                                        color: '#f87171',
-                                        cursor: 'pointer',
-                                        zIndex: 20
-                                    }}
-                                    title="Delete Account"
-                                >
-                                    <Trash2 size={16} />
-                                </button>
+                                <div style={{ position: 'absolute', bottom: '1rem', right: '1rem', display: 'flex', gap: '0.5rem', zIndex: 20 }}>
+                                    <button
+                                        onClick={(e) => handleArchiveClick(e, item)}
+                                        style={{
+                                            padding: '0.4rem 0.5rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: 'rgba(255, 255, 255, 0.05)',
+                                            border: '1px solid rgba(255, 255, 255, 0.1)',
+                                            color: '#a1a1aa',
+                                            cursor: 'pointer'
+                                        }}
+                                        title="Archive Account"
+                                    >
+                                        <Archive size={15} />
+                                    </button>
+                                    <button
+                                        onClick={(e) => handleDeleteClick(e, item)}
+                                        style={{
+                                            padding: '0.4rem 0.5rem',
+                                            borderRadius: '0.5rem',
+                                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                            border: '1px solid rgba(239, 68, 68, 0.2)',
+                                            color: '#f87171',
+                                            cursor: 'pointer'
+                                        }}
+                                        title="Delete Account"
+                                    >
+                                        <Trash2 size={15} />
+                                    </button>
+                                </div>
                             </div>
                         );
                     })}
@@ -562,15 +580,17 @@ const Investments = () => {
                             display: 'grid',
                             gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
                             gap: '1.5rem',
-                            opacity: 0.6
+                            opacity: 0.8
                         }}>
                             {archivedInvestments.map(item => {
                                 const isStockMarket = item.type === 'stock_market';
                                 const isMutualFund = item.type === 'mutual_fund';
+                                const isSGB = item.type === 'sgb';
                                 const displayAmount = calculateItemCurrentValue(item);
                                 const handleClick = () => {
                                     if (isMutualFund) { navigate(`/savings/mutual-fund/${item.id}`); }
                                     else if (isStockMarket) { navigate(`/savings/stock-market/${item.id}`); }
+                                    else if (isSGB) { navigate(`/savings/sgb/${item.id}`); }
                                 };
 
                                 return (
@@ -613,6 +633,37 @@ const Investments = () => {
                                             <div>
                                                 <p style={{ fontSize: '1.5rem', fontWeight: '900', color: '#a1a1aa', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(displayAmount)}</p>
                                             </div>
+                                        </div>
+
+                                        <div style={{ position: 'absolute', bottom: '0.85rem', right: '0.85rem', display: 'flex', gap: '0.4rem', zIndex: 20 }}>
+                                            <button
+                                                onClick={(e) => handleArchiveClick(e, item)}
+                                                style={{
+                                                    padding: '0.35rem 0.5rem',
+                                                    borderRadius: '0.4rem',
+                                                    backgroundColor: 'rgba(52, 211, 153, 0.1)',
+                                                    border: '1px solid rgba(52, 211, 153, 0.25)',
+                                                    color: '#34d399',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Unarchive Account"
+                                            >
+                                                <ArchiveRestore size={14} />
+                                            </button>
+                                            <button
+                                                onClick={(e) => handleDeleteClick(e, item)}
+                                                style={{
+                                                    padding: '0.35rem 0.5rem',
+                                                    borderRadius: '0.4rem',
+                                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                                    border: '1px solid rgba(239, 68, 68, 0.2)',
+                                                    color: '#f87171',
+                                                    cursor: 'pointer'
+                                                }}
+                                                title="Delete Account"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
                                         </div>
                                     </div>
                                 );

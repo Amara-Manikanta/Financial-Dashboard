@@ -352,8 +352,8 @@ const CreditCardImportModal = ({ isOpen, onClose, onSave, existingTransactions, 
                 const sameDate = ext.date === tx.date;
                 const sameAmt = Math.abs(ext.amount) === Math.abs(tx.amount);
                 // Simple substring match for title
-                const t1 = ext.title.toLowerCase().replace(/[^a-z0-9]/g, '');
-                const t2 = tx.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+                const t1 = (ext.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                const t2 = (tx.title || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                 const similarTitle = t1.includes(t2) || t2.includes(t1);
                 return sameDate && sameAmt && similarTitle;
             });

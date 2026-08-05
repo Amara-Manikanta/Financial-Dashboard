@@ -46,7 +46,7 @@ const GroceryAnalytics = () => {
         setCurrentPage(1);
     }, [selectedCategory, selectedItem, selectedBrand, selectedFlavour, rowsPerPage]);
 
-    // Flatten all grocery items from all transactions
+    // Flatten all grocery items from all transactions (itemized + general grocery expenses)
     const allGroceries = useMemo(() => {
         const items = [];
         if (!expenses) return items;
@@ -55,6 +55,11 @@ const GroceryAnalytics = () => {
             Object.entries(months).forEach(([month, data]) => {
                 if (data.transactions) {
                     data.transactions.forEach(tx => {
+                        const cat = (tx.category || '').toLowerCase();
+                        const sub = (tx.subCategory || '').toLowerCase();
+                        const title = (tx.title || '').toLowerCase();
+                        const isGroceryTx = cat.includes('groc') || sub.includes('groc') || title.includes('groc') || title.includes('dmart') || title.includes('blinkit') || title.includes('zepto') || title.includes('instamart') || title.includes('bigbasket') || title.includes('supermarket');
+
                         if (tx.groceryItems && tx.groceryItems.length > 0) {
                             tx.groceryItems.forEach(gi => {
                                 if (gi.name === 'GST / Carry Bag') return;
@@ -66,14 +71,28 @@ const GroceryAnalytics = () => {
                                     transactionId: tx.id,
                                     month,
                                     year,
-                                    // ensure properties exist to avoid undefined
-                                    subcategory: gi.subcategory || 'Uncategorized',
-                                    name: gi.name || 'Unknown Item',
+                                    subcategory: gi.subcategory || 'General Groceries',
+                                    name: gi.name || tx.title || 'Grocery Item',
                                     brand: gi.brand || '',
                                     flavour: gi.flavour || '',
                                     price: Number(gi.price) || 0,
-                                    quantity: gi.quantity === 'Custom' ? gi.customQuantity : gi.quantity
+                                    quantity: gi.quantity === 'Custom' ? gi.customQuantity : (gi.quantity || '1 unit')
                                 });
+                            });
+                        } else if (isGroceryTx) {
+                            items.push({
+                                id: tx.id,
+                                name: tx.title || 'Grocery Store Purchase',
+                                subcategory: 'General Groceries',
+                                brand: tx.creditCardName || (tx.paymentMode ? tx.paymentMode.replace('_', ' ') : 'Grocery Store'),
+                                flavour: '',
+                                price: Math.abs(Number(tx.amount) || 0),
+                                quantity: '1 order',
+                                date: new Date(tx.date),
+                                timestamp: new Date(tx.date).getTime(),
+                                transactionId: tx.id,
+                                month,
+                                year
                             });
                         }
                     });

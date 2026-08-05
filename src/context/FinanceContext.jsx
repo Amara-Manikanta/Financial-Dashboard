@@ -2,12 +2,15 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from './AuthContext';
 import { getLastWorkingDayOfMonth } from '../utils/dateUtils';
 import { CATEGORY_MAP } from '../utils/categories';
+import initialDb from '../../db.json';
 
 
 const FinanceContext = createContext();
 
 
-const API_URL = 'http://127.0.0.1:3000';
+const API_URL = typeof window !== 'undefined' 
+    ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000`
+    : 'http://localhost:3000';
 
 export const DEFAULT_GROCERY_CATEGORIES = {
     'Milk Products': ['Milk', 'Paneer', 'Curd', 'Cheese', 'Butter', 'Ghee'],
@@ -19,8 +22,21 @@ export const DEFAULT_GROCERY_CATEGORIES = {
     'Snacks': ['Biscuits', 'Chips', 'Namkeen', 'Chocolates', 'Cookies'],
     'Cleaning Supplies': ['Detergent Powder', 'Dishwash Liquid', 'Floor Cleaner', 'Toilet Cleaner', 'Glass Cleaner', 'Scrub Pad'],
     'Personal Care': ['Soap', 'Shampoo', 'Toothpaste', 'Toothbrush', 'Body Wash', 'Face Wash', 'Deodorant', 'Hair Oil'],
-    'Eggs': ['Eggs'],
+    'Non-Veg': ['Chicken', 'Mutton', 'Fish', 'Prawns', 'Eggs', 'Chicken Boneless', 'Egg Tray (30)'],
     'Others': ['Sugar', 'Salt', 'Tea Powder', 'Coffee Powder', 'Jaggery']
+};
+
+export const DEFAULT_CATEGORY_BUDGETS = {
+    'Groceries': 15000,
+    'Fuel': 5000,
+    'Food & Dining': 8000,
+    'Bills & Utilities': 12000,
+    'Shopping': 10000,
+    'Healthcare': 5000,
+    'Travel': 10000,
+    'Entertainment': 5000,
+    'Housing': 25000,
+    'Miscellaneous': 5000
 };
 
 const MONTHLY_EARNINGS_KEYS = ['basicSalary', 'hra', 'conveyanceAllowance', 'flexibleAllowance', 'performanceBonus', 'foodWallet',
@@ -31,36 +47,20 @@ const calculateSalaryStats = (expensesData, salaryDetailsData = []) => {
     const stats = {};
     if (!expensesData || typeof expensesData !== 'object') return stats;
 
-    // First pass: pull from expense transactions (salary received category)
-    Object.entries(expensesData).forEach(([year, months]) => {
-        if (!stats[year]) stats[year] = { total: 0, months: {} };
-        Object.entries(months).forEach(([month, data]) => {
-            if (!data) return;
-            const categories = data.categories || data;
-            const salary = categories['salary received'] || categories['salary'] || 0;
-            if (salary > 0) {
-                stats[year].total += salary;
-                stats[year].months[month] = salary;
-            }
-        });
-    });
+    const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-    // Second pass: fill in from salaryDetails for any months not covered above
+    // 1. Pass 1: Parse explicit salary slips from salaryDetailsData
+    const slipMap = {};
     if (Array.isArray(salaryDetailsData)) {
         salaryDetailsData.forEach(record => {
             if (!record.year || !record.month || record.month === 'Annual') return;
-            const yr = record.year;
-            const mo = record.month;
+            const yr = String(record.year);
+            const mo = String(record.month);
 
-            // If already populated from a transaction, don't override
-            if (stats[yr]?.months[mo] > 0) return;
-
-            // Compute net salary: sum earnings minus deductions
             let gross = 0;
             MONTHLY_EARNINGS_KEYS.forEach(k => {
                 if (k !== 'cfPfMonthly') gross += Number(record[k]) || 0;
             });
-            // Also add any custom fields that are positive numbers
             Object.entries(record).forEach(([k, v]) => {
                 if (!['id', 'year', 'month', 'type', ...MONTHLY_EARNINGS_KEYS, ...MONTHLY_DEDUCTIONS_KEYS].includes(k)) {
                     const num = Number(v);
@@ -75,28 +75,71 @@ const calculateSalaryStats = (expensesData, salaryDetailsData = []) => {
 
             const net = gross - deductions;
             if (net > 0) {
-                if (!stats[yr]) stats[yr] = { total: 0, months: {} };
-                stats[yr].months[mo] = net;
-                stats[yr].total += net;
+                if (!slipMap[yr]) slipMap[yr] = {};
+                slipMap[yr][mo] = net;
             }
         });
     }
+
+    // 2. Pass 2: Calculate actual income for every year & month in expensesData
+    Object.entries(expensesData).forEach(([year, months]) => {
+        if (!stats[year]) stats[year] = { total: 0, months: {} };
+        if (!months || typeof months !== 'object') return;
+
+        Object.entries(months).forEach(([month, data]) => {
+            if (!data) return;
+
+            let salary = 0;
+
+            // A. Check if explicit salary slip exists in slipMap
+            if (slipMap[year] && slipMap[year][month]) {
+                salary = slipMap[year][month];
+            }
+
+            // B. Check if salary transactions exist in data.transactions
+            if (data.transactions && Array.isArray(data.transactions)) {
+                let txIncomeSum = 0;
+                data.transactions.forEach(t => {
+                    const cat = (t.category || '').toLowerCase();
+                    const title = (t.title || '').toLowerCase();
+                    if (['salary received', 'salary', 'income'].includes(cat) || cat.includes('salary') || title.includes('salary received') || t.isIncome) {
+                        txIncomeSum += Number(t.amount) || 0;
+                    }
+                });
+                if (txIncomeSum > 0) {
+                    salary = txIncomeSum;
+                }
+            }
+
+            // C. Check categories object for legacy data format
+            if (salary === 0) {
+                const categories = data.categories || (typeof data === 'object' ? data : {});
+                salary = Number(categories['salary received'] || categories['salary'] || categories['income'] || 0);
+            }
+
+            stats[year].months[month] = salary;
+            stats[year].total += salary;
+        });
+    });
 
     return stats;
 };
 
 export function FinanceProvider({ children }) {
-    const [expenses, setExpenses] = useState({});
-    const [savings, setSavings] = useState([]);
-    const [metals, setMetals] = useState({ gold: [], silver: [], antique_coins: [], currencies: [] });
-    const [assets, setAssets] = useState([]);
-    const [lents, setLents] = useState([]);
-    const [categories, setCategories] = useState([]);
-    const [creditCards, setCreditCards] = useState([]);
-    const [taxes, setTaxes] = useState([]);
-    const [salaryDetails, setSalaryDetails] = useState([]);
+    const [expenses, setExpenses] = useState(initialDb.expenses || {});
+    const [savings, setSavings] = useState(initialDb.savings || []);
+    const [metals, setMetals] = useState(initialDb.metals || { gold: [], silver: [], antique_coins: [], currencies: [] });
+    const [assets, setAssets] = useState(initialDb.assets || []);
+    const [lents, setLents] = useState(initialDb.lents || []);
+    const [categories, setCategories] = useState(initialDb.appData?.categories || []);
+    const [creditCards, setCreditCards] = useState(initialDb.creditCards || []);
+    const [taxes, setTaxes] = useState(initialDb.taxes || []);
+    const [salaryDetails, setSalaryDetails] = useState(initialDb.salaryDetails || []);
+    const [goals, setGoals] = useState(initialDb.goals || []);
+    const [loans, setLoans] = useState(initialDb.loans || []);
+    const [insuranceProfile, setInsuranceProfile] = useState(initialDb.appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
     const [salaryStats, setSalaryStats] = useState({});
-    const [snapshots, setSnapshots] = useState([]);
+    const [snapshots, setSnapshots] = useState(initialDb.snapshots || []);
     const [categoryBudgets, setCategoryBudgets] = useState({});
     const [customCategoryMap, setCustomCategoryMap] = useState({});
     const [deletedCategories, setDeletedCategories] = useState([]);
@@ -140,49 +183,20 @@ export function FinanceProvider({ children }) {
 
     useEffect(() => {
         const fetchData = async () => {
-            if (!user) return;
-            if (isGuest) {
-                // Guest mode placeholder data
-                const guestExpenses = {};
-                const guestSavings = [];
-                const guestAssets = [];
-                const guestLents = [];
-                const guestCreditCards = [];
-
-                setExpenses(guestExpenses);
-                setSavings(guestSavings);
-                setMetals({ gold: [], silver: [], antique_coins: [], currencies: [] });
-                setAssets(guestAssets);
-                setLents(guestLents);
-                setCreditCards(guestCreditCards);
-                setTaxes([]);
-                setCategoryBudgets({});
-                setCategories(["salary received", "house rent", "groceries", "others"]);
-                setSalaryStats({});
-                setSalaryDetails([]);
-                setSnapshots([]);
-                setCustomSalaryFields({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
-                setHiddenSalaryFields([]);
-                setCustomCategoryMap({});
-                setCustomGroceryItems({});
-                setGroceryBrands({});
-                setGroceryFlavours({});
-                setGroceryItemBrandMap({});
-                setGroceryItemFlavourMap({});
-                return;
-            }
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes] = await Promise.all([
                     fetch(`${API_URL}/expenses`),
                     fetch(`${API_URL}/savings`),
                     fetch(`${API_URL}/metals`),
                     fetch(`${API_URL}/assets`),
                     fetch(`${API_URL}/appData`),
-                    fetch(`${API_URL}/snapshots`),
+                    fetch(`${API_URL}/snapshots`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
                     fetch(`${API_URL}/lents`),
                     fetch(`${API_URL}/creditCards`),
                     fetch(`${API_URL}/taxes`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
-                    fetch(`${API_URL}/salaryDetails`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })) // Fallback if endpoint doesn't exist yet
+                    fetch(`${API_URL}/salaryDetails`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
+                    fetch(`${API_URL}/goals`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
+                    fetch(`${API_URL}/loans`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
                 ]);
 
                 const expData = await expRes.json();
@@ -195,6 +209,8 @@ export function FinanceProvider({ children }) {
                 const ccData = await ccRes.json();
                 const taxesData = await taxRes.json();
                 const salaryDetailsData = await salRes.json();
+                const goalsData = await goalsRes.json();
+                const loansData = await loansRes.json();
 
                 const modifiedExpenses = JSON.parse(JSON.stringify(expData)); // deep-clone to avoid mutating fetched object
                 let isModified = false;
@@ -260,7 +276,10 @@ export function FinanceProvider({ children }) {
                 setLents(lentData || []);
                 setCreditCards(ccData || []);
                 setTaxes(taxesData || []);
-                setCategoryBudgets(appData.categoryBudgets || {});
+                const savedBudgets = (appData.categoryBudgets && Object.keys(appData.categoryBudgets).length > 0)
+                    ? appData.categoryBudgets
+                    : (JSON.parse(localStorage.getItem('categoryBudgets') || 'null') || DEFAULT_CATEGORY_BUDGETS);
+                setCategoryBudgets(savedBudgets);
                 setCategories(appData.categories || []);
                 setCategoryRules(appData.categoryRules || {});
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
@@ -280,15 +299,42 @@ export function FinanceProvider({ children }) {
                 setGroceryItemBrandMap(appData.groceryItemBrandMap || {});
                 setGroceryItemFlavourMap(appData.groceryItemFlavourMap || {});
                 
-                // Load custom grocery categories or use default
-                setGroceryCategories(appData.groceryCategories && Object.keys(appData.groceryCategories).length > 0 ? appData.groceryCategories : DEFAULT_GROCERY_CATEGORIES);
+                // Load custom grocery categories merged with default categories (ensuring Non-Veg is always present)
+                const loadedCategories = appData.groceryCategories && Object.keys(appData.groceryCategories).length > 0 ? appData.groceryCategories : {};
+                setGroceryCategories({ ...DEFAULT_GROCERY_CATEGORIES, ...loadedCategories });
                 
+                const DEFAULT_GOALS = [
+                    { id: 'goal_1', name: 'House Down Payment', targetAmount: 1000000, deadline: '2027-12-31', fundingSource: 'all_savings', priority: 'high', manualProgress: 0, notes: '10L target for 2BHK down payment' },
+                    { id: 'goal_2', name: 'Emergency Buffer Fund', targetAmount: 500000, deadline: '2026-12-31', fundingSource: 'emergency_fund', priority: 'high', manualProgress: 0, notes: '6 months living expenses' },
+                    { id: 'goal_3', name: 'Long-term Equity Wealth', targetAmount: 2500000, deadline: '2030-12-31', fundingSource: 'all_investments', priority: 'medium', manualProgress: 0, notes: 'Compounding equity portfolio' }
+                ];
+
+                const DEFAULT_LOANS = [
+                    { id: 'loan_1', name: 'SBI Home Loan', type: 'home', lender: 'SBI Bank', accountNumber: 'HL-98765432', principalAmount: 3500000, interestRate: 8.5, tenureMonths: 240, startDate: '2024-01-15', emiAmount: 30374, notes: 'Primary residence home loan' },
+                    { id: 'loan_2', name: 'HDFC Car Loan', type: 'car', lender: 'HDFC Bank', accountNumber: 'AUTO-456789', principalAmount: 800000, interestRate: 9.25, tenureMonths: 60, startDate: '2025-06-01', emiAmount: 16701, notes: 'Car loan for SUV' }
+                ];
+
                 setSnapshots(snapData || []);
                 setSalaryDetails(salaryDetailsData || []);
+                setGoals((goalsData && goalsData.length > 0) ? goalsData : DEFAULT_GOALS);
+                setLoans((loansData && loansData.length > 0) ? loansData : DEFAULT_LOANS);
+                setInsuranceProfile(appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
 
             } catch (error) {
-                console.error("Failed to fetch data:", error);
-                setDataError(error.message || 'Failed to load data');
+                console.error("Failed to fetch data, falling back to local dataset:", error);
+                if (initialDb) {
+                    if (initialDb.expenses) setExpenses(initialDb.expenses);
+                    if (initialDb.savings) setSavings(initialDb.savings);
+                    if (initialDb.metals) setMetals(initialDb.metals);
+                    if (initialDb.assets) setAssets(initialDb.assets);
+                    if (initialDb.lents) setLents(initialDb.lents);
+                    if (initialDb.creditCards) setCreditCards(initialDb.creditCards);
+                    if (initialDb.taxes) setTaxes(initialDb.taxes);
+                    if (initialDb.salaryDetails) setSalaryDetails(initialDb.salaryDetails);
+                    if (initialDb.goals) setGoals(initialDb.goals);
+                    if (initialDb.loans) setLoans(initialDb.loans);
+                    setCategoryBudgets(initialDb?.appData?.categoryBudgets || JSON.parse(localStorage.getItem('categoryBudgets') || 'null') || DEFAULT_CATEGORY_BUDGETS);
+                }
             } finally {
                 setIsLoading(false);
             }
@@ -660,12 +706,22 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const formatNumber = (amount, decimals = 0) => {
+        const num = Number(amount);
+        if (isNaN(num)) return '0';
+        return new Intl.NumberFormat('en-IN', {
+            maximumFractionDigits: decimals,
+            minimumFractionDigits: decimals,
+        }).format(num);
+    };
+
     const formatCurrency = (amount) => {
+        const num = Number(amount) || 0;
         return new Intl.NumberFormat('en-IN', {
             style: 'currency',
             currency: 'INR',
-            maximumFractionDigits: 2,
-        }).format(Number(amount) || 0);
+            maximumFractionDigits: num % 1 === 0 ? 0 : 2,
+        }).format(num);
     };
 
     const updateSalaryFieldsConfig = async (newCustomFields, newHiddenFields) => {
@@ -1184,7 +1240,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : '';
 
         if (!endpoint) return;
 
@@ -1196,6 +1252,8 @@ export function FinanceProvider({ children }) {
             if (type === 'creditCards') setCreditCards(prev => [...prev, savedItem]);
             if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
             if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
+            if (type === 'goals') setGoals(prev => [...prev, savedItem]);
+            if (type === 'loans') setLoans(prev => [...prev, savedItem]);
             return;
         }
 
@@ -1212,6 +1270,8 @@ export function FinanceProvider({ children }) {
             if (type === 'creditCards') setCreditCards(prev => [...prev, savedItem]);
             if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
             if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
+            if (type === 'goals') setGoals(prev => [...prev, savedItem]);
+            if (type === 'loans') setLoans(prev => [...prev, savedItem]);
         } catch (error) {
             console.error("Error adding item:", error);
         }
@@ -1552,7 +1612,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : '';
         if (!endpoint) return;
         if (isGuest) return;
         try {
@@ -1563,6 +1623,8 @@ export function FinanceProvider({ children }) {
             if (type === 'creditCards') setCreditCards(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'salaryDetail') setSalaryDetails(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'taxes') setTaxes(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'goals') setGoals(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'loans') setLoans(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
             console.error("Error deleting item:", error);
         }
@@ -1634,19 +1696,20 @@ export function FinanceProvider({ children }) {
 
             case 'nps':
                 return (item.holdings || []).reduce((sum, h) => {
+                    let lastTxNav = 0;
                     if (h.transactions && h.transactions.length > 0) {
-                        const hUnits = h.transactions.reduce((acc, tx) => {
-                            const u = Number(tx.units || 0);
-                            // Billing and sell/withdraw reduce units; contribution adds
-                            if (tx.type === 'billing' || tx.type === 'sell' || tx.type === 'withdraw') {
-                                return acc + u; // units are already stored as negative for billing/sell
-                            }
-                            return acc + u;
-                        }, 0);
-                        return sum + (hUnits * Number(h.nav || 0));
+                        const txWithNav = [...h.transactions].reverse().find(t => Number(t.nav || 0) > 0);
+                        if (txWithNav) lastTxNav = Number(txWithNav.nav);
                     }
-                    return sum + Number(h.amount || 0);
-                }, 0);
+                    const nav = Number(h.nav || h.currentPrice || lastTxNav || 0);
+                    let units = 0;
+                    if (h.transactions && h.transactions.length > 0) {
+                        units = h.transactions.reduce((acc, tx) => acc + Number(tx.units || 0), 0);
+                    } else {
+                        units = Number(h.totalunits !== undefined ? h.totalunits : (h.totalUnits !== undefined ? h.totalUnits : (h.units || 0)));
+                    }
+                    return sum + (units * nav);
+                }, 0) || Number(item.amount || 0);
 
             case 'sgb':
                 return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.currentPrice || 0)), 0);
@@ -1946,7 +2009,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : '';
         if (!endpoint || !item.id) return;
         if (isGuest) return;
         try {
@@ -1962,6 +2025,8 @@ export function FinanceProvider({ children }) {
             if (type === 'creditCards') setCreditCards(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'salaryDetail') setSalaryDetails(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'taxes') setTaxes(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'goals') setGoals(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'loans') setLoans(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             return { success: true };
         } catch (error) {
             console.error("Error updating item:", error);
@@ -2133,11 +2198,29 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    const updateInsuranceProfile = async (profile) => {
+        setInsuranceProfile(profile);
+        if (isGuest) return;
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            const currentAppData = await res.json();
+            await fetch(`${API_URL}/appData`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, insuranceProfile: profile })
+            });
+        } catch (error) {
+            console.error('Error updating insurance profile:', error);
+        }
+    };
+
     const value = {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
+        goals, loans, insuranceProfile,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,
         addNewYear, takeSnapshot, updateCategoryBudget, saveCategoryBudgets,
         formatCurrency,
+        formatNumber,
         calculateItemCurrentValue,
         calculateItemInvestedValue,
         refreshMutualFundNAV,
@@ -2151,6 +2234,7 @@ export function FinanceProvider({ children }) {
         fetchMetalRates,
         manualMetalRates,
         updateManualRates,
+        updateInsuranceProfile,
         mergedCategoryMap,
         addCustomCategory,
         saveCustomCategoryMap,

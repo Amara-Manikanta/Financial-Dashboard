@@ -142,7 +142,26 @@ const SingleCreditCardDetails = () => {
     const pointsSpent = linkedTransactions
         .filter(t => t.isRewardPoints)
         .reduce((sum, t) => sum + (Number(t.amount) * 5), 0);
-    const totalPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0) + (Number(card.manualPoints) || 0) - pointsSpent;
+
+    const stmtPoints = monthlyData.reduce((sum, m) => sum + (Number(m.points) || 0), 0);
+    const manualPts = Number(card.manualPoints || card.rewardPoints || 0);
+
+    let totalPoints = 0;
+    if (stmtPoints > 0 || manualPts > 0) {
+        totalPoints = Math.max(0, stmtPoints + manualPts - pointsSpent);
+    } else {
+        const cardName = (card.name || '').trim().toLowerCase();
+        let autoEarned = 0;
+        linkedTransactions.forEach(tx => {
+            const cat = (tx.category || '').toLowerCase();
+            const amt = Number(tx.amount) || 0;
+            if (cat !== 'credit card bill' && cat !== 'credit card payment' && !tx.isCredited && !tx.isRewardPoints) {
+                const rate = cardName.includes('scapia') ? 0.10 : 0.02;
+                autoEarned += Math.round(amt * rate);
+            }
+        });
+        totalPoints = Math.max(0, autoEarned - pointsSpent);
+    }
 
     const yearsSet = new Set(linkedTransactions.map(t => t.year));
     const currentYear = new Date().getFullYear();
