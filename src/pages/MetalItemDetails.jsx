@@ -1,16 +1,23 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, Trash2, Plus, Image as ImageIcon, MapPin, Calendar, Weight, Info, Save } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Image as ImageIcon, MapPin, Calendar, Weight, Info, Save, FileText, Receipt, Download, AlertTriangle } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import BackButton from '../components/BackButton';
+import { uploadFile, isImageRef } from '../utils/uploadFile';
 
 const MetalItemDetails = () => {
     const { type, itemId } = useParams();
     const navigate = useNavigate();
     const { metals, updateMetal, formatCurrency } = useFinance();
     const fileInputRef = useRef(null);
+    const billInputRef = useRef(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [isUploadingBill, setIsUploadingBill] = useState(false);
+    const [uploadError, setUploadError] = useState('');
+    // Photos whose file no longer exists on disk (dead legacy seed paths).
+    // Tracked so a graceful placeholder replaces the browser's broken icon.
+    const [brokenImages, setBrokenImages] = useState({});
 
     // Find the item
     const metalItems = metals[type] || [];
@@ -30,60 +37,85 @@ const MetalItemDetails = () => {
         );
     }
 
-    // Normalize images: legacy 'image' field vs new 'images' array
+    // Normalise photos: legacy single 'image'/'imageUrl' vs the 'images' array.
+    // No placeholder is mixed in here — a fallback used to be appended, which
+    // made the list never empty and left a deleted photo apparently undeletable.
     const getImages = () => {
-        if (item.images && Array.isArray(item.images) && item.images.length > 0) {
-            return item.images;
+        if (Array.isArray(item.images) && item.images.length > 0) {
+            return item.images.filter(Boolean);
         }
         const singleImg = item.imageUrl || item.image || item.photo;
-        if (singleImg) {
-            return [singleImg];
-        }
-        return [type === 'gold' ? '/images/gold_coins.png' : '/images/silver_coins.png'];
+        return singleImg ? [singleImg] : [];
     };
 
     const images = getImages();
+    const bills = Array.isArray(item.bills) ? item.bills.filter(Boolean) : [];
     const formattedType = type.charAt(0).toUpperCase() + type.slice(1);
     const colorClass = type === 'gold' ? 'text-yellow-400' : 'text-slate-300';
     const accentBg = type === 'gold' ? 'bg-yellow-500' : 'bg-slate-500';
 
-    const handleAddPhoto = (e) => {
+    /** Write a new photo list, keeping every legacy field consistent with it. */
+    const saveImages = (newImages) => {
+        const cover = newImages[0] || '';
+        updateMetal(type, {
+            ...item,
+            images: newImages,
+            // All three legacy fields must be rewritten. Clearing only `image`
+            // left `imageUrl` pointing at the old photo, so getImages() revived
+            // it and the photo could never actually be deleted.
+            image: cover,
+            imageUrl: cover,
+            photo: cover
+        });
+    };
+
+    const handleAddPhoto = async (e) => {
         const file = e.target.files[0];
+        e.target.value = '';
         if (!file) return;
 
         setIsUploading(true);
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            // Add new image to the array (prepend or append)
-            const newImages = [...images, reader.result];
-
-            // Update item: maintain legacy 'image' as the first image for backward compat in list view
-            const updatedItem = {
-                ...item,
-                images: newImages,
-                image: newImages.length > 0 ? newImages[0] : ''
-            };
-
-            updateMetal(type, updatedItem);
+        setUploadError('');
+        try {
+            const { url } = await uploadFile(file, item.name);
+            saveImages([...images, url]);
+        } catch (err) {
+            console.error('Photo upload failed:', err);
+            setUploadError(err.message || 'Photo upload failed');
+        } finally {
             setIsUploading(false);
-            e.target.value = ''; // Reset input
-        };
-        reader.readAsDataURL(file);
+        }
     };
 
     const handleDeletePhoto = (indexToDelete) => {
-        if (!window.confirm("Are you sure you want to delete this photo?")) return;
+        if (!window.confirm('Are you sure you want to delete this photo?')) return;
+        saveImages(images.filter((_, index) => index !== indexToDelete));
+    };
 
-        const newImages = images.filter((_, index) => index !== indexToDelete);
+    const handleAddBill = async (e) => {
+        const file = e.target.files[0];
+        e.target.value = '';
+        if (!file) return;
 
-        const updatedItem = {
-            ...item,
-            images: newImages,
-            // If deleting the first photo (cover), update 'image' field to the new first photo
-            image: newImages.length > 0 ? newImages[0] : ''
-        };
+        setIsUploadingBill(true);
+        setUploadError('');
+        try {
+            const stored = await uploadFile(file, `${item.name}-bill`);
+            updateMetal(type, {
+                ...item,
+                bills: [...bills, { ...stored, uploadedAt: new Date().toISOString() }]
+            });
+        } catch (err) {
+            console.error('Bill upload failed:', err);
+            setUploadError(err.message || 'Bill upload failed');
+        } finally {
+            setIsUploadingBill(false);
+        }
+    };
 
-        updateMetal(type, updatedItem);
+    const handleDeleteBill = (indexToDelete) => {
+        if (!window.confirm('Remove this bill?')) return;
+        updateMetal(type, { ...item, bills: bills.filter((_, i) => i !== indexToDelete) });
     };
 
     return (
@@ -197,37 +229,134 @@ const MetalItemDetails = () => {
                             backdrop-filter: blur(4px);
                         }
                     `}</style>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
-                        {images.map((imgSrc, index) => (
-                            <div key={index} className="group relative aspect-square bg-black/20 rounded-3xl overflow-hidden border border-white/10 shadow-lg">
-                                <img
-                                    src={imgSrc}
-                                    alt={`${item.name} - ${index + 1}`}
-                                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                                />
-                                <div className="absolute inset-0 gallery-overlay transition-all duration-300 flex items-center justify-center gap-3">
-                                    <button
-                                        onClick={() => handleDeletePhoto(index)}
-                                        className="p-3 bg-red-500/20 text-red-200 rounded-full hover:bg-red-500 hover:text-white transition-all transform hover:scale-110"
-                                        title="Delete Photo"
-                                    >
-                                        <Trash2 size={20} />
-                                    </button>
-                                </div>
-                                {/* Badge for cover photo */}
-                                {index === 0 && (
-                                    <div className="absolute top-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 z-10 pointer-events-none">
-                                        <span className="text-[10px] text-white font-bold uppercase tracking-widest">Cover</span>
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                    {uploadError && (
+                        <div className="flex items-center gap-2 px-4 py-3 mb-4 rounded-2xl bg-rose-500/10 border border-rose-500/20">
+                            <AlertTriangle size={16} className="text-rose-400 shrink-0" />
+                            <span className="text-xs font-bold text-rose-300">{uploadError}</span>
+                        </div>
+                    )}
 
-                    {images.length === 0 && (
-                        <div className="flex flex-col items-center justify-center py-20 bg-[#1c1c20] rounded-[32px] border border-white/5 border-dashed opacity-50">
+                    {images.length > 0 ? (
+                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                            {images.map((imgSrc, index) => (
+                                <div key={`${imgSrc}-${index}`} className="group relative aspect-square bg-black/20 rounded-3xl overflow-hidden border border-white/10 shadow-lg">
+                                    {brokenImages[imgSrc] ? (
+                                        // The file behind this reference is gone. Show why, and keep
+                                        // the delete control reachable so it can be cleared.
+                                        <div className="w-full h-full flex flex-col items-center justify-center gap-2 px-4 text-center bg-white/[0.02]">
+                                            <AlertTriangle size={26} className="text-amber-500/70" />
+                                            <p className="text-[11px] font-bold text-gray-400">Image unavailable</p>
+                                            <p className="text-[9px] text-gray-600 break-all leading-tight">{imgSrc}</p>
+                                        </div>
+                                    ) : (
+                                        <img
+                                            src={imgSrc}
+                                            alt={`${item.name} - ${index + 1}`}
+                                            onError={() => setBrokenImages((prev) => ({ ...prev, [imgSrc]: true }))}
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                        />
+                                    )}
+                                    <div className="absolute inset-0 gallery-overlay transition-all duration-300 flex items-center justify-center gap-3">
+                                        <button
+                                            onClick={() => handleDeletePhoto(index)}
+                                            className="p-3 bg-red-500/20 text-red-200 rounded-full hover:bg-red-500 hover:text-white transition-all transform hover:scale-110"
+                                            title="Delete Photo"
+                                        >
+                                            <Trash2 size={20} />
+                                        </button>
+                                    </div>
+                                    {index === 0 && !brokenImages[imgSrc] && (
+                                        <div className="absolute top-3 left-3 px-3 py-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 z-10 pointer-events-none">
+                                            <span className="text-[10px] text-white font-bold uppercase tracking-widest">Cover</span>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-20 bg-[#1c1c20] rounded-[32px] border border-white/5 border-dashed">
                             <ImageIcon size={48} className="text-gray-600 mb-4" />
                             <p className="text-gray-500 font-bold">No photos added yet</p>
+                            <p className="text-gray-600 text-xs mt-1">Use Add Photo to attach one</p>
+                        </div>
+                    )}
+
+                    {/* Purchase bills — images or PDF receipts kept with the item */}
+                    <div className="flex items-center justify-between mt-12 mb-6">
+                        <div className="flex items-center gap-3">
+                            <Receipt size={22} className={colorClass} />
+                            <h2 className="text-2xl font-black text-white tracking-tight">Bills &amp; Receipts</h2>
+                            {bills.length > 0 && (
+                                <span className="px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-[10px] font-black text-gray-400">
+                                    {bills.length}
+                                </span>
+                            )}
+                        </div>
+                        <button
+                            onClick={() => billInputRef.current?.click()}
+                            disabled={isUploadingBill}
+                            className={`flex items-center gap-2 px-5 py-3 rounded-2xl ${accentBg} text-white font-black text-xs uppercase tracking-widest shadow-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                            <Plus size={16} />
+                            <span>{isUploadingBill ? 'Uploading...' : 'Add Bill'}</span>
+                        </button>
+                        <input
+                            type="file"
+                            ref={billInputRef}
+                            className="hidden"
+                            accept="image/*,application/pdf"
+                            onChange={handleAddBill}
+                        />
+                    </div>
+
+                    {bills.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {bills.map((bill, index) => {
+                                const url = typeof bill === 'string' ? bill : bill.url;
+                                const label = (typeof bill === 'string' ? '' : bill.name) || `Bill ${index + 1}`;
+                                return (
+                                    <div key={`${url}-${index}`} className="group flex items-center gap-4 p-4 bg-[#1c1c20] rounded-3xl border border-white/5 hover:border-white/15 transition-all">
+                                        <a href={url} target="_blank" rel="noopener noreferrer" className="shrink-0">
+                                            {isImageRef(url) ? (
+                                                <img src={url} alt={label} className="w-16 h-16 rounded-2xl object-cover border border-white/10" />
+                                            ) : (
+                                                <div className="w-16 h-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
+                                                    <FileText size={24} className="text-rose-300" />
+                                                </div>
+                                            )}
+                                        </a>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="text-sm font-bold text-white truncate">{label}</p>
+                                            {bill.uploadedAt && (
+                                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-0.5">
+                                                    {formatDate(bill.uploadedAt)}
+                                                </p>
+                                            )}
+                                            <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-1 mt-1.5 text-[11px] font-bold text-gray-400 hover:text-white transition-colors"
+                                            >
+                                                <Download size={12} /> Open
+                                            </a>
+                                        </div>
+                                        <button
+                                            onClick={() => handleDeleteBill(index)}
+                                            className="p-2.5 rounded-full text-gray-600 hover:text-white hover:bg-red-500 transition-all shrink-0"
+                                            title="Remove bill"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center py-14 bg-[#1c1c20] rounded-[32px] border border-white/5 border-dashed">
+                            <Receipt size={40} className="text-gray-600 mb-3" />
+                            <p className="text-gray-500 font-bold">No bills uploaded</p>
+                            <p className="text-gray-600 text-xs mt-1">Attach a photo or PDF of the purchase receipt</p>
                         </div>
                     )}
                 </div>

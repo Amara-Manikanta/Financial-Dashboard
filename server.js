@@ -19,12 +19,14 @@ const REQUIRED_COLLECTIONS = ['expenses', 'savings', 'metals', 'assets', 'appDat
 // images collateral damage whenever a bad write landed. This directory is
 // gitignored: the pictures are personal and are not source code.
 const UPLOAD_DIR = path.join(__dirname, 'db', 'images');
-const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
-const IMAGE_TYPES = {
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+// Photos plus PDF, so purchase bills can be kept alongside the item.
+const UPLOAD_TYPES = {
     'image/jpeg': '.jpg',
     'image/png': '.png',
     'image/webp': '.webp',
     'image/gif': '.gif',
+    'application/pdf': '.pdf',
 };
 
 if (!fs.existsSync(UPLOAD_DIR)) {
@@ -179,19 +181,19 @@ const handleImageUpload = (req, res) => {
             const { dataUrl, name } = JSON.parse(Buffer.concat(chunks).toString('utf8'));
             const match = /^data:([\w/+.-]+);base64,(.+)$/s.exec(dataUrl || '');
             if (!match) {
-                return sendJson(res, 400, { error: 'Expected an image data URL' });
+                return sendJson(res, 400, { error: 'Expected a file data URL' });
             }
 
             const [, mimeType, base64] = match;
-            const extension = IMAGE_TYPES[mimeType];
+            const extension = UPLOAD_TYPES[mimeType];
             if (!extension) {
-                return sendJson(res, 415, { error: `Unsupported image type: ${mimeType}` });
+                return sendJson(res, 415, { error: `Unsupported file type: ${mimeType}` });
             }
 
             const buffer = Buffer.from(base64, 'base64');
-            if (buffer.length === 0) return sendJson(res, 400, { error: 'Image data was empty' });
+            if (buffer.length === 0) return sendJson(res, 400, { error: 'File data was empty' });
             if (buffer.length > MAX_UPLOAD_BYTES) {
-                return sendJson(res, 413, { error: 'Image exceeds 5MB' });
+                return sendJson(res, 413, { error: 'File exceeds 10MB' });
             }
 
             // Build the filename ourselves; never trust client input in a path.
@@ -225,7 +227,7 @@ const handleImageRequest = (req, res) => {
     }
 
     const extension = path.extname(filePath).toLowerCase();
-    const mimeType = Object.keys(IMAGE_TYPES).find((type) => IMAGE_TYPES[type] === extension) || 'application/octet-stream';
+    const mimeType = Object.keys(UPLOAD_TYPES).find((type) => UPLOAD_TYPES[type] === extension) || 'application/octet-stream';
     res.writeHead(200, { 'Content-Type': mimeType, 'Cache-Control': 'public, max-age=31536000' });
     fs.createReadStream(filePath).pipe(res);
 };
