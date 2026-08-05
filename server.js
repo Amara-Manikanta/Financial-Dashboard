@@ -186,8 +186,21 @@ const createVerifiedBackup = () => {
         }
 };
 
+// Responses the proxy generates itself — rejections, upload errors, gateway
+// failures — need their own CORS headers. Only the responses that come back
+// from json-server carry its headers, so without these the browser refuses to
+// read the body and `fetch` rejects with a bare network error. A blocked write
+// then surfaced to the user as "Load failed" instead of the reason it was
+// blocked, which is precisely the information they need.
+const CORS_HEADERS = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type,If-Match',
+    'Access-Control-Expose-Headers': 'X-DB-Version',
+};
+
 const sendJson = (res, status, payload) => {
-    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.writeHead(status, { 'Content-Type': 'application/json', ...CORS_HEADERS });
     res.end(JSON.stringify(payload));
 };
 
@@ -375,11 +388,9 @@ const proxy = http.createServer((req, res) => {
             console.error(`[SafetyGuard] Headers Proxy error: ${e.message}`);
             if (!res.headersSent) {
                 if (e.code === 'ECONNREFUSED') {
-                    res.writeHead(503, { 'Content-Type': 'application/json' });
-                    res.end(JSON.stringify({ error: 'Service Unavailable. Server is starting...' }));
+                    sendJson(res, 503, { error: 'Service Unavailable. Server is starting...' });
                 } else {
-                    res.writeHead(502);
-                    res.end('Bad Gateway');
+                    sendJson(res, 502, { error: 'Bad Gateway' });
                 }
             }
         });
@@ -414,12 +425,11 @@ const proxy = http.createServer((req, res) => {
             const current = collectionVersion(targetCollection);
             if (current && current !== baseVersion) {
                 console.error(`[SafetyGuard] ⛔ STALE ${req.method} ${req.url} (based on ${baseVersion}, current ${current})`);
-                res.writeHead(409, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({
+                sendJson(res, 409, {
                     error: 'Write refused: this data changed since you loaded it',
                     reason: 'Another tab or device saved first. Reload before saving, or this write would erase their changes.',
                     currentVersion: current,
-                }));
+                });
                 return;
             }
         }
@@ -449,11 +459,10 @@ const proxy = http.createServer((req, res) => {
         if (!verdict.safe) {
             console.error(`[SafetyGuard] ⛔ BLOCKED ${req.method} ${req.url}`);
             console.error(`[SafetyGuard]    Reason: ${verdict.reason}`);
-            res.writeHead(409, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({
+            sendJson(res, 409, {
                 error: 'Write blocked by SafetyGuard to prevent data loss',
                 reason: verdict.reason,
-            }));
+            });
             return;
         }
 
