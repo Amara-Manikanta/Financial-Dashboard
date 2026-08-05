@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Upload, FileText, CheckCircle2, ShieldCheck, Bike, Car, HeartPulse, Landmark, AlertCircle, Sparkles } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 
@@ -19,6 +19,27 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
     const [isScanning, setIsScanning] = useState(false);
     const [scannedFileName, setScannedFileName] = useState('');
     const [scanSuccess, setScanSuccess] = useState(false);
+
+    // The useState initialisers above only run when this component first mounts,
+    // and it stays mounted between openings. Without this sync, clicking Edit
+    // on a policy showed whatever the form held last — usually blank — so
+    // editing an existing policy did not work at all.
+    useEffect(() => {
+        if (!isOpen) return;
+        const d = editingPolicy?.policyDetails || {};
+        setCategory(d.category || 'bike');
+        setPlanName(d.planName || editingPolicy?.title || '');
+        setInsurer(d.insurer || '');
+        setPolicyNumber(d.policyNumber || '');
+        setVehicleNo(d.vehicleNo || '');
+        setSumAssured(d.sumAssured ?? editingPolicy?.amount ?? '');
+        setPremiumAmount(d.premiumAmount ?? '');
+        setExpiryDate(d.maturityDate || d.expiryDate || '');
+        setNcb(d.ncb || '0');
+        setNotes(d.notes || '');
+        setScannedFileName('');
+        setScanSuccess(false);
+    }, [isOpen, editingPolicy]);
 
     if (!isOpen) return null;
 
@@ -115,11 +136,19 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
         if (!planName || !sumAssured) return;
 
         const policyData = {
+            // Carry the existing record forward. This form only edits the
+            // policyDetails fields, but the record is saved with a replacing
+            // PUT — without this spread, editing a policy silently deleted its
+            // premium history, benefits, claims and attached documents.
+            ...(editingPolicy || {}),
             id: editingPolicy ? editingPolicy.id : `pol_${Date.now()}`,
             title: planName,
             type: 'Policy',
             amount: Number(sumAssured) || 0,
             policyDetails: {
+                // Same reasoning: keep fields this form does not expose, such as
+                // planDetails, taxBenefit, premiumPayingTerm and policyTerm.
+                ...(editingPolicy?.policyDetails || {}),
                 category,
                 planName,
                 insurer: insurer || 'General Insurance',

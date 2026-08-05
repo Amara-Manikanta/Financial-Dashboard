@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { useSearchParams } from 'react-router-dom';
 import { Plus, Landmark, FileText, CheckCircle, AlertCircle, Edit2, Trash2, ArrowUpRight, ArrowDownLeft, Calculator } from 'lucide-react';
+import DocumentAttachments from '../components/DocumentAttachments';
 import TaxModal from '../components/TaxModal';
 import TaxPlanningCalculator from '../components/TaxPlanningCalculator';
 
@@ -28,6 +29,18 @@ const Taxes = () => {
     };
 
     // Sort records by financial year descending
+    // Each tab owns a document type, so a year can hold Form 16 Part A and B
+    // and the ITR return side by side without them being confused for each other.
+    const DOC_TYPES = {
+        itr: { label: 'ITR Return', accent: '#34d399' },
+        partA: { label: 'Form 16 Part A', accent: '#c084fc' },
+        partB: { label: 'Form 16 Part B', accent: '#60a5fa' }
+    };
+
+    const saveTaxDocuments = (tax, documents) => {
+        updateItem('taxes', { ...tax, documents });
+    };
+
     const sortedTaxes = [...(taxes || [])].sort((a, b) => (b.financialYear || '').localeCompare(a.financialYear || ''));
 
     const handleSave = async (record) => {
@@ -351,6 +364,19 @@ const Taxes = () => {
                                                 </div>
                                             </div>
                                         </>
+                                    )}
+
+                                    {DOC_TYPES[activeTab] && (
+                                        <div style={{ marginTop: '1.25rem', paddingTop: '1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                                            <DocumentAttachments
+                                                documents={tax.documents || []}
+                                                onChange={(docs) => saveTaxDocuments(tax, docs)}
+                                                docType={DOC_TYPES[activeTab].label}
+                                                accent={DOC_TYPES[activeTab].accent}
+                                                namePrefix={`FY${tax.financialYear || ''}`}
+                                                emptyText={`No ${DOC_TYPES[activeTab].label} uploaded for FY ${tax.financialYear}`}
+                                            />
+                                        </div>
                                     )}
                                 </div>
                             );
