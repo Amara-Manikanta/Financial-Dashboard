@@ -1,0 +1,211 @@
+# Working on this project
+
+Read this before changing anything. Most rules here exist because the specific
+mistake they describe has already happened once and destroyed real data.
+
+This is a personal finance dashboard. The database holds one person's actual
+financial records going back to 2017 — expenses, salary, investments, credit
+cards. It is not seed data and it cannot be regenerated.
+
+---
+
+## 1. Data safety — the rules that matter most
+
+### Always snapshot `db.json` before touching it
+
+`db.json` is gitignored, so **git is not a recovery path**. If it is corrupted,
+the only way back is a copy made beforehand. Before any work that could write to
+the database — schema changes, migrations, testing write paths — copy it:
+
+```bash
+cp db.json "backups/db-SAFEPOINT-$(date +%Y%m%d-%H%M%S).json"
+```
+
+Use the `db-SAFEPOINT-` prefix. The rotation in `server.js` only deletes files
+starting with `db-backup-`, so safepoints survive.
+
+### Never test writes against the live database
+
+Copy the data to a throwaway file and run an isolated server against it. Both
+ports are overridable:
+
+```bash
+PROXY_PORT=4000 INTERNAL_PORT=4001 node server.js
+```
+
+### Never commit database exports
+
+A 60 MB export (`db.json.nps.backup`) was once committed to a **public** GitHub
+repo, exposing 7,082 transactions, salary history and account passwords. It had
+to be purged from all 129 commits with `git filter-repo` and force-pushed.
+
+`.gitignore` now blocks `db.json`, `db/`, `*.backup`, `db.json.*` and
+`*db-backup*.json`. Do not add exceptions. If you create an export for
+debugging, put it **outside** the repository.
+
+---
+
+## 2. Architecture
+
+| Layer | What it is |
+| --- | --- |
+| UI | React 18 + React Router 6, Vite 5 |
+| Styling | **Tailwind CSS 3** (see §3) |
+| Icons | `lucide-react` |
+| Charts | `recharts` |
+| API | `json-server` 1.0 beta on port **3001** |
+| Proxy | `server.js` on port **3000** — backups, write guard, uploads |
+| Dev server | Vite on port **5173** |
+
+The browser never talks to json-server directly. Everything goes through the
+proxy on 3000, which is the single chokepoint for backups and write validation.
+
+```bash
+npm run server   # API + proxy (3000/3001)
+npm run dev      # Vite (5173)
+npm run build
+```
+
+### Never import `db.json` into source code
+
+```js
+import initialDb from '../../db.json';   // NEVER DO THIS
+```
+
+Vite inlines a JSON import **at build time**, producing a snapshot that never
+refreshes. `FinanceContext` used to seed React state from it and fall back to it
+when a fetch failed. Because the API server restarts whenever code changes, that
+fallback fired constantly, loading months-old records into state — and the next
+save wrote them back over the live database. It silently reverted uploaded
+photos to seed paths and deleted two entire metals categories.
+
+It also shipped the whole 3.2 MB database inside the JS bundle; removing it cut
+the bundle by 1.68 MB.
+
+All data must be fetched from the API at runtime. When the initial load fails,
+state stays empty, `loadError` is set, and `canWrite()` refuses saves — never
+write state that was never successfully loaded.
+
+### Use PATCH, not PUT, for collections
+
+`PUT /appData` with a partial body returns **HTTP 200** and silently deletes
+every key you did not send. This was the main corruption mechanism.
+
+PATCH merges server-side and cannot drop sibling keys. All writes to `appData`,
+`expenses` and `metals` use PATCH. Send only what changed:
+
+```js
+await fetch(`${API_URL}/metals`, {
+    method: 'PATCH',
+    body: JSON.stringify({ gold: nextItems })   // silver is untouched
+});
+```
+
+json-server merges **shallowly**, so a key you send replaces what was there.
+That is what makes deleting a month inside a year still work.
+
+### The write guard (`dbGuard.js`)
+
+Every mutation is inspected before it reaches json-server and rejected with
+**409** if it would drop a top-level key, empty a collection, delete a whole
+collection, shrink one by more than 20%, or carry malformed JSON.
+
+If a legitimate bulk edit is ever blocked, adjust `MAX_SHRINK_RATIO`
+deliberately — do not bypass the guard.
+
+---
+
+## 3. Styling: Tailwind is required
+
+**This project uses Tailwind CSS.** It was missing for a long time while the
+code used ~1,949 Tailwind class names across 67 files. Someone had hand-written
+~143 imitation utilities into `index.css`, so anything uncopied silently did
+nothing — `bg-black/40` on a dark input fell through to the browser's white
+default and rendered white text on a white field.
+
+Rules:
+
+- Write styling as Tailwind classes. Do not hand-write CSS that duplicates a
+  Tailwind utility, and do not reintroduce copies into `index.css`.
+- `index.css` holds only what Tailwind does not provide: design tokens in
+  `:root`, base element styles, component classes (`.card`, `.bg-modal`) and
+  the scrollbar helpers.
+- Preflight is enabled. New form controls inherit dark styling from the
+  `@layer base` rules — do not assume browser defaults are fine on a dark page.
+- Prefer classes over inline `style={{}}`. Several older files use inline
+  styles; that is legacy, not the pattern to copy.
+
+**Restart Vite after changing `postcss.config.js` or `tailwind.config.js`.**
+PostCSS config is read once at startup, so a running dev server will keep
+serving un-compiled CSS and you will think your change did nothing.
+
+### Header navigation
+
+The nav fits a limited width. Adding a top-level item can push others
+off-screen — this already happened and made the Cards, All Transactions, Assets
+and Loans & Lents pages look "missing" when the pages were fine.
+
+Group related destinations into a `NavDropdown` instead of adding top-level
+items. The nav also has `overflow-x-auto` as a fallback so a link is never
+unreachable. After changing it, verify nothing is clipped:
+
+```js
+const n = document.querySelector('header nav');
+n.scrollWidth <= n.clientWidth;   // must be true at 1280px
+```
+
+---
+
+## 4. File uploads
+
+Photos and bills are stored **as files**, never as base64 in `db.json`.
+Embedding them bloated every read and write and made them collateral damage of
+any bad write.
+
+- `POST /api/upload` — accepts `{ dataUrl, name }`, returns `{ url }`
+- `GET /api/images/<file>` — serves it
+- Stored in `db/images/`, gitignored, named after the item so the folder stays
+  browsable (`diamond-necklace-1785922752366.png`)
+- Accepts JPEG, PNG, WebP, GIF, PDF; 10 MB limit
+- Filenames are always built server-side from a slug — never trust client input
+  in a path
+
+Use `src/utils/uploadFile.js` from the client. Upload on **save**, not on file
+selection, so the stored filename matches the item's final name.
+
+Items may carry legacy photo fields: `images[]`, `imageUrl`, `image`, `photo`.
+**Rewrite all of them together.** Clearing only some is why a deleted photo used
+to reappear immediately.
+
+---
+
+## 5. Restart checklist
+
+Changes that need a restart, and which silently appear to do nothing otherwise:
+
+| Changed | Restart |
+| --- | --- |
+| `server.js`, `dbGuard.js` | `npm run server` |
+| `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
+| `vite.config.js` | `npm run dev` |
+
+React/CSS source changes hot-reload normally.
+
+---
+
+## 6. Verifying your work
+
+- `npm run build` must pass.
+- For UI changes, actually open the page. Several bugs here were invisible in
+  the code and obvious on screen.
+- For data changes, check record counts before and after — never assume.
+- After any write path change, confirm the guard still blocks a bad write and
+  still allows a legitimate one.
+
+## 7. Known gaps
+
+- 19 of the original uploaded ornament photos were lost before any backup
+  existed and are unrecoverable. Missing images render a labelled placeholder.
+- Many older pages still use inline styles rather than Tailwind classes.
+- Backups are frequency-based, so 100 rotating snapshots can cover only a few
+  hours of heavy use. The daily and monthly tiers are the real safety net.

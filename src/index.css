@@ -127,6 +127,17 @@
   }
 }
 
+/* Scrollable without a visible bar — used by the header nav, which scrolls
+   only as a fallback when the window is too narrow to fit every link. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;

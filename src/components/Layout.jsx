@@ -9,7 +9,7 @@ const NavItem = ({ to, icon: Icon, label }) => (
     <NavLink
         to={to}
         className={({ isActive }) =>
-            `relative flex items-center gap-2 px-1 py-2 text-sm font-medium transition-all duration-200 group ${isActive
+            `relative flex items-center gap-1.5 px-1 py-2 text-[13px] font-medium whitespace-nowrap shrink-0 transition-all duration-200 group ${isActive
                 ? 'text-orange-500'
                 : 'text-gray-400 hover:text-white'
             }`
@@ -33,11 +33,11 @@ const NavDropdown = ({ label, icon: Icon, items }) => {
     const [isOpen, setIsOpen] = useState(false);
     return (
         <div 
-            className="relative group/dropdown z-50"
+            className="relative group/dropdown z-50 shrink-0"
             onMouseEnter={() => setIsOpen(true)}
             onMouseLeave={() => setIsOpen(false)}
         >
-            <div className="relative flex items-center gap-2 px-1 py-2 text-sm font-medium transition-all duration-200 group text-gray-400 hover:text-white cursor-pointer">
+            <div className="relative flex items-center gap-1.5 px-1 py-2 text-[13px] font-medium whitespace-nowrap transition-all duration-200 group text-gray-400 hover:text-white cursor-pointer">
                 <span className="p-1.5 rounded-lg transition-colors group-hover:bg-white/5">
                     <Icon size={18} />
                 </span>
@@ -87,9 +87,13 @@ const Layout = () => {
                     zIndex: 50
                 }}
             >
-                <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
-                    {/* Logo - Fixed Width */}
-                    <div className="w-[200px] flex items-center gap-3">
+                {/* The nav holds ten items, so the side blocks size to their
+                    content instead of reserving a fixed 200px each. With fixed
+                    widths and a 1280px cap the nav was clipped and the last
+                    entries (Assets, Loans & Lents) sat off-screen entirely. */}
+                <div className="max-w-[1700px] mx-auto px-4 h-full flex items-center justify-between gap-4">
+                    {/* Logo */}
+                    <div className="shrink-0 flex items-center gap-3">
                         <div
                             className="flex items-center justify-center"
                             style={{
@@ -111,16 +115,27 @@ const Layout = () => {
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent'
                         }}>
-                            AURA <span style={{ fontWeight: 400, opacity: 0.6 }}>FINANCE</span>
+                            {/* The second word is dropped on narrower windows so the
+                                nav keeps enough room to show every link at once. */}
+                            AURA <span className="hidden 2xl:inline" style={{ fontWeight: 400, opacity: 0.6 }}>FINANCE</span>
                         </h1>
                     </div>
 
                     {/* Navigation Items - Centered */}
-                    <nav className="flex-1 flex items-center justify-center gap-8">
+                    {/* min-w-0 lets the nav shrink inside the flex row, and the
+                        scroll fallback guarantees no link is ever unreachable
+                        on a narrow window. */}
+                    <nav className="flex-1 min-w-0 flex items-center justify-center gap-1.5 xl:gap-3 overflow-x-auto scrollbar-none">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                        <NavItem to="/salary" icon={Briefcase} label="Salary" />
-                        <NavItem to="/taxes" icon={FileText} label="Taxes" />
-                        
+                        <NavDropdown
+                            label="Income"
+                            icon={Briefcase}
+                            items={[
+                                { to: '/salary', label: 'Salary', icon: Briefcase },
+                                { to: '/taxes', label: 'Taxes', icon: FileText }
+                            ]}
+                        />
+
                         <NavDropdown 
                             label="Planning" 
                             icon={Compass} 
@@ -135,11 +150,13 @@ const Layout = () => {
                             icon={Wallet} 
                             items={[
                                 { to: '/expenses', label: 'All Expenses', icon: Receipt },
+                                { to: '/all-transactions', label: 'All Transactions', icon: List },
+                                { to: '/credit-cards', label: 'Cards', icon: CreditCard },
                                 { to: '/category-budgets', label: 'Budget Limits', icon: Target },
                                 { to: '/fuel', label: 'Fuel Analytics', icon: Fuel },
                                 { to: '/grocery-analytics', label: 'Grocery Analytics', icon: ShoppingBag },
                                 { to: '/grocery-master-list', label: 'Grocery Builder', icon: Edit2 }
-                            ]} 
+                            ]}
                         />
                         
                         <NavItem to="/savings" icon={PiggyBank} label="Savings" />
@@ -147,18 +164,16 @@ const Layout = () => {
                         <NavItem to="/metals" icon={Coins} label="Gold & Silver" />
                         <NavItem to="/assets" icon={Car} label="Assets" />
                         <NavItem to="/lents-loans" icon={ArrowUpRight} label="Loans & Lents" />
-                        <NavItem to="/credit-cards" icon={CreditCard} label="Cards" />
-                        <NavItem to="/all-transactions" icon={List} label="All Transactions" />
                     </nav>
 
                     {/* Right Side - Actions/Profile */}
-                    <div className="w-[200px] flex justify-end items-center gap-4">
+                    <div className="shrink-0 flex justify-end items-center gap-4">
                         <div className="flex items-center gap-3 pr-4 border-r border-white/10">
                             <NavLink to="/profile" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
                                     <UserIcon size={16} />
                                 </div>
-                                <div className="hidden md:block text-left">
+                                <div className="hidden 2xl:block text-left">
                                     <p className="text-xs font-bold leading-none capitalize">{user?.username || 'Guest'}</p>
                                     <p className="text-[10px] text-gray-500 leading-none mt-1 uppercase">{user?.role || 'User'}</p>
                                 </div>
