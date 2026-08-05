@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, PieChart as PieChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight, Layers } from 'lucide-react';
+import { resolveMarketCap } from '../utils/nifty50Data';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import BackButton from '../components/BackButton';
@@ -128,6 +129,15 @@ const OFFICIAL_SECTORS = [
     { name: 'Real Estate', icon: '🏢', color: '#14b8a6' }
 ];
 
+// A stock that has paid a dividend before is assumed to expect one again,
+// unless expectsDividends says otherwise. Requiring the flag outright meant
+// the count was always zero, because no record has ever carried it.
+const expectsDividends = (stock) => {
+    if (!stock) return false;
+    if (typeof stock.expectsDividends === 'boolean') return stock.expectsDividends;
+    return Object.values(stock.dividends || {}).some(v => Number(v) > 0);
+};
+
 const StockMarketDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
@@ -206,7 +216,7 @@ const StockMarketDetails = () => {
     const displayStockRows = useMemo(() => {
         return stockRows.filter(stock => {
             if (capFilter !== 'All') {
-                const stockCap = stock.marketCap || 'Unclassified';
+                const stockCap = resolveMarketCap(stock);
                 if (stockCap !== capFilter) return false;
             }
             if (sectorFilter !== 'All') {
@@ -214,7 +224,7 @@ const StockMarketDetails = () => {
                 if (stockSector !== sectorFilter) return false;
             }
             if (showPendingOnly) {
-                const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+                const isDividendPending = expectsDividends(stock) && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
                 if (!isDividendPending) return false;
             }
             return true;
@@ -232,7 +242,7 @@ const StockMarketDetails = () => {
         });
 
         stockRows.forEach(stock => {
-            const cap = stock.marketCap || 'Unclassified';
+            const cap = resolveMarketCap(stock);
             if (!metrics[cap]) {
                 metrics[cap] = { invested: 0, currentValue: 0, pl: 0, count: 0, stocks: [] };
             }
@@ -307,7 +317,8 @@ const StockMarketDetails = () => {
 
     const pendingDividendsCount = useMemo(() => {
         return activeStocks.filter(stock => {
-            return stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+            if (!expectsDividends(stock)) return false;
+            return !stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0;
         }).length;
     }, [activeStocks, currentYear]);
 
@@ -1317,7 +1328,7 @@ const StockMarketDetails = () => {
                         }}>
                             {sortedStockRows.map((stock) => {
                                 const isProfit = stock.unrealisedPL >= 0;
-                                const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+                                const isDividendPending = expectsDividends(stock) && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
 
                                 return (
                                     <div
@@ -1385,7 +1396,7 @@ const StockMarketDetails = () => {
                                                 }}>
                                                     {stock.ticker || stock.symbol || '-'}
                                                 </span>
-                                                {stock.marketCap && (
+                                                {resolveMarketCap(stock) !== 'Unclassified' && (
                                                     <span style={{
                                                         padding: '0.125rem 0.5rem',
                                                         borderRadius: '0.375rem',
@@ -1394,11 +1405,11 @@ const StockMarketDetails = () => {
                                                         textTransform: 'uppercase',
                                                         letterSpacing: '0.08em',
                                                         marginLeft: '0.375rem',
-                                                        backgroundColor: stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.12)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)',
-                                                        color: stock.marketCap === 'Large Cap' ? '#818cf8' : stock.marketCap === 'Mid Cap' ? '#fbbf24' : '#22d3ee',
-                                                        border: `1px solid ${stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
+                                                        backgroundColor: resolveMarketCap(stock) === 'Large Cap' ? 'rgba(99, 102, 241, 0.12)' : resolveMarketCap(stock) === 'Mid Cap' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)',
+                                                        color: resolveMarketCap(stock) === 'Large Cap' ? '#818cf8' : resolveMarketCap(stock) === 'Mid Cap' ? '#fbbf24' : '#22d3ee',
+                                                        border: `1px solid ${resolveMarketCap(stock) === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : resolveMarketCap(stock) === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
                                                     }}>
-                                                        {stock.marketCap === 'Large Cap' ? 'LC' : stock.marketCap === 'Mid Cap' ? 'MC' : 'SC'}
+                                                        {resolveMarketCap(stock) === 'Large Cap' ? 'LC' : resolveMarketCap(stock) === 'Mid Cap' ? 'MC' : 'SC'}
                                                     </span>
                                                 )}
                                                 {stock.sector && (
@@ -1587,7 +1598,7 @@ const StockMarketDetails = () => {
                                 <tbody>
                                     {sortedStockRows.map((stock) => {
                                         const isProfit = stock.unrealisedPL >= 0;
-                                        const isDividendPending = stock.expectsDividends && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
+                                        const isDividendPending = expectsDividends(stock) && (!stock.dividends || !stock.dividends[currentYear] || Number(stock.dividends[currentYear]) === 0);
 
                                         return (
                                             <tr 
@@ -1645,7 +1656,7 @@ const StockMarketDetails = () => {
                                                     </span>
                                                 </td>
                                                 <td style={styles.td('center', false, 'var(--text-secondary)', false, isDividendPending)}>
-                                                    {stock.marketCap ? (
+                                                    {resolveMarketCap(stock) !== 'Unclassified' ? (
                                                         <span style={{
                                                             padding: '0.125rem 0.5rem',
                                                             borderRadius: '0.375rem',
@@ -1653,11 +1664,11 @@ const StockMarketDetails = () => {
                                                             fontWeight: '800',
                                                             textTransform: 'uppercase',
                                                             letterSpacing: '0.08em',
-                                                            backgroundColor: stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.12)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)',
-                                                            color: stock.marketCap === 'Large Cap' ? '#818cf8' : stock.marketCap === 'Mid Cap' ? '#fbbf24' : '#22d3ee',
-                                                            border: `1px solid ${stock.marketCap === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : stock.marketCap === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
+                                                            backgroundColor: resolveMarketCap(stock) === 'Large Cap' ? 'rgba(99, 102, 241, 0.12)' : resolveMarketCap(stock) === 'Mid Cap' ? 'rgba(245, 158, 11, 0.12)' : 'rgba(6, 182, 212, 0.12)',
+                                                            color: resolveMarketCap(stock) === 'Large Cap' ? '#818cf8' : resolveMarketCap(stock) === 'Mid Cap' ? '#fbbf24' : '#22d3ee',
+                                                            border: `1px solid ${resolveMarketCap(stock) === 'Large Cap' ? 'rgba(99, 102, 241, 0.25)' : resolveMarketCap(stock) === 'Mid Cap' ? 'rgba(245, 158, 11, 0.25)' : 'rgba(6, 182, 212, 0.25)'}`
                                                         }}>
-                                                            {stock.marketCap === 'Large Cap' ? 'LC' : stock.marketCap === 'Mid Cap' ? 'MC' : 'SC'}
+                                                            {resolveMarketCap(stock) === 'Large Cap' ? 'LC' : resolveMarketCap(stock) === 'Mid Cap' ? 'MC' : 'SC'}
                                                         </span>
                                                     ) : (
                                                         <span style={{ color: '#52525b', fontSize: '10px' }}>—</span>

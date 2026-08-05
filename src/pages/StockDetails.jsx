@@ -35,7 +35,7 @@ const StockDetails = () => {
                 date: '2020-01-01', // Fallback date
                 type: 'buy',
                 quantity: Number(stock.shares),
-                price: Number(stock.avgCost),
+                price: Number(stock.avgPrice ?? stock.avgCost ?? 0),
                 remarks: 'Initial Balance (Legacy Data)'
             });
         }
@@ -87,10 +87,6 @@ const StockDetails = () => {
         setSelectedYear(year);
         setCurrentPage(1);
     };
-
-    if (!market || !stock) {
-        return <div className="p-8 text-white">Stock not found.</div>;
-    }
 
     const recalculateStockMetrics = (txList) => {
         let currentShares = 0;
@@ -149,7 +145,8 @@ const StockDetails = () => {
                     ...s,
                     transactions: updatedTransactions,
                     shares,
-                    avgCost,
+                    // Persist as avgPrice to match every existing record.
+                    avgPrice: avgCost,
                     dividends: { ...s.dividends, ...dividends }
                 };
             }
@@ -178,7 +175,7 @@ const StockDetails = () => {
                 ...s,
                 transactions: updatedTransactions,
                 shares,
-                avgCost,
+                avgPrice: avgCost,
                 dividends: { ...s.dividends, ...dividends }
             };
             return s;
@@ -217,8 +214,16 @@ const StockDetails = () => {
         setEditingDividend(null);
     };
 
-    // Summary Calculations optimized via useMemo
+    // Summary Calculations optimized via useMemo.
+    // Guarded rather than skipped: this memo used to sit after an early return
+    // for a missing stock, so a direct page load ran fewer hooks on the first
+    // render than the second and React threw "Rendered more hooks than during
+    // the previous render". Hooks must run on every render.
     const metrics = useMemo(() => {
+        if (!stock) {
+            return { totalBuyValue: 0, totalSellValue: 0, totalInvested: 0, currentValue: 0,
+                     unrealizedPL: 0, wholePL: 0, isProfit: true, dividendEarned: 0 };
+        }
         const buyVal = transactions.reduce((sum, tx) => {
             if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
                 return sum + (Number(tx.quantity) * Number(tx.price));
@@ -233,7 +238,11 @@ const StockDetails = () => {
             return sum;
         }, 0);
 
-        const totalInvested = stock.shares * stock.avgCost;
+        // Stored records use avgPrice; avgCost was never written by any record
+        // and read as undefined, which is why Avg Price and Total Invested
+        // both displayed zero on every stock.
+        const avgCost = Number(stock.avgPrice ?? stock.avgCost ?? 0);
+        const totalInvested = Number(stock.shares || 0) * avgCost;
         const currentValue = stock.shares * stock.currentPrice;
         const unrealizedPL = currentValue - totalInvested;
         const wholePL = (currentValue + sellVal) - buyVal;
@@ -393,6 +402,12 @@ const StockDetails = () => {
         })
     };
 
+
+    // Safe to bail out here: every hook above has already run.
+    if (!market || !stock) {
+        return <div className="p-8 text-white">Stock not found.</div>;
+    }
+
     return (
         <div style={{ padding: 'var(--spacing-lg)' }}>
             <BackButton label="Back to Account" />
@@ -403,7 +418,7 @@ const StockDetails = () => {
                         <span style={styles.titleIcon}>
                             <TrendingUp size={24} />
                         </span>
-                        {stock.name} <span style={{ color: '#71717a', fontSize: '1.25rem', fontWeight: '500', marginLeft: '0.25rem' }}>({stock.ticker})</span>
+                        {stock.name} <span style={{ color: '#71717a', fontSize: '1.25rem', fontWeight: '500', marginLeft: '0.25rem' }}>({stock.symbol || stock.ticker || '—'})</span>
                     </h2>
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                         <button
@@ -438,7 +453,7 @@ const StockDetails = () => {
                     </div>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Avg Price</p>
-                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(stock.avgCost)}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(stock.avgPrice ?? stock.avgCost ?? 0)}</p>
                     </div>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Current Price</p>

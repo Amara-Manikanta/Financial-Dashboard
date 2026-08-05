@@ -133,6 +133,22 @@ const calculateSalaryStats = (expensesData, salaryDetailsData = []) => {
 
 // The complete set of metal categories. Anything outside this list is a bug,
 // not a new category — adding one means updating this constant deliberately.
+/**
+ * True when a policy is pure protection — it pays out only on a claim and
+ * returns nothing at maturity, so its premiums are an expense rather than
+ * savings. Motor, health and term cover (including PMJJBY) are protection.
+ * Endowment and money-back life plans are not, and do belong in savings.
+ *
+ * An explicit isProtectionOnly flag on the record always wins; the category
+ * is only a fallback for policies recorded before the flag existed.
+ */
+export const isProtectionOnlyPolicy = (policy) => {
+    if (!policy) return false;
+    if (typeof policy.isProtectionOnly === 'boolean') return policy.isProtectionOnly;
+    const category = (policy.policyDetails?.category || '').toLowerCase();
+    return ['bike', 'car', 'health', 'home'].includes(category);
+};
+
 export const METAL_CATEGORIES = ['gold', 'silver', 'platinum', 'antique_coins', 'currencies'];
 
 export function FinanceProvider({ children }) {
@@ -1745,6 +1761,10 @@ export function FinanceProvider({ children }) {
 
             case 'policy':
             case 'Policy':
+                // Protection-only cover returns nothing at maturity, so its
+                // premiums are an expense, not savings. Counting them inflated
+                // net worth with motor and term policies that hold no value.
+                if (isProtectionOnlyPolicy(item)) return 0;
                 const paid = (item.premiums || []).filter(p => p.status === 'Paid').reduce((sum, p) => sum + Number(p.amount || 0), 0);
                 const received = (item.premiums || []).filter(p => p.status === 'Received Back' || p.status === 'Received').reduce((sum, p) => sum + Number(p.amount || 0), 0);
                 return paid - received;

@@ -136,3 +136,37 @@ export const ALL_BENCHMARK_STOCKS = [
   ...NIFTY_NEXT_50_STOCKS,
   ...Object.values(SBI_SMALL_CAP_WEIGHTS)
 ];
+
+/**
+ * Resolve a holding's market-cap band.
+ *
+ * Stock records carry no marketCap of their own, which is why the allocation
+ * chart read "Unclassified 100%". Rather than migrating 54 records by hand,
+ * the band is looked up across every benchmark list above — Nifty 50, Next 50
+ * and the small-cap set — by symbol, name or alias. An explicit marketCap on the record always wins, so anything the list
+ * does not cover — ETFs, REITs and smaller names — can still be set manually.
+ */
+export const resolveMarketCap = (stock) => {
+    if (!stock) return 'Unclassified';
+    if (stock.marketCap) return stock.marketCap;
+
+    // Names vary between records and the master list ("NTPC" vs "NTPC Limited",
+    // stray trailing spaces, punctuation), so both sides are normalised before
+    // comparing rather than relying on an exact string match.
+    const normalise = (value) => String(value || '')
+        .toLowerCase()
+        .replace(/\b(limited|ltd|corporation|corp|company|co)\b/g, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+
+    const symbol = normalise(stock.symbol);
+    const name = normalise(stock.name);
+    if (!symbol && !name) return 'Unclassified';
+
+    for (const entry of ALL_BENCHMARK_STOCKS) {
+        if (!entry.cap) continue;
+        const candidates = [entry.symbol, entry.name, ...(entry.aliases || [])].map(normalise);
+        if (candidates.some(c => c && (c === symbol || c === name))) return entry.cap;
+    }
+    return 'Unclassified';
+};

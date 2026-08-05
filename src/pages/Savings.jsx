@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance, isProtectionOnlyPolicy } from '../context/FinanceContext';
 import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, Edit2, ArrowUpRight, Info, Award, Archive, ArchiveRestore } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import SavingsItemModal from '../components/SavingsItemModal';
@@ -92,7 +92,16 @@ const Savings = () => {
         }
     };
 
-    const savingsOnly = savings.filter(item => item.type !== 'mutual_fund' && item.type !== 'stock_market' && item.type !== 'sgb');
+    // Protection-only insurance (motor, health, term) returns nothing at
+    // maturity, so it is not savings. Those policies live on the Insurance
+    // page; only policies that pay money back — the endowment and money-back
+    // LIC plans — are listed and valued here.
+    const savingsOnly = savings.filter(item =>
+        item.type !== 'mutual_fund' &&
+        item.type !== 'stock_market' &&
+        item.type !== 'sgb' &&
+        !isProtectionOnlyPolicy(item)
+    );
     const activeSavings = savingsOnly.filter(item => !item.isArchived);
     const archivedSavings = savingsOnly.filter(item => item.isArchived);
 
