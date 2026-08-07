@@ -56,7 +56,11 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             return;
         }
 
+        // Spread the existing card first: this form has no fields for billingDay,
+        // carryForwardBaseline or baselineOpeningBalance, and rebuilding the object
+        // from scratch silently dropped them (and the wallet flag) on every edit.
         let newCard = {
+            ...(initialData || {}),
             id: initialData ? initialData.id : Date.now().toString(),
             name,
             last4Digits,
@@ -65,7 +69,7 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             manualPoints: Number(manualPoints) || 0,
             monthlyData: initialData ? initialData.monthlyData : []
         };
-        
+
         if (isWallet) {
             newCard.type = 'wallet';
             if (autoLoadAmount && autoLoadDay) {
@@ -78,6 +82,10 @@ const CreditCardModal = ({ isOpen, onClose, onSave, initialData }) => {
             } else {
                 delete newCard.autoCredit;
             }
+        } else {
+            // Un-ticking the wallet box must actually clear it, now that we spread.
+            delete newCard.type;
+            delete newCard.autoCredit;
         }
 
         onSave(newCard);

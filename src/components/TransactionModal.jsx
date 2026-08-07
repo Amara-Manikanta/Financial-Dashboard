@@ -263,7 +263,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             onClick={handleBackdropClick}
         >
             <div
-                className="w-full max-w-md bg-modal rounded-[40px] overflow-hidden border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up flex flex-col"
+                className="w-full max-w-3xl bg-modal rounded-[40px] overflow-hidden border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up flex flex-col"
                 style={{ maxHeight: '82vh' }}
                 onClick={(e) => e.stopPropagation()}
             >

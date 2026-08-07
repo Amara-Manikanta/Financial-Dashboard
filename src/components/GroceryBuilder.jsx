@@ -247,7 +247,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                         const availableFlavours = Array.from(new Set([...histFlavours, ...explicitFlavours])).sort();
                         
                         return (
-                            <div key={item.id} className="bg-black/40 p-3.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row flex-wrap sm:flex-nowrap sm:items-center gap-3 relative group transition-all hover:bg-black/60 hover:border-white/10">
+                            <div key={item.id} className="bg-black/40 p-3.5 rounded-2xl border border-white/5 flex flex-col sm:flex-row flex-wrap lg:flex-nowrap sm:items-center gap-3 relative group transition-all hover:bg-black/60 hover:border-white/10">
                                 
                                 <div className="flex-1 min-w-[100px]">
                                     <div className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-0.5">{item.subcategory}</div>

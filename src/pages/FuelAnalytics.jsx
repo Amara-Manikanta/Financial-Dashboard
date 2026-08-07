@@ -93,6 +93,7 @@ const FuelAnalytics = () => {
     }, [fuelTransactions, selectedVehicle, selectedYear, selectedMonth]);
 
     const analyticsData = useMemo(() => {
+        const MAX_REASONABLE_DISTANCE = 1000; // km — skip mileage for distances larger than this
         let totalSpent = 0;
         let totalLiters = 0;
         let totalDistance = 0;
@@ -100,6 +101,7 @@ const FuelAnalytics = () => {
         const chartData = [];
         let previousKm = null;
         let previousLiters = null;
+        let previousVehicle = null;
 
         let totalSpentWithLiters = 0;
 
@@ -113,6 +115,7 @@ const FuelAnalytics = () => {
             let mileage = null;
             let pricePerLiter = null;
             let distance = null;
+            let mileageCalculated = false;
 
             if (l && l > 0) {
                 totalLiters += l;
@@ -121,16 +124,29 @@ const FuelAnalytics = () => {
             }
 
             if (k && k > 0) {
-                if (previousKm && k > previousKm) {
+                const currentVehicle = (tx.vehicleType || tx.title || '').toString().toLowerCase();
+                if (previousKm !== null && previousVehicle === currentVehicle && k > previousKm) {
                     distance = k - previousKm;
-                    totalDistance += distance;
-                    const litersUsed = (previousLiters && previousLiters > 0) ? previousLiters : l;
-                    if (litersUsed && litersUsed > 0) {
-                        mileage = distance / litersUsed;
+                    // sanity check: skip implausible distances
+                    if (distance <= MAX_REASONABLE_DISTANCE) {
+                        totalDistance += distance;
+                        const litersUsed = (previousLiters && previousLiters > 0) ? previousLiters : l;
+                        if (litersUsed && litersUsed > 0) {
+                            mileage = distance / litersUsed;
+                            mileageCalculated = true;
+                        }
+                    } else {
+                        // treat as unknown — do not expose huge distance or mileage
+                        distance = null;
+                        mileage = null;
+                        mileageCalculated = false;
                     }
                 }
-                previousKm = k;
+                // Only treat this reading as the "previous" reference if it was a real fill-up
+                // (i.e., has liters). This avoids using import/zero-amount odometer logs.
                 if (l && l > 0) {
+                    previousKm = k;
+                    previousVehicle = currentVehicle;
                     previousLiters = l;
                 }
             } else if (l && l > 0) {
@@ -148,13 +164,14 @@ const FuelAnalytics = () => {
                 km: k,
                 distance: distance,
                 mileage: mileage,
+                mileageCalculated: mileageCalculated,
                 pricePerLiter: pricePerLiter,
                 displayDate: new Date(tx.date).toLocaleDateString('default', { day: 'numeric', month: 'short', year: '2-digit' })
             });
         });
 
         // Filter out extreme anomalies for chart (e.g. forgot to log a fill-up, so mileage is 200kmpl)
-        const validMileageData = chartData.filter(d => d.mileage && d.mileage > 0 && d.mileage < 150);
+        const validMileageData = chartData.filter(d => d.mileageCalculated && d.mileage && d.mileage > 0 && d.mileage < 150);
         const avgMileage = validMileageData.length > 0 
             ? validMileageData.reduce((acc, curr) => acc + curr.mileage, 0) / validMileageData.length 
             : 0;
@@ -416,7 +433,7 @@ const FuelAnalytics = () => {
                                                 {formatCurrency(tx.amount)}
                                             </td>
                                             <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: '#eab308', fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                                {tx.mileage ? `${tx.mileage.toFixed(1)} kmpl` : '-'}
+                                                {tx.mileageCalculated ? `${tx.mileage.toFixed(1)} kmpl` : '-'}
                                             </td>
                                             <td style={{ padding: '1rem 1.5rem', textAlign: 'right', fontFamily: 'monospace', color: '#34d399', fontWeight: 'bold', fontSize: '0.875rem' }}>
                                                 {tx.pricePerLiter ? formatCurrency(tx.pricePerLiter) : '-'}
