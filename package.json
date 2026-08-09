@@ -7,6 +7,9 @@
     "dev": "vite",
     "server": "node server.js",
     "build": "vite build",
+    "sqlite:build": "node scripts/migrate-to-sqlite.mjs",
+    "sqlite:verify": "node scripts/verify-sqlite.mjs",
+    "sqlite:refresh": "node scripts/migrate-to-sqlite.mjs && node scripts/verify-sqlite.mjs",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview"
   },

@@ -40,10 +40,28 @@ db.json.*
 nps_legacy_tx_backup.json
 category_rules.json
 data.json
+# SQLite mirror and its journal/WAL files. Derived from db.json, so it holds
+# exactly the same transaction, salary and account data and must never be
+# committed either.
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
 src/data.js
 temp_expenses.json
 debug_salary.cjs
-scripts/
+# Note: this must exclude the directory *contents*, not the directory itself.
+# With "scripts/" git never descends into it and the negations below silently
+# do nothing.
+scripts/*
+# ...except the SQLite migration tooling. These are reproducible build steps,
+# not one-off scratch scripts, and verify-sqlite.mjs is the safety net that
+# proves a migration was faithful — losing it would mean trusting the mirror
+# on nothing.
+!scripts/sqlite-schema.mjs
+!scripts/migrate-to-sqlite.mjs
+!scripts/verify-sqlite.mjs
 update_db_structure.py
 
 # Editor
