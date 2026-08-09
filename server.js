@@ -6,6 +6,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
+import * as sqliteReads from './sqliteReads.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -315,6 +316,30 @@ const proxy = http.createServer((req, res) => {
 
     const collectionOf = (url) => /^\/([A-Za-z0-9_-]+)$/.exec(url.split('?')[0])?.[1] || null;
 
+    // SQLITE_READS=on: answer whole-collection reads from the mirror. Writes
+    // still go to json-server and db.json remains the source of truth, so the
+    // mirror is rebuilt whenever that file changes. Anything this cannot serve
+    // — a query string, a per-item path, an unknown collection — falls through
+    // untouched rather than guessing.
+    if (sqliteReads.MODE === 'on' && req.method === 'GET' && !req.url.includes('?')) {
+        const name = collectionOf(req.url);
+        if (name) {
+            const body = sqliteReads.readCollection(name);
+            if (body !== undefined) {
+                const payload = JSON.stringify(body);
+                const version = collectionVersion(name);
+                res.writeHead(200, {
+                    'Content-Type': 'application/json',
+                    'Content-Length': Buffer.byteLength(payload),
+                    ...CORS_HEADERS,
+                    ...(version ? { 'X-DB-Version': version } : {}),
+                });
+                res.end(payload);
+                return;
+            }
+        }
+    }
+
     // Turn `PATCH /<collection>` into the merged `PUT` that json-server beta.3
     // should have performed itself. Anything else is passed through untouched:
     // requests with an id (`/savings/123`) take json-server's per-item path,
@@ -375,8 +400,29 @@ const proxy = http.createServer((req, res) => {
                 }
             }
 
+            // Shadow mode: json-server's answer is still the one served. We
+            // only buffer a copy to compare against SQLite and log differences,
+            // so a wrong mirror can be discovered without anyone relying on it.
+            const shadowing = sqliteReads.MODE === 'shadow'
+                && !isMutation && name && proxyRes.statusCode === 200;
+
             res.writeHead(proxyRes.statusCode, outHeaders);
-            proxyRes.pipe(res);
+
+            if (shadowing) {
+                const chunks = [];
+                proxyRes.on('data', (chunk) => {
+                    chunks.push(chunk);
+                    res.write(chunk);
+                });
+                proxyRes.on('end', () => {
+                    res.end();
+                    // After the response is sent, so comparison never delays it.
+                    setImmediate(() => sqliteReads.shadowCompare(name, Buffer.concat(chunks).toString('utf8')));
+                });
+            } else {
+                proxyRes.pipe(res);
+            }
+
             if (isMutation) {
                 proxyRes.on('end', () => {
                     setTimeout(syncToICloud, 200);
@@ -475,6 +521,16 @@ const proxy = http.createServer((req, res) => {
 proxy.listen(PROXY_PORT, () => {
     console.log(`[SafetyGuard] 🛡️  Protection Active on port ${PROXY_PORT}`);
     console.log(`[SafetyGuard] Requests are backed up and forwarded to internal server.`);
+    // Off unless SQLITE_READS says otherwise, so the default path is untouched.
+    // The mirror lives beside whichever database this instance is pointed at,
+    // so an isolated instance (DB_FILE=/tmp/...) builds its own and never
+    // touches the real one. Overridable with SQLITE_FILE.
+    sqliteReads.init({
+        dbFile: DB_FILE,
+        mirrorFile: process.env.SQLITE_FILE
+            ? path.resolve(process.env.SQLITE_FILE)
+            : path.join(path.dirname(DB_FILE), 'finance.sqlite'),
+    });
 });
 
 // Handle cleanup

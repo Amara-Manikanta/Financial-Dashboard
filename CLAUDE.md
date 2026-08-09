@@ -271,21 +271,73 @@ to reappear immediately.
 
 ---
 
-## 5. Restart checklist
+## 5. The SQLite mirror (optional, off by default)
+
+`db.json` is still the only source of truth. Alongside it there is an optional
+SQLite mirror, `finance.sqlite`, derived from it.
+
+```bash
+npm run sqlite:refresh    # rebuild the mirror, then verify it
+```
+
+`scripts/verify-sqlite.mjs` is the important half. It checks row counts and
+per-category sums, but the check that matters is the third: it **rebuilds
+`db.json` from SQLite and compares field by field**. Counts and sums can both
+agree while individual fields are quietly wrong; a full round-trip cannot. It
+exits non-zero, so it can gate anything that depends on the mirror.
+
+The migration is lossless by design. Fields not promoted to columns are kept in
+an `extra` JSON column, array order in `ord`, and **the original key list per
+row** — 79 transactions have no `transactionType` key at all while 29 have
+`creditCardName` explicitly `null`, and without the key list both read back as
+`null`.
+
+`server.js` can serve reads from the mirror, controlled by `SQLITE_READS`:
+
+| value | behaviour |
+| --- | --- |
+| `off` *(default)* | Nothing loads. `node:sqlite` is not even imported. |
+| `shadow` | json-server still answers; each response is compared against SQLite and differences are logged. Zero risk. |
+| `on` | SQLite answers whole-collection GETs. json-server still owns every write. |
+
+The mirror is rebuilt automatically (~100 ms) whenever `db.json` changes, so it
+cannot serve data older than the file json-server is writing.
+
+**Use `shadow` before `on`.** A wrong read is worse than a slow one here: the
+client would load bad state and could then save it back over `db.json`. Shadow
+mode proves equivalence against real traffic while json-server remains
+authoritative.
+
+`finance.sqlite` is gitignored — it holds the same data as `db.json`. An
+isolated instance builds its own mirror beside its own database, so it never
+touches the real one:
+
+```bash
+DB_FILE=/tmp/test-db.json PROXY_PORT=4000 INTERNAL_PORT=4001 \
+  SQLITE_READS=on node server.js
+```
+
+Note that `on` returns compact JSON where json-server pretty-prints. The data is
+identical — it is 37% fewer bytes over the wire.
+
+---
+
+## 6. Restart checklist
 
 Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js` | `npm run server` |
+| `server.js`, `dbGuard.js`, `sqliteReads.js` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
+| A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |
 
 React/CSS source changes hot-reload normally.
 
 ---
 
-## 6. Verifying your work
+## 7. Verifying your work
 
 - `npm run build` must pass.
 - For UI changes, actually open the page. Several bugs here were invisible in
@@ -294,7 +346,7 @@ React/CSS source changes hot-reload normally.
 - After any write path change, confirm the guard still blocks a bad write and
   still allows a legitimate one.
 
-## 7. Known gaps
+## 8. Known gaps
 
 - 19 of the original uploaded ornament photos were lost before any backup
   existed and are unrecoverable. Missing images render a labelled placeholder.

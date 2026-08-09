@@ -13,6 +13,7 @@
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { SCHEMA, TX_COLUMNS, BOOLEAN_FIELDS } from './sqlite-schema.mjs';
 
 const arg = (name, fallback) => {
@@ -21,12 +22,18 @@ const arg = (name, fallback) => {
 };
 
 const ROOT = path.resolve(import.meta.dirname, '..');
-const SOURCE = path.resolve(ROOT, arg('source', 'db.json'));
-const OUT = path.resolve(ROOT, arg('out', 'finance.sqlite'));
+
+/**
+ * Build the mirror. Exported so the server can rebuild on demand when db.json
+ * changes, rather than shelling out to this file.
+ * @returns {{transactions:number, months:number, collections:number, bytes:number}}
+ */
+export function buildMirror({ source, out } = {}) {
+const SOURCE = path.resolve(ROOT, source || 'db.json');
+const OUT = path.resolve(ROOT, out || 'finance.sqlite');
 
 if (!fs.existsSync(SOURCE)) {
-    console.error(`✖ source not found: ${SOURCE}`);
-    process.exit(1);
+    throw new Error(`source not found: ${SOURCE}`);
 }
 
 const db = JSON.parse(fs.readFileSync(SOURCE, 'utf8'));
@@ -134,17 +141,35 @@ try {
     sql.exec('COMMIT');
 } catch (err) {
     sql.exec('ROLLBACK');
-    console.error('✖ migration failed, nothing written:', err.message);
     sql.close();
-    process.exit(1);
+    throw new Error(`migration failed, nothing written: ${err.message}`);
 }
 
 sql.close();
 
-const outSize = fs.statSync(OUT).size;
-const srcSize = fs.statSync(SOURCE).size;
-console.log(`✔ mirror built: ${path.relative(ROOT, OUT)}`);
-console.log(`  ${txCount.toLocaleString('en-IN')} transactions across ${monthCount} month buckets`);
-console.log(`  ${Object.keys(db).length - 1} other collections stored as documents`);
-console.log(`  ${(srcSize / 1048576).toFixed(2)} MB JSON  ->  ${(outSize / 1048576).toFixed(2)} MB SQLite`);
-console.log(`\n  Now run: node scripts/verify-sqlite.mjs`);
+return {
+    transactions: txCount,
+    months: monthCount,
+    collections: Object.keys(db).length - 1,
+    bytes: fs.statSync(OUT).size,
+    sourceBytes: fs.statSync(SOURCE).size,
+    out: OUT,
+};
+}
+
+// --- CLI ---------------------------------------------------------------
+
+const invokedDirectly = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (invokedDirectly) {
+    try {
+        const r = buildMirror({ source: arg('source', 'db.json'), out: arg('out', 'finance.sqlite') });
+        console.log(`✔ mirror built: ${path.relative(ROOT, r.out)}`);
+        console.log(`  ${r.transactions.toLocaleString('en-IN')} transactions across ${r.months} month buckets`);
+        console.log(`  ${r.collections} other collections stored as documents`);
+        console.log(`  ${(r.sourceBytes / 1048576).toFixed(2)} MB JSON  ->  ${(r.bytes / 1048576).toFixed(2)} MB SQLite`);
+        console.log('\n  Now run: node scripts/verify-sqlite.mjs');
+    } catch (err) {
+        console.error(`✖ ${err.message}`);
+        process.exit(1);
+    }
+}
