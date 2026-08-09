@@ -90,6 +90,48 @@ const columnValues = (tx) => {
     };
 };
 
+// Each month node carries a `categories` aggregate derived from its
+// transactions, and five pages read it (Analytics, Budget Limits, the monthly
+// view, Expenses, and category renaming). The client recomputes it inside
+// saveExpenses; a per-row write bypasses that, so it has to be recomputed here
+// or the aggregate silently goes stale.
+//
+// This mirrors the formula in FinanceContext.saveExpenses exactly, including
+// the clamp to zero. If that formula changes, this must change with it.
+const INCOME_CATEGORIES = ['salary received', 'salary', 'income'];
+
+const recomputeCategories = (handle, year, month) => {
+    const rows = handle.prepare(
+        'SELECT * FROM transactions WHERE year = ? AND month = ? ORDER BY ord',
+    ).all(year, month);
+
+    const totals = {};
+    for (const row of rows) {
+        const tx = rebuildTransaction(row);
+        if (!tx || typeof tx !== 'object') continue;
+        if (tx.deductFromSalary === false) continue;
+
+        const cat = String(tx.category || '').toLowerCase();
+        if (!cat) continue;
+
+        const amount = Number(tx.amount) || 0;
+        const isIncome = INCOME_CATEGORIES.includes(cat);
+        const effective = isIncome
+            ? (tx.isCredited ? amount : -amount)
+            : (tx.isCredited ? -amount : amount);
+
+        totals[cat] = (totals[cat] || 0) + effective;
+    }
+    for (const k of Object.keys(totals)) totals[k] = Math.max(0, totals[k]);
+
+    const metaRow = handle.prepare('SELECT rest FROM month_meta WHERE year = ? AND month = ?')
+        .get(year, month);
+    const rest = metaRow ? JSON.parse(metaRow.rest || '{}') : {};
+    rest.categories = totals;
+    handle.prepare('UPDATE month_meta SET rest = ? WHERE year = ? AND month = ?')
+        .run(JSON.stringify(rest), year, month);
+};
+
 const insertRow = (handle, year, month, ord, tx) => {
     const c = columnValues(tx);
     handle.prepare(`INSERT INTO transactions
@@ -120,6 +162,11 @@ export const applyChange = ({ op, id, transaction, patch }, guard) => {
         return { ok: false, status: 500, body: { error: `Could not open the mirror: ${err.message}` } };
     }
 
+    // Month buckets whose transactions changed, so their `categories`
+    // aggregate can be recomputed before db.json is written.
+    const touched = new Set();
+    const touch = (year, month) => touched.add(`${year}\u0000${month}`);
+
     try {
         handle.exec('BEGIN IMMEDIATE');
 
@@ -147,6 +194,7 @@ export const applyChange = ({ op, id, transaction, patch }, guard) => {
             ).get(bucket.year, bucket.month).n;
 
             insertRow(handle, bucket.year, bucket.month, nextOrd, tx);
+            touch(bucket.year, bucket.month);
         } else {
             const row = handle.prepare('SELECT * FROM transactions WHERE id = ?').get(String(id));
             if (!row) throw new Error(`no transaction with id ${id}`);
@@ -154,6 +202,7 @@ export const applyChange = ({ op, id, transaction, patch }, guard) => {
             if (op === 'delete') {
                 handle.prepare('DELETE FROM transactions WHERE year = ? AND month = ? AND ord = ?')
                     .run(row.year, row.month, row.ord);
+                touch(row.year, row.month);
             } else {
                 // Merge the patch onto the existing object, then rewrite the row.
                 const current = rebuildTransaction(row);
@@ -163,6 +212,7 @@ export const applyChange = ({ op, id, transaction, patch }, guard) => {
                 handle.prepare('DELETE FROM transactions WHERE year = ? AND month = ? AND ord = ?')
                     .run(row.year, row.month, row.ord);
 
+                touch(row.year, row.month);
                 if (bucket.year === row.year && bucket.month === row.month) {
                     insertRow(handle, row.year, row.month, row.ord, merged);
                 } else {
@@ -179,8 +229,14 @@ export const applyChange = ({ op, id, transaction, patch }, guard) => {
                         'SELECT COALESCE(MAX(ord), -1) + 1 n FROM transactions WHERE year = ? AND month = ?',
                     ).get(bucket.year, bucket.month).n;
                     insertRow(handle, bucket.year, bucket.month, nextOrd, merged);
+                    touch(bucket.year, bucket.month);
                 }
             }
+        }
+
+        for (const key of touched) {
+            const [year, month] = key.split('\u0000');
+            recomputeCategories(handle, year, month);
         }
 
         // Rebuild the whole database and let the existing guard judge it. The

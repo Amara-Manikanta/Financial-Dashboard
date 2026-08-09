@@ -348,9 +348,36 @@ Verified on isolated copies: two concurrent edits to different transactions both
 survive (with whole-collection writes one would be lost), 25 concurrent creates
 all landed with no duplicate ids, and the round-trip check still passes.
 
-**The client does not use these yet.** Switching `FinanceContext.saveExpenses`
-over is the remaining step, and it is what would finally retire whole-collection
-writes for `expenses`.
+### The client uses them, and falls back when they are off
+
+`addItem` (logging a transaction) now tries `POST /api/tx` first and falls back
+to the whole-collection save when the server answers **503** (feature off) or
+**404** (older server). `perRowWrites` in `FinanceContext` remembers the answer,
+so the probe happens once.
+
+That fallback is not optional. `SQLITE_WRITES` defaults to off, so the fallback
+is the path most runs take — if you change this code, test both.
+
+```bash
+npm run server           # default: json-server owns everything
+npm run server:shadow    # reads compared against SQLite, nothing depends on it
+npm run server:sqlite    # reads and per-row writes from SQLite
+```
+
+Note these flags do **not** persist. A plain `npm run server` is back to the
+default, which is deliberate.
+
+### `categories` must be recomputed on every write
+
+Each month node carries a `categories` aggregate derived from its transactions,
+and five pages read it (Analytics, Budget Limits, the monthly view, Expenses,
+and category renaming). 111 of 120 months have it populated.
+
+The client builds it in `withRecomputedCategories`; the per-row path bypasses
+that entirely, so `recomputeCategories()` in `sqliteWrites.js` reproduces the
+same formula server-side — including the clamp to zero. **If one formula
+changes, the other must change with it**, or the aggregate silently drifts and
+every one of those pages reports wrong numbers with no error anywhere.
 
 ---
 

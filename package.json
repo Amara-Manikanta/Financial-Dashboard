@@ -7,6 +7,8 @@
     "dev": "vite",
     "server": "node server.js",
     "build": "vite build",
+    "server:shadow": "SQLITE_READS=shadow node server.js",
+    "server:sqlite": "SQLITE_READS=on SQLITE_WRITES=on node server.js",
     "sqlite:build": "node scripts/migrate-to-sqlite.mjs",
     "sqlite:verify": "node scripts/verify-sqlite.mjs",
     "sqlite:refresh": "node scripts/migrate-to-sqlite.mjs && node scripts/verify-sqlite.mjs",

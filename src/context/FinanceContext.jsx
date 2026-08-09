@@ -201,6 +201,9 @@ export function FinanceProvider({ children }) {
     // collection is written on each save, so without this a second tab — or the
     // same tab left open — silently erases everything it never loaded.
     const expensesVersion = useRef(null);
+    // null = not yet probed, true = server has per-row writes, false = fall back
+    // to whole-collection saves. Probed once on first use.
+    const perRowWrites = useRef(null);
 
     /** Guard every write: never persist state that was never successfully loaded. */
     const canWrite = () => {
@@ -865,7 +868,11 @@ export function FinanceProvider({ children }) {
         }
     };
 
-    const saveExpenses = async (updatedExpenses) => {
+    // The per-month `categories` aggregate, derived from that month's
+    // transactions. Extracted so the per-row write path can produce exactly the
+    // same numbers — sqliteWrites.js recomputes this server-side using the same
+    // formula, and the two must not drift.
+    const withRecomputedCategories = (updatedExpenses) => {
         const sanitizedExpenses = JSON.parse(JSON.stringify(updatedExpenses));
         Object.values(sanitizedExpenses).forEach(yearData => {
             Object.values(yearData).forEach(monthData => {
@@ -873,23 +880,23 @@ export function FinanceProvider({ children }) {
                 const newCategories = {};
                 monthData.transactions.forEach(tx => {
                     if (tx.deductFromSalary === false) return;
-                    
+
                     const cat = (tx.category || '').toLowerCase();
                     if (!cat) return;
-                    
+
                     const isIncome = ['salary received', 'salary', 'income'].includes(cat);
                     const amount = Number(tx.amount) || 0;
-                    
+
                     let effective = 0;
                     if (isIncome) {
                         effective = tx.isCredited ? amount : -amount;
                     } else {
                         effective = tx.isCredited ? -amount : amount;
                     }
-                    
+
                     newCategories[cat] = (newCategories[cat] || 0) + effective;
                 });
-                
+
                 // Keep Math.max for backward compatibility with UI expecting no negative categories
                 Object.keys(newCategories).forEach(k => {
                     newCategories[k] = Math.max(0, newCategories[k]);
@@ -897,6 +904,53 @@ export function FinanceProvider({ children }) {
                 monthData.categories = newCategories;
             });
         });
+        return sanitizedExpenses;
+    };
+
+    /**
+     * Write a single transaction instead of the whole expenses collection.
+     *
+     * This is the fix for the lost-update problem: a whole-collection save is
+     * built from one tab's snapshot, so whichever tab saves last erases the
+     * other's rows. A per-row write touches only what changed.
+     *
+     * Returns 'saved' | 'unavailable' | { failed: reason }. 'unavailable' means
+     * the server has per-row writes switched off (the default), and the caller
+     * must fall back to saveExpenses — the app has to keep working either way.
+     */
+    const writeTransactionRow = async (method, { transaction, id, patch } = {}) => {
+        if (isGuest) return { failed: 'Signed in as guest — nothing you enter is being saved.' };
+        if (perRowWrites.current === false) return 'unavailable';
+
+        const url = id ? `${API_URL}/api/tx/${encodeURIComponent(id)}` : `${API_URL}/api/tx`;
+        try {
+            const res = await fetch(url, {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: method === 'DELETE' ? undefined : JSON.stringify(transaction ? { transaction } : (patch || {})),
+            });
+
+            // 503 is the server saying the feature is off; 404 means an older
+            // server without the route. Neither is an error the user caused.
+            if (res.status === 503 || res.status === 404) {
+                perRowWrites.current = false;
+                return 'unavailable';
+            }
+            if (!res.ok) {
+                const info = await res.json().catch(() => ({}));
+                return { failed: info.reason || info.error || `server returned ${res.status}` };
+            }
+            perRowWrites.current = true;
+            return 'saved';
+        } catch (err) {
+            // Network or route problem: fall back rather than lose the entry.
+            perRowWrites.current = false;
+            return 'unavailable';
+        }
+    };
+
+    const saveExpenses = async (updatedExpenses) => {
+        const sanitizedExpenses = withRecomputedCategories(updatedExpenses);
 
         setExpenses(sanitizedExpenses);
 
@@ -1229,7 +1283,7 @@ export function FinanceProvider({ children }) {
 
             const expenseId = Date.now().toString();
             if (!monthData.transactions) monthData.transactions = [];
-            monthData.transactions.push({
+            const newTransaction = {
                 ...item,
                 id: expenseId,
                 title: item.title,
@@ -1242,9 +1296,25 @@ export function FinanceProvider({ children }) {
                 transactionType: item.transactionType,
                 deductFromSalary: item.deductFromSalary,
                 investmentData: item.investmentData || null
-            });
+            };
+            monthData.transactions.push(newTransaction);
 
-            await saveExpenses(newExpenses);
+            // Prefer a per-row write: it cannot erase rows this tab never
+            // loaded. Falls back to the whole-collection save when the server
+            // has that path switched off, which is still the default.
+            const rowResult = await writeTransactionRow('POST', { transaction: newTransaction });
+            if (rowResult === 'saved') {
+                // The server recomputed the month's categories with the same
+                // formula, so mirroring it locally keeps the UI in step without
+                // a second write.
+                setExpenses(withRecomputedCategories(newExpenses));
+                setSaveError(null);
+            } else if (rowResult && rowResult.failed) {
+                setExpenses(withRecomputedCategories(newExpenses));
+                setSaveError(`This did not save: ${rowResult.failed}`);
+            } else {
+                await saveExpenses(newExpenses);
+            }
 
             // Handle Investment Sync
             if (item.investmentData && !item.skipInvestmentSync) {
