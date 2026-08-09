@@ -201,6 +201,27 @@ const CORS_HEADERS = {
     'Access-Control-Expose-Headers': 'X-DB-Version',
 };
 
+// Mutations run one at a time.
+//
+// mergePatchIntoPut reads db.json, merges the body into it and forwards a PUT.
+// Two mutations in flight together both read the same pre-write file, so the
+// second one's PUT is built from state that already lacks the first one's
+// change — and silently erases it. Proved with two PATCHes to *different*
+// appData keys: one of them vanished.
+//
+// The guard has the same shape (it reads db.json to compare against), as does
+// collectionVersion. Serialising every mutation fixes the whole class in one
+// place rather than per collection. These are local writes measured in
+// milliseconds, so the queue costs effectively nothing.
+let mutationQueue = Promise.resolve();
+const runExclusive = (task) => {
+    const next = mutationQueue.then(task, task);
+    // Keep the chain alive even if a task rejects, or one failure stalls
+    // every write that follows it.
+    mutationQueue = next.catch(() => {});
+    return next;
+};
+
 const sendJson = (res, status, payload) => {
     res.writeHead(status, { 'Content-Type': 'application/json', ...CORS_HEADERS });
     res.end(JSON.stringify(payload));
@@ -420,7 +441,11 @@ const proxy = http.createServer((req, res) => {
     };
 
     // bufferedBody is null for reads, which stay streamed as before.
-    const forward = (bufferedBody, methodOverride) => {
+    // onDone fires once the write has actually completed, so a serialised
+    // mutation holds its slot until json-server has finished with db.json —
+    // releasing it any earlier would reopen the race the queue exists to close.
+    const forward = (bufferedBody, methodOverride, onDone) => {
+        const finish = () => { if (onDone) { const f = onDone; onDone = null; f(); } };
         const headers = { ...req.headers };
         if (bufferedBody !== null) {
             // The body was consumed to inspect it, so re-declare its length.
@@ -480,6 +505,8 @@ const proxy = http.createServer((req, res) => {
                     setTimeout(syncToICloud, 200);
                 });
             }
+            proxyRes.on('end', finish);
+            proxyRes.on('error', finish);
         });
 
         proxyReq.on('error', (e) => {
@@ -491,6 +518,9 @@ const proxy = http.createServer((req, res) => {
                     sendJson(res, 502, { error: 'Bad Gateway' });
                 }
             }
+            // Release the queue slot: a failed write must not stall every
+            // write behind it.
+            finish();
         });
 
         if (bufferedBody !== null) {
@@ -509,6 +539,9 @@ const proxy = http.createServer((req, res) => {
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {
+      // Everything from here on reads db.json, decides, and writes. Run one at
+      // a time so each decision sees the previous write's result.
+      runExclusive(() => new Promise((release) => {
         let body = Buffer.concat(chunks).toString('utf8');
 
         // LOST-UPDATE CHECK. A whole-collection write replaces everything, so a
@@ -528,6 +561,7 @@ const proxy = http.createServer((req, res) => {
                     reason: 'Another tab or device saved first. Reload before saving, or this write would erase their changes.',
                     currentVersion: current,
                 });
+                release();
                 return;
             }
         }
@@ -561,12 +595,17 @@ const proxy = http.createServer((req, res) => {
                 error: 'Write blocked by SafetyGuard to prevent data loss',
                 reason: verdict.reason,
             });
+            release();
             return;
         }
 
         // 2. BACKUP: only once the write is known to be sane.
         createVerifiedBackup();
-        forward(body, method.verb);
+        // release() runs when json-server has finished writing, not when the
+        // request is dispatched — otherwise the next mutation would merge
+        // against a db.json this one has not updated yet.
+        forward(body, method.verb, release);
+      }));
     });
 });
 
