@@ -1776,7 +1776,21 @@ export function FinanceProvider({ children }) {
                         break outer;
                     }
                 }
-                if (found) await saveExpenses(newExpenses);
+                if (found) {
+                    // Per-row delete removes one row instead of replacing the
+                    // whole collection, so a concurrent edit in another tab
+                    // survives. Falls back when the server has it switched off.
+                    const rowResult = await writeTransactionRow('DELETE', { id });
+                    if (rowResult === 'saved') {
+                        setExpenses(withRecomputedCategories(newExpenses));
+                        setSaveError(null);
+                    } else if (rowResult && rowResult.failed) {
+                        setExpenses(withRecomputedCategories(newExpenses));
+                        setSaveError(`This delete did not save: ${rowResult.failed}`);
+                    } else {
+                        await saveExpenses(newExpenses);
+                    }
+                }
                 return;
 
             }
@@ -2022,6 +2036,9 @@ export function FinanceProvider({ children }) {
                     newExpenses[oldYear][oldMonth] = JSON.parse(JSON.stringify(foundLocation.data));
                     const oldMonthData = newExpenses[oldYear][oldMonth];
                     const oldTx = oldMonthData.transactions[txIndex];
+                    // Set by whichever branch below applies the edit, then sent
+                    // as a per-row patch instead of the whole collection.
+                    let mergedTransaction = null;
                     const oldTarget = oldMonthData.categories || oldMonthData;
 
                     // Subtract old amount from old category totals
@@ -2062,7 +2079,8 @@ export function FinanceProvider({ children }) {
 
                         // Add to new transactions list
                         if (!newMonthData.transactions) newMonthData.transactions = [];
-                        newMonthData.transactions.push({ ...oldTx, ...item, amount: newAmount, category: newCategory, deductFromSalary: item.deductFromSalary });
+                        mergedTransaction = { ...oldTx, ...item, amount: newAmount, category: newCategory, deductFromSalary: item.deductFromSalary };
+                        newMonthData.transactions.push(mergedTransaction);
 
                     } else {
                         // Same month/year: Update in place
@@ -2076,10 +2094,25 @@ export function FinanceProvider({ children }) {
                             oldTarget[newKey] = Math.max(0, (oldTarget[newKey] || 0) + newEffective);
                         }
 
-                        oldMonthData.transactions[txIndex] = { ...oldTx, ...item, amount: newAmount, category: newCategory, deductFromSalary: item.deductFromSalary, investmentData: item.investmentData || null };
+                        mergedTransaction = { ...oldTx, ...item, amount: newAmount, category: newCategory, deductFromSalary: item.deductFromSalary, investmentData: item.investmentData || null };
+                        oldMonthData.transactions[txIndex] = mergedTransaction;
                     }
 
-                    await saveExpenses(newExpenses);
+                    // Per-row update. The server merges the patch onto the
+                    // stored row and moves it to another month bucket itself if
+                    // the date changed, so sending the merged object is enough.
+                    const rowResult = mergedTransaction
+                        ? await writeTransactionRow('PATCH', { id: oldTx.id, patch: mergedTransaction })
+                        : 'unavailable';
+                    if (rowResult === 'saved') {
+                        setExpenses(withRecomputedCategories(newExpenses));
+                        setSaveError(null);
+                    } else if (rowResult && rowResult.failed) {
+                        setExpenses(withRecomputedCategories(newExpenses));
+                        setSaveError(`This edit did not save: ${rowResult.failed}`);
+                    } else {
+                        await saveExpenses(newExpenses);
+                    }
                     
                     // Handle Investment Sync on Edit
                     if (!item.skipInvestmentSync) {
