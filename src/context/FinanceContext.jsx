@@ -183,6 +183,7 @@ export function FinanceProvider({ children }) {
     const [hiddenSalaryFields, setHiddenSalaryFields] = useState([]);
     const [employments, setEmployments] = useState([]);
     const [categoryRules, setCategoryRules] = useState({});
+    const [recurringOverrides, setRecurringOverrides] = useState({});
     const [groceryCategories, setGroceryCategories] = useState(DEFAULT_GROCERY_CATEGORIES);
     const [isLoading, setIsLoading] = useState(true);
     // Set when the initial load failed. State is empty in that situation, so
@@ -347,6 +348,7 @@ export function FinanceProvider({ children }) {
                 setCategoryBudgets(savedBudgets);
                 setCategories(appData.categories || []);
                 setCategoryRules(appData.categoryRules || {});
+                setRecurringOverrides(appData.recurringOverrides || {});
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
                 setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
@@ -440,6 +442,35 @@ export function FinanceProvider({ children }) {
             });
         } catch (error) {
             console.error("Failed to save category rules:", error);
+        }
+    };
+
+    // User overrides on top of the computed active/stopped status. Kept separate
+    // from detection so the underlying maths stays deterministic, and so a
+    // charge arriving after you marked something cancelled is still visible
+    // rather than being silently hidden by the override.
+    const saveRecurringOverrides = async (nextOverrides) => {
+        const previous = recurringOverrides;
+        setRecurringOverrides(nextOverrides);
+        if (isGuest) {
+            setSaveError('Signed in as guest — nothing you change is being saved. Sign in as admin to keep it.');
+            return;
+        }
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            if (!res.ok) throw new Error(`could not read appData (${res.status})`);
+            const currentAppData = await res.json();
+            const write = await fetch(`${API_URL}/appData`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, recurringOverrides: nextOverrides })
+            });
+            if (!write.ok) throw new Error(`server returned ${write.status}`);
+            setSaveError(null);
+        } catch (error) {
+            // Never let a failed write look successful: roll the UI back and say so.
+            setRecurringOverrides(previous);
+            setSaveError(`Could not save the subscription status: ${error.message}. Your change was not kept.`);
         }
     };
 
@@ -2337,6 +2368,7 @@ export function FinanceProvider({ children }) {
 
     const value = {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
+        recurringOverrides, saveRecurringOverrides,
         goals, loans, insuranceProfile,
         pendingWalletCredits, applyWalletAutoCredits,
         loadError,

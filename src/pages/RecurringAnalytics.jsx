@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { detectRecurring } from '../utils/recurring';
+import { detectRecurring, applyOverrides } from '../utils/recurring';
 import {
     Repeat, TrendingUp, AlertTriangle, CalendarClock, Ban, Search, ChevronDown, ArrowUp, ArrowDown,
+    CircleSlash, Eye, EyeOff, RotateCcw, ShieldAlert,
 } from 'lucide-react';
 
 const KIND_STYLES = {
@@ -27,15 +28,35 @@ const StatTile = ({ icon: Icon, label, value, hint, accent = '#10b981' }) => (
 );
 
 const RecurringAnalytics = () => {
-    const { expenses, formatCurrency } = useFinance();
+    const { expenses, formatCurrency, recurringOverrides, saveRecurringOverrides } = useFinance();
     const [query, setQuery] = useState('');
-    const [showStopped, setShowStopped] = useState(false);
+    const [view, setView] = useState('active');
     const [expanded, setExpanded] = useState(null);
 
-    const series = useMemo(() => detectRecurring(expenses), [expenses]);
+    const detected = useMemo(() => detectRecurring(expenses), [expenses]);
+    const series = useMemo(
+        () => applyOverrides(detected, recurringOverrides || {}),
+        [detected, recurringOverrides],
+    );
 
-    const active = useMemo(() => series.filter((s) => s.active), [series]);
-    const stopped = useMemo(() => series.filter((s) => !s.active), [series]);
+    const active = useMemo(() => series.filter((s) => s.status === 'active'), [series]);
+    const stopped = useMemo(() => series.filter((s) => s.status === 'stopped'), [series]);
+    const ignored = useMemo(() => series.filter((s) => s.status === 'ignored'), [series]);
+    const stillCharging = useMemo(() => series.filter((s) => s.chargedAfterCancel), [series]);
+
+    const setStatus = (key, status) => {
+        const next = { ...(recurringOverrides || {}) };
+        if (!status) {
+            delete next[key];
+        } else {
+            next[key] = {
+                status,
+                markedOn: new Date().toISOString().slice(0, 10),
+                note: next[key]?.note || '',
+            };
+        }
+        saveRecurringOverrides(next);
+    };
 
     // A meaningful rise, not rounding noise: >10% and at least Rs 25.
     const roseInPrice = useMemo(
@@ -50,11 +71,11 @@ const RecurringAnalytics = () => {
     );
 
     const visible = useMemo(() => {
-        const pool = showStopped ? stopped : active;
+        const pool = view === 'stopped' ? stopped : view === 'ignored' ? ignored : active;
         const q = query.trim().toLowerCase();
         if (!q) return pool;
         return pool.filter((s) => s.label.toLowerCase().includes(q) || s.key.includes(q));
-    }, [showStopped, stopped, active, query]);
+    }, [view, stopped, active, ignored, query]);
 
     if (!series.length) {
         return (
@@ -99,6 +120,30 @@ const RecurringAnalytics = () => {
                 />
             </div>
 
+            {stillCharging.length > 0 && (
+                <div className="rounded-2xl border border-red-500/40 bg-red-500/10 p-5">
+                    <h2 className="text-sm font-black text-red-300 uppercase tracking-widest flex items-center gap-2 mb-4">
+                        <ShieldAlert size={16} /> Still charging after you cancelled
+                    </h2>
+                    <div className="space-y-2">
+                        {stillCharging.map((s) => (
+                            <div key={s.key}
+                                 className="flex flex-wrap items-center justify-between gap-3 bg-black/40 rounded-xl px-4 py-3">
+                                <div>
+                                    <span className="text-sm font-bold text-white">{s.label}</span>
+                                    <span className="block text-[11px] text-gray-500">
+                                        marked cancelled on {s.markedOn} &middot; charged again on {s.last}
+                                    </span>
+                                </div>
+                                <span className="text-sm font-black text-red-400 font-mono">
+                                    {formatCurrency(s.typical)}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {roseInPrice.length > 0 && (
                 <div className="rounded-2xl border border-amber-500/25 bg-amber-500/5 p-5">
                     <h2 className="text-sm font-black text-amber-300 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -126,24 +171,22 @@ const RecurringAnalytics = () => {
             <div className="space-y-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex gap-2">
-                        <button
-                            type="button"
-                            onClick={() => setShowStopped(false)}
-                            className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                                !showStopped ? 'bg-emerald-500 text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                            }`}
-                        >
-                            Active ({active.length})
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setShowStopped(true)}
-                            className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
-                                showStopped ? 'bg-emerald-500 text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10'
-                            }`}
-                        >
-                            Stopped ({stopped.length})
-                        </button>
+                        {[
+                            ['active', `Active (${active.length})`],
+                            ['stopped', `Stopped (${stopped.length})`],
+                            ['ignored', `Ignored (${ignored.length})`],
+                        ].map(([key, label]) => (
+                            <button
+                                key={key}
+                                type="button"
+                                onClick={() => setView(key)}
+                                className={`px-4 py-2 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all ${
+                                    view === key ? 'bg-emerald-500 text-black' : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                }`}
+                            >
+                                {label}
+                            </button>
+                        ))}
                     </div>
                     <div className="relative">
                         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
@@ -168,7 +211,7 @@ const RecurringAnalytics = () => {
                                 <th className="text-right px-4 py-3">Per year</th>
                                 <th className="text-right px-4 py-3">Charges</th>
                                 <th className="text-left px-4 py-3">Last</th>
-                                <th className="text-left px-4 py-3">{showStopped ? 'Since' : 'Next due'}</th>
+                                <th className="text-left px-4 py-3">{view === 'active' ? 'Next due' : 'Since'}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -203,11 +246,103 @@ const RecurringAnalytics = () => {
                                     <td className="px-4 py-3 text-right font-mono text-gray-500">{s.count}</td>
                                     <td className="px-4 py-3 text-gray-400 text-xs font-mono">{s.last}</td>
                                     <td className="px-4 py-3 text-xs font-mono">
-                                        {showStopped
-                                            ? <span className="text-gray-600">{s.first}</span>
-                                            : <span className="text-emerald-400">{s.nextExpected}</span>}
+                                        {view === 'active'
+                                            ? <span className="text-emerald-400">{s.nextExpected}</span>
+                                            : <span className="text-gray-600">{s.first}</span>}
                                     </td>
                                 </tr>
+
+                                {expanded === s.key && (
+                                    <tr className="border-t border-white/5 bg-black/40">
+                                        <td colSpan={8} className="px-4 py-4">
+                                            <div className="text-[10px] font-black uppercase tracking-widest text-gray-500 mb-3">
+                                                The {s.events.length} charges behind this
+                                            </div>
+                                            <div className="max-h-64 overflow-y-auto custom-scrollbar space-y-1 pr-1">
+                                                {[...s.events].reverse().map((ev, i, arr) => {
+                                                    // arr is newest-first, so the older charge is the next index.
+                                                    const prev = arr[i + 1];
+                                                    const delta = prev ? ev.amount - prev.amount : 0;
+                                                    return (
+                                                        <div key={`${ev.date}-${i}`}
+                                                             className="flex items-center justify-between gap-4 bg-white/[0.03] rounded-lg px-3 py-2">
+                                                            <div className="flex items-center gap-3 min-w-0">
+                                                                <span className="font-mono text-gray-500 text-xs shrink-0">{ev.date}</span>
+                                                                <span className="text-gray-400 text-xs truncate">{ev.displayTitle}</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-2 shrink-0">
+                                                                {delta !== 0 && (
+                                                                    <span className={`text-[10px] font-black flex items-center gap-0.5 ${delta > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                                                        {delta > 0 ? <ArrowUp size={10} /> : <ArrowDown size={10} />}
+                                                                        {formatCurrency(Math.abs(delta))}
+                                                                    </span>
+                                                                )}
+                                                                <span className="font-mono font-bold text-white text-xs">
+                                                                    {formatCurrency(ev.amount)}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap items-center gap-2">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-gray-600 mr-1">
+                                                    Set status
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); setStatus(s.key, 'cancelled'); }}
+                                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${
+                                                        s.overrideStatus === 'cancelled'
+                                                            ? 'bg-red-500 text-white'
+                                                            : 'bg-white/5 text-gray-400 hover:bg-red-500/20 hover:text-red-300'
+                                                    }`}
+                                                >
+                                                    <CircleSlash size={11} /> I cancelled this
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); setStatus(s.key, 'watching'); }}
+                                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${
+                                                        s.overrideStatus === 'watching'
+                                                            ? 'bg-emerald-500 text-black'
+                                                            : 'bg-white/5 text-gray-400 hover:bg-emerald-500/20 hover:text-emerald-300'
+                                                    }`}
+                                                >
+                                                    <Eye size={11} /> Still active
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => { e.stopPropagation(); setStatus(s.key, 'ignored'); }}
+                                                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${
+                                                        s.overrideStatus === 'ignored'
+                                                            ? 'bg-gray-500 text-white'
+                                                            : 'bg-white/5 text-gray-400 hover:bg-white/10'
+                                                    }`}
+                                                >
+                                                    <EyeOff size={11} /> Ignore
+                                                </button>
+                                                {s.overridden && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={(e) => { e.stopPropagation(); setStatus(s.key, null); }}
+                                                        className="px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 bg-white/5 text-gray-500 hover:bg-white/10 transition-all"
+                                                    >
+                                                        <RotateCcw size={11} /> Auto
+                                                    </button>
+                                                )}
+                                            </div>
+
+                                            <p className="text-[10px] text-gray-600 mt-3">
+                                                Grouped as &ldquo;{s.key}&rdquo; &middot; typically every {Math.round(s.medianGap)} days.
+                                                {s.overridden
+                                                    ? ` You marked this ${s.overrideStatus}${s.markedOn ? ` on ${s.markedOn}` : ''}. "Auto" hands it back to detection.`
+                                                    : ' Status is worked out from the gaps between charges.'}
+                                            </p>
+                                        </td>
+                                    </tr>
+                                )}
+                                </React.Fragment>
                             ))}
                             {!visible.length && (
                                 <tr>

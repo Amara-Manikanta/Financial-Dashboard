@@ -1,8 +1,9 @@
 import React, { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { runHealthChecks, flattenTransactions } from '../utils/dataHealth';
+import { runHealthChecks, flattenTransactions, ISSUE_FILTERS } from '../utils/dataHealth';
 import {
-    Stethoscope, AlertTriangle, AlertCircle, Info, CheckCircle2, ChevronDown,
+    Stethoscope, AlertTriangle, AlertCircle, Info, CheckCircle2, ChevronDown, ArrowRight,
 } from 'lucide-react';
 
 const SEVERITY = {
@@ -13,7 +14,14 @@ const SEVERITY = {
 };
 
 const CheckCard = ({ check, formatCurrency }) => {
-    const [open, setOpen] = useState(check.severity === 'high');
+    // Severity is only known once data has loaded, and this component first
+    // renders while expenses is still empty. Seeding useState from it would
+    // latch every card shut on that first pass, so the default is derived each
+    // render and only frozen once the user actually clicks.
+    const [userToggled, setUserToggled] = useState(null);
+    const open = userToggled === null ? check.severity === 'high' : userToggled;
+    const setOpen = (next) => setUserToggled(typeof next === 'function' ? next(open) : next);
+
     const meta = SEVERITY[check.severity] || SEVERITY.low;
     const Icon = meta.icon;
 
@@ -64,7 +72,7 @@ const CheckCard = ({ check, formatCurrency }) => {
                                     )}
                                 </div>
                             ))}
-                            {check.count > check.sample.length && (
+                            {check.count > check.sample.length && !ISSUE_FILTERS[check.id] && (
                                 <p className="text-[10px] text-gray-600 pl-1">
                                     &hellip; and {check.count - check.sample.length} more
                                 </p>
@@ -76,6 +84,16 @@ const CheckCard = ({ check, formatCurrency }) => {
                             <span className="font-black uppercase tracking-widest text-gray-600 mr-2">Fix</span>
                             {check.fix}
                         </p>
+                    )}
+
+                    {ISSUE_FILTERS[check.id] && check.count > 0 && (
+                        <Link
+                            to={`/all-transactions?issue=${check.id}`}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 text-white text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+                        >
+                            Work through all {check.count.toLocaleString('en-IN')}
+                            <ArrowRight size={12} />
+                        </Link>
                     )}
                 </div>
             )}

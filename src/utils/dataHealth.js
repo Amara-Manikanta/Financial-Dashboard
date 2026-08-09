@@ -4,7 +4,20 @@
 // a sample of the actual offending rows, and a fix hint. Nothing is repaired
 // automatically — this is a worklist, not a migration.
 
-const VAGUE_CATEGORIES = new Set(['other', 'others', 'miscellaneous', 'misc', 'uncategorized', 'uncategorised', 'unknown', '']);
+export const VAGUE_CATEGORIES = new Set(['other', 'others', 'miscellaneous', 'misc', 'uncategorized', 'uncategorised', 'unknown', '']);
+
+// Checks that map onto a filter in All Transactions, so a finding can be
+// worked through rather than only counted.
+export const ISSUE_FILTERS = {
+    'vague-category': 'Vague or missing category',
+    'no-title': 'No description',
+};
+
+export const matchesIssue = (issue, t) => {
+    if (issue === 'vague-category') return VAGUE_CATEGORIES.has(String(t.category || '').toLowerCase().trim());
+    if (issue === 'no-title') return !String(t.title || '').trim();
+    return true;
+};
 
 const MONTH_ORDER = ['January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'];

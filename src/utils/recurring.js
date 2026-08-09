@@ -159,3 +159,35 @@ export const detectRecurring = (expenses, asOf = new Date()) => {
 
     return series.sort((a, b) => (Number(b.active) - Number(a.active)) || (b.annualRunRate - a.annualRunRate));
 };
+
+/**
+ * Layer the user's own status on top of what detection worked out.
+ *
+ * The override never rewrites history. If you mark something cancelled and a
+ * charge lands afterwards, that is the single most valuable thing this page can
+ * tell you — you are still being billed for something you cancelled — so it is
+ * surfaced as `chargedAfterCancel` rather than being hidden by the override.
+ */
+export const applyOverrides = (series, overrides = {}) => series.map((s) => {
+    const o = overrides[s.key];
+    if (!o || !o.status) return { ...s, overridden: false, status: s.active ? 'active' : 'stopped' };
+
+    const chargedAfterCancel = o.status === 'cancelled'
+        && Boolean(o.markedOn)
+        && s.last > o.markedOn;
+
+    let status = o.status;
+    if (o.status === 'cancelled') status = 'stopped';
+    if (o.status === 'watching') status = 'active';
+
+    return {
+        ...s,
+        overridden: true,
+        overrideStatus: o.status,
+        markedOn: o.markedOn || null,
+        note: o.note || '',
+        chargedAfterCancel,
+        status: o.status === 'ignored' ? 'ignored' : status,
+        active: status === 'active',
+    };
+});

@@ -1,18 +1,29 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Download, X } from 'lucide-react';
+import { ISSUE_FILTERS, matchesIssue } from '../utils/dataHealth';
 import * as XLSX from 'xlsx';
 
 const AllTransactions = () => {
     const { expenses, formatCurrency } = useFinance();
-    const [searchTerm, setSearchTerm] = useState('');
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
     const [typeFilter, setTypeFilter] = useState('all'); // all, credit, debit
     const [yearFilter, setYearFilter] = useState('all');
     const [monthFilter, setMonthFilter] = useState('all');
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
     const navigate = useNavigate();
+
+    // Data Health links here with ?issue=... so a finding can be worked
+    // through, instead of only being counted on that page.
+    const issue = searchParams.get('issue');
+    const clearIssue = () => {
+        const next = new URLSearchParams(searchParams);
+        next.delete('issue');
+        setSearchParams(next, { replace: true });
+    };
 
     // Flatten transactions
     const allTransactions = useMemo(() => {
@@ -57,13 +68,14 @@ const AllTransactions = () => {
                     : !t.isCredited;
             const matchesYear = yearFilter === 'all' ? true : t.year === yearFilter;
             const matchesMonth = monthFilter === 'all' ? true : t.month === monthFilter;
+            const matchesTheIssue = issue ? matchesIssue(issue, t) : true;
 
-            return matchesSearch && matchesType && matchesYear && matchesMonth;
+            return matchesSearch && matchesType && matchesYear && matchesMonth && matchesTheIssue;
         });
-    }, [allTransactions, searchTerm, typeFilter, yearFilter, monthFilter]);
+    }, [allTransactions, searchTerm, typeFilter, yearFilter, monthFilter, issue]);
 
     // Reset to page 1 whenever any filter changes
-    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, yearFilter, monthFilter, itemsPerPage]);
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, yearFilter, monthFilter, itemsPerPage, issue]);
 
     const handleClearFilters = () => {
         setSearchTerm('');
@@ -99,6 +111,26 @@ const AllTransactions = () => {
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+            {issue && ISSUE_FILTERS[issue] && (
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-5 py-4">
+                    <div>
+                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-300">
+                            Showing only: {ISSUE_FILTERS[issue]}
+                        </p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                            {filteredTransactions.length.toLocaleString()} transactions need fixing &middot; from Data Health
+                        </p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={clearIssue}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/5 text-gray-300 text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-colors"
+                    >
+                        <X size={12} /> Show everything
+                    </button>
+                </div>
+            )}
+
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
                     <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Transaction History</h2>
