@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
+import * as sqliteWrites from './sqliteWrites.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -312,6 +313,57 @@ const proxy = http.createServer((req, res) => {
         return handleSummarizeRequest(req, res);
     }
 
+    // Per-row transaction writes (phase 3). A change touches one row instead of
+    // replacing a whole collection, which is what makes two tabs editing
+    // different transactions safe. Additive: nothing uses this unless the
+    // client opts in, and it is refused entirely unless SQLITE_WRITES=on.
+    if (req.url === '/api/tx' || req.url.startsWith('/api/tx/')) {
+        if (req.method === 'OPTIONS') {
+            res.writeHead(204, CORS_HEADERS);
+            res.end();
+            return;
+        }
+        const txId = req.url.startsWith('/api/tx/') ? decodeURIComponent(req.url.slice('/api/tx/'.length)) : null;
+        let raw = '';
+        req.on('data', (c) => { raw += c; });
+        req.on('end', () => {
+            let parsed = {};
+            if (raw) {
+                try {
+                    parsed = JSON.parse(raw);
+                } catch (err) {
+                    sendJson(res, 400, { error: 'Malformed JSON body', reason: err.message });
+                    return;
+                }
+            }
+            const op = req.method === 'POST' ? 'create'
+                : req.method === 'PATCH' ? 'update'
+                    : req.method === 'DELETE' ? 'delete' : null;
+            if (!op) {
+                sendJson(res, 405, { error: `${req.method} is not supported on /api/tx` });
+                return;
+            }
+            if ((op === 'update' || op === 'delete') && !txId) {
+                sendJson(res, 400, { error: `${req.method} /api/tx requires an id: /api/tx/<id>` });
+                return;
+            }
+
+            // Same backup discipline as every other mutation.
+            if (sqliteWrites.isEnabled) createVerifiedBackup();
+
+            const result = sqliteWrites.applyChange(
+                { op, id: txId, transaction: parsed.transaction || parsed, patch: parsed },
+                inspectWrite,
+            );
+            if (!result.ok) {
+                console.error(`[SQLite] ⛔ per-row ${op} refused: ${result.body.reason || result.body.error}`);
+            }
+            sendJson(res, result.status, result.body);
+            if (result.ok) setTimeout(syncToICloud, 200);
+        });
+        return;
+    }
+
     const isMutation = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method);
 
     const collectionOf = (url) => /^\/([A-Za-z0-9_-]+)$/.exec(url.split('?')[0])?.[1] || null;
@@ -525,12 +577,11 @@ proxy.listen(PROXY_PORT, () => {
     // The mirror lives beside whichever database this instance is pointed at,
     // so an isolated instance (DB_FILE=/tmp/...) builds its own and never
     // touches the real one. Overridable with SQLITE_FILE.
-    sqliteReads.init({
-        dbFile: DB_FILE,
-        mirrorFile: process.env.SQLITE_FILE
-            ? path.resolve(process.env.SQLITE_FILE)
-            : path.join(path.dirname(DB_FILE), 'finance.sqlite'),
-    });
+    const mirrorFile = process.env.SQLITE_FILE
+        ? path.resolve(process.env.SQLITE_FILE)
+        : path.join(path.dirname(DB_FILE), 'finance.sqlite');
+    sqliteReads.init({ dbFile: DB_FILE, mirrorFile });
+    sqliteWrites.init({ dbFile: DB_FILE, mirrorFile });
 });
 
 // Handle cleanup

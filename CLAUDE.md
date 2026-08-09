@@ -320,6 +320,38 @@ DB_FILE=/tmp/test-db.json PROXY_PORT=4000 INTERNAL_PORT=4001 \
 Note that `on` returns compact JSON where json-server pretty-prints. The data is
 identical — it is 37% fewer bytes over the wire.
 
+### Per-row writes (`SQLITE_WRITES=on`, off by default)
+
+This is the part that actually fixes the lost-update problem. Every existing
+save ships a whole collection built from one tab's snapshot, which is why two
+tabs could erase each other. These endpoints change one row:
+
+```
+POST   /api/tx          { "transaction": { ...one transaction... } }
+PATCH  /api/tx/<id>     { ...fields to change... }
+DELETE /api/tx/<id>
+```
+
+Each call runs inside a SQLite transaction: apply the row change, rebuild the
+whole database from the mirror, put it through `inspectWrite` (the same guard
+as every other write), then replace `db.json` **atomically** via a temp file and
+a rename. Any failure rolls back and leaves `db.json` untouched.
+
+`db.json` is still the durable artifact — SQLite is the transactional engine in
+front of it, not a replacement.
+
+A `PATCH` that changes the date moves the row to the right month bucket
+automatically. After each write, the mirror records the new `db.json` mtime, so
+it does not immediately declare itself stale.
+
+Verified on isolated copies: two concurrent edits to different transactions both
+survive (with whole-collection writes one would be lost), 25 concurrent creates
+all landed with no duplicate ids, and the round-trip check still passes.
+
+**The client does not use these yet.** Switching `FinanceContext.saveExpenses`
+over is the remaining step, and it is what would finally retire whole-collection
+writes for `expenses`.
+
 ---
 
 ## 6. Restart checklist

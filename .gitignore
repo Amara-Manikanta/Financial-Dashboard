@@ -60,6 +60,7 @@ scripts/*
 # proves a migration was faithful — losing it would mean trusting the mirror
 # on nothing.
 !scripts/sqlite-schema.mjs
+!scripts/sqlite-rebuild.mjs
 !scripts/migrate-to-sqlite.mjs
 !scripts/verify-sqlite.mjs
 update_db_structure.py
