@@ -1,50 +1,67 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
+import { ENTRY_KINDS, kindOf } from '../utils/rental';
 
-const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
-    const [formData, setFormData] = useState({
+const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEstate = false }) => {
+    const blank = () => ({
         date: new Date().toISOString().split('T')[0],
-        type: 'income', // 'income' (return) or 'expense'
+        kind: isRealEstate ? 'rent' : 'other_income',
+        type: 'income',
         amount: '',
-        description: ''
+        period: '',
+        description: '',
     });
+
+    const [formData, setFormData] = useState(blank);
 
     useEffect(() => {
         if (initialData) {
-            setFormData(initialData);
+            setFormData({ ...blank(), ...initialData, kind: kindOf(initialData) });
         } else {
-            setFormData({
-                date: new Date().toISOString().split('T')[0],
-                type: 'income',
-                amount: '',
-                description: ''
-            });
+            setFormData(blank());
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialData, isOpen]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+        setFormData((prev) => {
+            const next = { ...prev, [name]: value };
+            // The kind decides the direction, so income/expense stays consistent
+            // with it and older entries keep working off `type` alone.
+            if (name === 'kind') next.type = ENTRY_KINDS[value]?.direction || 'income';
+            return next;
+        });
     };
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        const kind = formData.kind || 'other_income';
         onSave({
             ...formData,
+            kind,
+            type: ENTRY_KINDS[kind]?.direction || 'income',
             amount: Number(formData.amount),
-            id: initialData?.id || Date.now().toString()
+            period: kind === 'rent' ? formData.period : '',
+            id: initialData?.id || Date.now().toString(),
         });
     };
 
     if (!isOpen) return null;
+
+    const kindOptions = isRealEstate
+        ? Object.entries(ENTRY_KINDS)
+        : Object.entries(ENTRY_KINDS).filter(([k]) => k.startsWith('other') || k === 'maintenance');
+
+    const activeKind = ENTRY_KINDS[formData.kind] || ENTRY_KINDS.other_income;
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
             <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl scale-100 animate-scale-in">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center">
                     <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
-                        {initialData ? 'Edit Transaction' : 'Add Transaction'}
+                        {initialData ? 'Edit Entry' : 'Add Entry'}
                     </h2>
                     <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
                         <X size={24} />
@@ -53,28 +70,47 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Date</label>
-                        <input
-                            type="date"
-                            name="date"
-                            value={formData.date}
-                            onChange={handleChange}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
-                            required
-                        />
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Type</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">What is this?</label>
                         <select
-                            name="type"
-                            value={formData.type}
+                            name="kind"
+                            value={formData.kind}
                             onChange={handleChange}
                             className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
                         >
-                            <option value="income">Income / Return</option>
-                            <option value="expense">Expense</option>
+                            {kindOptions.map(([key, meta]) => (
+                                <option key={key} value={key} className="bg-gray-900">{meta.label}</option>
+                            ))}
                         </select>
+                        <p className="text-[11px] mt-1.5" style={{ color: activeKind.color }}>
+                            {activeKind.direction === 'income' ? 'Money received' : 'Money paid out'}
+                            {activeKind.countsAsYield === false && ' · held on the tenant\'s behalf, not counted as return'}
+                        </p>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <div className="flex-1">
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Date</label>
+                            <input
+                                type="date"
+                                name="date"
+                                value={formData.date}
+                                onChange={handleChange}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                required
+                            />
+                        </div>
+                        {formData.kind === 'rent' && (
+                            <div className="flex-1">
+                                <label className="block text-sm font-medium text-gray-400 mb-1">Rent for month</label>
+                                <input
+                                    type="month"
+                                    name="period"
+                                    value={formData.period}
+                                    onChange={handleChange}
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <div>
@@ -93,13 +129,13 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                     </div>
 
                     <div>
-                        <label className="block text-sm font-medium text-gray-400 mb-1">Description</label>
+                        <label className="block text-sm font-medium text-gray-400 mb-1">Notes</label>
                         <textarea
                             name="description"
                             value={formData.description}
                             onChange={handleChange}
-                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 h-24 resize-none"
-                            placeholder="e.g., Lease amount, Maintenance fee..."
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500 h-20 resize-none"
+                            placeholder="e.g., paid by UPI, meter reading 4821..."
                         />
                     </div>
 

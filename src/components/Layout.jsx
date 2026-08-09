@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
@@ -156,9 +156,11 @@ const Layout = () => {
                                 { to: '/all-transactions', label: 'All Transactions', icon: List },
                                 { to: '/credit-cards', label: 'Cards', icon: CreditCard },
                                 { to: '/category-budgets', label: 'Budget Limits', icon: Target },
+                                { to: '/recurring', label: 'Recurring & Subscriptions', icon: Repeat },
                                 { to: '/fuel', label: 'Fuel Analytics', icon: Fuel },
                                 { to: '/grocery-analytics', label: 'Grocery Analytics', icon: ShoppingBag },
-                                { to: '/grocery-master-list', label: 'Grocery Builder', icon: Edit2 }
+                                { to: '/grocery-master-list', label: 'Grocery Builder', icon: Edit2 },
+                                { to: '/data-health', label: 'Data Health', icon: Stethoscope }
                             ]}
                         />
                         

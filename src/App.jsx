@@ -10,6 +10,8 @@ import Dashboard from './pages/Dashboard';
 import Expenses from './pages/Expenses';
 import ExpenseDetails from './pages/ExpenseDetails';
 import Analytics from './pages/Analytics';
+import RecurringAnalytics from './pages/RecurringAnalytics';
+import DataHealth from './pages/DataHealth';
 import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
@@ -158,6 +160,8 @@ function App() {
                                     <Route path="assets/:categoryId/:itemId" element={<AssetItemDetails />} />
                                     <Route path="lents-loans" element={<LentsAndLoans />} />
                                     <Route path="lents-loans/:id" element={<LentDetails />} />
+                                    <Route path="recurring" element={<RecurringAnalytics />} />
+                                    <Route path="data-health" element={<DataHealth />} />
                                     <Route path="fuel" element={<FuelAnalytics />} />
                                     <Route path="grocery-analytics" element={<GroceryAnalytics />} />
                                     <Route path="grocery-master-list" element={<GroceryMasterList />} />

@@ -14,13 +14,23 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
     const [dimensions, setDimensions] = useState('');
     const [remarks, setRemarks] = useState('');
 
-
+    const BLANK_RENTAL = {
+        unitName: '', tenantName: '', tenantContact: '',
+        monthlyRent: '', rentDueDay: '', advanceAmount: '',
+        escalationType: 'percent', escalationValue: '', escalationEveryMonths: 12,
+        leaseStart: '', leaseEnd: '', rules: '',
+    };
+    const [isLet, setIsLet] = useState(false);
+    const [rental, setRental] = useState(BLANK_RENTAL);
 
     const parseInput = (value) => {
         return value.replace(/,/g, '');
     };
 
     const isRealEstate = categoryType === 'real_estate';
+
+    const setRentalField = (field) => (e) =>
+        setRental((prev) => ({ ...prev, [field]: e.target.value }));
 
     useEffect(() => {
         if (isOpen && initialData) {
@@ -31,6 +41,8 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             setPlace(initialData.place || '');
             setDimensions(initialData.dimensions || initialData.Dimensions || '');
             setRemarks(initialData.remarks || '');
+            setRental({ ...BLANK_RENTAL, ...(initialData.rental || {}) });
+            setIsLet(Boolean(initialData.rental));
         } else if (isOpen && !initialData) {
             setName('');
             setPurchaseDate(null);
@@ -39,6 +51,8 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             setPlace('');
             setDimensions('');
             setRemarks('');
+            setRental(BLANK_RENTAL);
+            setIsLet(false);
         }
     }, [initialData, isOpen, categoryType]);
 
@@ -56,6 +70,18 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             place: isRealEstate ? place : null,
             dimensions: isRealEstate ? dimensions : null,
             remarks,
+            // Only real estate carries a tenancy; unticking "let out" removes it
+            // rather than leaving a stale block behind.
+            rental: (isRealEstate && isLet)
+                ? {
+                    ...rental,
+                    monthlyRent: Number(parseInput(String(rental.monthlyRent || ''))) || 0,
+                    advanceAmount: Number(parseInput(String(rental.advanceAmount || ''))) || 0,
+                    escalationValue: Number(rental.escalationValue) || 0,
+                    escalationEveryMonths: Number(rental.escalationEveryMonths) || 12,
+                    rentDueDay: Number(rental.rentDueDay) || '',
+                }
+                : undefined,
             transactions: initialData?.transactions || []
         });
         onClose();
@@ -71,7 +97,7 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             onClick={handleBackdropClick}
         >
             <div
-                className="w-full max-w-sm bg-modal rounded-[40px] overflow-hidden border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up flex flex-col"
+                className="w-full max-w-2xl bg-modal rounded-[40px] overflow-hidden border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up flex flex-col"
                 style={{ maxHeight: '82vh' }}
                 onClick={(e) => e.stopPropagation()}
             >
@@ -200,6 +226,150 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                                 placeholder="Any additional notes..."
                             />
                         </div>
+
+                        {isRealEstate && (
+                            <div className="pt-5 border-t border-white/5 space-y-5">
+                                <label className="flex items-center gap-3 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={isLet}
+                                        onChange={(e) => setIsLet(e.target.checked)}
+                                        className="w-4 h-4 accent-emerald-500"
+                                    />
+                                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                                        This property is let out
+                                    </span>
+                                </label>
+
+                                {isLet && (
+                                    <div className="space-y-5">
+                                        <div className="flex gap-4">
+                                            <div className="flex-1 space-y-2">
+                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Shop / Flat name</label>
+                                                <input
+                                                    type="text"
+                                                    value={rental.unitName}
+                                                    onChange={setRentalField('unitName')}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                    placeholder="Shop 2, Ground Floor"
+                                                />
+                                            </div>
+                                            <div className="flex-1 space-y-2">
+                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Tenant</label>
+                                                <input
+                                                    type="text"
+                                                    value={rental.tenantName}
+                                                    onChange={setRentalField('tenantName')}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                    placeholder="Tenant name"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-4">
+                                            <div className="flex-1 space-y-2">
+                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Monthly rent</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-emerald-400 font-bold text-xs">₹</span>
+                                                    <CurrencyInput
+                                                        value={rental.monthlyRent}
+                                                        onChange={setRentalField('monthlyRent')}
+                                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 space-y-2">
+                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Advance held</label>
+                                                <div className="relative">
+                                                    <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-indigo-400 font-bold text-xs">₹</span>
+                                                    <CurrencyInput
+                                                        value={rental.advanceAmount}
+                                                        onChange={setRentalField('advanceAmount')}
+                                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-8 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                                        placeholder="0"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="w-[92px] space-y-2">
+                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Due day</label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    max="31"
+                                                    value={rental.rentDueDay}
+                                                    onChange={setRentalField('rentDueDay')}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-3 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                    placeholder="5"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Yearly increment</label>
+                                            <div className="flex gap-3 items-center">
+                                                <select
+                                                    value={rental.escalationType}
+                                                    onChange={setRentalField('escalationType')}
+                                                    className="bg-white/5 border border-white/10 rounded-2xl py-3 px-3 text-white font-bold focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                >
+                                                    <option value="percent" className="bg-gray-900">Percent</option>
+                                                    <option value="fixed" className="bg-gray-900">Fixed ₹</option>
+                                                </select>
+                                                <input
+                                                    type="number"
+                                                    step="0.01"
+                                                    value={rental.escalationValue}
+                                                    onChange={setRentalField('escalationValue')}
+                                                    className="w-24 bg-white/5 border border-white/10 rounded-2xl py-3 px-3 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                    placeholder={rental.escalationType === 'fixed' ? '500' : '5'}
+                                                />
+                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">every</span>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    value={rental.escalationEveryMonths}
+                                                    onChange={setRentalField('escalationEveryMonths')}
+                                                    className="w-20 bg-white/5 border border-white/10 rounded-2xl py-3 px-3 text-white font-bold focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                />
+                                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">months</span>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex gap-4">
+                                            <div className="flex-1 space-y-2">
+                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Lease start</label>
+                                                <input
+                                                    type="date"
+                                                    value={rental.leaseStart}
+                                                    onChange={setRentalField('leaseStart')}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-3 text-white font-bold focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                />
+                                            </div>
+                                            <div className="flex-1 space-y-2">
+                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Lease end</label>
+                                                <input
+                                                    type="date"
+                                                    value={rental.leaseEnd}
+                                                    onChange={setRentalField('leaseEnd')}
+                                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-3 text-white font-bold focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Rules / agreement notes</label>
+                                            <textarea
+                                                value={rental.rules}
+                                                onChange={setRentalField('rules')}
+                                                className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-medium placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm min-h-[80px] resize-none"
+                                                placeholder="Lock-in 11 months, 2 months notice, maintenance by tenant, current bill paid by tenant..."
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </form>
                 </div>
 
