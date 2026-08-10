@@ -2,6 +2,16 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from './AuthContext';
 import { getLastWorkingDayOfMonth } from '../utils/dateUtils';
 import { CATEGORY_MAP } from '../utils/categories';
+import {
+    normaliseLegs,
+    legToInvestmentTx,
+    belongsToExpense,
+    detachExpense,
+    findAdoptable,
+    adoptTransaction,
+    recomputeStockMetrics,
+    recomputeFundAmount
+} from '../utils/investmentSync';
 // NOTE: db.json is deliberately NOT imported here.
 // Vite inlines a JSON import at build time, producing a snapshot that never
 // refreshes (vite.config.js also excludes db.json from the watcher). Seeding
@@ -14,9 +24,14 @@ import { CATEGORY_MAP } from '../utils/categories';
 const FinanceContext = createContext();
 
 
-const API_URL = typeof window !== 'undefined' 
-    ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000`
-    : 'http://localhost:3000';
+// Defaults to the API beside the app. `VITE_API_URL` points the whole client at
+// a different instance, which is what makes it possible to exercise the real UI
+// — including saves — against an isolated copy of the database instead of the
+// live one. Without it, any end-to-end check writes to the real records.
+const API_URL = import.meta.env?.VITE_API_URL
+    || (typeof window !== 'undefined'
+        ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000`
+        : 'http://localhost:3000');
 
 export const DEFAULT_GROCERY_CATEGORIES = {
     'Milk Products': ['Milk', 'Paneer', 'Curd', 'Cheese', 'Butter', 'Ghee'],
@@ -1320,9 +1335,12 @@ export function FinanceProvider({ children }) {
                 await saveExpenses(newExpenses);
             }
 
-            // Handle Investment Sync
+            // Handle Investment Sync. The expense itself is already saved by
+            // this point, so a failure here means the two pages disagree — that
+            // has to reach the screen rather than the console.
             if (item.investmentData && !item.skipInvestmentSync) {
-                await syncExpenseToInvestment(item.investmentData, item.date, item.title, expenseId);
+                const invError = await syncExpenseToInvestment(item.investmentData, item.date, item.title, expenseId);
+                if (invError) setSaveError(`${invError}. The expense saved; the holding did not.`);
             }
 
             // Handle Credit Card Bill Payment
@@ -1471,185 +1489,156 @@ export function FinanceProvider({ children }) {
         }
     };
 
-    const syncExpenseDeleteToInvestment = async (invData, expenseId) => {
-        if (isGuest) return;
-        const { type, assetId } = invData;
-        
-        if (type === 'mutual_fund') {
-            const fund = savings.find(s => s.id.toString() === assetId.toString());
-            if (fund && fund.transactions) {
-                const updatedTransactions = fund.transactions.filter(t => t.id !== expenseId);
-                
-                let totalUnits = 0;
-                updatedTransactions.forEach(t => {
-                    const tType = t.type || (t.remarks && t.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
-                    if (tType === 'buy' || tType === 'sip') totalUnits += Number(t.units);
-                    if (tType === 'sell' || tType === 'withdraw') totalUnits -= Number(t.units);
-                });
-                if (totalUnits < 0.0001) totalUnits = 0;
-                
-                const newAmount = totalUnits * (fund.currentNav || 0);
-                const updatedFund = { ...fund, transactions: updatedTransactions, amount: newAmount };
-                
-                setSavings(prev => prev.map(s => String(s.id) === String(fund.id) ? updatedFund : s));
-                try {
-                    await fetch(`${API_URL}/savings/${fund.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedFund)
+    /**
+     * Push an expense row's investment legs into the savings collection.
+     *
+     * One expense can fund several holdings — a single ₹5,000 debit leaving the
+     * bank is often five SIPs — so this takes a list of legs, not one asset.
+     * Create, edit and delete all come through here, because all three have to
+     * do the same work: remove whatever this expense previously wrote, add
+     * whatever it says now, recompute each touched holding with the shared
+     * formula, and persist.
+     *
+     * Two details that look incidental and are not:
+     *
+     *  - Every affected savings row is collected and mutated on ONE working
+     *    snapshot before anything is written. Two SIPs into the same fund live
+     *    in the same row; issuing two sequential PUTs each built from the
+     *    original snapshot would silently discard the first.
+     *  - Rows that used to carry legs for this expense are cleaned even when
+     *    they are absent from the new list, so editing a split from two funds
+     *    down to one does not strand units in the fund that was dropped.
+     *
+     * Returns null on success, or a message naming what failed to save. It must
+     * never return null for a write that did not happen — a silent failure here
+     * is how the two pages drift apart in the first place.
+     */
+    const applyInvestmentLegs = async (legs, { expenseId, date, title, remove }) => {
+        if (isGuest) return null;
+        const wanted = remove ? [] : (legs || []);
+
+        // One deep-cloned snapshot per savings row, so legs compose onto each
+        // other. Whatever this expense wrote previously is stripped once, when
+        // the row is first touched — never per leg. Filtering per leg would make
+        // the second SIP into a fund delete the first, since both legs match the
+        // same expense id. That is a silent half-save, so it is tested.
+        const working = new Map();
+        const rowFor = (rowId) => {
+            const key = String(rowId);
+            if (!working.has(key)) {
+                const row = savings.find(s => String(s.id) === key);
+                const clone = row ? JSON.parse(JSON.stringify(row)) : null;
+                if (clone && clone.type === 'mutual_fund') {
+                    clone.transactions = detachExpense(clone.transactions, expenseId);
+                } else if (clone && clone.type === 'stock_market') {
+                    (clone.stocks || []).forEach((st) => {
+                        st.transactions = detachExpense(st.transactions, expenseId);
                     });
-                } catch (e) { console.error(e); }
-            }
-        } else if (type === 'stock') {
-            const [marketId, stockId] = assetId.split('|');
-            const market = savings.find(s => s.id.toString() === marketId);
-            if (market && market.stocks) {
-                const stockIndex = market.stocks.findIndex(s => s.id.toString() === stockId);
-                if (stockIndex !== -1) {
-                    const stock = market.stocks[stockIndex];
-                    if (!stock.transactions) return;
-                    
-                    const updatedTransactions = stock.transactions.filter(t => t.id !== expenseId);
-                    
-                    let currentShares = 0;
-                    let totalInvested = 0;
-                    updatedTransactions.forEach(t => {
-                        const q = Number(t.quantity);
-                        const p = Number(t.price);
-                        if (t.type === 'buy') {
-                            totalInvested += (q * p);
-                            currentShares += q;
-                        } else if (t.type === 'sell') {
-                            const avgCost = currentShares > 0 ? totalInvested / currentShares : 0;
-                            totalInvested -= (q * avgCost);
-                            currentShares -= q;
-                        }
-                    });
-                    
-                    if (currentShares < 0.0001) { currentShares = 0; totalInvested = 0; }
-                    const newAvgCost = currentShares > 0 ? totalInvested / currentShares : 0;
-                    
-                    const updatedStock = {
-                        ...stock,
-                        transactions: updatedTransactions,
-                        shares: currentShares,
-                        avgCost: newAvgCost
-                    };
-                    
-                    const updatedStocks = [...market.stocks];
-                    updatedStocks[stockIndex] = updatedStock;
-                    
-                    const updatedMarket = { ...market, stocks: updatedStocks };
-                    setSavings(prev => prev.map(s => String(s.id) === String(market.id) ? updatedMarket : s));
-                    
-                    try {
-                        await fetch(`${API_URL}/savings/${market.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(updatedMarket)
-                        });
-                    } catch (e) { console.error(e); }
                 }
+                working.set(key, clone);
+            }
+            return working.get(key);
+        };
+
+        // Pull in every row that already holds legs from this expense, so a leg
+        // that was moved or deleted gets cleaned up rather than left behind.
+        savings.forEach((row) => {
+            if (row.type === 'mutual_fund') {
+                if ((row.transactions || []).some(t => belongsToExpense(t, expenseId))) rowFor(row.id);
+            } else if (row.type === 'stock_market') {
+                if ((row.stocks || []).some(st => (st.transactions || []).some(t => belongsToExpense(t, expenseId)))) rowFor(row.id);
+            }
+        });
+
+        const problems = [];
+
+        // Adopt before creating. The investment pages hold the more accurate
+        // record, so the purchase this expense describes is usually already
+        // there; pushing a second copy would double the position.
+        const attachLeg = (txList, leg, index) => {
+            const existing = findAdoptable(txList, leg, date);
+            if (existing) {
+                const at = txList.indexOf(existing);
+                txList[at] = adoptTransaction(existing, expenseId);
+                return;
+            }
+            txList.push(legToInvestmentTx(leg, { expenseId, index, date, title }));
+        };
+
+        wanted.forEach((leg, index) => {
+            if (leg.assetType === 'stock') {
+                const [marketId, stockId] = String(leg.assetId).split('|');
+                const market = rowFor(marketId);
+                const stock = market && (market.stocks || []).find(s => String(s.id) === String(stockId));
+                if (!stock) { problems.push(`stock ${leg.assetId} no longer exists`); return; }
+                attachLeg(stock.transactions, leg, index);
+            } else {
+                const fund = rowFor(leg.assetId);
+                if (!fund) { problems.push(`fund ${leg.assetId} no longer exists`); return; }
+                attachLeg(fund.transactions, leg, index);
+            }
+        });
+
+        // Recompute every touched holding once, after all legs have landed.
+        working.forEach((row) => {
+            if (!row) return;
+            if (row.type === 'mutual_fund') {
+                row.transactions.sort((a, b) => new Date(a.date) - new Date(b.date));
+                row.amount = recomputeFundAmount(row, row.transactions);
+            } else if (row.type === 'stock_market') {
+                (row.stocks || []).forEach((st) => {
+                    const { shares, avgCost, dividends } = recomputeStockMetrics(st.transactions || []);
+                    st.shares = shares;
+                    st.avgCost = avgCost;
+                    st.dividends = dividends;
+                });
+            }
+        });
+
+        const rows = [...working.values()].filter(Boolean);
+        if (!rows.length) return problems.length ? problems.join('; ') : null;
+
+        // Per-item paths: json-server stores these correctly, so no PATCH merge
+        // is involved. A non-2xx here is a real refusal (the guard answers 409)
+        // and has to be reported, not just logged.
+        const failed = [];
+        for (const row of rows) {
+            try {
+                const res = await fetch(`${API_URL}/savings/${row.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(row)
+                });
+                if (!res.ok) failed.push(`${row.title || row.id} (HTTP ${res.status})`);
+            } catch (e) {
+                failed.push(`${row.title || row.id} (${e.message})`);
             }
         }
+
+        // Only reflect rows that actually persisted, so the screen cannot show
+        // a holding the database does not have.
+        const savedIds = new Set(
+            rows.filter(r => !failed.some(f => f.startsWith(`${r.title || r.id} `))).map(r => String(r.id))
+        );
+        if (savedIds.size) {
+            setSavings(prev => prev.map(s => (
+                savedIds.has(String(s.id)) ? rows.find(r => String(r.id) === String(s.id)) : s
+            )));
+        }
+
+        const all = [...problems, ...failed];
+        return all.length ? `Investment not updated: ${all.join('; ')}` : null;
     };
 
-    const syncExpenseToInvestment = async (invData, date, title, expenseId) => {
-        if (isGuest) return;
-        const { type, assetId, action } = invData;
-        
-        if (type === 'mutual_fund') {
-            const fund = savings.find(s => s.id.toString() === assetId.toString());
-            if (fund) {
-                const updatedTransactions = [...(fund.transactions || [])];
-                updatedTransactions.push({
-                    id: expenseId, // link IDs
-                    date: date,
-                    type: action,
-                    units: invData.units,
-                    nav: invData.nav,
-                    remarks: invData.remarks || title || 'Expense Sync'
-                });
-                
-                let totalUnits = 0;
-                updatedTransactions.forEach(t => {
-                    const tType = t.type || (t.remarks && t.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
-                    if (tType === 'buy' || tType === 'sip') totalUnits += Number(t.units);
-                    if (tType === 'sell' || tType === 'withdraw') totalUnits -= Number(t.units);
-                });
-                if (totalUnits < 0.0001) totalUnits = 0;
-                
-                const newAmount = totalUnits * (fund.currentNav || 0);
-                const updatedFund = { ...fund, transactions: updatedTransactions, amount: newAmount };
-                
-                setSavings(prev => prev.map(s => String(s.id) === String(fund.id) ? updatedFund : s));
-                try {
-                    await fetch(`${API_URL}/savings/${fund.id}`, {
-                        method: 'PUT',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(updatedFund)
-                    });
-                } catch (e) { console.error(e); }
-            }
-        } else if (type === 'stock') {
-            const [marketId, stockId] = assetId.split('|');
-            const market = savings.find(s => s.id.toString() === marketId);
-            if (market && market.stocks) {
-                const stockIndex = market.stocks.findIndex(s => s.id.toString() === stockId);
-                if (stockIndex !== -1) {
-                    const stock = market.stocks[stockIndex];
-                    const updatedTransactions = [...(stock.transactions || [])];
-                    updatedTransactions.push({
-                        id: expenseId,
-                        date: date,
-                        type: action,
-                        quantity: invData.quantity,
-                        price: invData.price,
-                        remarks: title || 'Expense Sync'
-                    });
-                    
-                    let currentShares = 0;
-                    let totalInvested = 0;
-                    updatedTransactions.forEach(t => {
-                        const q = Number(t.quantity);
-                        const p = Number(t.price);
-                        if (t.type === 'buy') {
-                            totalInvested += (q * p);
-                            currentShares += q;
-                        } else if (t.type === 'sell') {
-                            const avgCost = currentShares > 0 ? totalInvested / currentShares : 0;
-                            totalInvested -= (q * avgCost);
-                            currentShares -= q;
-                        }
-                    });
-                    
-                    if (currentShares < 0.0001) { currentShares = 0; totalInvested = 0; }
-                    const newAvgCost = currentShares > 0 ? totalInvested / currentShares : 0;
-                    
-                    const updatedStock = {
-                        ...stock,
-                        transactions: updatedTransactions,
-                        shares: currentShares,
-                        avgCost: newAvgCost
-                    };
-                    
-                    const updatedStocks = [...market.stocks];
-                    updatedStocks[stockIndex] = updatedStock;
-                    
-                    const updatedMarket = { ...market, stocks: updatedStocks };
-                    setSavings(prev => prev.map(s => String(s.id) === String(market.id) ? updatedMarket : s));
-                    
-                    try {
-                        await fetch(`${API_URL}/savings/${market.id}`, {
-                            method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(updatedMarket)
-                        });
-                    } catch (e) { console.error(e); }
-                }
-            }
-        }
-    };
+    /** Mirror an expense row's legs into the investment pages. */
+    const syncExpenseToInvestment = async (invData, date, title, expenseId) => (
+        applyInvestmentLegs(normaliseLegs(invData), { expenseId, date, title, remove: false })
+    );
+
+    /** Remove everything an expense row wrote into the investment pages. */
+    const syncExpenseDeleteToInvestment = async (invData, expenseId) => (
+        applyInvestmentLegs(normaliseLegs(invData), { expenseId, remove: true })
+    );
 
     /**
      * Persist a single metal category (gold, silver, ...).
@@ -1707,6 +1696,7 @@ export function FinanceProvider({ children }) {
             // Individual transaction delete
             if (typeof id === 'string' && !id.includes('-')) {
                 let found = false;
+                let investmentToUnwind = null;
                 outer: for (const year of Object.keys(newExpenses)) {
                     for (const mth of Object.keys(newExpenses[year] || {})) {
                         const mData = newExpenses[year][mth];
@@ -1730,9 +1720,10 @@ export function FinanceProvider({ children }) {
                             target[catKey] = Math.max(0, (target[catKey] || 0) - val);
                         }
 
-                        if (tx.investmentData) {
-                            syncExpenseDeleteToInvestment(tx.investmentData, id);
-                        }
+                        // Held until the expense delete has actually persisted.
+                        // Unwinding the holding first would strip units from the
+                        // fund while the transaction that paid for them survives.
+                        investmentToUnwind = tx.investmentData || null;
 
                         monthData.transactions.splice(txIndex, 1);
                         found = true;
@@ -1785,14 +1776,23 @@ export function FinanceProvider({ children }) {
                     // whole collection, so a concurrent edit in another tab
                     // survives. Falls back when the server has it switched off.
                     const rowResult = await writeTransactionRow('DELETE', { id });
+                    let deleted = true;
                     if (rowResult === 'saved') {
                         setExpenses(withRecomputedCategories(newExpenses));
                         setSaveError(null);
                     } else if (rowResult && rowResult.failed) {
                         setExpenses(withRecomputedCategories(newExpenses));
                         setSaveError(`This delete did not save: ${rowResult.failed}`);
+                        deleted = false;
                     } else {
                         await saveExpenses(newExpenses);
+                    }
+
+                    // Only now unwind the holding, and only if the expense
+                    // really went away.
+                    if (deleted && investmentToUnwind) {
+                        const invError = await syncExpenseDeleteToInvestment(investmentToUnwind, id);
+                        if (invError) setSaveError(`${invError}. The expense was deleted; the holding still has it.`);
                     }
                 }
                 return;
@@ -2134,14 +2134,17 @@ export function FinanceProvider({ children }) {
                         await saveExpenses(newExpenses);
                     }
                     
-                    // Handle Investment Sync on Edit
+                    // Handle Investment Sync on Edit. Applying the new legs also
+                    // clears the old ones, so the delete is only needed when the
+                    // edit removed the investment link altogether.
                     if (!item.skipInvestmentSync) {
-                        if (oldTx.investmentData) {
-                            await syncExpenseDeleteToInvestment(oldTx.investmentData, oldTx.id);
-                        }
+                        let invError = null;
                         if (item.investmentData) {
-                            await syncExpenseToInvestment(item.investmentData, item.date, item.title, item.id);
+                            invError = await syncExpenseToInvestment(item.investmentData, item.date, item.title, item.id);
+                        } else if (oldTx.investmentData) {
+                            invError = await syncExpenseDeleteToInvestment(oldTx.investmentData, oldTx.id);
                         }
+                        if (invError) setSaveError(`${invError}. The expense saved; the holding did not.`);
                     }
 
                     // Handle Credit Card Bill update

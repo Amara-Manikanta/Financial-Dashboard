@@ -8,6 +8,7 @@ import StockTransactionModal from '../components/StockTransactionModal';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
+import { recomputeStockMetrics } from '../utils/investmentSync';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -88,49 +89,10 @@ const StockDetails = () => {
         setCurrentPage(1);
     };
 
-    const recalculateStockMetrics = (txList) => {
-        let currentShares = 0;
-        let totalCost = 0; // Keeping track of total cost basis
-        let calculatedDividends = {};
-
-        // Sort by date ascending for accurate history replay
-        const chronologicalTx = [...txList].sort((a, b) => new Date(a.date) - new Date(b.date));
-
-        chronologicalTx.forEach(tx => {
-            const qty = Number(tx.quantity) || 0;
-            const price = Number(tx.price) || 0;
-
-            if (tx.type === 'buy' || tx.type === 'ipo') {
-                if (currentShares === 0) {
-                    totalCost = qty * price;
-                } else {
-                    totalCost += (qty * price);
-                }
-                currentShares += qty;
-            } else if (tx.type === 'sell' || tx.type === 'buyback') {
-                const avgCost = currentShares > 0 ? totalCost / currentShares : 0;
-                currentShares = Math.max(0, currentShares - qty);
-                totalCost = currentShares * avgCost;
-            } else if (tx.type === 'bonus') {
-                currentShares += qty;
-            } else if (tx.type === 'split') {
-                if (tx.splitFrom && tx.splitTo) {
-                    currentShares = currentShares * (tx.splitTo / tx.splitFrom);
-                } else {
-                    currentShares += qty;
-                }
-            } else if (tx.type === 'demerger') {
-                currentShares += qty;
-                totalCost = currentShares * price;
-            } else if (tx.type === 'dividend') {
-                const year = new Date(tx.date).getFullYear().toString();
-                calculatedDividends[year] = (calculatedDividends[year] || 0) + price;
-            }
-        });
-
-        const finalAvgCost = currentShares > 0 ? totalCost / currentShares : 0;
-        return { shares: currentShares, avgCost: finalAvgCost, dividends: calculatedDividends };
-    };
+    // The formula itself lives in utils/investmentSync so that logging a
+    // purchase from the expenses page recomputes this holding exactly the way
+    // this page does. Two copies had already drifted apart once.
+    const recalculateStockMetrics = recomputeStockMetrics;
 
     const handleSaveTransaction = async (txData) => {
         const updatedTransactions = editingTx

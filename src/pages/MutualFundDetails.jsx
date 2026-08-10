@@ -7,6 +7,7 @@ import MutualFundTransactionModal from '../components/MutualFundTransactionModal
 import BackButton from '../components/BackButton';
 import MutualFundEditModal from '../components/MutualFundEditModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine } from 'recharts';
+import { recomputeFundUnits } from '../utils/investmentSync';
 
 const MutualFundDetails = () => {
     const { id } = useParams();
@@ -231,17 +232,8 @@ const MutualFundDetails = () => {
 
         updatedTransactions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
-        // Recalculate Total Amount (Current Value)
-        let totalUnits = 0;
-        updatedTransactions.forEach(t => {
-            const type = t.type || (t.remarks && t.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
-            if (type === 'buy' || type === 'sip') totalUnits += Number(t.units);
-            if (type === 'sell' || type === 'withdraw') totalUnits -= Number(t.units);
-        });
-        // Prevent negative zero
-        if (totalUnits < 0.0001) totalUnits = 0;
-
-        const newAmount = totalUnits * (fund.currentNav || 0);
+        // Shared with the expenses-page sync so both produce the same holding.
+        const newAmount = recomputeFundUnits(updatedTransactions) * (fund.currentNav || 0);
 
         updateItem('savings', { ...fund, transactions: updatedTransactions, amount: newAmount });
         setEditingTx(null);

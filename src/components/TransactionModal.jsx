@@ -9,6 +9,8 @@ import { useFinance } from '../context/FinanceContext';
 import CurrencyInput from './CurrencyInput';
 import { CATEGORY_MAP } from '../utils/categories';
 import GroceryBuilder from './GroceryBuilder';
+import InvestmentLegBuilder from './InvestmentLegBuilder';
+import { normaliseLegs, validateLegs } from '../utils/investmentSync';
 
 const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultDate = null }) => {
     // State initialization
@@ -30,13 +32,9 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const [vehicleType, setVehicleType] = useState('scooty');
     const [useRewardPoints, setUseRewardPoints] = useState(false);
     
-    // Investment fields
-    const [investmentAssetId, setInvestmentAssetId] = useState('');
-    const [invQuantity, setInvQuantity] = useState('');
-    const [invPrice, setInvPrice] = useState('');
-    const [invNav, setInvNav] = useState('');
-    const [invUnits, setInvUnits] = useState('');
-    const [invRemarks, setInvRemarks] = useState('');
+    // Holdings this transaction funded. A list, because one payment often
+    // covers several funds and each needs its own units at its own NAV.
+    const [investmentLegs, setInvestmentLegs] = useState([]);
     
     // Grocery fields
     const [groceryItems, setGroceryItems] = useState([]);
@@ -189,25 +187,10 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setPricePerLiter(initialData.pricePerLiter || (initialData.amount && (initialData.liters || initialData.litres) ? (Number(initialData.amount) / Number(initialData.liters || initialData.litres)).toFixed(2) : ''));
             setVehicleType(initialData.vehicleType || 'scooty');
 
-            // Investment logic
-            const isInv = initialMain === 'Investments';
-            if (isInv && initialData.investmentData) {
-                const inv = initialData.investmentData;
-                setInvestmentAssetId(inv.assetId || '');
-                setInvQuantity(inv.quantity || '');
-                setInvPrice(inv.price || '');
-                setInvNav(inv.nav || '');
-                setInvUnits(inv.units || '');
-                setInvRemarks(inv.remarks || '');
-            } else {
-                setInvestmentAssetId('');
-                setInvQuantity('');
-                setInvPrice('');
-                setInvNav('');
-                setInvUnits('');
-                setInvRemarks('');
-            }
-            
+            // Existing links are loaded whatever the category says, so editing a
+            // miscategorised row cannot quietly strip the holdings it funded.
+            setInvestmentLegs(normaliseLegs(initialData.investmentData));
+
             setGroceryItems(initialData.groceryItems || []);
         } else if (isOpen && !initialData) {
             setTitle('');
@@ -223,7 +206,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setUseRewardPoints(false);
             setIsCreditCardBill(false);
             setKm(''); setLiters(''); setPricePerLiter(''); setVehicleType('scooty');
-            setInvestmentAssetId(''); setInvQuantity(''); setInvPrice(''); setInvNav(''); setInvUnits(''); setInvRemarks('');
+            setInvestmentLegs([]);
             setGroceryItems([]);
         }
     }, [initialData, isOpen, defaultDate, mergedCategoryMap]);
@@ -284,13 +267,25 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             computedLiters = Number((Number(amount) / Number(pricePerLiter)).toFixed(2));
         }
 
-        const investmentData = mainCategory === 'Investments' && investmentAssetId ? {
-            assetId: investmentAssetId,
-            quantity: Number(invQuantity) || null,
-            price: Number(invPrice) || null,
-            nav: Number(invNav) || null,
-            units: Number(invUnits) || null,
-            remarks: invRemarks
+        // Half-filled legs are refused rather than dropped: silently discarding
+        // them would save the expense while leaving the holding untouched, which
+        // is precisely the drift this feature exists to stop.
+        if (investmentLegs.length && validateLegs(investmentLegs, parsedAmount).length) return;
+
+        // Numbers, not the strings the inputs hand back. Stored as-is these
+        // reach SQLite's `extra` column and any later arithmetic, where "100"
+        // and 100 stop behaving the same.
+        const investmentData = investmentLegs.length ? {
+            legs: investmentLegs.map(leg => ({
+                assetType: leg.assetType,
+                assetId: leg.assetId,
+                action: leg.action,
+                amount: Number(leg.amount) || 0,
+                ...(leg.assetType === 'stock'
+                    ? { quantity: Number(leg.quantity) || 0, price: Number(leg.price) || 0 }
+                    : { nav: Number(leg.nav) || 0, units: Number(leg.units) || 0 }),
+                remarks: leg.remarks || ''
+            }))
         } : null;
 
         onAdd({
@@ -529,10 +524,26 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                         </div>
 
                         {category && category.toLowerCase() === 'groceries' && (
-                            <GroceryBuilder 
-                                items={groceryItems} 
-                                onChange={setGroceryItems} 
-                                expenses={expenses} 
+                            <GroceryBuilder
+                                items={groceryItems}
+                                onChange={setGroceryItems}
+                                expenses={expenses}
+                            />
+                        )}
+
+                        {/* Shown for investment rows, and for any row that already
+                            carries links, so an existing one stays editable even if
+                            its category was changed. */}
+                        {(mainCategory === 'Investments' || investmentLegs.length > 0) && (
+                            <InvestmentLegBuilder
+                                legs={investmentLegs}
+                                onChange={setInvestmentLegs}
+                                savings={savings}
+                                expenseAmount={amount}
+                                title={title}
+                                expenseDate={date instanceof Date
+                                    ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+                                    : ''}
                             />
                         )}
 

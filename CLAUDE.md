@@ -34,6 +34,34 @@ instance still reads and writes the real `db.json`:
 DB_FILE=/tmp/test-db.json PROXY_PORT=4000 INTERNAL_PORT=4001 node server.js
 ```
 
+**Check it actually started.** A busy port makes the instance die with
+`EADDRINUSE` while a *different* server keeps answering on that port, so a
+cheerful `HTTP 200` proves nothing about which database you just wrote to. This
+already caused one wasted test run against port 5000, which was macOS
+ControlCenter. Confirm the file, not the status code:
+
+```bash
+ps -eo args | grep "[j]son-server --watch"
+```
+
+### Testing the UI without touching the live records
+
+`VITE_API_URL` repoints the whole client, so the real interface can be driven
+against a throwaway copy. Two terminals:
+
+```bash
+cp db.json /tmp/sandbox-db.json && npm run server:sandbox
+```
+
+```bash
+npm run dev:sandbox
+```
+
+That serves the app on **5174** against an API on **4000** reading
+`/tmp/sandbox-db.json`. Saves, edits and deletes are all real — they just land
+somewhere disposable. Use this for anything that writes; the alternative is
+testing write paths against irreplaceable records.
+
 ### Never commit database exports
 
 A 60 MB export (`db.json.nps.backup`) was once committed to a **public** GitHub
@@ -386,7 +414,90 @@ every one of those pages reports wrong numbers with no error anywhere.
 
 ---
 
-## 6. Restart checklist
+## 6. Logging an investment from the expenses page
+
+A transaction under **Investments** can carry the holdings it funded, so a SIP
+is entered once instead of on two pages that then disagree. Before this existed
+the two sides had drifted badly: 44 mutual-fund expense rows against 99 fund
+transactions, and 23 stock expense rows against 429 stock transactions.
+
+### One expense, many legs
+
+`investmentData` is `{ legs: [...] }`, **not** a single asset. One debit is
+routinely several investments — a ₹200 row in this database is ₹100 into Nippon
+and ₹100 into ICICI Next 50. Every leg becomes its own transaction on the
+investment side.
+
+Legs are linked back by `expenseId`, and their ids are `<expenseId>::<index>`.
+The index matters: two legs sharing one id collide inside a single fund, and
+deleting the expense would only remove one of them.
+
+**Strip an expense's old legs once per savings row, never per leg.** Filtering
+inside the leg loop makes the second SIP into a fund delete the first, because
+both match the same `expenseId`. That is a silent half-save — the screen shows
+two, the database keeps one. There is a test for it.
+
+### Adopt an existing transaction — never blindly create one
+
+**This is the common case, not the exception.** The investment pages are the
+more accurate record — 429 stock transactions against 23 stock expense rows —
+so linking an expense usually points at a purchase that is *already* recorded on
+the holding. Creating a transaction per leg would double the position.
+
+So a leg first looks for an unlinked transaction on that holding with the same
+date and figures (`findAdoptable`) and stamps the link onto it, keeping its
+original id. Only when nothing matches is a new one created. The form does the
+same thing when a holding is picked: it fills the leg from the existing
+transaction, which is also what makes the figures match closely enough to be
+adopted.
+
+Adopted rows carry `adoptedByExpense: true`, and that flag decides what unlinking
+does. `detachExpense` **removes** transactions the expense created but only
+**releases** ones it adopted — deleting an adopted row would destroy an
+investment record that existed before the link and has nothing to do with the
+expense.
+
+This was found the hard way: a real Coal India expense was linked to a holding
+that already had its `2026-08-10 buy, 1 @ ₹412.80`, and without adoption the
+position would have gone from 38 shares to 39.
+
+### The formulas live in `utils/investmentSync.js` and are shared
+
+`recomputeStockMetrics` and `recomputeFundUnits` are imported by `StockDetails`,
+`MutualFundDetails` **and** the sync in `FinanceContext`. They were previously
+duplicated, and the copies had already diverged: the sync handled only `buy` and
+`sell`, while the real formula also replays `ipo`, `bonus`, `split`, `buyback`
+and `demerger`. Syncing a leg onto a stock with a split in its history would
+have rewritten `shares` using the wrong maths.
+
+This is the same hazard as the `categories` aggregate above. Keep one copy.
+
+### Actions are deliberately narrower here than on the investment pages
+
+The stock page offers eight transaction types; this form offers five. `bonus`,
+`split` and `demerger` change a share count without any money moving, so they
+have no place on a form that records cash leaving an account — logging one there
+would invent a payment that never happened. They stay on the stock page.
+
+### Matching is a suggestion, never automatic
+
+Amount and date alone cannot identify the fund: across the real rows that
+resolves only 11 of 44, leaves 20 ambiguous and misses 13, because several SIPs
+of the same amount run on the same day. Titles disambiguate 37 of 44, so
+`suggestAsset` proposes a fund and the user confirms. It returns `null` below
+`CONFIDENT_MATCH` rather than guessing — units in the wrong fund are worse than
+a question.
+
+### Failures must reach the screen
+
+The expense and the holding are two writes, and they are not atomic. If the
+second fails the pages disagree, so the sync returns a message and the caller
+raises the **NOT SAVED** banner. The old code had a `catch` that only logged.
+On delete, the holding is unwound only *after* the expense delete has persisted.
+
+---
+
+## 7. Restart checklist
 
 Changes that need a restart, and which silently appear to do nothing otherwise:
 
@@ -401,7 +512,7 @@ React/CSS source changes hot-reload normally.
 
 ---
 
-## 7. Verifying your work
+## 8. Verifying your work
 
 - `npm run build` must pass.
 - For UI changes, actually open the page. Several bugs here were invisible in
@@ -410,7 +521,7 @@ React/CSS source changes hot-reload normally.
 - After any write path change, confirm the guard still blocks a bad write and
   still allows a legitimate one.
 
-## 8. Known gaps
+## 9. Known gaps
 
 - 19 of the original uploaded ornament photos were lost before any backup
   existed and are unrecoverable. Missing images render a labelled placeholder.
