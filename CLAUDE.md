@@ -415,5 +415,12 @@ React/CSS source changes hot-reload normally.
 - 19 of the original uploaded ornament photos were lost before any backup
   existed and are unrecoverable. Missing images render a labelled placeholder.
 - Many older pages still use inline styles rather than Tailwind classes.
-- Backups are frequency-based, so 100 rotating snapshots can cover only a few
-  hours of heavy use. The daily and monthly tiers are the real safety net.
+- Per-mutation snapshots are frequency-based and now capped at **10**, not 100.
+  Each is a full ~3.5 MB copy, and with per-row writes firing on every logged
+  transaction the tier refilled in hours and reached 350 MB. A hundred snapshots
+  of one busy afternoon is the same afternoon stored a hundred times. **The
+  daily and monthly tiers are the real safety net**; the rolling window only
+  exists to undo something you just did.
+- `finance.sqlite` is **not** a backup. It is derived from `db.json` and is
+  rebuilt from it whenever that file changes — including from a corrupted one.
+  Recovery still comes from `backups/`.

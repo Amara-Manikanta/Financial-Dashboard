@@ -174,9 +174,20 @@ const createVerifiedBackup = () => {
                     }
                 });
 
-                // Keep up to 100 mutation backups (instead of just 10)
-                if (remainingFiles.length > 100) {
-                    const toDelete = remainingFiles.slice(0, remainingFiles.length - 100);
+                // Keep a short rolling window of per-mutation snapshots.
+                //
+                // This was 100. Each snapshot is a full copy of db.json — about
+                // 3.5 MB — so the tier alone reached 350 MB, and with per-row
+                // writes now firing on every logged transaction it refills in
+                // hours rather than weeks. A hundred snapshots of a single busy
+                // afternoon is not a better safety net than ten; it is the same
+                // afternoon, stored a hundred times.
+                //
+                // The daily and monthly tiers are the real protection. This one
+                // exists only to undo something you just did.
+                const MUTATION_SNAPSHOTS = 10;
+                if (remainingFiles.length > MUTATION_SNAPSHOTS) {
+                    const toDelete = remainingFiles.slice(0, remainingFiles.length - MUTATION_SNAPSHOTS);
                     toDelete.forEach(f => {
                         try { fs.unlinkSync(path.join(BACKUP_DIR, f)); } catch(e){}
                     });
