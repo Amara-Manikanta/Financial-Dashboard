@@ -102,11 +102,11 @@ const CheckCard = ({ check, formatCurrency }) => {
 };
 
 const DataHealth = () => {
-    const { expenses, salaryDetails, creditCards, formatCurrency } = useFinance();
+    const { expenses, salaryDetails, creditCards, assets, formatCurrency } = useFinance();
 
     const checks = useMemo(
-        () => runHealthChecks(expenses, salaryDetails || [], creditCards || []),
-        [expenses, salaryDetails, creditCards],
+        () => runHealthChecks(expenses, salaryDetails || [], creditCards || [], assets || []),
+        [expenses, salaryDetails, creditCards, assets],
     );
     const totalTx = useMemo(() => flattenTransactions(expenses).length, [expenses]);
 

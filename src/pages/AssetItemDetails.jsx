@@ -7,6 +7,7 @@ import AssetItemModal from '../components/AssetItemModal';
 import BackButton from '../components/BackButton';
 import { formatDate } from '../utils/dateUtils';
 import { ENTRY_KINDS, kindOf, summariseRental, rentLedger, expectedRentOn } from '../utils/rental';
+import WarrantyPanel from '../components/WarrantyPanel';
 
 const AssetItemDetails = () => {
     const { categoryId, itemId } = useParams();
@@ -151,6 +152,13 @@ const AssetItemDetails = () => {
                     <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-[0.03] group-hover:opacity-[0.05] transition-opacity bg-red-500" />
                 </div>
             </div>
+
+            {/* Land has no warranty; goods do. */}
+            {!isRealEstate && (
+                <div className="mb-10">
+                    <WarrantyPanel item={item} onSave={handleSaveAsset} formatCurrency={formatCurrency} />
+                </div>
+            )}
 
             {rental && (
                 <div className="mb-10 space-y-6">

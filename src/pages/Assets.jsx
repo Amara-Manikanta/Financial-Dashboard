@@ -1,11 +1,13 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { Home, PieChart, Layers } from 'lucide-react';
+import { Home, PieChart, Layers, ShieldCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { summariseWarranties } from '../utils/warranty';
 
 const Assets = () => {
     const { assets, formatCurrency } = useFinance();
     const navigate = useNavigate();
+    const warranties = useMemo(() => summariseWarranties(assets || []), [assets]);
 
     const getIcon = (id) => {
         switch (id) {
@@ -44,6 +46,36 @@ const Assets = () => {
                 <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0' }}>Assets</h2>
                 <p style={{ fontSize: '0.875rem', color: '#71717a', margin: 0 }}>Track and manage your real estate and other valuable assets.</p>
             </div>
+
+            {/* Warranty cover worth acting on, surfaced here because the item it
+                belongs to is several clicks away. */}
+            {(warranties.expiring > 0 || warranties.expired > 0 || warranties.unknown > 0) && (
+                <button
+                    type="button"
+                    onClick={() => navigate('/warranties')}
+                    className="mb-8 flex w-full flex-wrap items-center gap-x-6 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-4 text-left transition-all hover:bg-white/[0.06]"
+                >
+                    <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-gray-400">
+                        <ShieldCheck size={14} className="text-emerald-400" /> Warranties
+                    </span>
+                    {warranties.expiring > 0 && (
+                        <span className="text-xs font-bold text-amber-400">{warranties.expiring} expiring soon</span>
+                    )}
+                    {warranties.active > 0 && (
+                        <span className="text-xs font-bold text-emerald-400">{warranties.active} in warranty</span>
+                    )}
+                    {warranties.expired > 0 && (
+                        <span className="text-xs font-bold text-gray-500">{warranties.expired} expired</span>
+                    )}
+                    {warranties.unknown > 0 && (
+                        <span className="text-xs font-bold text-gray-500">{warranties.unknown} not recorded</span>
+                    )}
+                    {warranties.missingReceipt > 0 && (
+                        <span className="text-xs font-bold text-amber-500/80">{warranties.missingReceipt} without a receipt</span>
+                    )}
+                    <span className="ml-auto text-[11px] font-bold text-gray-500">View all →</span>
+                </button>
+            )}
 
             <div style={{
                 display: 'grid',

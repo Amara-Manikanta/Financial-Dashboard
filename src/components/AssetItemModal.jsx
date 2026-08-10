@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Tag, FileText, MapPin, Ruler, Briefcase, Coins } from 'lucide-react';
+import { X, Calendar, Tag, FileText, MapPin, Ruler, Briefcase, Coins, ShieldCheck } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import CurrencyInput from './CurrencyInput';
@@ -23,11 +23,25 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
     const [isLet, setIsLet] = useState(false);
     const [rental, setRental] = useState(BLANK_RENTAL);
 
+    // Warranty cover. Months are stored rather than a computed date so the
+    // expiry stays correct if the purchase date is later corrected; an explicit
+    // date is still allowed for plans that do not start on the purchase day.
+    const BLANK_WARRANTY = {
+        serialNumber: '', seller: '',
+        warrantyMonths: '', warrantyExpiry: '',
+        extendedMonths: '', extendedExpiry: '', extendedCost: '',
+    };
+    const [warranty, setWarranty] = useState(BLANK_WARRANTY);
+    const setWarrantyField = (field) => (e) =>
+        setWarranty((prev) => ({ ...prev, [field]: e.target.value }));
+
     const parseInput = (value) => {
         return value.replace(/,/g, '');
     };
 
     const isRealEstate = categoryType === 'real_estate';
+
+    const warrantyInputCls = 'w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-medium placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm';
 
     const setRentalField = (field) => (e) =>
         setRental((prev) => ({ ...prev, [field]: e.target.value }));
@@ -43,6 +57,15 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             setRemarks(initialData.remarks || '');
             setRental({ ...BLANK_RENTAL, ...(initialData.rental || {}) });
             setIsLet(Boolean(initialData.rental));
+            setWarranty({
+                serialNumber: initialData.serialNumber || '',
+                seller: initialData.seller || '',
+                warrantyMonths: initialData.warrantyMonths ?? '',
+                warrantyExpiry: initialData.warrantyExpiry || '',
+                extendedMonths: initialData.extendedMonths ?? '',
+                extendedExpiry: initialData.extendedExpiry || '',
+                extendedCost: initialData.extendedCost ?? '',
+            });
         } else if (isOpen && !initialData) {
             setName('');
             setPurchaseDate(null);
@@ -53,6 +76,7 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             setRemarks('');
             setRental(BLANK_RENTAL);
             setIsLet(false);
+            setWarranty(BLANK_WARRANTY);
         }
     }, [initialData, isOpen, categoryType]);
 
@@ -70,6 +94,22 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
             place: isRealEstate ? place : null,
             dimensions: isRealEstate ? dimensions : null,
             remarks,
+            // Warranty applies to goods, not land. Blank fields are stored as
+            // empty rather than 0, because 0 months would read as "expired the
+            // day it was bought" instead of "not recorded".
+            ...(isRealEstate ? {} : {
+                serialNumber: warranty.serialNumber.trim(),
+                seller: warranty.seller.trim(),
+                warrantyMonths: warranty.warrantyMonths === '' ? '' : Number(warranty.warrantyMonths) || '',
+                warrantyExpiry: warranty.warrantyExpiry || '',
+                extendedMonths: warranty.extendedMonths === '' ? '' : Number(warranty.extendedMonths) || '',
+                extendedExpiry: warranty.extendedExpiry || '',
+                extendedCost: warranty.extendedCost === '' ? '' : Number(parseInput(String(warranty.extendedCost))) || '',
+                // Attachments and service history are edited on the item page,
+                // so they are carried through untouched rather than reset here.
+                receipts: initialData?.receipts || [],
+                services: initialData?.services || [],
+            }),
             // Only real estate carries a tenancy; unticking "let out" removes it
             // rather than leaving a stale block behind.
             rental: (isRealEstate && isLet)
@@ -226,6 +266,104 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                                 placeholder="Any additional notes..."
                             />
                         </div>
+
+                        {!isRealEstate && (
+                            <div className="pt-5 border-t border-white/5 space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <ShieldCheck className="text-emerald-400" size={16} />
+                                    <h3 className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">
+                                        Warranty &amp; proof of purchase
+                                    </h3>
+                                </div>
+                                <p className="text-[10px] text-gray-500 -mt-2">
+                                    Cover is counted from the purchase date, so correcting that date keeps
+                                    the expiry right. Receipts and service history are added on the item page.
+                                </p>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Serial / Model no.</label>
+                                        <input
+                                            type="text"
+                                            value={warranty.serialNumber}
+                                            onChange={setWarrantyField('serialNumber')}
+                                            className={warrantyInputCls}
+                                            placeholder="Asked for on any claim"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Bought from</label>
+                                        <input
+                                            type="text"
+                                            value={warranty.seller}
+                                            onChange={setWarrantyField('seller')}
+                                            className={warrantyInputCls}
+                                            placeholder="Amazon, Croma, dealer…"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Warranty (months)</label>
+                                        <input
+                                            type="number" min="0"
+                                            value={warranty.warrantyMonths}
+                                            onChange={setWarrantyField('warrantyMonths')}
+                                            className={warrantyInputCls}
+                                            placeholder="12"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">
+                                            Or exact expiry
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={warranty.warrantyExpiry}
+                                            onChange={setWarrantyField('warrantyExpiry')}
+                                            className={warrantyInputCls}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Extended (months)</label>
+                                        <input
+                                            type="number" min="0"
+                                            value={warranty.extendedMonths}
+                                            onChange={setWarrantyField('extendedMonths')}
+                                            className={warrantyInputCls}
+                                            placeholder="24"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Or exact expiry</label>
+                                        <input
+                                            type="date"
+                                            value={warranty.extendedExpiry}
+                                            onChange={setWarrantyField('extendedExpiry')}
+                                            className={warrantyInputCls}
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">What it cost</label>
+                                        <input
+                                            type="text"
+                                            value={warranty.extendedCost}
+                                            onChange={setWarrantyField('extendedCost')}
+                                            className={warrantyInputCls}
+                                            placeholder="0"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-600">
+                                    Recording what the extended plan cost lets the item page tell you whether
+                                    it has paid for itself yet.
+                                </p>
+                            </div>
+                        )}
 
                         {isRealEstate && (
                             <div className="pt-5 border-t border-white/5 space-y-5">

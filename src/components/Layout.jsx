@@ -128,7 +128,10 @@ const Layout = () => {
                         makes every grouped link unreachable. Space is managed by
                         grouping links into dropdowns and by hiding labels on
                         narrower windows, never by scrolling this container. */}
-                    <nav className="flex-1 min-w-0 flex items-center justify-center gap-1.5 xl:gap-3">
+                    {/* gap-2 rather than gap-3 at xl: grouping Assets added a
+                        chevron, which pushed the row 6px past the bar at exactly
+                        1280px. The nav must never need to scroll. */}
+                    <nav className="flex-1 min-w-0 flex items-center justify-center gap-1.5 xl:gap-2">
                         <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
                         <NavDropdown
                             label="Income"
@@ -168,7 +171,16 @@ const Layout = () => {
                         <NavItem to="/savings" icon={PiggyBank} label="Savings" />
                         <NavItem to="/investments" icon={TrendingUp} label="Investments" />
                         <NavItem to="/metals" icon={Coins} label="Gold & Silver" />
-                        <NavItem to="/assets" icon={Car} label="Assets" />
+                        {/* Grouped rather than added alongside: another top-level
+                            item pushes the ones after it off-screen. */}
+                        <NavDropdown
+                            label="Assets"
+                            icon={Car}
+                            items={[
+                                { to: '/assets', label: 'All Assets', icon: Car },
+                                { to: '/warranties', label: 'Warranties & Receipts', icon: ShieldCheck }
+                            ]}
+                        />
                         <NavItem to="/lents-loans" icon={ArrowUpRight} label="Loans & Lents" />
                     </nav>
 

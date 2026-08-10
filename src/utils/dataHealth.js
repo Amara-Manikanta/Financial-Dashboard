@@ -1,3 +1,5 @@
+import { summariseWarranties, receiptsOf, EXPIRING_SOON_DAYS } from './warranty';
+
 // Data-quality checks over the transaction history.
 //
 // Every check here is deterministic and explains itself: each returns a count,
@@ -44,7 +46,7 @@ const canonicalCategory = (name) => String(name || '')
     .replace(/[^a-z]/g, '')
     .replace(/s$/, '');
 
-export const runHealthChecks = (expenses, salaryDetails = [], creditCards = []) => {
+export const runHealthChecks = (expenses, salaryDetails = [], creditCards = [], assets = []) => {
     const tx = flattenTransactions(expenses);
     const checks = [];
 
@@ -214,6 +216,38 @@ export const runHealthChecks = (expenses, salaryDetails = [], creditCards = []) 
             : 'Every credit card has a billing day.',
         fix: 'Set the billing day on the card.',
         sample: noBillingDay.map((c) => ({ label: c.name })),
+    });
+
+    // 8. Warranty cover about to lapse
+    const warranties = summariseWarranties(assets);
+    const lapsing = warranties.rows.filter((r) => r.status.state === 'expiring');
+    checks.push({
+        id: 'warranty-expiring',
+        title: 'Warranties expiring soon',
+        severity: lapsing.length ? 'medium' : 'ok',
+        count: lapsing.length,
+        detail: lapsing.length
+            ? `Cover on these ends within ${EXPIRING_SOON_DAYS} days. Anything worth claiming or extending has to be done before then.`
+            : 'No warranty lapses in the next two months.',
+        fix: 'Claim outstanding faults, or decide whether to buy extended cover before the window closes.',
+        sample: lapsing.slice(0, 8).map((r) => ({
+            date: r.status.expiryIso,
+            label: `${r.item.name} — ${r.status.daysLeft} days left`,
+        })),
+    });
+
+    // 9. Items with no proof of purchase
+    const noReceipt = warranties.rows.filter((r) => receiptsOf(r.item).length === 0 && r.status.state !== 'expired');
+    checks.push({
+        id: 'missing-receipt',
+        title: 'Items in warranty with no receipt',
+        severity: noReceipt.length > 5 ? 'medium' : noReceipt.length ? 'low' : 'ok',
+        count: noReceipt.length,
+        detail: noReceipt.length
+            ? 'Still covered, but with no bill attached — a claim is usually refused without proof of purchase.'
+            : 'Every item still under cover has its receipt attached.',
+        fix: 'Attach the invoice on the item page. Expired items are excluded: the bill no longer helps there.',
+        sample: noReceipt.slice(0, 8).map((r) => ({ label: r.item.name })),
     });
 
     const order = { high: 0, medium: 1, low: 2, ok: 3 };

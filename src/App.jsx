@@ -19,6 +19,7 @@ import Investments from './pages/Investments';
 import Nifty50Exposure from './pages/Nifty50Exposure';
 import Metals from './pages/Metals';
 import Assets from './pages/Assets';
+import Warranties from './pages/Warranties';
 import AssetCategoryDetails from './pages/AssetCategoryDetails';
 import MutualFundDetails from './pages/MutualFundDetails';
 import FixedDepositDetails from './pages/FixedDepositDetails';
@@ -159,6 +160,7 @@ function App() {
                                     <Route path="assets" element={<Assets />} />
                                     <Route path="assets/:id" element={<AssetCategoryDetails />} />
                                     <Route path="assets/:categoryId/:itemId" element={<AssetItemDetails />} />
+                                    <Route path="warranties" element={<Warranties />} />
                                     <Route path="lents-loans" element={<LentsAndLoans />} />
                                     <Route path="lents-loans/:id" element={<LentDetails />} />
                                     <Route path="recurring" element={<RecurringAnalytics />} />

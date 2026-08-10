@@ -497,7 +497,55 @@ On delete, the holding is unwound only *after* the expense delete has persisted.
 
 ---
 
-## 7. Restart checklist
+## 7. Warranties, receipts and service history
+
+Owned goods carry cover; land does not. Warranty fields live on the asset item
+itself (`utils/warranty.js` derives everything from them) rather than in a
+separate collection, so nothing can drift out of step with the item.
+
+```
+serialNumber, seller              what a manufacturer asks for on a claim
+warrantyMonths | warrantyExpiry   manufacturer cover
+extendedMonths | extendedExpiry   a second period bought on top
+extendedCost                      what that cover cost
+receipts[]                        { url, name, mimeType, kind }
+services[]                        { id, date, description, cost, underWarranty, provider }
+```
+
+**Store months, not a computed expiry.** "24 months from purchase" stays correct
+if the purchase date is later corrected; a stored date silently keeps the old
+answer. An explicit date is still accepted for plans that do not start on the
+purchase day, and wins when both are set.
+
+**`unknown` is not `expired`.** An item nobody recorded a warranty for is a gap
+in the records; an expired one is a fact. Collapsing the two would hide the 15
+items actually worth filling in behind cover that has genuinely run out.
+
+`coverExpiry` takes the **later** of the two periods. Extended cover usually
+starts when the manufacturer's ends, but not always, so the maximum is the only
+answer that is right either way.
+
+Receipts go to `db/documents/`, not `db/images/` — §4 keeps documents at full
+resolution so serial numbers and small print stay readable.
+
+Real estate is excluded from every warranty view (`warrantable()`). Including
+plots and apartments would bury 16 real gadgets among 12 rows that can never
+have cover and make "not recorded" useless as a worklist.
+
+### The nav bar is at its width limit
+
+Grouping Assets into a `NavDropdown` added a chevron and pushed the row **6px**
+past the bar at exactly 1280px, so the gap at `xl` is now `gap-2`. If another
+nav item is ever added, re-run the check in §3 — there is no slack left:
+
+```js
+const n = document.querySelector('header nav');
+n.scrollWidth <= n.clientWidth;   // was 1014 vs 1008 before the fix
+```
+
+---
+
+## 8. Restart checklist
 
 Changes that need a restart, and which silently appear to do nothing otherwise:
 
@@ -512,7 +560,7 @@ React/CSS source changes hot-reload normally.
 
 ---
 
-## 8. Verifying your work
+## 9. Verifying your work
 
 - `npm run build` must pass.
 - For UI changes, actually open the page. Several bugs here were invisible in
@@ -521,7 +569,7 @@ React/CSS source changes hot-reload normally.
 - After any write path change, confirm the guard still blocks a bad write and
   still allows a legitimate one.
 
-## 9. Known gaps
+## 10. Known gaps
 
 - 19 of the original uploaded ornament photos were lost before any backup
   existed and are unrecoverable. Missing images render a labelled placeholder.
