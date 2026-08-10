@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Calculator, CreditCard, Wallet, Tag, FileText, ChevronDown, Check, ArrowUpCircle, ArrowDownCircle } from 'lucide-react';
+import { X, Calendar, Calculator, CreditCard, Wallet, Tag, FileText, ChevronDown, Check, ArrowUpCircle, ArrowDownCircle, Landmark } from 'lucide-react';
+import { activeOrdersForCard, suggestTitle } from '../utils/emiOrders';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useFinance } from '../context/FinanceContext';
@@ -17,6 +18,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const [date, setDate] = useState(new Date());
     const [paymentMode, setPaymentMode] = useState('direct');
     const [creditCardName, setCreditCardName] = useState('');
+    const [emiOrderId, setEmiOrderId] = useState('');
     const [isCredited, setIsCredited] = useState(false);
     const [isCreditCardBill, setIsCreditCardBill] = useState(false);
     const [deductFromSalary, setDeductFromSalary] = useState(true);
@@ -37,7 +39,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     // Grocery fields
     const [groceryItems, setGroceryItems] = useState([]);
 
-    const { expenses, creditCards, mergedCategoryMap, addCustomCategory, savings = [] } = useFinance();
+    const { expenses, creditCards, mergedCategoryMap, addCustomCategory, savings = [], loans = [] } = useFinance();
     const mainCategoriesList = Object.keys(mergedCategoryMap);
     const subCategoriesList = mainCategory ? (mergedCategoryMap[mainCategory] || []) : [];
     
@@ -56,6 +58,33 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const availableCreditCards = creditCards && creditCards.length > 0
         ? creditCards.map(c => c.name)
         : ["Scapia", "Amazon", "Icici Rupay", "ICICI HP card"];
+
+    // Gadget EMI orders billed to the selected card and still running on the
+    // chosen date. Offered on the card alone, never on the category: the five
+    // recorded instalments of the iPhone EMI carry four different categories
+    // between them and not one says "emi", so gating on that would mean this
+    // dropdown never appeared.
+    const isoDate = date instanceof Date && !Number.isNaN(date)
+        ? date.toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
+
+    const emiOrderOptions = useMemo(
+        () => (paymentMode === 'credit_card' && creditCardName)
+            ? activeOrdersForCard(loans, creditCards, creditCardName, isoDate)
+            : [],
+        [paymentMode, creditCardName, loans, creditCards, isoDate],
+    );
+    const linkedEmiOrder = emiOrderOptions.find(o => String(o.id) === String(emiOrderId)) || null;
+
+    const handleEmiOrderChange = (nextId) => {
+        setEmiOrderId(nextId);
+        const order = emiOrderOptions.find(o => String(o.id) === String(nextId));
+        if (!order) return;
+        // Fill in what the order already knows, but only where the user has not
+        // typed something of their own — never overwrite their input.
+        if (!title.trim()) setTitle(suggestTitle(order, isoDate));
+        if (!amount || Number(amount) === 0) setAmount(String(order.emiAmount ?? ''));
+    };
 
     // Sync state with initialData
     useEffect(() => {
@@ -100,6 +129,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
 
             setDate(initialData.date ? new Date(initialData.date) : (defaultDate || new Date()));
             setPaymentMode(initialData.paymentMode || 'direct');
+            setEmiOrderId(initialData.emiOrderId || '');
             let ccName = initialData.creditCardName || '';
             if (ccName) {
                 const lowerName = ccName.toLowerCase().trim();
@@ -151,6 +181,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setDate(defaultDate || new Date());
             setPaymentMode('direct');
             setCreditCardName('');
+            setEmiOrderId('');
             setUseRewardPoints(false);
             setIsCreditCardBill(false);
             setKm(''); setLiters(''); setPricePerLiter(''); setVehicleType('scooty');
@@ -234,6 +265,11 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             deductFromSalary,
             paymentMode,
             creditCardName: paymentMode === 'credit_card' ? creditCardName : null,
+            // Only carried when a link is actually chosen, so transactions that
+            // are not instalments stay exactly as they were.
+            ...(paymentMode === 'credit_card' && emiOrderId
+                ? { emiOrderId, emiInstallment: linkedEmiOrder?.installment ?? null }
+                : {}),
             isRewardPoints: paymentMode === 'credit_card' && creditCardName?.toLowerCase().includes('scapia') ? useRewardPoints : false,
             isCredited,
             transactionType: isCredited ? 'credit' : 'debit',
@@ -514,6 +550,34 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                         <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-400" />
                                     </div>
                                     
+                                    {emiOrderOptions.length > 0 && (
+                                        <div className="mt-4">
+                                            <label className="block text-[9px] font-black text-indigo-300 uppercase tracking-widest mb-1.5 ml-1">
+                                                Link to EMI order
+                                            </label>
+                                            <div className="relative">
+                                                <Landmark size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400" />
+                                                <select
+                                                    value={emiOrderId}
+                                                    onChange={(e) => handleEmiOrderChange(e.target.value)}
+                                                    className="w-full bg-white/10 rounded-lg border border-white/10 text-white font-bold appearance-none focus:outline-none text-xs pl-8 pr-8 py-2"
+                                                >
+                                                    <option value="" className="bg-[#1c1c1e] text-gray-400">Not an EMI instalment</option>
+                                                    {emiOrderOptions.map(o => (
+                                                        <option key={o.id} value={o.id} className="bg-[#1c1c1e] text-white">{o.label}</option>
+                                                    ))}
+                                                </select>
+                                                <ChevronDown size={14} className="absolute right-0 top-1/2 -translate-y-1/2 text-indigo-400" />
+                                            </div>
+                                            {linkedEmiOrder && (
+                                                <p className="text-[10px] text-gray-500 mt-1.5 ml-1">
+                                                    Scheduled instalment {linkedEmiOrder.installment} of {linkedEmiOrder.tenureMonths}
+                                                    {' · '}₹{Number(linkedEmiOrder.emiAmount).toLocaleString('en-IN')} per month
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+
                                     {creditCardName && creditCardName.toLowerCase().includes('scapia') && (
                                         <div className="mt-4 flex items-center gap-3 bg-indigo-500/10 p-3 rounded-xl border border-indigo-500/20">
                                             <div className="relative flex items-center">
