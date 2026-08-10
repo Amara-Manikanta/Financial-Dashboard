@@ -359,13 +359,18 @@ That fallback is not optional. `SQLITE_WRITES` defaults to off, so the fallback
 is the path most runs take — if you change this code, test both.
 
 ```bash
-npm run server           # default: json-server owns everything
+npm run server           # DEFAULT: SQLite reads + per-row writes
 npm run server:shadow    # reads compared against SQLite, nothing depends on it
-npm run server:sqlite    # reads and per-row writes from SQLite
+npm run server:json      # escape hatch: json-server owns everything, as before
 ```
 
-Note these flags do **not** persist. A plain `npm run server` is back to the
-default, which is deliberate.
+**`npm run server` now runs with `SQLITE_READS=on SQLITE_WRITES=on`.** If
+anything looks wrong, `npm run server:json` returns to the original path with no
+code change and no data migration — `db.json` is still the durable artifact
+either way, so switching back is just a restart.
+
+`.claude/launch.json` starts both the API and Vite, so the launcher brings up
+the whole stack.
 
 ### `categories` must be recomputed on every write
 
