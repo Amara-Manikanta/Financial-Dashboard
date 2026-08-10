@@ -165,12 +165,34 @@ export const applyChange = ({ op, id, transaction, patch }, guard) => {
     // Month buckets whose transactions changed, so their `categories`
     // aggregate can be recomputed before db.json is written.
     const touched = new Set();
+    let deletedCount = 0;
     const touch = (year, month) => touched.add(`${year}\u0000${month}`);
 
     try {
         handle.exec('BEGIN IMMEDIATE');
 
-        if (op === 'create') {
+        if (op === 'delete-category') {
+            // Removing a whole category for a month is genuinely many rows, so
+            // it runs as one statement in one transaction rather than N
+            // round-trips each rebuilding the entire database.
+            const { year, month, category } = patch || {};
+            if (!year || !month || !category) {
+                throw new Error('delete-category needs year, month and category');
+            }
+            const wanted = String(category).toLowerCase();
+            const rows = handle.prepare(
+                'SELECT ord FROM transactions WHERE year = ? AND month = ? AND LOWER(COALESCE(category, \'\')) = ?',
+            ).all(String(year), String(month), wanted);
+
+            if (!rows.length) throw new Error(`no transactions in ${category} for ${month} ${year}`);
+
+            handle.prepare(
+                'DELETE FROM transactions WHERE year = ? AND month = ? AND LOWER(COALESCE(category, \'\')) = ?',
+            ).run(String(year), String(month), wanted);
+
+            touch(String(year), String(month));
+            deletedCount = rows.length;
+        } else if (op === 'create') {
             const tx = transaction || {};
             if (!tx.id) tx.id = String(Date.now());
             const bucket = bucketFor(tx.date);
@@ -274,7 +296,15 @@ export const applyChange = ({ op, id, transaction, patch }, guard) => {
 
         handle.exec('COMMIT');
         handle.close();
-        return { ok: true, status: op === 'create' ? 201 : 200, body: { ok: true, op, id: id ?? transaction?.id } };
+        return {
+            ok: true,
+            status: op === 'create' ? 201 : 200,
+            body: {
+                ok: true, op,
+                id: id ?? transaction?.id,
+                ...(op === 'delete-category' ? { deleted: deletedCount } : {}),
+            },
+        };
     } catch (err) {
         try { handle.exec('ROLLBACK'); } catch { /* transaction already gone */ }
         try { handle.close(); } catch { /* already closed */ }

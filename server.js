@@ -357,14 +357,21 @@ const proxy = http.createServer((req, res) => {
                     return;
                 }
             }
-            const op = req.method === 'POST' ? 'create'
-                : req.method === 'PATCH' ? 'update'
-                    : req.method === 'DELETE' ? 'delete' : null;
+            // DELETE /api/tx/by-category removes every transaction in one
+            // category for one month. It is a genuine bulk operation, so it
+            // runs as a single statement rather than N per-row calls each
+            // rebuilding the whole database.
+            const isBulkCategory = req.method === 'DELETE' && txId === 'by-category';
+
+            const op = isBulkCategory ? 'delete-category'
+                : req.method === 'POST' ? 'create'
+                    : req.method === 'PATCH' ? 'update'
+                        : req.method === 'DELETE' ? 'delete' : null;
             if (!op) {
                 sendJson(res, 405, { error: `${req.method} is not supported on /api/tx` });
                 return;
             }
-            if ((op === 'update' || op === 'delete') && !txId) {
+            if (!isBulkCategory && (op === 'update' || op === 'delete') && !txId) {
                 sendJson(res, 400, { error: `${req.method} /api/tx requires an id: /api/tx/<id>` });
                 return;
             }
@@ -373,7 +380,7 @@ const proxy = http.createServer((req, res) => {
             if (sqliteWrites.isEnabled) createVerifiedBackup();
 
             const result = sqliteWrites.applyChange(
-                { op, id: txId, transaction: parsed.transaction || parsed, patch: parsed },
+                { op, id: isBulkCategory ? null : txId, transaction: parsed.transaction || parsed, patch: parsed },
                 inspectWrite,
             );
             if (!result.ok) {

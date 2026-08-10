@@ -927,7 +927,11 @@ export function FinanceProvider({ children }) {
             const res = await fetch(url, {
                 method,
                 headers: { 'Content-Type': 'application/json' },
-                body: method === 'DELETE' ? undefined : JSON.stringify(transaction ? { transaction } : (patch || {})),
+                // A plain DELETE carries nothing, but the bulk category delete
+                // needs its year/month/category in the body.
+                body: (method === 'DELETE' && !patch)
+                    ? undefined
+                    : JSON.stringify(transaction ? { transaction } : (patch || {})),
             });
 
             // 503 is the server saying the feature is off; 404 means an older
@@ -1808,7 +1812,23 @@ export function FinanceProvider({ children }) {
                     if (data.transactions) {
                         data.transactions = data.transactions.filter(t => t.category.toLowerCase() !== catName.toLowerCase());
                     }
-                    await saveExpenses(newExpenses);
+
+                    // Removing a whole category is many rows, so it goes as one
+                    // bulk statement rather than N per-row calls — each of those
+                    // would rebuild and rewrite the entire database.
+                    const rowResult = await writeTransactionRow('DELETE', {
+                        id: 'by-category',
+                        patch: { year, month, category: catName },
+                    });
+                    if (rowResult === 'saved') {
+                        setExpenses(withRecomputedCategories(newExpenses));
+                        setSaveError(null);
+                    } else if (rowResult && rowResult.failed) {
+                        setExpenses(withRecomputedCategories(newExpenses));
+                        setSaveError(`This delete did not save: ${rowResult.failed}`);
+                    } else {
+                        await saveExpenses(newExpenses);
+                    }
                 }
             }
             return;
