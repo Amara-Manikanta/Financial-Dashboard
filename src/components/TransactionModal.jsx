@@ -80,10 +80,14 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
         setEmiOrderId(nextId);
         const order = emiOrderOptions.find(o => String(o.id) === String(nextId));
         if (!order) return;
-        // Fill in what the order already knows, but only where the user has not
-        // typed something of their own — never overwrite their input.
+        // Only the title is filled in, and only when empty so typing is never
+        // overwritten.
+        //
+        // The amount is deliberately NOT prefilled. The order's emiAmount and
+        // what is actually charged disagree — ₹6,533 scheduled against ₹6,755
+        // to ₹6,847 billed — and the entered amount is the authoritative one.
+        // Prefilling a number that is reliably wrong invites accepting it.
         if (!title.trim()) setTitle(suggestTitle(order, isoDate));
-        if (!amount || Number(amount) === 0) setAmount(String(order.emiAmount ?? ''));
     };
 
     // Sync state with initialData
@@ -571,8 +575,9 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                             </div>
                                             {linkedEmiOrder && (
                                                 <p className="text-[10px] text-gray-500 mt-1.5 ml-1">
-                                                    Scheduled instalment {linkedEmiOrder.installment} of {linkedEmiOrder.tenureMonths}
-                                                    {' · '}₹{Number(linkedEmiOrder.emiAmount).toLocaleString('en-IN')} per month
+                                                    Instalment {linkedEmiOrder.installment} of {linkedEmiOrder.tenureMonths}
+                                                    {' · '}scheduled ₹{Number(linkedEmiOrder.emiAmount).toLocaleString('en-IN')}
+                                                    {' — '}enter the amount actually charged
                                                 </p>
                                             )}
                                         </div>

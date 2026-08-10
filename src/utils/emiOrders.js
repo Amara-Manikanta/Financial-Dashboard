@@ -63,13 +63,20 @@ export const cardForOrder = (order, creditCards = []) => {
     return bestScore > 0 ? best : null;
 };
 
+const lastDayOfMonth = (year, month) => new Date(Date.UTC(year, month, 0)).getUTCDate();
+
 const monthsBetween = (fromISO, toISO) => {
     if (!fromISO || !toISO) return 0;
     const [fy, fm, fd] = String(fromISO).split('-').map(Number);
     const [ty, tm, td] = String(toISO).split('-').map(Number);
     if (!fy || !ty) return 0;
     let months = (ty - fy) * 12 + (tm - fm);
-    if (td < fd) months -= 1;
+
+    // A month has elapsed once the anchor day is reached. The exception is a
+    // short month: an EMI anchored to the 29th falls on the 28th in a February
+    // of 28 days, and treating that as "not yet due" made February silently
+    // repeat January's instalment number.
+    if (td < fd && td < lastDayOfMonth(ty, tm)) months -= 1;
     return months;
 };
 
