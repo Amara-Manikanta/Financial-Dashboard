@@ -104,13 +104,11 @@ const InvestmentLegBuilder = ({ legs, onChange, savings, expenseAmount, title, e
                 // Unlinked transactions already on this holding around the
                 // expense date — the ones this expense is probably paying for.
                 const matches = candidateTransactions(savings, leg.assetType, leg.assetId, expenseDate);
+                // Which row is selected follows the id the leg recorded, not a
+                // re-derived figure comparison — the same reason the sync uses it.
                 const matchedIndex = (() => {
-                    const at = matches.findIndex((t) => {
-                        const f = legFromTransaction(t, leg.assetType);
-                        return isStock
-                            ? Number(f.quantity) === Number(leg.quantity) && Number(f.price) === Number(leg.price)
-                            : Number(f.units) === Number(leg.units) && Number(f.nav) === Number(leg.nav);
-                    });
+                    if (!leg.sourceTxId) return 'new';
+                    const at = matches.findIndex((t) => String(t.id) === String(leg.sourceTxId));
                     return at === -1 ? 'new' : at;
                 })();
                 return (
@@ -173,6 +171,7 @@ const InvestmentLegBuilder = ({ legs, onChange, savings, expenseAmount, title, e
                                     const existing = candidateTransactions(savings, leg.assetType, assetId, expenseDate)[0];
                                     patchLeg(index, {
                                         assetId,
+                                        sourceTxId: null,
                                         ...(existing
                                             ? legFromTransaction(existing, leg.assetType)
                                             : {
@@ -200,7 +199,9 @@ const InvestmentLegBuilder = ({ legs, onChange, savings, expenseAmount, title, e
                                     onChange={(e) => {
                                         const at = e.target.value;
                                         if (at === 'new') {
-                                            patchLeg(index, { amount: Number(expenseAmount) || '', units: '', quantity: '' });
+                                            // Clearing the id is what makes this genuinely a new
+                                            // transaction rather than a link to the old one.
+                                            patchLeg(index, { sourceTxId: null, amount: Number(expenseAmount) || '', units: '', quantity: '' });
                                             return;
                                         }
                                         patchLeg(index, legFromTransaction(matches[Number(at)], leg.assetType));

@@ -280,6 +280,10 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                 assetType: leg.assetType,
                 assetId: leg.assetId,
                 action: leg.action,
+                // Which existing transaction this links to, when one was picked.
+                // Dropping it here is what let a one-day date difference create
+                // a duplicate instead of linking.
+                ...(leg.sourceTxId ? { sourceTxId: leg.sourceTxId } : {}),
                 amount: Number(leg.amount) || 0,
                 ...(leg.assetType === 'stock'
                     ? { quantity: Number(leg.quantity) || 0, price: Number(leg.price) || 0 }

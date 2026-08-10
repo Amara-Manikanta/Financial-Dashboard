@@ -1556,7 +1556,7 @@ export function FinanceProvider({ children }) {
         // record, so the purchase this expense describes is usually already
         // there; pushing a second copy would double the position.
         const attachLeg = (txList, leg, index) => {
-            const existing = findAdoptable(txList, leg, date);
+            const existing = findAdoptable(txList, leg, date, expenseId);
             if (existing) {
                 const at = txList.indexOf(existing);
                 txList[at] = adoptTransaction(existing, expenseId);

@@ -131,9 +131,24 @@ export const belongsToExpense = (tx, expenseId) => {
  * creates one when there is nothing to adopt.
  */
 
+/**
+ * How far apart the expense and the investment transaction may sit and still be
+ * the same event. A bank debit and the fund's allotment routinely land a day or
+ * two apart, so requiring the same date would treat every SIP as a new purchase.
+ *
+ * This MUST stay the same window the picker offers candidates from. When the
+ * two disagreed — picker ±7 days, matcher exact-date — the form filled itself
+ * from an existing row, promised it would link, and then created a duplicate
+ * because the matcher rejected the very row the picker had chosen. That put six
+ * duplicate SIPs into real funds.
+ */
+export const MATCH_WINDOW_DAYS = 7;
+
 /** Does an existing investment transaction describe the same event as this leg? */
 export const matchesLeg = (tx, leg, date) => {
-    if (!tx || tx.date !== date) return false;
+    if (!tx) return false;
+    if (date && daysApart(tx.date, date) > MATCH_WINDOW_DAYS) return false;
+
     const txType = tx.type || 'buy';
     // A SIP and a manually entered buy are the same purchase.
     const sameKind = txType === leg.action
@@ -151,10 +166,23 @@ export const matchesLeg = (tx, leg, date) => {
     return Math.abs(Number(tx.units || 0) - Number(leg.units || 0)) < 0.001;
 };
 
-/** An unlinked transaction on this holding describing the same event, if any. */
-export const findAdoptable = (txList, leg, date) => (
-    (txList || []).find(t => !t.expenseId && matchesLeg(t, leg, date)) || null
-);
+/**
+ * The transaction this leg should attach to, if there is one.
+ *
+ * When the user picked a row in the form, the leg carries its id and that is
+ * authoritative — no amount of date or rounding drift can turn a deliberate
+ * choice into a duplicate. Figure matching is only the fallback for legs typed
+ * in by hand.
+ */
+export const findAdoptable = (txList, leg, date, expenseId) => {
+    const list = txList || [];
+    const free = (t) => !t.expenseId || (expenseId !== undefined && String(t.expenseId) === String(expenseId));
+
+    if (leg?.sourceTxId) {
+        return list.find(t => String(t.id) === String(leg.sourceTxId) && free(t)) || null;
+    }
+    return list.find(t => free(t) && matchesLeg(t, leg, date)) || null;
+};
 
 /**
  * Link an existing transaction to an expense without altering its figures.
@@ -299,12 +327,19 @@ export const candidateTransactions = (savings, assetType, assetId, date, windowD
         .sort((a, b) => daysApart(a.date, date) - daysApart(b.date, date));
 };
 
-/** Fill a leg's figures from an existing transaction, leaving it adoptable. */
+/**
+ * Fill a leg's figures from an existing transaction and remember which one.
+ *
+ * `sourceTxId` is the important part: it records the row the user actually
+ * chose, so the sync links to that exact transaction instead of trying to
+ * re-identify it from figures that may differ by a day or a rounding.
+ */
 export const legFromTransaction = (tx, assetType) => {
     if (assetType === 'stock') {
         const qty = Number(tx.quantity) || 0;
         const price = Number(tx.price) || 0;
         return {
+            sourceTxId: tx.id,
             action: tx.type || 'buy',
             quantity: qty,
             price,
@@ -315,6 +350,7 @@ export const legFromTransaction = (tx, assetType) => {
     const units = Number(tx.units) || 0;
     const nav = Number(tx.nav) || 0;
     return {
+        sourceTxId: tx.id,
         action: tx.type || 'buy',
         units,
         nav,
@@ -322,15 +358,26 @@ export const legFromTransaction = (tx, assetType) => {
     };
 };
 
-/** Short human label for an existing transaction, for the picker. */
+const rupees = (n) => `₹${Number(n || 0).toLocaleString('en-IN', { maximumFractionDigits: 2 })}`;
+
+/**
+ * Short human label for an existing transaction, for the picker.
+ *
+ * The amount leads on both kinds, because that is the figure being matched
+ * against the expense — units and NAV confirm *which* purchase it was, but the
+ * rupee value is what tells you it is the right one.
+ */
 export const describeTransaction = (tx, assetType) => {
     const kind = (tx.type || 'buy').toUpperCase();
     if (assetType === 'stock') {
         return tx.type === 'dividend'
-            ? `${tx.date} · ${kind} · ₹${Number(tx.price || 0).toLocaleString('en-IN')}`
-            : `${tx.date} · ${kind} · ${tx.quantity} @ ₹${Number(tx.price || 0).toLocaleString('en-IN')}`;
+            ? `${tx.date} · ${kind} · ${rupees(tx.price)}`
+            : `${tx.date} · ${kind} · ${rupees(Number(tx.quantity || 0) * Number(tx.price || 0))} · ${tx.quantity} @ ${rupees(tx.price)}`;
     }
-    return `${tx.date} · ${kind} · ${tx.units} units @ ₹${tx.nav}`;
+    // Older fund rows predate the `amount` field, so fall back to units x NAV
+    // rather than showing a blank where the paid amount should be.
+    const amount = Number(tx.amount) || (Number(tx.units || 0) * Number(tx.nav || 0));
+    return `${tx.date} · ${kind} · ${rupees(amount)} · ${tx.units} units @ ${rupees(tx.nav)}`;
 };
 
 /**
