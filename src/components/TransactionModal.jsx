@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Calculator, CreditCard, Wallet, Tag, FileText, ChevronDown, Check, ArrowUpCircle, ArrowDownCircle, Landmark } from 'lucide-react';
 import { activeOrdersForCard, suggestTitle } from '../utils/emiOrders';
+import { buildMerchantIndex, suggestMerchants, CONFIDENT_ENOUGH } from '../utils/merchantSuggest';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import { useFinance } from '../context/FinanceContext';
@@ -19,6 +20,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const [paymentMode, setPaymentMode] = useState('direct');
     const [creditCardName, setCreditCardName] = useState('');
     const [emiOrderId, setEmiOrderId] = useState('');
+    const [showSuggestions, setShowSuggestions] = useState(false);
     const [isCredited, setIsCredited] = useState(false);
     const [isCreditCardBill, setIsCreditCardBill] = useState(false);
     const [deductFromSalary, setDeductFromSalary] = useState(true);
@@ -58,6 +60,38 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const availableCreditCards = creditCards && creditCards.length > 0
         ? creditCards.map(c => c.name)
         : ["Scapia", "Amazon", "Icici Rupay", "ICICI HP card"];
+
+    // Merchants you have used before, so a repeat entry can be two keystrokes
+    // and arrive correctly categorised. Built once per expenses change, not per
+    // keystroke — it walks every transaction.
+    const merchantIndex = useMemo(() => buildMerchantIndex(expenses), [expenses]);
+    const merchantSuggestions = useMemo(
+        () => suggestMerchants(merchantIndex, title, 6),
+        [merchantIndex, title],
+    );
+
+    const applyMerchant = (m) => {
+        setTitle(m.name);
+        setShowSuggestions(false);
+        // Only fill the category when this merchant reliably means one thing,
+        // and only when nothing has been chosen yet. A merchant split evenly
+        // across categories would just be guessing on your behalf.
+        if (!category && m.confidence >= CONFIDENT_ENOUGH && m.category) {
+            // Most historical rows never recorded a mainCategory, so fall back
+            // to whichever main actually contains this sub-category. Setting the
+            // sub alone leaves the form reading "Select Main" beside a filled
+            // sub-category, and saves a row with no main.
+            const main = m.mainCategory
+                || Object.keys(mergedCategoryMap || {}).find((k) => {
+                    const subs = mergedCategoryMap[k];
+                    return Array.isArray(subs)
+                        && subs.some((s) => String(s).toLowerCase() === m.category);
+                })
+                || '';
+            if (main) setMainCategory(main);
+            setCategory(m.category);
+        }
+    };
 
     // Gadget EMI orders billed to the selected card and still running on the
     // chosen date. Offered on the card alone, never on the category: the five
@@ -387,10 +421,47 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                 <input
                                     type="text"
                                     value={title}
-                                    onChange={(e) => setTitle(e.target.value)}
+                                    onChange={(e) => { setTitle(e.target.value); setShowSuggestions(true); }}
+                                    onFocus={() => setShowSuggestions(true)}
+                                    onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Escape') setShowSuggestions(false);
+                                        // Enter takes the top suggestion rather than submitting
+                                        // half-finished, which is the whole point of typing two
+                                        // letters instead of the full name.
+                                        if (e.key === 'Enter' && merchantSuggestions.length > 0) {
+                                            e.preventDefault();
+                                            applyMerchant(merchantSuggestions[0]);
+                                        }
+                                    }}
                                     className="w-full h-14 bg-white/5 border border-white/5 rounded-2xl pl-12 pr-4 text-white font-bold text-sm placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 focus:bg-[#2c2c2e] transition-all"
                                     placeholder="Enter reference..."
+                                    autoComplete="off"
                                 />
+
+                                {showSuggestions && merchantSuggestions.length > 0 && (
+                                    <div className="absolute z-30 left-0 right-0 top-full mt-1 bg-[#1c1c1e] border border-white/10 rounded-2xl shadow-[0_12px_40px_rgba(0,0,0,0.7)] overflow-hidden">
+                                        {merchantSuggestions.map((m, i) => (
+                                            <button
+                                                key={m.name}
+                                                type="button"
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => applyMerchant(m)}
+                                                className={`w-full text-left px-4 py-2.5 flex items-center justify-between gap-3 transition-colors hover:bg-white/[0.06] ${i === 0 ? 'bg-white/[0.03]' : ''}`}
+                                            >
+                                                <span className="text-sm font-bold text-white truncate">{m.name}</span>
+                                                <span className="flex items-center gap-2 shrink-0">
+                                                    {m.confidence >= CONFIDENT_ENOUGH && m.category && (
+                                                        <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                                                            {m.category}
+                                                        </span>
+                                                    )}
+                                                    <span className="text-[10px] text-gray-600 font-mono">{m.count}&times;</span>
+                                                </span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
