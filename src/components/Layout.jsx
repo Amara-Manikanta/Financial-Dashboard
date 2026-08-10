@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
@@ -144,7 +144,8 @@ const Layout = () => {
                             icon={Compass} 
                             items={[
                                 { to: '/goals', label: 'Financial Goals', icon: Target },
-                                { to: '/insurance-analysis', label: 'Insurance Gap Analysis', icon: ShieldCheck }
+                                { to: '/insurance-analysis', label: 'Insurance Gap Analysis', icon: ShieldCheck },
+                                { to: '/cashflow', label: 'Cashflow Forecast', icon: CalendarClock }
                             ]} 
                         />
                         

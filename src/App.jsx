@@ -12,6 +12,7 @@ import ExpenseDetails from './pages/ExpenseDetails';
 import Analytics from './pages/Analytics';
 import RecurringAnalytics from './pages/RecurringAnalytics';
 import DataHealth from './pages/DataHealth';
+import CashflowForecast from './pages/CashflowForecast';
 import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
@@ -162,6 +163,7 @@ function App() {
                                     <Route path="lents-loans/:id" element={<LentDetails />} />
                                     <Route path="recurring" element={<RecurringAnalytics />} />
                                     <Route path="data-health" element={<DataHealth />} />
+                                    <Route path="cashflow" element={<CashflowForecast />} />
                                     <Route path="fuel" element={<FuelAnalytics />} />
                                     <Route path="grocery-analytics" element={<GroceryAnalytics />} />
                                     <Route path="grocery-master-list" element={<GroceryMasterList />} />

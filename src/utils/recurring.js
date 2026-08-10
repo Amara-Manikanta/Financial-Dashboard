@@ -85,6 +85,13 @@ export const detectRecurring = (expenses, asOf = new Date()) => {
                     date, amount,
                     category: String(t.category || '').toLowerCase(),
                     displayTitle: title,
+                    // Which card paid, if any. The cashflow forecast needs this
+                    // to avoid double counting: a subscription billed to a card
+                    // is not a separate withdrawal from the bank, it arrives
+                    // inside that card's bill.
+                    card: t.paymentMode === 'credit_card'
+                        ? String(t.creditCardName || '').trim() || null
+                        : null,
                 });
             });
         });
