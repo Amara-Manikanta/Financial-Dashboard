@@ -6,6 +6,7 @@ import LentModal from '../components/LentModal';
 import LoanModal from '../components/LoanModal';
 import LoanPaymentModal from '../components/LoanPaymentModal';
 import EMICalculator from '../components/EMICalculator';
+import { lentOutstanding } from '../utils/lents';
 
 const DebtCard = ({ item, navigate, formatCurrency }) => {
     const isLent = item.type === 'lent';
@@ -183,24 +184,13 @@ const LentsAndLoans = () => {
         setExpandedHistory(prev => ({ ...prev, [loanId]: !prev[loanId] }));
     };
 
-    // Peer debts metrics
-    const totalLent = lents.filter(i => i.type === 'lent').reduce((sum, item) => {
-        const pending = (item.amount || 0) + (item.transactions || []).reduce((acc, tx) => {
-            if (tx.type === 'repayment') return acc - parseFloat(tx.amount);
-            if (tx.type === 'additional') return acc + parseFloat(tx.amount);
-            return acc;
-        }, 0);
-        return sum + pending;
-    }, 0);
+    // Peer debts metrics. The outstanding formula is shared with goals funded by
+    // money lent out, so the two pages cannot report different figures.
+    const totalLent = lents.filter(i => i.type === 'lent')
+        .reduce((sum, item) => sum + lentOutstanding(item), 0);
 
-    const totalBorrowed = lents.filter(i => i.type === 'borrowed').reduce((sum, item) => {
-        const pending = (item.amount || 0) + (item.transactions || []).reduce((acc, tx) => {
-            if (tx.type === 'repayment') return acc - parseFloat(tx.amount);
-            if (tx.type === 'additional') return acc + parseFloat(tx.amount);
-            return acc;
-        }, 0);
-        return sum + pending;
-    }, 0);
+    const totalBorrowed = lents.filter(i => i.type === 'borrowed')
+        .reduce((sum, item) => sum + lentOutstanding(item), 0);
 
     const filteredLents = lents.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||

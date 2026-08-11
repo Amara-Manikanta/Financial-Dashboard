@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Target, Plus, TrendingUp, Calendar, AlertCircle, Edit2, Trash2, CheckCircle2, Clock, DollarSign } from 'lucide-react';
 import GoalModal from '../components/GoalModal';
+import { lentOutstanding, receivableLents, totalReceivable } from '../utils/lents';
 
 const FinancialGoals = () => {
-    const { goals, savings, addItem, updateItem, deleteItem, formatCurrency, calculateItemCurrentValue } = useFinance();
+    const { goals, savings, lents, addItem, updateItem, deleteItem, formatCurrency, calculateItemCurrentValue } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingGoal, setEditingGoal] = useState(null);
     const [filterPriority, setFilterPriority] = useState('all');
@@ -18,8 +19,13 @@ const FinancialGoals = () => {
 
     // Helper to compute live value of funding source
     const getFundingSourceValue = (sourceCategory, manualVal = 0) => {
+        // A goal whose source has not been decided yet contributes nothing,
+        // rather than silently falling through to "all savings" and claiming
+        // progress it does not have.
+        if (sourceCategory === 'none') return 0;
         if (sourceCategory === 'manual') return manualVal;
-        
+        if (sourceCategory === 'lent') return totalReceivable(lents);
+
         const validSavings = (savings || []).filter(isItemActive);
 
         if (sourceCategory === 'all_savings') {
@@ -50,8 +56,13 @@ const FinancialGoals = () => {
             const itemId = src.itemId;
             const manualAmt = Number(src.manualAmount || 0);
 
-            if (cat === 'manual') {
+            if (cat === 'none') {
+                // Deliberately unfunded — contributes nothing.
+            } else if (cat === 'manual') {
                 total += manualAmt;
+            } else if (cat === 'lent' && itemId && itemId !== 'all') {
+                const found = receivableLents(lents).find(l => String(l.id) === String(itemId));
+                if (found) total += lentOutstanding(found);
             } else if (itemId && itemId !== 'all') {
                 if (String(itemId).startsWith('rd_')) {
                     const subId = String(itemId).replace('rd_', '');
@@ -343,9 +354,15 @@ const FinancialGoals = () => {
                                             {goal.diffDays < 0 ? `${Math.abs(goal.diffDays)} days ago` : `${goal.diffDays} days left`}
                                         </span>
                                         <span style={{ textTransform: 'capitalize', color: '#38bdf8', fontWeight: '500' }}>
-                                            Source: {(goal.fundingSources && goal.fundingSources.length > 1) 
-                                                ? `${goal.fundingSources.length} Linked Sources` 
-                                                : (goal.fundingSources?.[0]?.category || goal.fundingSource || 'all_savings').replace(/_/g, ' ')}
+                                            Source: {(() => {
+                                                const srcs = goal.fundingSources || [];
+                                                if (srcs.length > 1) return `${srcs.length} Linked Sources`;
+                                                const cat = srcs[0]?.category || goal.fundingSource || 'all_savings';
+                                                // Spelled out rather than shown as "none", which reads like an error.
+                                                if (cat === 'none') return 'not linked yet';
+                                                if (cat === 'lent') return 'money lent out';
+                                                return cat.replace(/_/g, ' ');
+                                            })()}
                                         </span>
                                     </div>
                                 </div>

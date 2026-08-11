@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { X, Target, Calendar, DollarSign, Layers, Plus, Trash2, CheckCircle2, FileText, Info } from 'lucide-react';
+import { lentOutstanding, receivableLents, totalReceivable } from '../utils/lents';
 
 const CATEGORY_OPTIONS = [
+    // A goal you have decided on but not yet funded is a real state. Forcing a
+    // source at creation time makes the goal claim progress it does not have.
+    { value: 'none', label: 'Not linked yet — decide the source later' },
     { value: 'all_savings', label: 'All Savings & Investments' },
     { value: 'all_investments', label: 'All Investment Portfolio (MFs + Stocks)' },
     { value: 'mutual_fund', label: 'Mutual Funds (All or Particular Fund)' },
@@ -16,11 +20,15 @@ const CATEGORY_OPTIONS = [
     { value: 'gratuity', label: 'Gratuity Fund / Accumulation' },
     { value: 'policy', label: 'Insurance Policies (All or Particular Policy)' },
     { value: 'emergency_fund', label: 'Emergency Fund' },
+    { value: 'lent', label: 'Money Lent Out (All or Particular Person)' },
     { value: 'manual', label: 'Manual Progress Amount' }
 ];
 
+/** Sources that contribute nothing and so need no item picker. */
+const EMPTY_SOURCE = 'none';
+
 const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
-    const { savings, formatCurrency, calculateItemCurrentValue } = useFinance();
+    const { savings, lents, formatCurrency, calculateItemCurrentValue } = useFinance();
 
     const [name, setName] = useState('');
     const [targetAmount, setTargetAmount] = useState('');
@@ -98,6 +106,12 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
         if (!itemId || itemId === 'all') return 0;
         const validSavings = (savings || []).filter(isItemActive);
 
+        // Money owed to you lives in `lents`, not `savings`.
+        if (cat === 'lent') {
+            const found = receivableLents(lents).find(l => String(l.id) === String(itemId));
+            return found ? lentOutstanding(found) : 0;
+        }
+
         // Check for sub-RD selection
         if (String(itemId).startsWith('rd_')) {
             const subId = String(itemId).replace('rd_', '');
@@ -133,6 +147,19 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
     const getSelectableItemsForCategory = (cat) => {
         const validSavings = (savings || []).filter(isItemActive);
         const options = [];
+
+        if (cat === EMPTY_SOURCE) return options;
+
+        if (cat === 'lent') {
+            receivableLents(lents).forEach((l) => {
+                options.push({
+                    id: l.id,
+                    title: `🎯 ${l.name || 'Unnamed'}${l.description ? ` — ${l.description.trim().split('\n')[0]}` : ''}`,
+                    val: lentOutstanding(l)
+                });
+            });
+            return options;
+        }
 
         if (cat === 'recurring_deposit') {
             validSavings.filter(s => s.type === 'recurring_deposit').forEach(s => {
@@ -207,10 +234,14 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
             const itemId = src.itemId;
             const manualAmt = Number(src.manualAmount || 0);
 
-            if (cat === 'manual') {
+            if (cat === EMPTY_SOURCE) {
+                // Contributes nothing on purpose.
+            } else if (cat === 'manual') {
                 total += manualAmt;
             } else if (itemId && itemId !== 'all') {
                 total += getItemValue(cat, itemId);
+            } else if (cat === 'lent') {
+                total += totalReceivable(lents);
             } else if (cat === 'all_savings') {
                 total += validSavings.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
             } else if (cat === 'all_investments') {
@@ -379,7 +410,7 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
                                 const category = src.category || 'all_savings';
                                 const showsSpecificItemDropdown = [
                                     'mutual_fund', 'recurring_deposit', 'fixed_deposit', 'stock_market',
-                                    'policy', 'ppf', 'pf', 'nps', 'sgb', 'gratuity', 'emergency_fund'
+                                    'policy', 'ppf', 'pf', 'nps', 'sgb', 'gratuity', 'emergency_fund', 'lent'
                                 ].includes(category);
 
                                 const itemOptions = getSelectableItemsForCategory(category);
@@ -434,14 +465,29 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
                                                         color: '#38bdf8', outline: 'none', fontSize: '0.85rem'
                                                     }}
                                                 >
-                                                    <option value="all">⚡ All Items in this Category</option>
+                                                    <option value="all">
+                                                        {category === 'lent' ? '⚡ Everyone who owes me' : '⚡ All Items in this Category'}
+                                                    </option>
                                                     {itemOptions.map(opt => (
                                                         <option key={opt.id} value={opt.id}>
                                                             {opt.title} ({formatCurrency(opt.val)})
                                                         </option>
                                                     ))}
                                                 </select>
+                                                {category === 'lent' && itemOptions.length === 0 && (
+                                                    <p style={{ fontSize: '0.7rem', color: '#71717a', margin: '0.4rem 0 0' }}>
+                                                        Nothing outstanding — fully repaid loans and money you borrowed are not listed.
+                                                    </p>
+                                                )}
                                             </div>
+                                        )}
+
+                                        {/* Nothing chosen yet */}
+                                        {category === EMPTY_SOURCE && (
+                                            <p style={{ fontSize: '0.75rem', color: '#71717a', margin: 0, lineHeight: 1.5 }}>
+                                                This goal will track its target and deadline but show no progress
+                                                until you link a source. Nothing is counted towards it.
+                                            </p>
                                         )}
 
                                         {/* Manual Input Field */}
