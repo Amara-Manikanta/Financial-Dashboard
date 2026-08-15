@@ -31,11 +31,11 @@ export const normaliseMerchant = (raw) => {
 };
 
 const CADENCES = [
-    { name: 'Weekly', days: 7, tolerance: 2, perYear: 52 },
-    { name: 'Monthly', days: 30, tolerance: 6, perYear: 12 },
-    { name: 'Quarterly', days: 91, tolerance: 12, perYear: 4 },
-    { name: 'Half-yearly', days: 182, tolerance: 20, perYear: 2 },
-    { name: 'Yearly', days: 365, tolerance: 40, perYear: 1 },
+    { name: 'Weekly', days: 7, tolerance: 3, perYear: 52 },
+    { name: 'Monthly', days: 30, tolerance: 8, perYear: 12 },
+    { name: 'Quarterly', days: 91, tolerance: 18, perYear: 4 },
+    { name: 'Half-yearly', days: 182, tolerance: 25, perYear: 2 },
+    { name: 'Yearly', days: 365, tolerance: 45, perYear: 1 },
 ];
 
 const toOrdinal = (iso) => {
@@ -85,10 +85,6 @@ export const detectRecurring = (expenses, asOf = new Date()) => {
                     date, amount,
                     category: String(t.category || '').toLowerCase(),
                     displayTitle: title,
-                    // Which card paid, if any. The cashflow forecast needs this
-                    // to avoid double counting: a subscription billed to a card
-                    // is not a separate withdrawal from the bank, it arrives
-                    // inside that card's bill.
                     card: t.paymentMode === 'credit_card'
                         ? String(t.creditCardName || '').trim() || null
                         : null,
@@ -110,9 +106,23 @@ export const detectRecurring = (expenses, asOf = new Date()) => {
         if (events.length < 3) return;
 
         const ordinals = events.map((e) => toOrdinal(e.date));
-        const gaps = [];
+
+        // Find the start index of the latest active segment (split on pauses > 180 days)
+        let latestSegmentStart = 0;
         for (let i = 1; i < ordinals.length; i += 1) {
-            const gap = ordinals[i] - ordinals[i - 1];
+            if (ordinals[i] - ordinals[i - 1] > 180) {
+                latestSegmentStart = i;
+            }
+        }
+
+        const evalEvents = (events.length - latestSegmentStart >= 3)
+            ? events.slice(latestSegmentStart)
+            : events;
+        const evalOrdinals = evalEvents.map((e) => toOrdinal(e.date));
+
+        const gaps = [];
+        for (let i = 1; i < evalOrdinals.length; i += 1) {
+            const gap = evalOrdinals[i] - evalOrdinals[i - 1];
             if (gap > 0) gaps.push(gap);
         }
         if (gaps.length < 2) return;
@@ -121,19 +131,17 @@ export const detectRecurring = (expenses, asOf = new Date()) => {
         const cadence = CADENCES.find((c) => Math.abs(medianGap - c.days) <= c.tolerance);
         if (!cadence) return;
 
-        const amounts = events.map((e) => e.amount);
-        const typical = median(amounts);
+        const evalAmounts = evalEvents.map((e) => e.amount);
+        const typical = median(evalAmounts);
         if (typical <= 0) return;
 
-        // Require most charges to sit near the typical amount, otherwise this is
-        // just a merchant visited regularly (a supermarket), not a subscription.
-        const nearTypical = amounts.filter((a) => Math.abs(a - typical) <= Math.max(1, 0.15 * typical));
-        if (nearTypical.length / amounts.length < 0.6) return;
+        const nearTypical = evalAmounts.filter((a) => Math.abs(a - typical) <= Math.max(100, 0.25 * typical));
+        if (nearTypical.length / evalAmounts.length < 0.5) return;
 
-        const lastOrd = ordinals[ordinals.length - 1];
-        const active = todayOrd - lastOrd < medianGap * 2.2;
+        const lastOrd = evalOrdinals[evalOrdinals.length - 1];
+        const active = todayOrd - lastOrd < Math.max(medianGap * 2.5, 60);
 
-        // Price movement: compare the earliest and latest charge.
+        const allAmounts = events.map((e) => e.amount);
         const firstAmount = events[0].amount;
         const lastAmount = events[events.length - 1].amount;
         const priceChangePct = firstAmount > 0
@@ -149,13 +157,13 @@ export const detectRecurring = (expenses, asOf = new Date()) => {
             medianGap,
             count: events.length,
             typical,
-            min: Math.min(...amounts),
-            max: Math.max(...amounts),
+            min: Math.min(...allAmounts),
+            max: Math.max(...allAmounts),
             first: events[0].date,
             last: events[events.length - 1].date,
             nextExpected: fromOrdinal(lastOrd + Math.round(medianGap)),
             active,
-            total: amounts.reduce((s, a) => s + a, 0),
+            total: allAmounts.reduce((s, a) => s + a, 0),
             annualRunRate: typical * cadence.perYear,
             firstAmount,
             lastAmount,

@@ -979,7 +979,7 @@ export function FinanceProvider({ children }) {
         // and silent data loss is this banner.
         if (isGuest) {
             setSaveError('Signed in as guest — nothing you enter is being saved. Sign in as admin and re-enter it.');
-            return;
+            return false;
         }
         try {
             const res = await fetch(`${API_URL}/expenses`, {
@@ -998,7 +998,7 @@ export function FinanceProvider({ children }) {
                     info.reason
                     || 'Another tab saved first. Reload this page before saving, or your change would erase theirs.'
                 );
-                return;
+                return false;
             }
             if (!res.ok) {
                 const detail = await res.text().catch(() => '');
@@ -1007,9 +1007,11 @@ export function FinanceProvider({ children }) {
 
             expensesVersion.current = res.headers?.get?.('X-DB-Version') || null;
             setSaveError(null);
+            return true;
         } catch (error) {
             console.error('Failed to save expenses:', error);
             setSaveError(`This did not save: ${error.message}. It is only on screen — do not reload until it is fixed.`);
+            return false;
         }
     };
 
@@ -1235,6 +1237,166 @@ export function FinanceProvider({ children }) {
             }
         }
     };
+
+    /**
+     * Undo the side effects a deleted expense had elsewhere.
+     *
+     * Deleting an expense row is never just one write: a linked SIP also holds
+     * units in a fund, and a bill payment also marks a card's statement paid.
+     * Single and bulk deletes both come through here so they cannot diverge —
+     * bulk delete previously did neither, leaving phantom units in a fund and
+     * a card still showing as paid.
+     *
+     * Called only AFTER the expense delete has persisted. Unwinding first would
+     * strip a holding while the transaction that paid for it still exists.
+     * Returns a message when something did not unwind, never silence.
+     */
+    const unwindDeletedExpenses = async (rows) => {
+        const problems = [];
+
+        for (const tx of rows) {
+            if (!tx?.investmentData) continue;
+            const invError = await syncExpenseDeleteToInvestment(tx.investmentData, tx.id);
+            if (invError) problems.push(invError);
+        }
+
+        // Cards are rebuilt from one working copy so two bill payments on the
+        // same card cannot overwrite each other.
+        const cardBills = rows.filter(tx =>
+            ['credit card bill', 'credit card payment'].includes((tx?.category || '').toLowerCase())
+            && tx.creditCardName
+        );
+        if (cardBills.length) {
+            const working = new Map();
+            const norm = (d) => (d || '').replace(/-/g, '/').split('/').map(p => p.padStart(2, '0')).join('-');
+
+            cardBills.forEach((tx) => {
+                const card = creditCards.find(c =>
+                    (c.name || '').toLowerCase().trim() === tx.creditCardName.toLowerCase().trim()
+                );
+                if (!card) return;
+                const key = String(card.id);
+                if (!working.has(key)) {
+                    working.set(key, { ...card, monthlyData: [...(card.monthlyData || [])] });
+                }
+                const updated = working.get(key);
+                const at = updated.monthlyData.findIndex(m => {
+                    if (!m.isPaid) return false;
+                    return norm(m.paidDate) === norm(tx.date) || Number(m.billAmount) === Number(tx.amount);
+                });
+                if (at === -1) return;
+                // A record the bill payment itself created is removed; a real
+                // statement is only marked unpaid again.
+                if (updated.monthlyData[at].points === 0
+                    && String(updated.monthlyData[at].remarks || '').includes('Bill payment')) {
+                    updated.monthlyData.splice(at, 1);
+                } else {
+                    updated.monthlyData[at] = {
+                        ...updated.monthlyData[at],
+                        isPaid: false,
+                        paidDate: null,
+                        remarks: (updated.monthlyData[at].remarks || '').replace(' (Paid)', '')
+                    };
+                }
+            });
+
+            for (const card of working.values()) {
+                try {
+                    const res = await fetch(`${API_URL}/creditCards/${card.id}`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(card)
+                    });
+                    if (!res.ok) problems.push(`${card.name} (HTTP ${res.status})`);
+                    else setCreditCards(prev => prev.map(c => (String(c.id) === String(card.id) ? card : c)));
+                } catch (e) {
+                    problems.push(`${card.name} (${e.message})`);
+                }
+            }
+        }
+
+        return problems.length ? `Not fully unwound: ${problems.join('; ')}` : null;
+    };
+
+    const bulkUpdateExpenses = async (updates) => {
+        if (!updates || updates.length === 0) return;
+        
+        const newExpenses = JSON.parse(JSON.stringify(expenses));
+        let changed = false;
+        
+        const updateMap = new Map();
+        updates.forEach(u => updateMap.set(String(u.id), u.patch || u));
+
+        Object.entries(newExpenses).forEach(([year, months]) => {
+            Object.entries(months).forEach(([month, monthData]) => {
+                if (monthData.transactions) {
+                    monthData.transactions.forEach((tx, idx) => {
+                        const patch = updateMap.get(String(tx.id));
+                        if (patch) {
+                            changed = true;
+                            const updatedTx = { ...tx, ...patch };
+                            if (patch.category) updatedTx.category = patch.category.toLowerCase();
+                            monthData.transactions[idx] = updatedTx;
+                            // The month's `categories` aggregate is not adjusted by
+                            // hand here: withRecomputedCategories below rebuilds it
+                            // from the transactions, so any arithmetic done at this
+                            // point is discarded. One formula, one place.
+                        }
+                    });
+                }
+            });
+        });
+
+        if (changed) {
+            const recomputed = withRecomputedCategories(newExpenses);
+            setExpenses(recomputed);
+            await saveExpenses(recomputed);
+        }
+    };
+
+    const bulkDeleteExpenses = async (ids) => {
+        if (!ids || ids.length === 0) return;
+        const idSet = new Set(ids.map(id => String(id)));
+        const newExpenses = JSON.parse(JSON.stringify(expenses));
+        let changed = false;
+
+        // Kept so their side effects can be undone once the delete has landed.
+        // A deleted SIP still holds units in a fund and a deleted bill payment
+        // still marks a statement paid; dropping the rows without these leaves
+        // holdings nobody can trace back to anything.
+        const removed = [];
+
+        Object.entries(newExpenses).forEach(([year, months]) => {
+            Object.entries(months).forEach(([month, monthData]) => {
+                if (monthData.transactions) {
+                    const remaining = [];
+                    monthData.transactions.forEach(tx => {
+                        if (idSet.has(String(tx.id))) {
+                            changed = true;
+                            removed.push(tx);
+                        } else {
+                            remaining.push(tx);
+                        }
+                    });
+                    monthData.transactions = remaining;
+                }
+            });
+        });
+
+        if (!changed) return;
+
+        const recomputed = withRecomputedCategories(newExpenses);
+        setExpenses(recomputed);
+        const saved = await saveExpenses(recomputed);
+
+        // Only unwind what really went away. Doing it after the save means a
+        // refused write leaves the holdings exactly as they were.
+        if (saved) {
+            const problem = await unwindDeletedExpenses(removed);
+            if (problem) setSaveError(`${problem}. The transactions were deleted; these were not updated.`);
+        }
+    };
+
 
     const parseLocalDate = (dateStr) => {
         if (!dateStr) return new Date();
@@ -1694,14 +1856,16 @@ export function FinanceProvider({ children }) {
         if (type === 'expense') {
             const newExpenses = { ...expenses };
             // Individual transaction delete
-            if (typeof id === 'string' && !id.includes('-')) {
+            if (id) {
                 let found = false;
-                let investmentToUnwind = null;
+                // The row itself, kept so its side effects can be undone once
+                // the delete has persisted. Shared with the bulk path.
+                let removedRow = null;
                 outer: for (const year of Object.keys(newExpenses)) {
                     for (const mth of Object.keys(newExpenses[year] || {})) {
                         const mData = newExpenses[year][mth];
                         if (!mData?.transactions) continue;
-                        const txIndex = mData.transactions.findIndex(t => t.id === id);
+                        const txIndex = mData.transactions.findIndex(t => String(t.id) === String(id));
                         if (txIndex === -1) continue;
 
                         // Deep clone this month before mutating
@@ -1721,53 +1885,12 @@ export function FinanceProvider({ children }) {
                         }
 
                         // Held until the expense delete has actually persisted.
-                        // Unwinding the holding first would strip units from the
-                        // fund while the transaction that paid for them survives.
-                        investmentToUnwind = tx.investmentData || null;
+                        // Unwinding first would strip units from a fund while the
+                        // transaction that paid for them survives.
+                        removedRow = tx;
 
                         monthData.transactions.splice(txIndex, 1);
                         found = true;
-
-                        // Handle Credit Card Bill deletion - normalise dates before comparing
-                        const isCreditCardBill = ['credit card bill', 'credit card payment'].includes((tx.category || '').toLowerCase());
-                        if (isCreditCardBill && tx.creditCardName) {
-                            const cardToUpdate = creditCards.find(c =>
-                                c.name.toLowerCase().trim() === tx.creditCardName.toLowerCase().trim()
-                            );
-                            if (cardToUpdate) {
-                                let updatedCard = { ...cardToUpdate, monthlyData: [...(cardToUpdate.monthlyData || [])] };
-                                const txDateNorm = (tx.date || '').replace(/-/g, '/').split('/').map(p => p.padStart(2,'0')).join('-');
-                                const recordIndex = updatedCard.monthlyData.findIndex(m => {
-                                    if (!m.isPaid) return false;
-                                    const paidNorm = (m.paidDate || '').replace(/-/g, '/').split('/').map(p => p.padStart(2,'0')).join('-');
-                                    return paidNorm === txDateNorm || Number(m.billAmount) === Number(tx.amount);
-                                });
-                                if (recordIndex !== -1) {
-                                    if (updatedCard.monthlyData[recordIndex].points === 0 &&
-                                        String(updatedCard.monthlyData[recordIndex].remarks || '').includes('Bill payment')) {
-                                        updatedCard.monthlyData.splice(recordIndex, 1);
-                                    } else {
-                                        updatedCard.monthlyData[recordIndex] = {
-                                            ...updatedCard.monthlyData[recordIndex],
-                                            isPaid: false,
-                                            paidDate: null,
-                                            remarks: (updatedCard.monthlyData[recordIndex].remarks || '').replace(' (Paid)', '')
-                                        };
-                                    }
-                                    fetch(`${API_URL}/creditCards/${updatedCard.id}`, {
-                                        method: 'PUT',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(updatedCard)
-                                    }).then(() => {
-                                        setCreditCards(prev => prev.map(c =>
-                                            String(c.id) === String(updatedCard.id) ? updatedCard : c
-                                        ));
-                                    }).catch(error => {
-                                        console.error("Error updating credit card after bill payment deletion:", error);
-                                    });
-                                }
-                            }
-                        }
                         break outer;
                     }
                 }
@@ -1788,11 +1911,10 @@ export function FinanceProvider({ children }) {
                         await saveExpenses(newExpenses);
                     }
 
-                    // Only now unwind the holding, and only if the expense
-                    // really went away.
-                    if (deleted && investmentToUnwind) {
-                        const invError = await syncExpenseDeleteToInvestment(investmentToUnwind, id);
-                        if (invError) setSaveError(`${invError}. The expense was deleted; the holding still has it.`);
+                    // Only now unwind, and only if the expense really went away.
+                    if (deleted && removedRow) {
+                        const problem = await unwindDeletedExpenses([removedRow]);
+                        if (problem) setSaveError(`${problem}. The expense was deleted; these were not updated.`);
                     }
                 }
                 return;
@@ -2036,7 +2158,7 @@ export function FinanceProvider({ children }) {
             const newCategory = item.category;
             const newAmount = Number(item.amount) || 0;
 
-            if (item.id && !String(item.id).includes('-')) {
+            if (item.id) {
                 let foundLocation = null;
                 // Find where the transaction is currently stored
                 Object.entries(newExpenses).forEach(([y, months]) => {
@@ -2521,6 +2643,8 @@ export function FinanceProvider({ children }) {
         saveCustomCategoryMap,
         deleteCategoryFromMap,
         renameCategoryInTransactions,
+        bulkUpdateExpenses,
+        bulkDeleteExpenses,
         customGroceryItems,
         addCustomGroceryItem,
         removeCustomGroceryItem,

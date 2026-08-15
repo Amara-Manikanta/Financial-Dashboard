@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { X, Target, Calendar, DollarSign, Layers, Plus, Trash2, CheckCircle2, FileText, Info } from 'lucide-react';
 import { lentOutstanding, receivableLents, totalReceivable } from '../utils/lents';
+import { GOAL_ICONS, GoalIconDisplay } from '../utils/goalIcons';
 
 const CATEGORY_OPTIONS = [
     // A goal you have decided on but not yet funded is a real state. Forcing a
@@ -31,6 +32,7 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
     const { savings, lents, formatCurrency, calculateItemCurrentValue } = useFinance();
 
     const [name, setName] = useState('');
+    const [icon, setIcon] = useState('home_3d');
     const [targetAmount, setTargetAmount] = useState('');
     const [deadline, setDeadline] = useState('');
     const [priority, setPriority] = useState('medium');
@@ -42,6 +44,7 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
     useEffect(() => {
         if (editingGoal) {
             setName(editingGoal.name || '');
+            setIcon(editingGoal.icon || 'Target');
             setTargetAmount(editingGoal.targetAmount ? String(editingGoal.targetAmount) : '');
             setDeadline(editingGoal.deadline || '');
             setPriority(editingGoal.priority || 'medium');
@@ -60,6 +63,7 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
             }
         } else {
             setName('');
+            setIcon('home_3d');
             setTargetAmount('');
             setDeadline(new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
             setPriority('medium');
@@ -269,6 +273,7 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
         const goalData = {
             id: editingGoal ? editingGoal.id : `goal_${Date.now()}`,
             name,
+            icon,
             targetAmount: Number(targetAmount) || 0,
             deadline,
             fundingSource: primarySource,
@@ -307,6 +312,45 @@ const GoalModal = ({ isOpen, onClose, onSave, editingGoal }) => {
                 </div>
 
                 <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Goal Icon Selector */}
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                            Choose Goal Icon
+                        </label>
+                        <div style={{
+                            display: 'flex', gap: '0.6rem', overflowX: 'auto', padding: '0.5rem 0.25rem',
+                            scrollbarWidth: 'thin', scrollbarColor: '#38bdf8 transparent'
+                        }}>
+                            {GOAL_ICONS.map(item => {
+                                const isSelected = icon === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        type="button"
+                                        onClick={() => setIcon(item.id)}
+                                        style={{
+                                            flexShrink: 0,
+                                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                                            gap: '0.35rem',
+                                            width: '68px', height: '68px',
+                                            borderRadius: '1rem',
+                                            backgroundColor: isSelected ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.03)',
+                                            border: isSelected ? '2px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.2s ease',
+                                            boxShadow: isSelected ? '0 0 12px rgba(56, 189, 248, 0.3)' : 'none'
+                                        }}
+                                    >
+                                        <GoalIconDisplay iconId={item.id} size={item.type === 'image' ? 28 : 22} />
+                                        <span style={{ fontSize: '9px', fontWeight: 'bold', color: isSelected ? '#38bdf8' : '#71717a', whiteSpace: 'nowrap', maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {item.label}
+                                        </span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+
                     <div>
                         <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Goal Name *</label>
                         <input

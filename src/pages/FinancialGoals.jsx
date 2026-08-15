@@ -3,6 +3,7 @@ import { useFinance } from '../context/FinanceContext';
 import { Target, Plus, TrendingUp, Calendar, AlertCircle, Edit2, Trash2, CheckCircle2, Clock, DollarSign } from 'lucide-react';
 import GoalModal from '../components/GoalModal';
 import { lentOutstanding, receivableLents, totalReceivable } from '../utils/lents';
+import { GoalIconDisplay } from '../utils/goalIcons';
 
 const FinancialGoals = () => {
     const { goals, savings, lents, addItem, updateItem, deleteItem, formatCurrency, calculateItemCurrentValue } = useFinance();
@@ -296,7 +297,16 @@ const FinancialGoals = () => {
                                             }}>
                                                 {badge.text}
                                             </span>
-                                            <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', marginTop: '0.5rem' }}>{goal.name}</h3>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                                                <div style={{
+                                                    width: '42px', height: '42px', borderRadius: '0.85rem',
+                                                    backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                                                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+                                                }}>
+                                                    <GoalIconDisplay iconId={goal.icon || (goal.name?.toLowerCase().includes('education') || goal.name?.toLowerCase().includes('study') || goal.name?.toLowerCase().includes('college') || goal.name?.toLowerCase().includes('degree') ? 'education' : (goal.name?.toLowerCase().includes('wedding') || goal.name?.toLowerCase().includes('marriage') || goal.name?.toLowerCase().includes('anniversary') ? 'wedding' : (goal.name?.toLowerCase().includes('travel') || goal.name?.toLowerCase().includes('vacation') || goal.name?.toLowerCase().includes('trip') || goal.name?.toLowerCase().includes('holiday') ? 'travel' : (goal.name?.toLowerCase().includes('car') || goal.name?.toLowerCase().includes('vehicle') || goal.name?.toLowerCase().includes('bike') ? 'car' : (goal.name?.toLowerCase().includes('emergenc') || goal.name?.toLowerCase().includes('medical') ? 'emergency' : (goal.name?.toLowerCase().includes('retire') ? 'retirement' : (goal.name?.toLowerCase().includes('invest') || goal.name?.toLowerCase().includes('wealth') ? 'investments' : (goal.name?.toLowerCase().includes('house') || goal.name?.toLowerCase().includes('home') ? 'home_3d' : 'Target'))))))))} size={26} />
+                                                </div>
+                                                <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold', color: 'white', margin: 0 }}>{goal.name}</h3>
+                                            </div>
                                         </div>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                                             <button
