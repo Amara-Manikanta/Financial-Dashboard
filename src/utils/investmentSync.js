@@ -22,6 +22,7 @@
 export const recomputeStockMetrics = (txList = []) => {
     let currentShares = 0;
     let totalCost = 0;
+    let realised = 0;
     const calculatedDividends = {};
 
     // Sort by date ascending: a split applies to whatever was held at the time,
@@ -37,6 +38,10 @@ export const recomputeStockMetrics = (txList = []) => {
             currentShares += qty;
         } else if (tx.type === 'sell' || tx.type === 'buyback') {
             const avgCost = currentShares > 0 ? totalCost / currentShares : 0;
+            // Booked on the shares actually held. A history that sells more than
+            // it holds is already clamped below, and letting the surplus book a
+            // gain would invent profit on shares that were never owned.
+            realised += Math.min(qty, currentShares) * (price - avgCost);
             currentShares = Math.max(0, currentShares - qty);
             totalCost = currentShares * avgCost;
         } else if (tx.type === 'bonus') {
@@ -60,7 +65,14 @@ export const recomputeStockMetrics = (txList = []) => {
     // replay, so rounding cannot compound across a long history — a cost basis
     // divided by three shares would otherwise render as 974.3366666666667.
     const finalAvgCost = currentShares > 0 ? Math.round((totalCost / currentShares) * 100) / 100 : 0;
-    return { shares: currentShares, avgCost: finalAvgCost, dividends: calculatedDividends };
+    // `realised` is additive to the existing return, so every caller that only
+    // destructures shares/avgCost/dividends is unaffected.
+    return {
+        shares: currentShares,
+        avgCost: finalAvgCost,
+        dividends: calculatedDividends,
+        realised: Math.round(realised * 100) / 100
+    };
 };
 
 /**

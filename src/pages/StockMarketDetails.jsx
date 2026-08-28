@@ -8,6 +8,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import StockTransactionModal from '../components/StockTransactionModal';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
+import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
 
 const StockTreemapContent = (props) => {
     const { depth, x, y, width, height, index, name, ticker, percentage, value } = props;
@@ -1794,6 +1795,14 @@ const StockMarketDetails = () => {
                         </div>
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+                            {/* Return, dividends, concentration and the gaps that
+                                distort them — all derived from the transaction
+                                history rather than the stored summary fields. */}
+                            <StockAnalyticsPanels
+                                stocks={stocks}
+                                formatCurrency={formatCurrency}
+                            />
+
                             {/* Dividend Performance Section */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
                                 {/* Dividend Overview Summary Card */}
