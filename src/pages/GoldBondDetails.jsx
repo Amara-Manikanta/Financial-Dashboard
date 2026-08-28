@@ -5,6 +5,7 @@ import { ArrowLeft, ScrollText, Plus, Edit2, Trash2, Coins } from 'lucide-react'
 import { formatDate } from '../utils/dateUtils';
 import SGBTransactionModal from '../components/SGBTransactionModal';
 import SGBInterestModal from '../components/SGBInterestModal';
+import { readHolding, writeHolding, holdingGain, totalValue } from '../utils/sgb';
 import BackButton from '../components/BackButton';
 
 const GoldBondDetails = () => {
@@ -36,15 +37,16 @@ const GoldBondDetails = () => {
     }
 
     const handleSaveHolding = (holdingData) => {
-        let updatedHoldings = [...sgb.holdings];
+        const updatedHoldings = [...sgb.holdings];
         if (editingIndex !== null) {
-            updatedHoldings[editingIndex] = holdingData;
+            // Written back in the stored shape, spread over the existing row so
+            // its id and any field this form does not expose survive.
+            updatedHoldings[editingIndex] = writeHolding(holdingData, sgb.holdings[editingIndex]);
         } else {
-            updatedHoldings.push(holdingData);
+            updatedHoldings.push(writeHolding(holdingData));
         }
 
-        const totalCurrentValue = updatedHoldings.reduce((sum, item) => sum + (item.units * item.currentPrice), 0);
-        updateItem('savings', { ...sgb, holdings: updatedHoldings, amount: totalCurrentValue });
+        updateItem('savings', { ...sgb, holdings: updatedHoldings, amount: totalValue(updatedHoldings) });
         setIsModalOpen(false);
         setEditingHolding(null);
         setEditingIndex(null);
@@ -53,8 +55,7 @@ const GoldBondDetails = () => {
     const handleDeleteHolding = (index) => {
         if (window.confirm('Delete this gold bond holding?')) {
             const updatedHoldings = sgb.holdings.filter((_, i) => i !== index);
-            const totalCurrentValue = updatedHoldings.reduce((sum, item) => sum + (item.units * item.currentPrice), 0);
-            updateItem('savings', { ...sgb, holdings: updatedHoldings, amount: totalCurrentValue });
+            updateItem('savings', { ...sgb, holdings: updatedHoldings, amount: totalValue(updatedHoldings) });
         }
     };
 
@@ -92,9 +93,13 @@ const GoldBondDetails = () => {
         }
     };
 
-    const totalUnits = sgb.holdings.reduce((sum, item) => sum + item.units, 0);
-    const totalInvested = sgb.holdings.reduce((sum, item) => sum + (item.units * item.issuePrice), 0);
-    const totalCurrentValue = sgb.holdings.reduce((sum, item) => sum + (item.units * item.currentPrice), 0);
+    // Through the normaliser: reading purchasePrice as `issuePrice` straight off
+    // the stored row gave undefined, so invested — and every figure derived from
+    // it — came out NaN.
+    const normalisedHoldings = sgb.holdings.map(readHolding);
+    const totalUnits = normalisedHoldings.reduce((sum, item) => sum + item.units, 0);
+    const totalInvested = normalisedHoldings.reduce((sum, item) => sum + (item.units * item.issuePrice), 0);
+    const totalCurrentValue = totalValue(sgb.holdings);
     const totalGain = totalCurrentValue - totalInvested;
     const gainPercentage = totalInvested > 0 ? (totalGain / totalInvested) * 100 : 0;
     const isProfit = totalGain >= 0;
@@ -201,8 +206,11 @@ const GoldBondDetails = () => {
                             </tr>
                         </thead>
                         <tbody className="text-sm font-bold">
-                            {sgb.holdings.map((item, index) => {
-                                const gain = (item.currentPrice - item.issuePrice) * item.units;
+                            {sgb.holdings.map((stored, index) => {
+                                // Read through the normaliser: these rows are stored
+                                // as issueName/issueDate/purchasePrice.
+                                const item = readHolding(stored);
+                                const gain = holdingGain(stored);
                                 return (
                                     <tr 
                                         key={index} 
@@ -225,6 +233,7 @@ const GoldBondDetails = () => {
                                             <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
                                                     onClick={() => { setEditingHolding(item); setEditingIndex(index); setIsModalOpen(true); }}
+                                                    type="button"
                                                     className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-110"
                                                     title="Edit"
                                                 >

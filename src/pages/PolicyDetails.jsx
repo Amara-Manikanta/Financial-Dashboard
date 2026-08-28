@@ -365,8 +365,19 @@ const PolicyDetails = () => {
                 </div>
                 <div className="pol-glass-panel">
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Term Dates</p>
-                    <p className="font-bold text-sm tracking-tight text-white mt-1">Start: {details.startDate}</p>
-                    <p className="font-bold text-sm tracking-tight text-white">End: {details.maturityDate}</p>
+                    <p className="font-bold text-sm tracking-tight text-white mt-1">
+                        Start: {details.startDate || <span className="text-gray-600">not recorded</span>}
+                    </p>
+                    <p className="font-bold text-sm tracking-tight text-white">
+                        End: {details.maturityDate || details.expiryDate || <span className="text-gray-600">not recorded</span>}
+                    </p>
+                    {(details.policyTerm || details.premiumPayingTerm) && (
+                        <p className="text-xs text-gray-500 mt-1.5">
+                            {details.policyTerm ? `${details.policyTerm} year term` : ''}
+                            {details.policyTerm && details.premiumPayingTerm ? ' · ' : ''}
+                            {details.premiumPayingTerm ? `paying ${details.premiumPayingTerm} years` : ''}
+                        </p>
+                    )}
                 </div>
                 <div className="pol-glass-panel">
                     <p className="text-gray-500 text-xs font-black uppercase tracking-widest mb-1">Total Amount To Be Paid</p>
@@ -394,6 +405,33 @@ const PolicyDetails = () => {
                     <p className="text-xs text-emerald-500/70 mt-1">Paid net of benefits</p>
                 </div>
             </div>
+
+            {/* What the plan promises. Kept next to what it has actually paid,
+                so the two can be compared without opening the policy document. */}
+            {(details.payoutSchedule || (details.benefitPoints || []).length > 0) && (
+                <div className="mb-6 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-6">
+                    <p className="mb-3 text-xs font-black uppercase tracking-widest text-emerald-400">
+                        What this policy gives back
+                    </p>
+
+                    {details.payoutSchedule && (
+                        <p className="mb-4 whitespace-pre-line text-sm leading-relaxed text-gray-300">
+                            {details.payoutSchedule}
+                        </p>
+                    )}
+
+                    {(details.benefitPoints || []).length > 0 && (
+                        <ul className="space-y-2">
+                            {details.benefitPoints.map((point, i) => (
+                                <li key={i} className="flex items-start gap-2.5 text-sm text-gray-300">
+                                    <span className="mt-[3px] text-emerald-400">•</span>
+                                    <span>{point}</span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
+            )}
 
             {/* Outstanding premiums, surfaced above the table so a missed payment
                 is visible without reading every row. */}

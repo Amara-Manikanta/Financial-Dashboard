@@ -13,8 +13,28 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
     const [sumAssured, setSumAssured] = useState(editingPolicy?.policyDetails?.sumAssured || editingPolicy?.amount || '');
     const [premiumAmount, setPremiumAmount] = useState(editingPolicy?.policyDetails?.premiumAmount || '');
     const [expiryDate, setExpiryDate] = useState(editingPolicy?.policyDetails?.maturityDate || editingPolicy?.policyDetails?.expiryDate || '');
+    // The policy page has always displayed a start date; nothing ever captured
+    // one, so every policy showed it blank.
+    const [startDate, setStartDate] = useState(editingPolicy?.policyDetails?.startDate || '');
+
+    // How long the policy runs, and how long you pay into it — different numbers
+    // on most LIC plans (Money Back 920 runs 20 years but is paid for 15).
+    // policyTerm stays free text because one of these is "Whole Life (100 Years)";
+    // premiumPayingTerm must stay numeric, since the policy page multiplies it by
+    // the premium to get the total contract value.
+    const [policyTerm, setPolicyTerm] = useState(editingPolicy?.policyDetails?.policyTerm ?? '');
+    const [premiumPayingTerm, setPremiumPayingTerm] = useState(editingPolicy?.policyDetails?.premiumPayingTerm ?? '');
     const [ncb, setNcb] = useState(editingPolicy?.policyDetails?.ncb || '0');
     const [notes, setNotes] = useState(editingPolicy?.policyDetails?.notes || '');
+
+    // What the plan promises, in your own words. This is the policy's
+    // description, kept separate from `benefits[]` on the record, which holds
+    // dated payouts with amounts. One is what the plan says; the other is what
+    // actually arrived.
+    const [payoutSchedule, setPayoutSchedule] = useState(editingPolicy?.policyDetails?.payoutSchedule || '');
+    const [benefitPoints, setBenefitPoints] = useState(editingPolicy?.policyDetails?.benefitPoints || []);
+
+    const isVehicle = category === 'bike' || category === 'car';
 
     const [isScanning, setIsScanning] = useState(false);
     const [scannedFileName, setScannedFileName] = useState('');
@@ -37,6 +57,11 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
         setExpiryDate(d.maturityDate || d.expiryDate || '');
         setNcb(d.ncb || '0');
         setNotes(d.notes || '');
+        setStartDate(d.startDate || '');
+        setPolicyTerm(d.policyTerm ?? '');
+        setPremiumPayingTerm(d.premiumPayingTerm ?? '');
+        setPayoutSchedule(d.payoutSchedule || '');
+        setBenefitPoints(Array.isArray(d.benefitPoints) ? d.benefitPoints : []);
         setScannedFileName('');
         setScanSuccess(false);
     }, [isOpen, editingPolicy]);
@@ -156,11 +181,18 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
                 vehicleNo: (category === 'bike' || category === 'car') ? vehicleNo : '',
                 sumAssured: Number(sumAssured) || 0,
                 premiumAmount: Number(premiumAmount) || 0,
+                startDate,
+                // Left as typed so "Whole Life (100 Years)" survives a round trip.
+                policyTerm: typeof policyTerm === 'string' ? policyTerm.trim() : policyTerm,
+                premiumPayingTerm: premiumPayingTerm === '' ? '' : Number(premiumPayingTerm) || '',
                 maturityDate: expiryDate,
                 expiryDate,
                 ncb: Number(ncb) || 0,
                 status: 'Active',
-                notes
+                notes,
+                payoutSchedule,
+                // Blank lines dropped so an empty row cannot render as a bullet.
+                benefitPoints: benefitPoints.map(p => String(p).trim()).filter(Boolean)
             },
             updatedAt: new Date().toISOString()
         };
@@ -348,14 +380,28 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
                         </div>
                     </div>
 
+                    <div>
+                        <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Policy Number</label>
+                        <input
+                            type="text"
+                            placeholder="POL-12345678"
+                            value={policyNumber}
+                            onChange={(e) => setPolicyNumber(e.target.value)}
+                            style={{
+                                width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
+                                backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                color: 'white', outline: 'none'
+                            }}
+                        />
+                    </div>
+
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Policy Number</label>
+                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Start Date</label>
                             <input
-                                type="text"
-                                placeholder="POL-12345678"
-                                value={policyNumber}
-                                onChange={(e) => setPolicyNumber(e.target.value)}
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
                                 style={{
                                     width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
                                     backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
@@ -365,7 +411,9 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
                         </div>
 
                         <div>
-                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>Expiry / Renewal Date</label>
+                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>
+                                {isVehicle ? 'Expiry / Renewal Date' : 'Maturity / Expiry Date'}
+                            </label>
                             <input
                                 type="date"
                                 value={expiryDate}
@@ -378,6 +426,157 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
                             />
                         </div>
                     </div>
+
+                    {startDate && expiryDate && new Date(expiryDate) <= new Date(startDate) && (
+                        <p style={{ fontSize: '0.75rem', color: '#fbbf24', margin: '-0.5rem 0 0' }}>
+                            The end date is not after the start date — check them.
+                        </p>
+                    )}
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>
+                                Policy Term (years)
+                            </label>
+                            <input
+                                type="text"
+                                placeholder="20"
+                                value={policyTerm}
+                                onChange={(e) => setPolicyTerm(e.target.value)}
+                                style={{
+                                    width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'white', outline: 'none'
+                                }}
+                            />
+                            <p style={{ fontSize: '0.7rem', color: '#71717a', margin: '0.3rem 0 0' }}>
+                                How long the cover runs. Free text, so "Whole Life" works.
+                            </p>
+                        </div>
+
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                <label style={{ fontSize: '0.85rem', color: '#a1a1aa' }}>Premium Paying Term (years)</label>
+                                {premiumPayingTerm > 0 && premiumAmount > 0 && (
+                                    <span style={{ color: '#c084fc', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                                        {formatCurrency(Number(premiumAmount) * Number(premiumPayingTerm))}
+                                    </span>
+                                )}
+                            </div>
+                            <input
+                                type="number"
+                                min="0"
+                                placeholder="15"
+                                value={premiumPayingTerm}
+                                onChange={(e) => setPremiumPayingTerm(e.target.value)}
+                                style={{
+                                    width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'white', outline: 'none'
+                                }}
+                            />
+                            <p style={{ fontSize: '0.7rem', color: '#71717a', margin: '0.3rem 0 0' }}>
+                                How many years you actually pay. Drives the total contract value.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Cross-check against the dates, which are entered separately
+                        and are the thing most likely to be wrong. */}
+                    {startDate && expiryDate && Number(policyTerm) > 0 && new Date(expiryDate) > new Date(startDate) && (() => {
+                        const actual = (new Date(expiryDate) - new Date(startDate)) / (365.25 * 86400000);
+                        const off = Math.abs(actual - Number(policyTerm));
+                        return off > 1 ? (
+                            <p style={{ fontSize: '0.75rem', color: '#fbbf24', margin: '-0.5rem 0 0' }}>
+                                Those dates are {actual.toFixed(1)} years apart, but the term says {policyTerm}. One of them is wrong.
+                            </p>
+                        ) : null;
+                    })()}
+
+                    {/* A vehicle policy pays out only on a claim, so a payout
+                        schedule would be meaningless there. */}
+                    {!isVehicle && (
+                        <div style={{
+                            border: '1px solid rgba(52, 211, 153, 0.2)', backgroundColor: 'rgba(52, 211, 153, 0.04)',
+                            borderRadius: '1rem', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '1rem'
+                        }}>
+                            <div>
+                                <label style={{ display: 'block', fontSize: '0.85rem', color: '#34d399', fontWeight: 'bold', marginBottom: '0.4rem' }}>
+                                    When money comes back
+                                </label>
+                                <textarea
+                                    value={payoutSchedule}
+                                    onChange={(e) => setPayoutSchedule(e.target.value)}
+                                    placeholder="e.g. 20% of sum assured at the end of years 5, 10 and 15, then the balance plus bonus at year 20"
+                                    style={{
+                                        width: '100%', minHeight: '70px', resize: 'vertical',
+                                        padding: '0.75rem 1rem', borderRadius: '0.75rem',
+                                        backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                        color: 'white', outline: 'none', fontFamily: 'inherit', fontSize: '0.875rem'
+                                    }}
+                                />
+                                <p style={{ fontSize: '0.7rem', color: '#71717a', margin: '0.35rem 0 0' }}>
+                                    In your own words — how long you keep paying and when each payout is due.
+                                </p>
+                            </div>
+
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
+                                    <label style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 'bold' }}>Benefits</label>
+                                    <button
+                                        type="button"
+                                        onClick={() => setBenefitPoints(prev => [...prev, ''])}
+                                        style={{
+                                            padding: '0.3rem 0.7rem', backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                                            color: '#34d399', border: '1px solid rgba(52, 211, 153, 0.3)',
+                                            borderRadius: '0.5rem', fontSize: '0.75rem', fontWeight: 'bold', cursor: 'pointer'
+                                        }}
+                                    >
+                                        + Add point
+                                    </button>
+                                </div>
+
+                                {benefitPoints.length === 0 && (
+                                    <p style={{ fontSize: '0.75rem', color: '#71717a', margin: 0 }}>
+                                        No benefits listed. Add them as points so they are readable years from now.
+                                    </p>
+                                )}
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {benefitPoints.map((point, idx) => (
+                                        <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                                            <span style={{ color: '#34d399', fontWeight: 'bold' }}>•</span>
+                                            <input
+                                                type="text"
+                                                value={point}
+                                                onChange={(e) => setBenefitPoints(prev =>
+                                                    prev.map((p, i) => (i === idx ? e.target.value : p))
+                                                )}
+                                                placeholder="e.g. Death benefit paid on top of survival payouts already received"
+                                                style={{
+                                                    flex: 1, padding: '0.6rem 0.85rem', borderRadius: '0.6rem',
+                                                    backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                                    color: 'white', outline: 'none', fontSize: '0.85rem'
+                                                }}
+                                            />
+                                            <button
+                                                type="button"
+                                                aria-label={`Remove benefit ${idx + 1}`}
+                                                onClick={() => setBenefitPoints(prev => prev.filter((_, i) => i !== idx))}
+                                                style={{
+                                                    padding: '0.5rem', backgroundColor: 'rgba(248, 113, 113, 0.1)',
+                                                    color: '#f87171', border: '1px solid rgba(248, 113, 113, 0.2)',
+                                                    borderRadius: '0.5rem', cursor: 'pointer', lineHeight: 1
+                                                }}
+                                            >
+                                                <X size={14} />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                         <button
