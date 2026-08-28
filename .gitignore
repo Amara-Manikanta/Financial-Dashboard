@@ -83,3 +83,6 @@ add_credit_cards_key.cjs
 update_db_lents.cjs
 test_lents_backend.js
 verify_persistence.js
+
+# Local Claude Code config — machine-specific, not part of the app.
+.claude/
