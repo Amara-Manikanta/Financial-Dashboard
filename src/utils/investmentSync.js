@@ -56,7 +56,10 @@ export const recomputeStockMetrics = (txList = []) => {
         }
     });
 
-    const finalAvgCost = currentShares > 0 ? totalCost / currentShares : 0;
+    // Rounded only at the end. `totalCost` keeps full precision through the
+    // replay, so rounding cannot compound across a long history — a cost basis
+    // divided by three shares would otherwise render as 974.3366666666667.
+    const finalAvgCost = currentShares > 0 ? Math.round((totalCost / currentShares) * 100) / 100 : 0;
     return { shares: currentShares, avgCost: finalAvgCost, dividends: calculatedDividends };
 };
 

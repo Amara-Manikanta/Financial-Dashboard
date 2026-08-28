@@ -22,7 +22,11 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setName(initialData.name || '');
             setTicker(initialData.ticker || '');
             setShares(initialData.shares !== undefined && initialData.shares !== null ? initialData.shares : '');
-            setAvgCost(initialData.avgCost !== undefined && initialData.avgCost !== null ? initialData.avgCost : '');
+            // Rounded for the field too, so a holding saved before the formula
+            // rounded does not present its stored 974.3366666666667 for editing.
+            setAvgCost(initialData.avgCost !== undefined && initialData.avgCost !== null
+                ? Math.round(Number(initialData.avgCost) * 100) / 100
+                : '');
             setCurrentPrice(initialData.currentPrice !== undefined && initialData.currentPrice !== null ? initialData.currentPrice : '');
             setRemarks(initialData.remarks || '');
             setCustomValues(initialData.customValues || {});
@@ -57,7 +61,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             name,
             ticker,
             shares: shares !== '' ? parseFloat(shares) : 0,
-            avgCost: avgCost !== '' ? parseFloat(avgCost) : 0,
+            avgCost: avgCost !== '' ? Math.round(parseFloat(avgCost) * 100) / 100 : 0,
             currentPrice: currentPrice !== '' ? parseFloat(currentPrice) : 0,
             remarks,
             customValues,
