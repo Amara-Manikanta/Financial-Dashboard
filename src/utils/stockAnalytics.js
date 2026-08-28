@@ -17,6 +17,18 @@ const num = (v) => Number(v) || 0;
 const money = (v) => Math.round(num(v) * 100) / 100;
 
 /**
+ * Archiving a stock is the user saying "stop showing me this", so it is dropped
+ * from every figure here — including its realised profit and dividends, which
+ * would otherwise keep moving totals for a holding deliberately put away.
+ *
+ * Applied inside each exported function rather than left to callers, so a new
+ * view cannot quietly reintroduce archived rows. A position that was simply
+ * sold out is NOT archived: shares of zero means closed, and closed positions
+ * are exactly what the realised figure exists to report.
+ */
+const visible = (stocks = []) => stocks.filter((s) => s && !s.isArchived);
+
+/**
  * One stock, reduced to the figures the analytics views need.
  *
  * `shares` is taken from the stored field rather than the replay: a holding
@@ -60,7 +72,7 @@ export const stockSummary = (stock = {}) => {
 /** Dividend income per calendar year across the whole portfolio. */
 export const dividendsByYear = (stocks = []) => {
     const years = {};
-    stocks.forEach((s) => {
+    visible(stocks).forEach((s) => {
         const { dividendsByYear: byYear } = stockSummary(s);
         Object.entries(byYear).forEach(([year, amount]) => {
             years[year] = (years[year] || 0) + num(amount);
@@ -72,7 +84,7 @@ export const dividendsByYear = (stocks = []) => {
 };
 
 /** Which holdings actually pay you, biggest first. */
-export const topDividendPayers = (stocks = [], limit = 6) => stocks
+export const topDividendPayers = (stocks = [], limit = 6) => visible(stocks)
     .map(stockSummary)
     .filter((s) => s.dividends > 0)
     .sort((a, b) => b.dividends - a.dividends)
@@ -85,7 +97,7 @@ export const topDividendPayers = (stocks = [], limit = 6) => stocks
  * look diversified across 35 names while a third of it rides on five.
  */
 export const concentration = (stocks = [], topN = 5) => {
-    const held = stocks.map(stockSummary).filter((s) => s.held && s.value > 0);
+    const held = visible(stocks).map(stockSummary).filter((s) => s.held && s.value > 0);
     const total = held.reduce((sum, s) => sum + s.value, 0);
     const ranked = [...held].sort((a, b) => b.value - a.value);
     const top = ranked.slice(0, topN);
@@ -109,7 +121,7 @@ export const concentration = (stocks = [], topN = 5) => {
 
 /** Holdings ranked by unrealised gain — what is actually driving the total. */
 export const winnersAndLosers = (stocks = [], limit = 5) => {
-    const held = stocks.map(stockSummary)
+    const held = visible(stocks).map(stockSummary)
         .filter((s) => s.held && s.invested > 0 && !s.priceUnknown);
     const ranked = [...held].sort((a, b) => b.unrealised - a.unrealised);
     return {
@@ -125,7 +137,7 @@ export const winnersAndLosers = (stocks = [], limit = 5) => {
  * them, so the percentages already on screen are wrong by exactly this much.
  */
 export const unclassified = (stocks = []) => {
-    const held = stocks.map(stockSummary).filter((s) => s.held);
+    const held = visible(stocks).map(stockSummary).filter((s) => s.held);
     const priced = held.filter((s) => s.value > 0);
     const noSector = priced.filter((s) => s.sector === UNCLASSIFIED);
     const noCap = priced.filter((s) => s.marketCap === UNCLASSIFIED);
@@ -149,7 +161,7 @@ export const unclassified = (stocks = []) => {
  * positions actually banked; dividends are cash that arrived regardless of price.
  */
 export const portfolioTotals = (stocks = []) => {
-    const all = stocks.map(stockSummary);
+    const all = visible(stocks).map(stockSummary);
     const held = all.filter((s) => s.held);
 
     const invested = held.reduce((sum, s) => sum + s.invested, 0);
@@ -182,7 +194,7 @@ export const portfolioTotals = (stocks = []) => {
  * headline that quietly includes it would be misleading rather than wrong.
  */
 export const realisedOutliers = (stocks = [], multipleOfPortfolio = 1) => {
-    const all = stocks.map(stockSummary);
+    const all = visible(stocks).map(stockSummary);
     const value = all.filter((s) => s.held).reduce((sum, s) => sum + s.value, 0);
     if (value <= 0) return [];
     return all
