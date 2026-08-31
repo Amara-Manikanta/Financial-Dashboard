@@ -8,6 +8,8 @@ import BackButton from '../components/BackButton';
 import MutualFundEditModal from '../components/MutualFundEditModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine } from 'recharts';
 import { recomputeFundUnits } from '../utils/investmentSync';
+import FundCompositionModal from '../components/FundCompositionModal';
+import FundCompositionPanel from '../components/FundCompositionPanel';
 
 const MutualFundDetails = () => {
     const { id } = useParams();
@@ -19,10 +21,26 @@ const MutualFundDetails = () => {
     const [editingTx, setEditingTx] = useState(null);
 
     const [isFundEditModalOpen, setIsFundEditModalOpen] = useState(false);
+    const [isCompositionModalOpen, setIsCompositionModalOpen] = useState(false);
+    // These two lived below the `if (!fund) return` further down, so on a direct
+    // page load — where `savings` is still empty and that early return fires —
+    // React saw fewer hooks on the first render than the second and crashed the
+    // page with "Rendered more hooks than during the previous render". Every
+    // hook has to run on every render, so they belong above any early return.
+    const [selectedYear, setSelectedYear] = useState('All');
+    const [currentPage, setCurrentPage] = useState(1);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [refreshMessage, setRefreshMessage] = useState({ type: '', text: '' });
 
     const fund = savings.find(s => s.id.toString() === id);
+
+    // Spread the fund, never rebuild it — the write guard refuses a payload that
+    // drops the transactions this record carries, and rightly so.
+    const handleSaveComposition = async (composition) => {
+        if (!fund) return;
+        await updateItem('savings', { ...fund, composition });
+        setIsCompositionModalOpen(false);
+    };
 
     const currentNav = fund ? (fund.currentNav || 0) : 0;
 
@@ -109,20 +127,6 @@ const MutualFundDetails = () => {
         };
     }, [fund, currentNav, calculateItemCurrentValue, calculateItemInvestedValue]);
 
-    if (!fund) {
-        return (
-            <div style={{ padding: 'var(--spacing-lg)' }}>
-                <p>Mutual Fund not found.</p>
-                <button
-                    onClick={() => navigate(-1)}
-                    className="text-primary hover:underline mt-4"
-                >
-                    Back to Savings
-                </button>
-            </div>
-        );
-    }
-
     const {
         currentTotalValue,
         total_cost_held,
@@ -134,8 +138,6 @@ const MutualFundDetails = () => {
         total_profit
     } = fundCalcs;
 
-    const [selectedYear, setSelectedYear] = useState('All');
-    const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 8;
 
     const getFinancialYear = (dateStr) => {
@@ -262,6 +264,28 @@ const MutualFundDetails = () => {
             updateItem('savings', { ...fund, isArchived: !fund.isArchived });
         }
     };
+
+    // Below every hook, deliberately.
+    //
+    // This guard used to sit above five useMemo calls and two useState calls.
+    // On a direct page load `savings` is still empty, so the first render took
+    // this branch and ran seven fewer hooks than the second — React refuses
+    // that, and the page died with "Rendered more hooks than during the
+    // previous render" on every refresh. Hooks must run unconditionally; the
+    // early exit belongs here, where nothing follows it but the render.
+    if (!fund) {
+        return (
+            <div style={{ padding: 'var(--spacing-lg)' }}>
+                <p>Mutual Fund not found.</p>
+                <button
+                    onClick={() => navigate(-1)}
+                    className="text-primary hover:underline mt-4"
+                >
+                    Back to Savings
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }} className="animate-fade-in">
@@ -522,6 +546,13 @@ const MutualFundDetails = () => {
                 </div>
             )}
 
+            <FundCompositionPanel
+                fund={fund}
+                fundValue={fundCalcs.currentTotalValue}
+                formatCurrency={formatCurrency}
+                onEdit={() => setIsCompositionModalOpen(true)}
+            />
+
             <div className="mf-table-container">
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -721,6 +752,13 @@ const MutualFundDetails = () => {
                 onClose={() => { setIsTxModalOpen(false); setEditingTx(null); }}
                 onSave={handleSaveTransaction}
                 initialData={editingTx}
+            />
+
+            <FundCompositionModal
+                isOpen={isCompositionModalOpen}
+                onClose={() => setIsCompositionModalOpen(false)}
+                onSave={handleSaveComposition}
+                fund={fund}
             />
 
             <MutualFundEditModal
