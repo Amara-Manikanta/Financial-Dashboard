@@ -1,13 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { 
-  NIFTY_50_STOCKS, 
-  NIFTY_NEXT_50_STOCKS, 
-  HDFC_FLEXI_CAP_WEIGHTS, 
-  SBI_SMALL_CAP_WEIGHTS,
-  ALL_BENCHMARK_STOCKS
-} from '../utils/nifty50Data';
+import { ALL_BENCHMARK_STOCKS } from '../utils/nifty50Data';
+import { readComposition } from '../utils/fundComposition';
+import { sectorFor, capFor } from '../utils/sectors';
 import BackButton from '../components/BackButton';
 import { 
   TrendingUp, 
@@ -142,8 +138,12 @@ const Nifty50Exposure = () => {
           map[key] = {
             symbol: matched ? matched.symbol : rawTitle.toUpperCase(),
             name: matched ? matched.name : (stock.name || stock.title || stock.symbol),
-            sector: matched ? matched.sector : 'Other',
-            cap: matched ? matched.cap : 'Mid Cap',
+            // The stock's own sector and cap win. Reading only the benchmark
+            // table filed every non-index holding under "Other" — nine of the
+            // thirty-four held here — even though each had a sector set on its
+            // own record.
+            sector: sectorFor(stock.sector, matched && matched.sector),
+            cap: capFor(stock.marketCap, matched && matched.cap),
             shares: 0,
             value: 0
           };
@@ -189,37 +189,43 @@ const Nifty50Exposure = () => {
       entry.directShares = d.shares;
     });
 
-    // Indirect 1: Nippon India Index Fund Nifty 50
+    // Indirect exposure, one fund at a time.
+    //
+    // Each fund's weights come from readComposition, which prefers a
+    // composition recorded on the fund record and falls back to the built-in
+    // table only while none has been entered. The four blocks that used to
+    // read NIFTY_50_STOCKS and friends directly are gone: a composition edited
+    // on the fund's own page has to change these figures, or the two screens
+    // disagree about the same fund.
+    const applyFund = (fund, fundValue, field, defaultCap) => {
+      if (!fund || fundValue <= 0) return;
+      const { holdings } = readComposition(fund);
+      holdings.forEach(h => {
+        // Only equity contributes to a stock overlap. A debt fund's issuers are
+        // credit exposure, not shares, and must never be added to a share count.
+        if (h.assetClass !== 'equity') return;
+        const known = ALL_BENCHMARK_STOCKS.find(s => s.symbol === h.symbol);
+        const entry = ensureStock(
+          h.symbol,
+          h.name || (known ? known.name : h.symbol),
+          sectorFor(h.sector, known && known.sector),
+          capFor(null, known && known.cap, defaultCap)
+        );
+        entry[field] = fundValue * (h.weight / 100);
+      });
+    };
+
     if (selectedFundView === 'all' || selectedFundView === 'nippon_nifty50') {
-      NIFTY_50_STOCKS.forEach(nifty => {
-        const entry = ensureStock(nifty.symbol, nifty.name, nifty.sector, 'Large Cap');
-        entry.nipponVal = nipponVal * (nifty.weight / 100);
-      });
+      applyFund(nipponNifty50Fund, nipponVal, 'nipponVal', 'Large Cap');
     }
-
-    // Indirect 2: ICICI Prudential Nifty Next 50
     if (selectedFundView === 'all' || selectedFundView === 'icici_next50') {
-      NIFTY_NEXT_50_STOCKS.forEach(next => {
-        const entry = ensureStock(next.symbol, next.name, next.sector, 'Mid Cap');
-        entry.iciciNext50Val = iciciNext50Val * (next.weight / 100);
-      });
+      applyFund(iciciNext50Fund, iciciNext50Val, 'iciciNext50Val', 'Mid Cap');
     }
-
-    // Indirect 3: HDFC Flexi Cap Fund
     if (selectedFundView === 'all' || selectedFundView === 'hdfc_flexicap') {
-      Object.entries(HDFC_FLEXI_CAP_WEIGHTS).forEach(([symbol, weight]) => {
-        const matched = NIFTY_50_STOCKS.find(s => s.symbol === symbol) || NIFTY_NEXT_50_STOCKS.find(s => s.symbol === symbol);
-        const entry = ensureStock(symbol, matched ? matched.name : symbol, matched ? matched.sector : 'General', 'Large Cap');
-        entry.hdfcFlexiVal = hdfcFlexiVal * (weight / 100);
-      });
+      applyFund(hdfcFlexiFund, hdfcFlexiVal, 'hdfcFlexiVal', 'Large Cap');
     }
-
-    // Indirect 4: SBI Small Cap Fund
     if (selectedFundView === 'all' || selectedFundView === 'sbi_smallcap') {
-      Object.entries(SBI_SMALL_CAP_WEIGHTS).forEach(([symbol, data]) => {
-        const entry = ensureStock(symbol, data.name, data.sector, 'Small Cap');
-        entry.sbiSmallCapVal = sbiSmallCapVal * (data.weight / 100);
-      });
+      applyFund(sbiSmallCapFund, sbiSmallCapVal, 'sbiSmallCapVal', 'Small Cap');
     }
 
     // Sum totals & calculate percentages
@@ -246,7 +252,8 @@ const Nifty50Exposure = () => {
         status
       };
     }).filter(s => s.totalVal > 0);
-  }, [directStockMap, nipponVal, iciciNext50Val, hdfcFlexiVal, sbiSmallCapVal, totalPortfolioValue, selectedFundView]);
+  }, [directStockMap, nipponNifty50Fund, iciciNext50Fund, hdfcFlexiFund, sbiSmallCapFund,
+      nipponVal, iciciNext50Val, hdfcFlexiVal, sbiSmallCapVal, totalPortfolioValue, selectedFundView]);
 
   // Market Cap Distribution Breakdown
   const marketCapDistribution = useMemo(() => {
@@ -291,9 +298,15 @@ const Nifty50Exposure = () => {
     })).sort((a, b) => b.totalVal - a.totalVal);
   }, [consolidatedExposures, totalPortfolioValue]);
 
+  // One colour per sector, with none repeating. The list held 11 while the
+  // portfolio spans 17 sectors, and the index wraps — so once the chart stopped
+  // truncating, two different slices would have shared a colour and the legend
+  // could no longer identify them.
   const SECTOR_COLORS = [
-    '#818cf8', '#34d399', '#f59e0b', '#ec4899', '#3b82f6', 
-    '#84cc16', '#f97316', '#06b6d4', '#a855f7', '#ef4444', '#64748b'
+    '#818cf8', '#34d399', '#f59e0b', '#ec4899', '#3b82f6',
+    '#84cc16', '#f97316', '#06b6d4', '#a855f7', '#ef4444', '#64748b',
+    '#facc15', '#2dd4bf', '#c084fc', '#fb7185', '#4ade80', '#38bdf8',
+    '#e879f9', '#fbbf24', '#94a3b8', '#f472b6'
   ];
 
   // Sectors list
@@ -551,12 +564,16 @@ const Nifty50Exposure = () => {
             <h4 style={{ fontSize: '1rem', fontWeight: '800', color: 'white', margin: '0 0 1.25rem 0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <Building2 size={16} style={{ color: '#818cf8' }} /> Sector Exposure Breakdown (₹ Value)
             </h4>
-            <div style={{ height: 300, width: '100%' }}>
+            {/* Every sector, not the top 8. Truncating a breakdown hides the
+                long tail without saying so — the chart looked complete while a
+                third of the portfolio was missing from it. Height grows with
+                the count so the angled labels stay readable. */}
+            <div style={{ height: Math.max(300, 140 + sectorAnalytics.length * 26), width: '100%' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={sectorAnalytics.slice(0, 8)} margin={{ top: 10, right: 10, left: -15, bottom: 25 }}>
+                <BarChart data={sectorAnalytics} layout="vertical" margin={{ top: 10, right: 20, left: 45, bottom: 10 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="shortName" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-25} textAnchor="end" />
-                  <YAxis stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 100000 ? (val / 100000).toFixed(1) + 'L' : val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`} />
+                  <XAxis type="number" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 100000 ? (val / 100000).toFixed(1) + 'L' : val >= 1000 ? (val / 1000).toFixed(0) + 'k' : val}`} />
+                  <YAxis type="category" dataKey="shortName" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} interval={0} width={110} />
                   <RechartsTooltip 
                     formatter={(val, name) => [formatCurrency(val), name]} 
                     contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', color: '#ffffff' }} 
@@ -564,8 +581,9 @@ const Nifty50Exposure = () => {
                     labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '11px', color: '#a1a1aa' }} />
-                  <Bar dataKey="directVal" name="Direct Stocks" fill="#34d399" radius={[4, 4, 0, 0]} stackId="a" />
-                  <Bar dataKey="indirectVal" name="Indirect MFs" fill="#818cf8" radius={[4, 4, 0, 0]} stackId="a" />
+                  {/* Bars run horizontally now, so only the outer end of the stack is rounded. */}
+                  <Bar dataKey="directVal" name="Direct Stocks" fill="#34d399" stackId="a" />
+                  <Bar dataKey="indirectVal" name="Indirect MFs" fill="#818cf8" radius={[0, 4, 4, 0]} stackId="a" />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -591,7 +609,7 @@ const Nifty50Exposure = () => {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart key={JSON.stringify(sectorAnalytics.map(s => s.totalVal))}>
                     <Pie
-                      data={sectorAnalytics.slice(0, 8)}
+                      data={sectorAnalytics}
                       cx="50%"
                       cy="50%"
                       outerRadius={80}
@@ -600,7 +618,7 @@ const Nifty50Exposure = () => {
                       stroke="#18181b"
                       strokeWidth={2}
                     >
-                      {sectorAnalytics.slice(0, 8).map((entry, index) => (
+                      {sectorAnalytics.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={SECTOR_COLORS[index % SECTOR_COLORS.length]} />
                       ))}
                     </Pie>
@@ -614,8 +632,8 @@ const Nifty50Exposure = () => {
                 </ResponsiveContainer>
               </div>
 
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minWidth: '180px' }}>
-                {sectorAnalytics.slice(0, 6).map((sec, index) => (
+              <div className="custom-scrollbar" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, minWidth: '180px', maxHeight: '210px', overflowY: 'auto', paddingRight: '0.25rem' }}>
+                {sectorAnalytics.map((sec, index) => (
                   <div key={sec.sector} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px' }}>
                     <span style={{ color: 'white', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: SECTOR_COLORS[index % SECTOR_COLORS.length] }}></span>

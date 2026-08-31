@@ -54,6 +54,18 @@ const findAmputations = (before, after, path, problems, depth = 0) => {
     if (!after || typeof after !== 'object') return problems;
 
     for (const [key, value] of Object.entries(before)) {
+        // Descend through plain objects as well as arrays. A list does not have
+        // to be a direct property of a record to matter: `composition.holdings`
+        // is a fund's entire portfolio nested one level inside an object, and
+        // checking only top-level arrays would have walked straight past it.
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            const nested = after[key];
+            if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+                findAmputations(value, nested, `${path}.${key}`, problems, depth + 1);
+            }
+            continue;
+        }
+
         if (!Array.isArray(value) || value.length === 0) continue;
 
         const incoming = after[key];
