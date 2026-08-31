@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers, Archive, ArchiveRestore, Gift, Coins } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -131,6 +131,44 @@ const Investments = () => {
                     <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: '0.25rem 0 0 0' }}>Track your mutual funds and stocks</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                    <button
+                        onClick={() => navigate('/investments/free-holdings')}
+                        style={{
+                            padding: '0.625rem 1.25rem',
+                            borderRadius: '0.875rem',
+                            backgroundColor: 'rgba(52, 211, 153, 0.15)',
+                            border: '1px solid rgba(52, 211, 153, 0.3)',
+                            color: '#34d399',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <Gift size={16} /> Free Holdings
+                    </button>
+                    <button
+                        onClick={() => navigate('/investments/dividend-income')}
+                        style={{
+                            padding: '0.625rem 1.25rem',
+                            borderRadius: '0.875rem',
+                            backgroundColor: 'rgba(45, 212, 191, 0.15)',
+                            border: '1px solid rgba(45, 212, 191, 0.3)',
+                            color: '#2dd4bf',
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                            transition: 'all 0.2s ease'
+                        }}
+                    >
+                        <Coins size={16} /> Dividend Income
+                    </button>
                     <button
                         onClick={() => navigate('/investments/nifty50-exposure')}
                         style={{

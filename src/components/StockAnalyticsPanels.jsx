@@ -1,10 +1,11 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Coins, TrendingUp, TrendingDown, AlertTriangle, PieChart as PieIcon, Info } from 'lucide-react';
+import { Coins, TrendingUp, TrendingDown, AlertTriangle, PieChart as PieIcon, Info, Gift } from 'lucide-react';
 import {
     portfolioTotals, dividendsByYear, topDividendPayers,
     winnersAndLosers, concentration, unclassified, realisedOutliers
 } from '../utils/stockAnalytics';
+import { freePositions, nearlyFree, recoveryTotals, NEARLY_FREE_FROM } from '../utils/costRecovery';
 
 const panel = {
     backgroundColor: 'rgba(255,255,255,0.02)',
@@ -47,6 +48,9 @@ const StockAnalyticsPanels = ({ stocks = [], formatCurrency, onSelectStock }) =>
     const conc = useMemo(() => concentration(stocks, 5), [stocks]);
     const gaps = useMemo(() => unclassified(stocks), [stocks]);
     const outliers = useMemo(() => realisedOutliers(stocks), [stocks]);
+    const free = useMemo(() => freePositions(stocks), [stocks]);
+    const almost = useMemo(() => nearlyFree(stocks), [stocks]);
+    const recovery = useMemo(() => recoveryTotals(stocks), [stocks]);
 
     const money = (n) => (formatCurrency ? formatCurrency(n) : `₹${Math.round(n).toLocaleString('en-IN')}`);
     const signed = (n) => `${n >= 0 ? '+' : ''}${money(n)}`;
@@ -206,7 +210,63 @@ const StockAnalyticsPanels = ({ stocks = [], formatCurrency, onSelectStock }) =>
                 ))}
             </div>
 
-            {/* 5. Gaps that distort everything above */}
+            {/* 5. Cost already taken back off the table */}
+            {(free.length > 0 || almost.length > 0) && (
+                <div style={{ ...panel, border: '1px solid rgba(52,211,153,0.22)', backgroundColor: 'rgba(52,211,153,0.04)' }}>
+                    <p style={{ ...label, color: '#34d399', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                        <Gift size={13} /> Cost recovered
+                    </p>
+                    <p style={{ margin: '0 0 0.85rem', fontSize: '0.75rem', color: '#a1a1aa', lineHeight: 1.5 }}>
+                        Selling part of a position, plus the dividends it has paid, can return
+                        everything that was put in. What is still held then costs nothing —
+                        a fact average-cost accounting cannot express, because it keeps those
+                        shares at their original price.
+                    </p>
+
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.25rem', marginBottom: '0.85rem' }}>
+                        <div>
+                            <p style={label}>Your money still at risk</p>
+                            <p style={{ margin: '2px 0 0', fontFamily: 'monospace', fontWeight: 900, fontSize: '1.05rem', color: '#e4e4e7' }}>
+                                {money(recovery.stillAtRisk)}
+                            </p>
+                            <p style={{ margin: 0, fontSize: '0.68rem', color: '#71717a' }}>
+                                of {money(recovery.invested)} invested
+                            </p>
+                        </div>
+                        <div>
+                            <p style={label}>Held at no cost</p>
+                            <p style={{ margin: '2px 0 0', fontFamily: 'monospace', fontWeight: 900, fontSize: '1.05rem', color: '#34d399' }}>
+                                {money(recovery.freeValue)}
+                            </p>
+                            <p style={{ margin: 0, fontSize: '0.68rem', color: '#71717a' }}>
+                                across {recovery.freeCount} position{recovery.freeCount === 1 ? '' : 's'}
+                                {recovery.bonusShares > 0 ? ` · ${recovery.bonusShares} bonus shares` : ''}
+                            </p>
+                        </div>
+                    </div>
+
+                    {free.map((r) => (
+                        <Row key={r.id} name={r.name}
+                            sub={`${money(r.invested)} in, ${money(r.recovered)} back${r.dividends > 0 ? ` (incl. ${money(r.dividends)} dividends)` : ''} · ${r.shares} shares free${r.surplus > 0 ? ` · ${money(r.surplus)} surplus` : ''}`}
+                            right={money(r.value)} tone="#34d399" />
+                    ))}
+
+                    {almost.map((r) => (
+                        <Row key={r.id} name={r.name}
+                            sub={`${r.rawPct.toFixed(0)}% recovered · ${money(r.outstandingCost)} still at risk · net ${money(r.netCostPerShare)}/share`}
+                            right={money(r.value)} tone="#a1a1aa" />
+                    ))}
+
+                    {almost.length > 0 && (
+                        <p style={{ margin: '0.75rem 0 0', fontSize: '0.68rem', color: '#71717a' }}>
+                            Rows below the first group are past {NEARLY_FREE_FROM}% recovered but not
+                            yet free — still your own money in the market.
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {/* 6. Gaps that distort everything above */}
             {gaps.any && (
                 <div style={{ ...panel, border: '1px solid rgba(251,191,36,0.2)', backgroundColor: 'rgba(251,191,36,0.04)' }}>
                     <p style={{ ...label, color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.5rem' }}>
