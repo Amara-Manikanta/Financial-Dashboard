@@ -55,7 +55,9 @@ const RecurringDepositDetails = () => {
         let updatedRDs = account.recurringDeposits ? [...account.recurringDeposits] : [];
 
         if (editingRD) {
-            updatedRDs = updatedRDs.map(d => d.id === rd.id ? rd : d);
+            // Merged, not replaced. The page holds the stored deposit; a form
+            // that forgets a field should not be able to erase it from here.
+            updatedRDs = updatedRDs.map(d => d.id === rd.id ? { ...d, ...rd } : d);
         } else {
             updatedRDs.push(rd);
         }

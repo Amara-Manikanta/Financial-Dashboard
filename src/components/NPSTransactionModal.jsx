@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, FileText, Hash } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
+import { schemeName } from '../utils/nps';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -68,7 +69,10 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings })
         
         onSave({
             id: initialData?.id || Date.now(),
-            schemeId: Number(schemeId),
+            // Taken from the holding itself rather than Number(schemeId): the
+            // select yields a string, and coercing an id that is not numeric
+            // gives NaN, which then matches no holding and drops the line.
+            schemeId: (holdings || []).find(h => String(h.id) === String(schemeId))?.id ?? schemeId,
             date,
             description,
             amount: parsedAmount,
@@ -106,7 +110,7 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings })
                             <select required value={schemeId} onChange={e => setSchemeId(e.target.value)} style={selectStyle}>
                                 <option value="" disabled>Select Scheme</option>
                                 {holdings && holdings.map(h => (
-                                    <option key={h.id} value={h.id}>{h.scheme}</option>
+                                    <option key={h.id} value={h.id}>{schemeName(h)}</option>
                                 ))}
                             </select>
                             <FileText style={iconStyle} />

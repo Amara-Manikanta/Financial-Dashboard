@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx';
+import { looksLikePayrollDeduction, countsAsSpending } from './payrollDeductions';
 
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -106,7 +107,9 @@ export const processBankStatement = async (file, categoryRules) => {
                         if (dp.length !== 3) continue;
                         const isoDate = `${dp[2]}-${String(parseInt(dp[1], 10)).padStart(2, '0')}-${dp[0].padStart(2, '0')}`;
                         
-                        const deductFromSalary = !cat.sub.toLowerCase().includes('tax');
+                        // Same rule the manual form uses, so imported and
+                        // hand-entered rows cannot disagree.
+                        const deductFromSalary = !looksLikePayrollDeduction(cat.sub);
                         
                         newTransactions.push({
                             id: `import_${Date.now()}_${i}`,
@@ -165,7 +168,7 @@ export const mergeTransactionsIntoExpenses = (expenses, newTransactions) => {
             if (monthData.transactions && monthData.transactions.length > 0) {
                 const newCategories = {};
                 monthData.transactions.forEach(t => {
-                    if (t.deductFromSalary === false) return; // skip non-deductible (tax, etc)
+                    if (!countsAsSpending(t)) return; // payroll deductions: recorded, not counted
                     const cat = t.category || 'others';
                     const amt = Number(t.amount) || 0;
                     const isIncome = t.mainCategory === 'Income' ||

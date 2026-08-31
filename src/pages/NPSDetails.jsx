@@ -6,6 +6,7 @@ import { formatDate } from '../utils/dateUtils';
 import NPSModal from '../components/NPSModal';
 import NPSTransactionModal from '../components/NPSTransactionModal';
 import BackButton from '../components/BackButton';
+import { schemeName, shortSchemeName } from '../utils/nps';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
 
 const getSchemeCalculations = (h) => {
@@ -84,7 +85,7 @@ const NPSDetails = () => {
         if (!nps?.holdings) return [];
         let txs = [];
         nps.holdings.forEach(h => {
-            const schemeTitle = h.scheme || h.name || h.issueName || 'NPS Scheme';
+            const schemeTitle = schemeName(h);
             (h.transactions || []).forEach(tx => {
                 txs.push({ ...tx, schemeName: schemeTitle, schemeId: h.id });
             });
@@ -100,7 +101,7 @@ const NPSDetails = () => {
     const pieData = useMemo(() => {
         if (!nps?.holdings) return [];
         return nps.holdings.map(h => ({
-            name: (h.scheme || h.name || h.issueName || 'NPS Scheme').split('-')[0].trim(),
+            name: shortSchemeName(h),
             value: getSchemeCalculations(h).current
         })).filter(d => d.value > 0);
     }, [nps?.holdings]);
@@ -352,7 +353,7 @@ const NPSDetails = () => {
                                             onClick={() => setSelectedSchemeFilter(item.id)}
                                         >
                                             <td className="py-5 px-8 text-zinc-200">
-                                                {item.scheme || item.name || item.issueName || 'NPS Scheme'}
+                                                {schemeName(item)}
                                                 <div className="text-[9px] text-zinc-500 mt-1 uppercase font-semibold">{item.percentage}% Allocation</div>
                                             </td>
                                             <td className="py-5 px-6 text-right font-mono text-zinc-400">{formatCurrency(calcs.amount)}</td>
@@ -456,7 +457,7 @@ const NPSDetails = () => {
                                 }}
                                 onClick={() => setSelectedSchemeFilter(h.id)}
                             >
-                                {(h.scheme || h.name || h.issueName || 'NPS Scheme').split('-')[0].trim()}
+                                {shortSchemeName(h)}
                             </button>
                         ))}
                     </div>

@@ -10,6 +10,7 @@ import CurrencyInput from './CurrencyInput';
 import { CATEGORY_MAP } from '../utils/categories';
 import GroceryBuilder from './GroceryBuilder';
 import InvestmentLegBuilder from './InvestmentLegBuilder';
+import { looksLikePayrollDeduction } from '../utils/payrollDeductions';
 import { normaliseLegs, validateLegs } from '../utils/investmentSync';
 
 const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultDate = null }) => {
@@ -198,6 +199,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setMainCategory('');
             setCategory('');
             setDeductFromSalary(true);
+            setDeductTouched(false);
             setIsCredited(false);
             setDate(defaultDate || new Date());
             setPaymentMode('direct');
@@ -210,6 +212,16 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setGroceryItems([]);
         }
     }, [initialData, isOpen, defaultDate, mergedCategoryMap]);
+
+    // Picking a payroll-deduction category defaults the toggle off, the way the
+    // importer has always done it. Only for new rows and only while the user has
+    // not touched the toggle — re-deriving it would silently overwrite a
+    // deliberate choice every time the category was edited.
+    const [deductTouched, setDeductTouched] = useState(false);
+    useEffect(() => {
+        if (initialData || deductTouched || !category) return;
+        setDeductFromSalary(!looksLikePayrollDeduction(category));
+    }, [category, initialData, deductTouched]);
 
     // Auto-calculate amount for groceries if items exist
     useEffect(() => {
@@ -412,6 +424,34 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                 <div className={`w-3 h-3 bg-white rounded-full transition-all ${isCreditCardBill ? 'translate-x-5' : 'translate-x-0'}`} />
                             </div>
                         </div>
+
+                        {/* Counts as spending. The flag was always saved but had no
+                            control, so a hand-entered tax row could only ever be
+                            true — which double-counted it against an already-net
+                            salary. */}
+                        {!isCredited && (
+                            <div
+                                onClick={() => { setDeductTouched(true); setDeductFromSalary(!deductFromSalary); }}
+                                className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${deductFromSalary ? 'bg-white/2 border-white/5' : 'bg-amber-500/10 border-amber-500/30 shadow-lg shadow-amber-500/10'}`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <Landmark size={18} className={deductFromSalary ? 'text-gray-500' : 'text-amber-400'} />
+                                    <div>
+                                        <span className={`text-[12px] font-bold block ${deductFromSalary ? 'text-gray-400' : 'text-white'}`}>
+                                            {deductFromSalary ? 'Counts as spending' : 'Already deducted from salary'}
+                                        </span>
+                                        <span className="text-[10px] text-gray-500 mt-0.5 block font-medium">
+                                            {deductFromSalary
+                                                ? 'Included in expense totals and category budgets'
+                                                : 'Kept in the ledger but left out of every total — your salary is already net of it'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className={`w-10 h-5 rounded-full p-1 transition-all ${deductFromSalary ? 'bg-white/10' : 'bg-amber-500'}`}>
+                                    <div className={`w-3 h-3 bg-white rounded-full transition-all ${deductFromSalary ? 'translate-x-0' : 'translate-x-5'}`} />
+                                </div>
+                            </div>
+                        )}
 
                         <div className="space-y-2">
                             <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider pl-1">Reference Name</label>

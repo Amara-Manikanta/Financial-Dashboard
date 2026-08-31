@@ -5,6 +5,7 @@ import { ArrowLeft, Wallet, TrendingDown, TrendingUp, Calendar, ArrowUpRight, Ar
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, Tooltip, YAxis, AreaChart, Area, CartesianGrid, LineChart, Line } from 'recharts';
 import TransactionModal from '../components/TransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
+import { countsAsSpending } from '../utils/payrollDeductions';
 
 const COLORS = ['#FF8C00', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B'];
 
@@ -495,7 +496,7 @@ const ExpenseDetails = () => {
                 const isCreditCardBill = cat.toLowerCase().includes('credit card bill') || cat.toLowerCase().includes('credit card payment');
                 const isCCSpend = t.paymentMode === 'credit_card' && !isCreditCardBill;
 
-                if (t.deductFromSalary !== false && !t.isRewardPoints && !isCCSpend) {
+                if (countsAsSpending(t) && !t.isRewardPoints && !isCCSpend) {
                     categoryDeductibles[targetKey] = (categoryDeductibles[targetKey] || 0) + effective;
                     mainCategoryDeductibles[mainCat] = (mainCategoryDeductibles[mainCat] || 0) + effective;
                 }

@@ -70,6 +70,11 @@ const RecurringDepositModal = ({ isOpen, onClose, onSave, initialData }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         onSave({
+            // Spread first. This form knows seven fields; the stored deposit also
+            // carries installments, interestTransactions and tds. Building a
+            // fresh object dropped all three, so editing an end date silently
+            // deleted the deposit's entire payment history.
+            ...(initialData || {}),
             id: initialData?.id || Date.now(),
             name,
             installmentAmount: parseFloat(installmentAmount),
