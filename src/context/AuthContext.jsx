@@ -2,10 +2,20 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext();
 
-const DEFAULT_USERS = [
-    { id: '1', username: 'admin', password: 'admin', role: 'admin' },
-    { id: '2', username: 'guest', password: 'guest', role: 'guest' }
-];
+/**
+ * Deliberately empty.
+ *
+ * This used to hold the project's real working credentials, hardcoded in a file
+ * tracked in a public repository. It was not only a published password:
+ * `users` falls back to this list whenever the fetch below fails, so those
+ * credentials authenticated for real any time the API was unreachable.
+ *
+ * Empty means login fails closed until the real user list has actually loaded,
+ * which is the same rule the rest of the app follows — never act on state that
+ * was never successfully fetched. Credentials live in db.json, which is
+ * gitignored.
+ */
+const DEFAULT_USERS = [];
 
 export function AuthProvider({ children }) {
     const API_URL = typeof window !== 'undefined'

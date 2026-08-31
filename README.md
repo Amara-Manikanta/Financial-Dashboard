@@ -85,6 +85,12 @@ Manage your account security and update your credentials anytime.
    npm run dev
    ```
 
-4. **Login Credentials**:
-   - **Admin**: `admin` / `admin`
-   - **Guest**: `guest` / `guest`
+4. **Signing In**:
+
+   The app ships with two roles — an **Admin** account with full access to the
+   database, and a read-only **Guest** account. Credentials are stored in
+   `db.json`, which is gitignored and never published.
+
+   Set your own on first run, and change them from the Profile page rather than
+   recording them here: this file is public, so anything written in it is a
+   published password.
