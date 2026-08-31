@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Calendar, Building, Hash, Percent, FileText, MapPin } from 'lucide-react';
 import { toISODate } from '../utils/dateUtils';
 import CurrencyInput from './CurrencyInput';
+import { depositAccrual, depositMaturity } from '../utils/fdAccrual';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -94,29 +95,26 @@ const FixedDepositModal = ({ isOpen, onClose, onSave, initialData, isRenewal }) 
         }
     }, [isOpen, initialData]);
 
+    // Delegates to utils/fdAccrual so a deposit's projected maturity here matches
+    // what the Savings card and the Fixed Deposits page compute from it. This
+    // used to be a third copy of the formula, working in fractional years where
+    // the pages worked in whole days.
     const calculateMaturity = (principal, rate, start, end, bankName) => {
         if (!principal || !rate || !start || !end) return { interest: 0, maturity: 0, accrued: 0 };
 
-        const P = parseFloat(principal);
-        const r = parseFloat(rate) / 100;
-        const startDate = new Date(start);
-        const endDate = new Date(end);
-        const today = new Date();
-
-        // Time in years
-        const T = (endDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
-        const tElapsed = Math.max(0, (Math.min(today, endDate) - startDate) / (1000 * 60 * 60 * 24 * 365.25));
-
-        // Slice Bank compounding is daily (n=365), standard Indian FDs compound quarterly (n=4)
-        const isSlice = bankName && bankName.toLowerCase().includes('slice');
-        const n = isSlice ? 365 : 4;
-        const maturityValue = P * Math.pow((1 + r / n), (n * T));
-        const accruedValue = P * Math.pow((1 + r / n), (n * tElapsed));
+        const deposit = {
+            originalAmount: parseFloat(principal),
+            interestRate: parseFloat(rate),
+            startDate: start,
+            endDate: end,
+            bank: bankName,
+        };
+        const maturityValue = depositMaturity(deposit);
 
         return {
-            interest: Math.round(maturityValue - P),
+            interest: Math.round(maturityValue - deposit.originalAmount),
             maturity: Math.round(maturityValue),
-            accrued: Math.round(accruedValue - P)
+            accrued: Math.round(depositAccrual(deposit).accruedInterest),
         };
     };
 

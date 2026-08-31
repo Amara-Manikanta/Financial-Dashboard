@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Hash, FileText, PieChart } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
+import { readHolding, writeHolding } from '../utils/nps';
 
 const inputStyle = {
     backgroundColor: '#27272a',
@@ -31,8 +32,11 @@ const NPSModal = ({ isOpen, onClose, onSave, initialData }) => {
     useEffect(() => {
         if (isOpen) {
             if (initialData) {
-                setScheme(initialData.scheme || '');
-                setNav(initialData.nav !== undefined ? initialData.nav : '');
+                // Via readHolding: the stored holding names these `issueName`
+                // and `currentPrice`, so reading them raw opened an empty form.
+                const held = readHolding(initialData);
+                setScheme(held.scheme);
+                setNav(held.nav || '');
             } else {
                 setScheme('');
                 setNav('');
@@ -42,11 +46,9 @@ const NPSModal = ({ isOpen, onClose, onSave, initialData }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        onSave({
-            id: initialData?.id || Date.now(),
-            scheme,
-            nav: parseFloat(nav)
-        });
+        // writeHolding spreads the existing holding first, so units, purchase
+        // price and the scheme's transactions survive an edit of its name.
+        onSave(writeHolding({ scheme, nav: parseFloat(nav) }, initialData || {}));
         onClose();
     };
 

@@ -232,7 +232,11 @@ const GoldBondDetails = () => {
                                         <td className="py-5 px-6 text-center">
                                             <div className="flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <button
-                                                    onClick={() => { setEditingHolding(item); setEditingIndex(index); setIsModalOpen(true); }}
+                                                    // readHolding, because the modal reads `series`/`issuePrice`
+                                                    // and the row stores `issueName`/`purchasePrice`. Handing it
+                                                    // the raw row opened a blank form, and writeHolding would
+                                                    // then have written those blanks back over the real values.
+                                                    onClick={() => { setEditingHolding(readHolding(item)); setEditingIndex(index); setIsModalOpen(true); }}
                                                     type="button"
                                                     className="p-1.5 rounded-xl bg-blue-500/10 text-blue-400 hover:bg-blue-500 hover:text-white transition-all transform hover:scale-110"
                                                     title="Edit"

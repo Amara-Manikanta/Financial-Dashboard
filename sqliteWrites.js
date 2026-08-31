@@ -18,6 +18,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { rebuildDatabase, rebuildTransaction } from './scripts/sqlite-rebuild.mjs';
 import { TX_COLUMNS, BOOLEAN_FIELDS } from './scripts/sqlite-schema.mjs';
+// The same predicate the client uses. CLAUDE.md §5 requires this formula and
+// withRecomputedCategories to agree exactly; importing the one copy is what
+// makes that true rather than merely intended.
+import { countsAsSpending } from './src/utils/payrollDeductions.js';
 
 export const MODE = (process.env.SQLITE_WRITES || 'off').toLowerCase();
 export const isEnabled = MODE === 'on';
@@ -109,7 +113,7 @@ const recomputeCategories = (handle, year, month) => {
     for (const row of rows) {
         const tx = rebuildTransaction(row);
         if (!tx || typeof tx !== 'object') continue;
-        if (tx.deductFromSalary === false) continue;
+        if (!countsAsSpending(tx)) continue;
 
         const cat = String(tx.category || '').toLowerCase();
         if (!cat) continue;

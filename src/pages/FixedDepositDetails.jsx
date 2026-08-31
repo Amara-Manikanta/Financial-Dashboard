@@ -7,6 +7,7 @@ import FixedDepositModal from '../components/FixedDepositModal';
 import CloseDepositModal from '../components/CloseDepositModal';
 import BackButton from '../components/BackButton';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend } from 'recharts';
+import { depositAccrual } from '../utils/fdAccrual';
 
 const calculateProgress = (startDateStr, endDateStr) => {
     if (!startDateStr || !endDateStr) return 0;
@@ -76,59 +77,10 @@ const FixedDepositDetails = () => {
         return activeDeposits.filter(d => d.bank === selectedBank);
     }, [activeDeposits, selectedBank]);
 
-    const getDepositAccruedDetails = (deposit) => {
-        if (!deposit || !deposit.originalAmount || !deposit.startDate) {
-            return {
-                accruedValue: Number(deposit?.currentValue || deposit?.originalAmount) || 0,
-                accruedInterest: Number(deposit?.interestEarned) || 0,
-                daysElapsed: 0,
-                totalDays: 0
-            };
-        }
-
-        const P = Number(deposit.originalAmount) || 0;
-        const r = (Number(deposit.interestRate) || 0) / 100;
-        const start = new Date(deposit.startDate);
-        const end = new Date(deposit.endDate);
-        const today = new Date();
-
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-            return {
-                accruedValue: Number(deposit.currentValue || P),
-                accruedInterest: Number(deposit.interestEarned) || 0,
-                daysElapsed: 0,
-                totalDays: 0
-            };
-        }
-
-        const msPerDay = 1000 * 60 * 60 * 24;
-        const startMidnight = new Date(start.getFullYear(), start.getMonth(), start.getDate());
-        const todayMidnight = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        const endMidnight = new Date(end.getFullYear(), end.getMonth(), end.getDate());
-
-        const effectiveEnd = todayMidnight < endMidnight ? todayMidnight : endMidnight;
-        const daysElapsed = Math.max(0, Math.round((effectiveEnd - startMidnight) / msPerDay));
-        const totalDays = Math.max(1, Math.round((endMidnight - startMidnight) / msPerDay));
-
-        const isSlice = deposit.bank && deposit.bank.toLowerCase().includes('slice');
-        let accruedInterest = 0;
-
-        if (isSlice) {
-            accruedInterest = P * (Math.pow(1 + r / 365, daysElapsed) - 1);
-        } else {
-            const tElapsedYears = daysElapsed / 365.25;
-            accruedInterest = P * (Math.pow(1 + r / 4, 4 * tElapsedYears) - 1);
-        }
-
-        const accruedValue = P + accruedInterest;
-
-        return {
-            accruedValue,
-            accruedInterest,
-            daysElapsed,
-            totalDays
-        };
-    };
+    // One copy of the accrual formula, shared with the Savings card via
+    // FinanceContext. This page used to carry its own, which is why the two
+    // screens reported different totals for the same deposits.
+    const getDepositAccruedDetails = depositAccrual;
 
     const totalOriginalAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.originalAmount || 0), 0), [filteredDeposits]);
     const totalMaturityAmount = useMemo(() => filteredDeposits.reduce((sum, d) => sum + (d.maturityAmount || 0), 0), [filteredDeposits]);

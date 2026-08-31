@@ -30,6 +30,10 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [employeeAmount, setEmployeeAmount] = useState('');
     const [employerAmount, setEmployerAmount] = useState('');
     const [epsAmount, setEpsAmount] = useState('');
+    // Voluntary PF: an employee top-up above the statutory 12%. It lands in the
+    // EPF account and earns EPF interest, so it is tracked separately here only
+    // so the two can be told apart later — everywhere else it is EPF money.
+    const [vpfAmount, setVpfAmount] = useState('');
     const [employeeInterestAmount, setEmployeeInterestAmount] = useState('');
     const [employerInterestAmount, setEmployerInterestAmount] = useState('');
 
@@ -40,7 +44,8 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
             setEmployeeAmount(initialData.employeeContribution ? initialData.employeeContribution.toString() : '');
             setEmployerAmount(initialData.employerContribution ? initialData.employerContribution.toString() : '');
             setEpsAmount(initialData.epsContribution ? initialData.epsContribution.toString() : '');
-            
+            setVpfAmount(initialData.vpfContribution ? initialData.vpfContribution.toString() : '');
+
             const empInt = initialData.employeeInterestEarned;
             const emrInt = initialData.employerInterestEarned;
             if (empInt !== undefined || emrInt !== undefined) {
@@ -61,6 +66,9 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
         setEmployeeAmount('');
         setEmployerAmount('');
         setEpsAmount('1250');
+        // No default: VPF is opt-in, and prefilling a figure would quietly add
+        // a contribution to every month that nobody actually made.
+        setVpfAmount('');
         setEmployeeInterestAmount('');
         setEmployerInterestAmount('');
     };
@@ -71,6 +79,7 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
         const numEmployee = parseFloat(employeeAmount || 0);
         const numEmployer = parseFloat(employerAmount || 0);
         const numEps = parseFloat(epsAmount || 0);
+        const numVpf = parseFloat(vpfAmount || 0);
         const numEmployeeInterest = parseFloat(employeeInterestAmount || 0);
         const numEmployerInterest = parseFloat(employerInterestAmount || 0);
 
@@ -84,14 +93,16 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
             txData.employeeContribution = numEmployee;
             txData.employerContribution = numEmployer;
             txData.epsContribution = numEps;
+            txData.vpfContribution = numVpf;
             txData.employeeInterestEarned = 0;
             txData.employerInterestEarned = 0;
             txData.interestEarned = 0;
-            txData.amount = numEmployee + numEmployer + numEps;
+            txData.amount = numEmployee + numEmployer + numEps + numVpf;
         } else if (type === 'Interest') {
             txData.employeeContribution = 0;
             txData.employerContribution = 0;
             txData.epsContribution = 0;
+            txData.vpfContribution = 0;
             txData.employeeInterestEarned = numEmployeeInterest;
             txData.employerInterestEarned = numEmployerInterest;
             txData.interestEarned = numEmployeeInterest + numEmployerInterest;
@@ -158,7 +169,7 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                     </div>
 
                     {type === 'Contribution' && (
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="relative">
                                 <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Employee EPF</label>
                                 <div className="relative">
@@ -190,6 +201,18 @@ const PFTransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                                     <CurrencyInput
                                         value={epsAmount}
                                         onChange={e => setEpsAmount(e.target.value)}
+                                        style={{...inputStyle, padding: '0.75rem 0.5rem 0.75rem 1.7rem'}}
+                                        placeholder="0.00"
+                                    />
+                                    <div style={{...iconStyle, left: '0.5rem'}}><span className="text-sm font-bold">₹</span></div>
+                                </div>
+                            </div>
+                            <div className="relative">
+                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2">Employee VPF</label>
+                                <div className="relative">
+                                    <CurrencyInput
+                                        value={vpfAmount}
+                                        onChange={e => setVpfAmount(e.target.value)}
                                         style={{...inputStyle, padding: '0.75rem 0.5rem 0.75rem 1.7rem'}}
                                         placeholder="0.00"
                                     />

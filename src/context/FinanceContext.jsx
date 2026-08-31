@@ -2,6 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { useAuth } from './AuthContext';
 import { getLastWorkingDayOfMonth } from '../utils/dateUtils';
 import { CATEGORY_MAP } from '../utils/categories';
+import { countsAsSpending } from '../utils/payrollDeductions';
+import { totalAccruedValue, totalPrincipal } from '../utils/fdAccrual';
 import {
     normaliseLegs,
     legToInvestmentTx,
@@ -12,6 +14,7 @@ import {
     recomputeStockMetrics,
     recomputeFundAmount
 } from '../utils/investmentSync';
+import { readHolding as readSgbHolding } from '../utils/sgb';
 // NOTE: db.json is deliberately NOT imported here.
 // Vite inlines a JSON import at build time, producing a snapshot that never
 // refreshes (vite.config.js also excludes db.json from the watcher). Seeding
@@ -62,7 +65,10 @@ export const DEFAULT_CATEGORY_BUDGETS = {
 
 const MONTHLY_EARNINGS_KEYS = ['basicSalary', 'hra', 'conveyanceAllowance', 'flexibleAllowance', 'performanceBonus', 'foodWallet',
     'holidayAllowance', 'compensatoryAllowance', 'engagementPb', 'annualFlexiBasket', 'internetAllowance', 'cfPfMonthly'];
-const MONTHLY_DEDUCTIONS_KEYS = ['epf', 'profTax', 'incomeTax', 'otherRecoveries', 'medicalPremRecoverable', 'cfPfMonthly'];
+// `vpf` is listed here deliberately. Any numeric payslip key that is in neither
+// list gets added to GROSS by the catch-all below, so leaving a deduction out
+// does not merely ignore it — it flips its sign and counts it as earnings.
+const MONTHLY_DEDUCTIONS_KEYS = ['epf', 'vpf', 'profTax', 'incomeTax', 'otherRecoveries', 'medicalPremRecoverable', 'cfPfMonthly'];
 
 const calculateSalaryStats = (expensesData, salaryDetailsData = []) => {
     const stats = {};
@@ -894,7 +900,7 @@ export function FinanceProvider({ children }) {
                 if (!monthData.transactions) return;
                 const newCategories = {};
                 monthData.transactions.forEach(tx => {
-                    if (tx.deductFromSalary === false) return;
+                    if (!countsAsSpending(tx)) return;
 
                     const cat = (tx.category || '').toLowerCase();
                     if (!cat) return;
@@ -2027,7 +2033,9 @@ export function FinanceProvider({ children }) {
                 return Math.max(0, totalUnits) * Number(item.currentNav || 0);
 
             case 'fixed_deposit':
-                return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.currentValue) || 0), 0);
+                // Accrued as of today, not the `currentValue` frozen at the last
+                // save — that field is only right on the day it was written.
+                return totalAccruedValue(item.deposits);
 
             case 'recurring_deposit':
                 return (item.recurringDeposits || []).reduce((sum, rd) => sum + (rd.installments || []).reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0), 0);
@@ -2059,7 +2067,12 @@ export function FinanceProvider({ children }) {
                 }, 0) || Number(item.amount || 0);
 
             case 'sgb':
-                return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.currentPrice || 0)), 0);
+                // Via readHolding, because the stored shape and the shape the UI
+                // uses disagree on three field names (see utils/sgb.js).
+                return (item.holdings || []).reduce((sum, h) => {
+                    const holding = readSgbHolding(h);
+                    return sum + (holding.units * holding.currentPrice);
+                }, 0);
 
             case 'policy':
             case 'Policy':
@@ -2118,13 +2131,22 @@ export function FinanceProvider({ children }) {
             }
 
             case 'fixed_deposit':
-                return (item.deposits || []).reduce((sum, dep) => sum + (Number(dep.originalAmount) || 0), 0);
+                // Same archived rule as the value side, or an archived deposit
+                // would count as cost with no matching value and show as a loss.
+                return totalPrincipal(item.deposits);
 
             case 'recurring_deposit':
                 return (item.recurringDeposits || []).reduce((sum, rd) => sum + (rd.installments || []).reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0), 0);
 
             case 'ppf':
-                return (item.details || []).reduce((sum, d) => sum + Number(d.deposit || 0), 0);
+                // Rows carry `amount`, never `deposit`, so this summed nothing and
+                // the balance read as 100% gain. Interest rows are excluded the
+                // same way the pf case does it; they also carry amount 0, but
+                // relying on that would break the day one is entered properly.
+                return (item.details || []).reduce(
+                    (sum, d) => sum + (String(d.type).toLowerCase() === 'interest' ? 0 : Number(d.amount || 0)),
+                    0
+                );
 
             case 'pf':
                 return (item.details || []).reduce((sum, d) => sum + (d.type !== 'Interest' ? Number(d.amount || 0) : 0), Number(item.amount || 0));
@@ -2142,7 +2164,13 @@ export function FinanceProvider({ children }) {
             }
 
             case 'sgb':
-                return (item.holdings || []).reduce((sum, h) => sum + (Number(h.units || 0) * Number(h.issuePrice || 0)), 0);
+                // The cost side read `issuePrice`, which no stored holding has —
+                // it is `purchasePrice` on disk. Invested came out as zero, so
+                // the whole current value showed as pure profit.
+                return (item.holdings || []).reduce((sum, h) => {
+                    const holding = readSgbHolding(h);
+                    return sum + (holding.units * holding.issuePrice);
+                }, 0);
 
             default:
                 return Number(item.investedAmount || item.amount || 0);
@@ -2391,7 +2419,25 @@ export function FinanceProvider({ children }) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(item)
             });
+            // A refused write must never look like one that worked. Without this
+            // check a 409 from the guard was parsed as if it were the saved
+            // record and written straight into state, so the row on screen
+            // silently became `{error, reason}` and the function still reported
+            // success. The guard is only half a safeguard if its refusal is
+            // invisible — see §2 of CLAUDE.md.
+            if (!res.ok) {
+                const info = await res.json().catch(() => ({}));
+                const detail = info.reason || info.error || `server returned ${res.status}`;
+                setSaveError(
+                    res.status === 409
+                        ? `${detail} Nothing was saved — reload before trying again.`
+                        : `This did not save: ${detail}. It is only on screen — do not reload until it is fixed.`
+                );
+                return { success: false, reason: detail };
+            }
+
             const updatedItem = await res.json();
+            setSaveError(null);
             if (type === 'savings') setSavings(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'asset') setAssets(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'lents') setLents(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
@@ -2403,6 +2449,8 @@ export function FinanceProvider({ children }) {
             return { success: true };
         } catch (error) {
             console.error("Error updating item:", error);
+            setSaveError(`This did not save: ${error.message}. It is only on screen — do not reload until it is fixed.`);
+            return { success: false, reason: error.message };
         }
     };
 

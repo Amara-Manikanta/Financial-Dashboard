@@ -41,7 +41,9 @@ const PFDetails = () => {
         let runningEpfBalance = Number(pf.amount || 0);
         let runningEpsBalance = 0;
         return sorted.map(item => {
-            const epfAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.interestEarned) || 0);
+            // VPF sits inside the EPF account, so it belongs in the EPF balance
+            // rather than in a fund of its own.
+            const epfAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.vpfContribution) || 0) + (Number(item.interestEarned) || 0);
             runningEpfBalance += epfAmount;
             
             const epsAmount = Number(item.epsContribution) || 0;
@@ -99,9 +101,10 @@ const PFDetails = () => {
         
         const tabFiltered = sorted.filter(item => {
             if (activeTab === 'EPF') {
-                return (Number(item.employeeContribution) > 0 || 
-                        Number(item.employerContribution) > 0 || 
-                        Number(item.interestEarned) > 0 || 
+                return (Number(item.employeeContribution) > 0 ||
+                        Number(item.employerContribution) > 0 ||
+                        Number(item.vpfContribution) > 0 ||
+                        Number(item.interestEarned) > 0 ||
                         item.type === 'Interest');
             } else {
                 return Number(item.epsContribution) > 0;
@@ -131,6 +134,10 @@ const PFDetails = () => {
 
     const totalEmployerContrib = useMemo(() => {
         return details.reduce((sum, item) => sum + (Number(item.employerContribution) || 0), 0);
+    }, [details]);
+
+    const totalVpfContrib = useMemo(() => {
+        return details.reduce((sum, item) => sum + (Number(item.vpfContribution) || 0), 0);
     }, [details]);
 
     const totalEpsContrib = useMemo(() => {
@@ -209,6 +216,7 @@ const PFDetails = () => {
                     employeeContribution: 0,
                     employerContribution: 0,
                     epsContribution: 0,
+                    vpfContribution: 0,
                     totalEmployer: 0,
                     totalContribution: 0
                 };
@@ -216,12 +224,14 @@ const PFDetails = () => {
             const emp = Number(item.employeeContribution) || 0;
             const emr = Number(item.employerContribution) || 0;
             const eps = Number(item.epsContribution) || 0;
+            const vpf = Number(item.vpfContribution) || 0;
 
             grouped[fy].employeeContribution += emp;
             grouped[fy].employerContribution += emr;
             grouped[fy].epsContribution += eps;
+            grouped[fy].vpfContribution += vpf;
             grouped[fy].totalEmployer += (emr + eps);
-            grouped[fy].totalContribution += (emp + emr + eps);
+            grouped[fy].totalContribution += (emp + emr + eps + vpf);
         });
 
         return Object.values(grouped).sort((a, b) => a.year.localeCompare(b.year));
@@ -261,7 +271,7 @@ const PFDetails = () => {
             
             const monthlyContributions = {};
             fyTxs.forEach(tx => {
-                if (tx.type !== 'Interest' && (Number(tx.employeeContribution) > 0 || Number(tx.employerContribution) > 0 || Number(tx.epsContribution) > 0)) {
+                if (tx.type !== 'Interest' && (Number(tx.employeeContribution) > 0 || Number(tx.employerContribution) > 0 || Number(tx.epsContribution) > 0 || Number(tx.vpfContribution) > 0)) {
                     const txDate = new Date(tx.date);
                     const key = `${txDate.getFullYear()}-${txDate.getMonth() + 1}`;
                     monthlyContributions[key] = true;
@@ -614,6 +624,10 @@ const PFDetails = () => {
                         <p style={{ fontSize: '10px', color: '#60a5fa', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Employee Contribution</p>
                         <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#60a5fa', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployeeContrib)}</p>
                     </div>
+                    <div style={styles.glassCard('rgba(244, 114, 182, 0.05)', 'rgba(244, 114, 182, 0.15)', 'rgba(244, 114, 182, 0.1)')}>
+                        <p style={{ fontSize: '10px', color: '#f472b6', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Voluntary PF (VPF)</p>
+                        <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#f472b6', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalVpfContrib)}</p>
+                    </div>
                     <div style={styles.glassCard('rgba(20, 184, 166, 0.05)', 'rgba(20, 184, 166, 0.15)', 'rgba(20, 184, 166, 0.1)')}>
                         <p style={{ fontSize: '10px', color: '#2dd4bf', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem', margin: 0 }}>Employer EPF Contribution</p>
                         <p style={{ fontSize: '1.6rem', fontWeight: '900', color: '#2dd4bf', margin: 0, fontFamily: 'monospace' }}>{formatCurrency(totalEmployerContrib)}</p>
@@ -747,7 +761,7 @@ const PFDetails = () => {
                             {paginatedDetails.map((item, index) => {
                                 const originalIndex = details.indexOf(item);
                                 const isInterest = item.type === 'Interest';
-                                const epfAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.interestEarned) || 0);
+                                const epfAmount = (Number(item.employeeContribution) || 0) + (Number(item.employerContribution) || 0) + (Number(item.vpfContribution) || 0) + (Number(item.interestEarned) || 0);
                                 const epsAmount = Number(item.epsContribution) || 0;
                                 const txAmount = activeTab === 'EPF' ? epfAmount : epsAmount;
 
@@ -769,6 +783,11 @@ const PFDetails = () => {
                                                 {activeTab === 'EPF' && !isInterest && (Number(item.employeeContribution) > 0 || Number(item.employerContribution) > 0) && (
                                                     <span style={{ fontSize: '10px', color: '#71717a' }}>
                                                         Emp EPF: {formatCurrency(item.employeeContribution || 0)} | Employer EPF: {formatCurrency(item.employerContribution || 0)}
+                                                    </span>
+                                                )}
+                                                {activeTab === 'EPF' && !isInterest && Number(item.vpfContribution) > 0 && (
+                                                    <span style={{ fontSize: '10px', color: '#f472b6' }}>
+                                                        VPF: {formatCurrency(item.vpfContribution)}
                                                     </span>
                                                 )}
                                                 {activeTab === 'EPF' && isInterest && (Number(item.employeeInterestEarned) > 0 || Number(item.employerInterestEarned) > 0) && (
@@ -844,6 +863,8 @@ const PFDetails = () => {
             {/* Year-Wise PF Contribution Trend Line Chart */}
             <div style={{ ...styles.chartCard, marginTop: '2.5rem' }}>
                 <h3 style={styles.sectionHeader}>Yearly Contribution Trend (Employee vs Employer)</h3>
+                {/* VPF is drawn only once something has been recorded, so the legend
+                    does not carry a flat zero line for everyone who never opted in. */}
                 {yearlyContributionData.length > 0 ? (
                     <div style={{ width: '100%', height: '350px' }}>
                         <ResponsiveContainer width="100%" height="100%">
@@ -876,9 +897,19 @@ const PFDetails = () => {
                                     dot={{ r: 5, fill: '#2dd4bf', strokeWidth: 2, stroke: '#121225' }}
                                     activeDot={{ r: 7 }}
                                 />
-                                <Line 
-                                    type="monotone" 
-                                    dataKey="epsContribution" 
+                                {totalVpfContrib > 0 && (
+                                    <Line
+                                        type="monotone"
+                                        dataKey="vpfContribution"
+                                        name="Employee VPF Contribution"
+                                        stroke="#f472b6"
+                                        strokeWidth={2}
+                                        dot={{ r: 4, fill: '#f472b6' }}
+                                    />
+                                )}
+                                <Line
+                                    type="monotone"
+                                    dataKey="epsContribution"
                                     name="Employer EPS Contribution" 
                                     stroke="#fbbf24" 
                                     strokeWidth={2} 

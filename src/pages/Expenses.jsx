@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Calendar, ChevronDown, ChevronUp, BarChart3, Plus, X, Upload, Loader2 } from 'lucide-react';
 import { processBankStatement, mergeTransactionsIntoExpenses } from '../utils/importUtils';
+import { countsAsSpending } from '../utils/payrollDeductions';
 
 const Expenses = () => {
     const { expenses, formatCurrency, salaryStats, addNewYear, categoryRules, updateCategoryRules, saveExpenses, mergedCategoryMap } = useFinance();
@@ -85,7 +86,7 @@ const Expenses = () => {
                         investedCount: 0
                     };
                 }
-                if (item.deductFromSalary !== false) {
+                if (countsAsSpending(item)) {
                     const cat = (item.category || '').toLowerCase();
                     const isCreditCardBill = cat.includes('credit card bill') || cat.includes('credit card payment');
                     const isCCSpend = item.paymentMode === 'credit_card' && !isCreditCardBill;
@@ -129,7 +130,7 @@ const Expenses = () => {
                             const amt = Number(t.amount) || 0;
                             const effective = t.isCredited ? -amt : amt;
 
-                            if (t.deductFromSalary !== false && !t.isRewardPoints) {
+                            if (countsAsSpending(t) && !t.isRewardPoints) {
                                 const mainCat = t.mainCategory || getMainCategory(t.category);
                                 const isCreditCardBill = cat.includes('credit card bill') || cat.includes('credit card payment');
                                 const isCCSpend = t.paymentMode === 'credit_card' && !isCreditCardBill;
