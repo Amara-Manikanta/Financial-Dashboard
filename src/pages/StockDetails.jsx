@@ -9,6 +9,8 @@ import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 import { recomputeStockMetrics } from '../utils/investmentSync';
+import { costRecovery, NEARLY_FREE_FROM } from '../utils/costRecovery';
+import { dividendProfile } from '../utils/dividendAnalytics';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -223,6 +225,24 @@ const StockDetails = () => {
         };
     }, [transactions, stock]);
 
+    // Cost recovery for this one holding. Kept beside `metrics` rather than
+    // inside it because it answers a different question: `metrics` reports
+    // average-cost profit, this reports whether any of your own money is still
+    // in the position at all. Bajaj Housing shows +20% on the first measure and
+    // is fully recovered on the second — both true.
+    const recovery = useMemo(() => (stock ? costRecovery(stock) : null), [stock]);
+
+    // Yield on cost and payout reliability. Neither is derivable from the
+    // Dividends card beside it: that shows a rupee total, which says nothing
+    // about what the money committed is returning, or whether it still pays.
+    const dividendInfo = useMemo(() => (stock ? dividendProfile(stock) : null), [stock]);
+
+    // Realised P/L per disposal, from the same replay that produces the totals.
+    const realisedByTx = useMemo(
+        () => (stock ? recomputeStockMetrics(stock.transactions || []).realisedByTx : {}),
+        [stock],
+    );
+
     const currentYear = new Date().getFullYear();
     const dividendYears = useMemo(() => Array.from({ length: 5 }, (_, i) => (currentYear - i).toString()), [currentYear]);
 
@@ -408,6 +428,46 @@ const StockDetails = () => {
                     </div>
                 </div>
 
+                {recovery && recovery.invested > 0 && recovery.rawPct >= NEARLY_FREE_FROM && (
+                    <div style={{
+                        marginBottom: '1.25rem',
+                        padding: '1rem 1.25rem',
+                        borderRadius: '1rem',
+                        border: `1px solid ${recovery.isFree ? 'rgba(52,211,153,0.3)' : 'rgba(251,191,36,0.25)'}`,
+                        backgroundColor: recovery.isFree ? 'rgba(52,211,153,0.07)' : 'rgba(251,191,36,0.06)',
+                        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '1rem', justifyContent: 'space-between',
+                    }}>
+                        <div style={{ minWidth: 0 }}>
+                            <p style={{
+                                margin: 0, fontSize: '11px', fontWeight: 900, letterSpacing: '0.08em',
+                                textTransform: 'uppercase', color: recovery.isFree ? '#34d399' : '#fbbf24',
+                            }}>
+                                {recovery.isFree
+                                    ? `Held at no cost — ${recovery.shares} shares free`
+                                    : `${recovery.rawPct.toFixed(0)}% of cost recovered`}
+                            </p>
+                            <p style={{ margin: '0.35rem 0 0', fontSize: '0.78rem', color: '#a1a1aa', lineHeight: 1.5 }}>
+                                {formatCurrency(recovery.invested)} went in; {formatCurrency(recovery.recovered)} has come
+                                back{recovery.dividends > 0 ? `, including ${formatCurrency(recovery.dividends)} in dividends` : ''}.
+                                {recovery.isFree
+                                    ? ` Everything you put in is out, with ${formatCurrency(recovery.surplus)} to spare — the shares above cost you nothing, whatever the average price says.`
+                                    : ` ${formatCurrency(recovery.outstandingCost)} of your own money is still in this position — about ${formatCurrency(recovery.netCostPerShare)} a share.`}
+                            </p>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                            <p style={{ margin: 0, fontSize: '0.625rem', textTransform: 'uppercase', fontWeight: 800, color: '#71717a' }}>
+                                {recovery.isFree ? 'Free value' : 'Still at risk'}
+                            </p>
+                            <p style={{
+                                margin: '0.15rem 0 0', fontFamily: 'monospace', fontWeight: 900, fontSize: '1.35rem',
+                                color: recovery.isFree ? '#34d399' : '#fbbf24',
+                            }}>
+                                {formatCurrency(recovery.isFree ? recovery.value : recovery.outstandingCost)}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
                 <div style={styles.statGrid}>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Quantity Held</p>
@@ -454,7 +514,27 @@ const StockDetails = () => {
                     <div style={styles.glassCard('rgba(13, 148, 136, 0.05)', 'rgba(13, 148, 136, 0.15)')}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#2dd4bf', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Dividends</p>
                         <p style={{ fontSize: '1.25rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(metrics.dividendEarned)}</p>
+                        {dividendInfo?.everPaid && dividendInfo.pct > 0 && (
+                            <p style={{ margin: '0.3rem 0 0', fontSize: '0.6rem', color: '#71717a', fontWeight: 700 }}>
+                                {dividendInfo.pct.toFixed(1)}% yield on cost
+                            </p>
+                        )}
                     </div>
+                    {dividendInfo?.everPaid && (
+                        <div style={styles.glassCard(
+                            dividendInfo.lapsed ? 'rgba(251, 191, 36, 0.05)' : 'rgba(13, 148, 136, 0.05)',
+                            dividendInfo.lapsed ? 'rgba(251, 191, 36, 0.18)' : 'rgba(13, 148, 136, 0.15)'
+                        )}>
+                            <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: dividendInfo.lapsed ? '#fbbf24' : '#2dd4bf', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Payout Record</p>
+                            <p style={{ fontSize: '1.25rem', fontWeight: '900', color: dividendInfo.lapsed ? '#fbbf24' : 'white', fontFamily: 'monospace', margin: 0 }}>
+                                {dividendInfo.paidYears}/{dividendInfo.spanYears} yrs
+                            </p>
+                            <p style={{ margin: '0.3rem 0 0', fontSize: '0.6rem', color: '#71717a', fontWeight: 700 }}>
+                                {dividendInfo.payments} payment{dividendInfo.payments === 1 ? '' : 's'}
+                                {dividendInfo.lapsed ? ` · none since ${dividendInfo.lastPaid}` : ''}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -560,19 +640,41 @@ const StockDetails = () => {
                                         </span>
                                     </td>
                                     <td style={styles.td('right')}>
-                                        {tx.type === 'buy' ? (
-                                            (() => {
-                                                const pl = (stock.currentPrice - tx.price) * tx.quantity;
-                                                const isProfitable = pl >= 0;
+                                        {(() => {
+                                            // Two different questions, one column.
+                                            //
+                                            // For shares still held, P/L is what they
+                                            // would fetch today. For a sell or buyback the
+                                            // shares are gone, so the live price is
+                                            // irrelevant — what matters is what the
+                                            // disposal actually banked against the average
+                                            // cost at that moment. Showing a dash there hid
+                                            // the only rows that booked real money.
+                                            const booked = realisedByTx[String(tx.id)];
+                                            if (booked) {
+                                                const up = booked.realised >= 0;
                                                 return (
-                                                    <span style={{ fontFamily: 'monospace', fontWeight: '700', color: isProfitable ? '#34d399' : '#f87171' }}>
-                                                        {isProfitable ? '+' : ''}{formatCurrency(pl)}
+                                                    <div style={{ lineHeight: 1.3 }}>
+                                                        <span style={{ fontFamily: 'monospace', fontWeight: '700', color: up ? '#34d399' : '#f87171' }}>
+                                                            {up ? '+' : ''}{formatCurrency(booked.realised)}
+                                                        </span>
+                                                        <div style={{ fontSize: '9px', color: '#71717a', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                                                            booked vs {formatCurrency(booked.avgCostAtSale)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }
+                                            if (tx.type === 'buy' || tx.type === 'ipo') {
+                                                const pl = (stock.currentPrice - tx.price) * tx.quantity;
+                                                const up = pl >= 0;
+                                                return (
+                                                    <span style={{ fontFamily: 'monospace', fontWeight: '700', color: up ? '#34d399' : '#f87171' }}>
+                                                        {up ? '+' : ''}{formatCurrency(pl)}
                                                     </span>
                                                 );
-                                            })()
-                                        ) : (
-                                            <span style={{ color: '#71717a' }}>-</span>
-                                        )}
+                                            }
+                                            return <span style={{ color: '#71717a' }}>-</span>;
+                                        })()}
                                     </td>
                                     <td style={styles.td('center')}>
                                         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>

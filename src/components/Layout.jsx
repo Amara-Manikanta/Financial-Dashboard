@@ -1,21 +1,49 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
 
-const NavItem = ({ to, icon: Icon, label }) => (
+/**
+ * The three holdings the Investments page owns — mutual funds, the stock market
+ * account and SGBs — but whose detail pages are routed under /savings/.
+ *
+ * NavLink matches on path prefix, so /savings/stock-market/3 lit up "Savings"
+ * while the user was somewhere they reached from Investments, and Investments
+ * itself stayed dark. The routes are left alone deliberately: they are in URLs
+ * that already exist. Only the highlighting is corrected.
+ */
+const INVESTMENT_DETAIL_PATHS = ['/savings/stock-market', '/savings/mutual-fund', '/savings/sgb'];
+
+const isInvestmentDetail = (pathname) =>
+    INVESTMENT_DETAIL_PATHS.some((p) => pathname.startsWith(p));
+
+const NavItem = ({ to, icon: Icon, label }) => {
+    const { pathname } = useLocation();
+
+    // Savings hands the highlight over on those three paths; Investments claims
+    // it. Every other nav item keeps NavLink's own matching.
+    const override = to === '/savings'
+        ? (isInvestmentDetail(pathname) ? false : null)
+        : to === '/investments'
+            ? (isInvestmentDetail(pathname) ? true : null)
+            : null;
+
+    return (
     <NavLink
         to={to}
-        className={({ isActive }) =>
-            `relative flex items-center gap-1.5 px-1 py-2 text-[13px] font-medium whitespace-nowrap shrink-0 transition-all duration-200 group ${isActive
+        className={({ isActive: matched }) => {
+            const isActive = override === null ? matched : override;
+            return `relative flex items-center gap-1.5 px-1 py-2 text-[13px] font-medium whitespace-nowrap shrink-0 transition-all duration-200 group ${isActive
                 ? 'text-orange-500'
                 : 'text-gray-400 hover:text-white'
-            }`
-        }
+            }`;
+        }}
     >
-        {({ isActive }) => (
+        {({ isActive: matched }) => {
+            const isActive = override === null ? matched : override;
+            return (
             <>
                 <span className={`p-1.5 rounded-lg transition-colors ${isActive ? 'bg-orange-500/10' : 'group-hover:bg-white/5'}`}>
                     <Icon size={18} />
@@ -25,9 +53,11 @@ const NavItem = ({ to, icon: Icon, label }) => (
                     <span className="absolute -bottom-[21px] left-0 right-0 h-0.5 bg-orange-500 rounded-t-full shadow-[0_-2px_6px_rgba(249,115,22,0.5)]" />
                 )}
             </>
-        )}
+            );
+        }}
     </NavLink>
-);
+    );
+};
 
 const NavDropdown = ({ label, icon: Icon, items }) => {
     const [isOpen, setIsOpen] = useState(false);

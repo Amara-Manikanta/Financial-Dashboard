@@ -24,6 +24,10 @@ export const recomputeStockMetrics = (txList = []) => {
     let totalCost = 0;
     let realised = 0;
     const calculatedDividends = {};
+    // Realised P/L attributed to the individual sell that booked it. The replay
+    // already works out the average cost at each disposal; keeping it means the
+    // transaction table can show what a sell actually earned instead of a dash.
+    const realisedByTx = {};
 
     // Sort by date ascending: a split applies to whatever was held at the time,
     // so replaying out of order gives a different — and wrong — answer.
@@ -41,7 +45,15 @@ export const recomputeStockMetrics = (txList = []) => {
             // Booked on the shares actually held. A history that sells more than
             // it holds is already clamped below, and letting the surplus book a
             // gain would invent profit on shares that were never owned.
-            realised += Math.min(qty, currentShares) * (price - avgCost);
+            const booked = Math.min(qty, currentShares) * (price - avgCost);
+            realised += booked;
+            if (tx.id !== undefined && tx.id !== null) {
+                realisedByTx[String(tx.id)] = {
+                    realised: Math.round(booked * 100) / 100,
+                    avgCostAtSale: Math.round(avgCost * 100) / 100,
+                    sharesBooked: Math.min(qty, currentShares),
+                };
+            }
             currentShares = Math.max(0, currentShares - qty);
             totalCost = currentShares * avgCost;
         } else if (tx.type === 'bonus') {
@@ -71,7 +83,8 @@ export const recomputeStockMetrics = (txList = []) => {
         shares: currentShares,
         avgCost: finalAvgCost,
         dividends: calculatedDividends,
-        realised: Math.round(realised * 100) / 100
+        realised: Math.round(realised * 100) / 100,
+        realisedByTx
     };
 };
 

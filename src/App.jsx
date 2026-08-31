@@ -16,6 +16,8 @@ import CashflowForecast from './pages/CashflowForecast';
 import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
+import FreeHoldings from './pages/FreeHoldings';
+import DividendIncome from './pages/DividendIncome';
 import Nifty50Exposure from './pages/Nifty50Exposure';
 import Metals from './pages/Metals';
 import Assets from './pages/Assets';
@@ -139,6 +141,8 @@ function App() {
                                     <Route path="salary" element={<Salary />} />
                                     <Route path="savings" element={<Savings />} />
                                     <Route path="investments" element={<Investments />} />
+                                    <Route path="investments/free-holdings" element={<FreeHoldings />} />
+                                    <Route path="investments/dividend-income" element={<DividendIncome />} />
                                     <Route path="investments/nifty50-exposure" element={<Nifty50Exposure />} />
                                     <Route path="savings/mutual-fund/:id" element={<MutualFundDetails />} />
                                     <Route path="savings/fixed-deposit/:id" element={<FixedDepositDetails />} />
