@@ -139,10 +139,42 @@ const expectsDividends = (stock) => {
     return Object.values(stock.dividends || {}).some(v => Number(v) > 0);
 };
 
+
+/**
+ * "12 minutes ago" rather than a timestamp.
+ *
+ * The question a price staleness label answers is "can I trust this number",
+ * and elapsed time answers it directly where a formatted date makes the reader
+ * do the arithmetic. The exact time is kept in the tooltip for when it matters.
+ */
+const timeAgo = (iso) => {
+    if (!iso) return null;
+    const then = new Date(iso);
+    if (Number.isNaN(then.getTime())) return null;
+    const mins = Math.floor((Date.now() - then.getTime()) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins} min ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} day${days === 1 ? '' : 's'} ago`;
+};
+
+/** Older than a trading day: the figures are almost certainly out of date. */
+const STALE_AFTER_HOURS = 24;
+const isStale = (iso) => {
+    if (!iso) return true;
+    const then = new Date(iso);
+    if (Number.isNaN(then.getTime())) return true;
+    return (Date.now() - then.getTime()) > STALE_AFTER_HOURS * 3600000;
+};
+
 const StockMarketDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { savings, formatCurrency, updateItem } = useFinance();
+    const { savings, formatCurrency, updateItem, refreshStockPrices } = useFinance();
+    const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
+    const [refreshNote, setRefreshNote] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingStock, setEditingStock] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -1058,6 +1090,31 @@ const StockMarketDetails = () => {
                                     <span>Add Column</span>
                                 </button>
 
+                                {/* Refresh Prices.
+                                    refreshStockPrices has existed in the context all
+                                    along with nothing calling it — there was no way to
+                                    update prices from the interface at all. */}
+                                <button
+                                    disabled={isRefreshingPrices}
+                                    onClick={async () => {
+                                        setIsRefreshingPrices(true);
+                                        setRefreshNote(null);
+                                        const r = await refreshStockPrices(String(market.id));
+                                        setIsRefreshingPrices(false);
+                                        setRefreshNote(r.success
+                                            ? `Updated ${r.updated} of ${r.total} prices${r.notUpdated?.length ? ` · no quote for ${r.notUpdated.length}` : ''}`
+                                            : (r.message || 'Refresh failed'));
+                                    }}
+                                    style={{
+                                        ...styles.actionButton('#0d9488', '#0f766e'),
+                                        opacity: isRefreshingPrices ? 0.6 : 1,
+                                        cursor: isRefreshingPrices ? 'wait' : 'pointer',
+                                    }}
+                                >
+                                    <RefreshCw size={16} className={isRefreshingPrices ? 'animate-spin' : ''} />
+                                    <span>{isRefreshingPrices ? 'Fetching…' : 'Refresh Prices'}</span>
+                                </button>
+
                                 {/* Add Stock */}
                                 <button
                                     onClick={() => {
@@ -1077,6 +1134,18 @@ const StockMarketDetails = () => {
                                     <Plus size={16} />
                                     <span>Add Stock</span>
                                 </button>
+                                {(refreshNote || market.pricesUpdatedAt) && (
+                                    <span
+                                        title={market.pricesUpdatedAt ? new Date(market.pricesUpdatedAt).toLocaleString() : undefined}
+                                        style={{
+                                            fontSize: '11px', alignSelf: 'center', fontWeight: 600,
+                                            color: refreshNote ? '#a1a1aa'
+                                                : isStale(market.pricesUpdatedAt) ? '#fbbf24' : '#71717a',
+                                        }}
+                                    >
+                                        {refreshNote || `Prices updated ${timeAgo(market.pricesUpdatedAt)}`}
+                                    </span>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -1476,6 +1545,25 @@ const StockMarketDetails = () => {
                                             }}>
                                                 <div>Shares: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{stock.shares}</span></div>
                                                 <div>Avg: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span></div>
+                                                {/* The traded price itself. The card showed what the holding is
+                                                    worth and what it cost, but never the number those are derived
+                                                    from — so there was no way to see the price without opening the
+                                                    stock. Coloured against average cost, which is the comparison
+                                                    that makes a price mean something. */}
+                                                <div>
+                                                    LTP:{' '}
+                                                    <span style={{
+                                                        fontWeight: '700',
+                                                        fontFamily: 'monospace',
+                                                        color: !(Number(stock.currentPrice) > 0)
+                                                            ? '#fbbf24'
+                                                            : Number(stock.currentPrice) >= Number(stock.avgCost || 0)
+                                                                ? '#34d399'
+                                                                : '#f87171',
+                                                    }}>
+                                                        {Number(stock.currentPrice) > 0 ? formatCurrency(stock.currentPrice) : 'no price'}
+                                                    </span>
+                                                </div>
                                             </div>
 
                                             {/* P&L Status Indicator */}

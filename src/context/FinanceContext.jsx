@@ -2549,25 +2549,39 @@ export function FinanceProvider({ children }) {
         if (!initialMarket || !initialMarket.stocks) return { success: false, message: 'Market data not found' };
 
         try {
-            const updatedStockPrices = await Promise.all(initialMarket.stocks.map(async (stock) => {
-                const ticker = stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`;
-                try {
-                    // Using api.allorigins.win to bypass CORS for Yahoo Finance
-                    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(`https://query2.finance.yahoo.com/v8/finance/chart/${ticker}`)}`;
-                    const response = await fetch(proxyUrl);
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const data = await response.json();
+            // One request to our own proxy instead of one per stock through a
+            // public CORS relay. That relay (api.allorigins.win) began returning
+            // 500 for every ticker, and because each failure fell back to the
+            // stored price, a total outage looked exactly like a successful
+            // refresh. Failures are now named and surfaced.
+            const refreshable = initialMarket.stocks.filter(s => s && s.ticker && !s.isArchived);
+            const symbolFor = (stock) => (stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`);
+            const symbols = refreshable.map(symbolFor);
 
-                    const result = data.chart?.result?.[0];
-                    if (result && result.meta?.regularMarketPrice) {
-                        return { id: stock.id, currentPrice: result.meta.regularMarketPrice };
-                    }
-                    return { id: stock.id, currentPrice: stock.currentPrice };
-                } catch (err) {
-                    console.warn(`Failed to fetch price for ${ticker}:`, err);
-                    return { id: stock.id, currentPrice: stock.currentPrice };
+            const quoteRes = await fetch(`${API_URL}/api/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
+            if (!quoteRes.ok) throw new Error(`quote service returned ${quoteRes.status}`);
+            const { quotes = {}, failed = [] } = await quoteRes.json();
+
+            const updated = [];
+            const notUpdated = [];
+            refreshable.forEach((stock) => {
+                const price = quotes[symbolFor(stock)];
+                if (typeof price === 'number' && price > 0) {
+                    updated.push({ id: stock.id, currentPrice: price });
+                } else {
+                    notUpdated.push(stock.name || stock.ticker);
                 }
-            }));
+            });
+
+            if (updated.length === 0) {
+                const why = failed.length > 0
+                    ? `no price came back for any of ${failed.length} symbols`
+                    : 'no prices were returned';
+                setSaveError(`Prices could not be refreshed: ${why}. The figures on screen are unchanged, not current.`);
+                return { success: false, message: 'No prices were returned — nothing was changed.' };
+            }
+
+            const updatedStockPrices = updated;
 
             // 2. CRITICAL FIX: Fetch latest data from server just before saving
             // This prevents overwriting changes made (like adding a stock) while prices were being fetched
@@ -2584,8 +2598,15 @@ export function FinanceProvider({ children }) {
                 return stock;
             });
 
-            // 4. Save the merged result
-            const finalMarket = { ...latestMarket, stocks: mergedStocks };
+            // 4. Save the merged result, stamped with when the prices were
+            // actually fetched. Without it there is no way to tell a price
+            // pulled a minute ago from one that has been sitting there for
+            // weeks — they render identically.
+            const finalMarket = {
+                ...latestMarket,
+                stocks: mergedStocks,
+                pricesUpdatedAt: new Date().toISOString(),
+            };
 
             // We use updateItem here which updates local state and sends PUT to server
             // But since we already have the latest object and just want to save it, 
@@ -2595,10 +2616,28 @@ export function FinanceProvider({ children }) {
             // (which might include other user added stocks) + our price updates.
 
             await updateItem('savings', finalMarket);
-            return { success: true };
+
+            if (notUpdated.length > 0) {
+                // Partial success is still a partial failure, and the holdings
+                // that kept a stale price have to be named — otherwise the page
+                // shows old numbers beside new ones with nothing to tell them apart.
+                setSaveError(
+                    `Updated ${updated.length} of ${refreshable.length} prices. No quote for: `
+                    + `${notUpdated.slice(0, 6).join(', ')}${notUpdated.length > 6 ? ` and ${notUpdated.length - 6} more` : ''}`
+                    + ' — those still show their previous price.'
+                );
+            }
+
+            return {
+                success: true,
+                updated: updated.length,
+                total: refreshable.length,
+                notUpdated,
+            };
         } catch (error) {
             console.error("Error refreshing stock prices:", error);
-            return { success: false, message: 'Refresh failed' };
+            setSaveError(`Prices could not be refreshed: ${error.message}. The figures on screen are unchanged, not current.`);
+            return { success: false, message: `Refresh failed: ${error.message}` };
         }
     };
 
