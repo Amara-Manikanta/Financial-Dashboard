@@ -324,6 +324,76 @@ const handleImageRequest = (req, res) => {
     fs.createReadStream(filePath).pipe(res);
 };
 
+
+/**
+ * Live quotes, fetched server-side.
+ *
+ * The client used to call Yahoo through api.allorigins.win, a public CORS relay.
+ * That relay is a single point of failure outside anyone's control, and when it
+ * started answering 500 every refresh silently kept the old price — the catch
+ * returned `stock.currentPrice`, so a total outage and a successful refresh
+ * looked identical on screen.
+ *
+ * Node has no CORS to satisfy, so the request works directly from here. It also
+ * means the list of tickers someone holds is no longer handed to a third party
+ * on every refresh.
+ *
+ * GET /api/quote?symbols=LT.NS,SBIN.NS
+ *   -> { quotes: { "LT.NS": 3996.4 }, failed: ["BADSYM.NS"] }
+ *
+ * Failures are named rather than papered over, so the caller can tell the user
+ * which holdings did not update.
+ */
+const MAX_SYMBOLS_PER_REQUEST = 60;
+
+const handleQuoteRequest = async (req, res) => {
+    const url = new URL(req.url, `http://localhost:${PROXY_PORT}`);
+    const raw = (url.searchParams.get('symbols') || '').trim();
+    const symbols = raw.split(',').map((s) => s.trim()).filter(Boolean).slice(0, MAX_SYMBOLS_PER_REQUEST);
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (symbols.length === 0) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ error: 'symbols query parameter is required' }));
+    }
+
+    const quotes = {};
+    const failed = [];
+
+    await Promise.all(symbols.map(async (symbol) => {
+        // Only a ticker shape is ever interpolated into the URL — never raw
+        // client input, which would otherwise be a request-forgery hole.
+        if (!/^[A-Za-z0-9.\-&]{1,20}$/.test(symbol)) {
+            failed.push(symbol);
+            return;
+        }
+        try {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 8000);
+            const r = await fetch(
+                `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`,
+                { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal },
+            );
+            clearTimeout(timer);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const data = await r.json();
+            const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+            if (typeof price === 'number' && Number.isFinite(price) && price > 0) {
+                quotes[symbol] = price;
+            } else {
+                failed.push(symbol);
+            }
+        } catch (err) {
+            failed.push(symbol);
+        }
+    }));
+
+    res.writeHead(200);
+    res.end(JSON.stringify({ quotes, failed }));
+};
+
 const proxy = http.createServer((req, res) => {
     // Image routes are handled here, before the json-server proxy, so uploads
     // are never mistaken for a database mutation.
@@ -332,6 +402,9 @@ const proxy = http.createServer((req, res) => {
     }
     if ((req.url.startsWith('/api/images/') || req.url.startsWith('/api/documents/')) && req.method === 'GET') {
         return handleImageRequest(req, res);
+    }
+    if (req.url.startsWith('/api/quote') && req.method === 'GET') {
+        return handleQuoteRequest(req, res);
     }
 
     // 2. PROXY LOGIC: Forward to internal server
