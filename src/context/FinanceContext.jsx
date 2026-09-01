@@ -183,6 +183,7 @@ export function FinanceProvider({ children }) {
     const [taxes, setTaxes] = useState([]);
     const [salaryDetails, setSalaryDetails] = useState([]);
     const [goals, setGoals] = useState([]);
+    const [ipoApplications, setIpoApplications] = useState([]);
     const [loans, setLoans] = useState([]);
     const [insuranceProfile, setInsuranceProfile] = useState({ age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
     const [salaryStats, setSalaryStats] = useState({});
@@ -262,7 +263,7 @@ export function FinanceProvider({ children }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes, ipoRes] = await Promise.all([
                     fetch(`${API_URL}/expenses`),
                     fetch(`${API_URL}/savings`),
                     fetch(`${API_URL}/metals`),
@@ -274,7 +275,13 @@ export function FinanceProvider({ children }) {
                     fetch(`${API_URL}/taxes`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
                     fetch(`${API_URL}/salaryDetails`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
                     fetch(`${API_URL}/goals`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
-                    fetch(`${API_URL}/loans`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
+                    fetch(`${API_URL}/loans`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
+                    // Last, matching its position in the destructure above. These
+                    // are positional: inserting a fetch anywhere but the end shifts
+                    // every response after it onto the wrong variable.
+                    // Tolerates a 404 so an older database without the collection
+                    // still loads; it is created on first save.
+                    fetch(`${API_URL}/ipoApplications`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
                 ]);
 
                 // Remember which version of expenses this tab is working from, so
@@ -293,6 +300,7 @@ export function FinanceProvider({ children }) {
                 const taxesData = await taxRes.json();
                 const salaryDetailsData = await salRes.json();
                 const goalsData = await goalsRes.json();
+                const ipoData = await ipoRes.json();
                 const loansData = await loansRes.json();
 
                 const modifiedExpenses = JSON.parse(JSON.stringify(expData)); // deep-clone to avoid mutating fetched object
@@ -408,6 +416,7 @@ export function FinanceProvider({ children }) {
                 setSnapshots(snapData || []);
                 setSalaryDetails(salaryDetailsData || []);
                 setGoals((goalsData && goalsData.length > 0) ? goalsData : DEFAULT_GOALS);
+                setIpoApplications(Array.isArray(ipoData) ? ipoData : []);
                 setLoans((loansData && loansData.length > 0) ? loansData : DEFAULT_LOANS);
                 setInsuranceProfile(appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
 
@@ -1620,7 +1629,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : '';
 
         if (!endpoint) return;
 
@@ -1633,6 +1642,7 @@ export function FinanceProvider({ children }) {
             if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
             if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
+            if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
             return;
         }
@@ -1651,6 +1661,7 @@ export function FinanceProvider({ children }) {
             if (type === 'salaryDetail') setSalaryDetails(prev => [...prev, savedItem]);
             if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
+            if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
         } catch (error) {
             console.error("Error adding item:", error);
@@ -1962,7 +1973,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : '';
         if (!endpoint) return;
         if (isGuest) return;
         try {
@@ -1974,6 +1985,7 @@ export function FinanceProvider({ children }) {
             if (type === 'salaryDetail') setSalaryDetails(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'taxes') setTaxes(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'goals') setGoals(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'ipoApplications') setIpoApplications(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'loans') setLoans(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
             console.error("Error deleting item:", error);
@@ -2410,7 +2422,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : '';
         if (!endpoint || !item.id) return;
         if (isGuest) return;
         try {
@@ -2445,6 +2457,7 @@ export function FinanceProvider({ children }) {
             if (type === 'salaryDetail') setSalaryDetails(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'taxes') setTaxes(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'goals') setGoals(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'ipoApplications') setIpoApplications(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'loans') setLoans(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             return { success: true };
         } catch (error) {
@@ -2665,7 +2678,7 @@ export function FinanceProvider({ children }) {
     const value = {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         recurringOverrides, saveRecurringOverrides,
-        goals, loans, insuranceProfile,
+        goals, loans, ipoApplications, insuranceProfile,
         pendingWalletCredits, applyWalletAutoCredits,
         loadError,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,

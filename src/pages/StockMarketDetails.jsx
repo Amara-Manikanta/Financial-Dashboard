@@ -2141,6 +2141,7 @@ const StockMarketDetails = () => {
                 onSave={handleSaveStock}
                 initialData={editingStock}
                 customColumns={customColumns}
+                allStocks={stocks}
             />
 
             <ConfirmModal
