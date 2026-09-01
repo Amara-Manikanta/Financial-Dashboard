@@ -1,10 +1,10 @@
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Gift, ShieldCheck, TrendingUp } from 'lucide-react';
+import { Gift, ShieldCheck, TrendingUp, GitBranch } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import {
-    recoveryRanking, freePositions, nearlyFree, recoveryTotals, NEARLY_FREE_FROM,
+    recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings, NEARLY_FREE_FROM,
 } from '../utils/costRecovery';
 
 const card = {
@@ -55,6 +55,7 @@ const FreeHoldings = () => {
     const almost = useMemo(() => nearlyFree(stocks), [stocks]);
     const all = useMemo(() => recoveryRanking(stocks), [stocks]);
     const totals = useMemo(() => recoveryTotals(stocks), [stocks]);
+    const cashless = useMemo(() => cashlessHoldings(stocks), [stocks]);
 
     const recoveredPctOfPortfolio = totals.invested > 0
         ? (totals.recovered / totals.invested) * 100
@@ -183,6 +184,50 @@ const FreeHoldings = () => {
                                         <td style={{ ...td('right', '#fbbf24'), fontFamily: 'monospace' }}>{r.rawPct.toFixed(0)}%</td>
                                         <td style={{ ...td('right'), fontFamily: 'monospace' }}>{formatCurrency(r.outstandingCost)}</td>
                                         <td style={{ ...td('right', '#a1a1aa'), fontFamily: 'monospace' }}>{formatCurrency(r.netCostPerShare)}</td>
+                                        <td style={{ ...td('right'), fontFamily: 'monospace', fontWeight: 700 }}>{formatCurrency(r.value)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            )}
+
+            {cashless.length > 0 && (
+                <div style={{ ...card, padding: 0, marginBottom: '2rem', overflow: 'hidden', border: '1px solid rgba(45,212,191,0.22)' }}>
+                    <div style={{ padding: '1.1rem 1.5rem', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <GitBranch size={16} style={{ color: '#2dd4bf' }} /> Received, not bought
+                        </h3>
+                        <p style={{ fontSize: '0.72rem', color: '#71717a', margin: '0.3rem 0 0', maxWidth: '78ch', lineHeight: 1.5 }}>
+                            Shares that arrived by demerger or bonus. No cash was paid, so there is no
+                            cost to recover and they are kept out of the table below — a percentage of
+                            zero would be a division dressed up as a fact. A demerger still carries
+                            part of the parent's cost basis, shown here, so these are not free.
+                        </p>
+                    </div>
+                    <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '620px' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <th style={th()}>Holding</th>
+                                    <th style={th('right')}>Shares</th>
+                                    <th style={th('right')}>Basis carried over</th>
+                                    <th style={th('right')}>Dividends</th>
+                                    <th style={th('right')}>Value now</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {cashless.map((r) => (
+                                    <tr key={r.id} onClick={() => open(r.id)} style={{ cursor: 'pointer', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <td style={{ ...td(), fontWeight: 700 }}>{r.name}</td>
+                                        <td style={{ ...td('right'), fontFamily: 'monospace' }}>{r.shares}</td>
+                                        <td style={{ ...td('right', '#a1a1aa'), fontFamily: 'monospace' }}>
+                                            {r.allocatedBasis > 0 ? formatCurrency(r.allocatedBasis) : '—'}
+                                        </td>
+                                        <td style={{ ...td('right', '#2dd4bf'), fontFamily: 'monospace' }}>
+                                            {r.dividends > 0 ? formatCurrency(r.dividends) : '—'}
+                                        </td>
                                         <td style={{ ...td('right'), fontFamily: 'monospace', fontWeight: 700 }}>{formatCurrency(r.value)}</td>
                                     </tr>
                                 ))}

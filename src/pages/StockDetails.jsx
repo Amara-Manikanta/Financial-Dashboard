@@ -9,7 +9,7 @@ import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 import { recomputeStockMetrics } from '../utils/investmentSync';
-import { costRecovery, NEARLY_FREE_FROM } from '../utils/costRecovery';
+import { costRecovery, NEARLY_FREE_FROM, combinedWithParent } from '../utils/costRecovery';
 import { dividendProfile } from '../utils/dividendAnalytics';
 
 const StockDetails = () => {
@@ -237,6 +237,13 @@ const StockDetails = () => {
     // about what the money committed is returning, or whether it still pays.
     const dividendInfo = useMemo(() => (stock ? dividendProfile(stock) : null), [stock]);
 
+    // A demerged holding read alone is misleading: it shows no cost, because no
+    // cash was paid for it. Its cost was paid inside the parent.
+    const combined = useMemo(
+        () => (stock ? combinedWithParent(stock, market?.stocks || []) : null),
+        [stock, market],
+    );
+
     // Realised P/L per disposal, from the same replay that produces the totals.
     const realisedByTx = useMemo(
         () => (stock ? recomputeStockMetrics(stock.transactions || []).realisedByTx : {}),
@@ -427,6 +434,55 @@ const StockDetails = () => {
                         </button>
                     </div>
                 </div>
+
+                {combined && (
+                    <div style={{
+                        marginBottom: '1.25rem', padding: '1rem 1.25rem', borderRadius: '1rem',
+                        border: '1px solid rgba(45,212,191,0.28)', backgroundColor: 'rgba(45,212,191,0.06)',
+                    }}>
+                        <p style={{ margin: 0, fontSize: '11px', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#2dd4bf' }}>
+                            Demerged from {combined.parentName}{combined.parentArchived ? ' (archived)' : ''}
+                        </p>
+                        <p style={{ margin: '0.35rem 0 0.75rem', fontSize: '0.78rem', color: '#a1a1aa', lineHeight: 1.55 }}>
+                            No cash was paid for these shares — {formatCurrency(recovery?.allocatedBasis || 0)} of the
+                            parent's cost basis travelled across with them. The two only add up as one
+                            investment, which is how they are shown here.
+                        </p>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
+                            <div>
+                                <p style={{ margin: 0, fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 800, color: '#71717a' }}>Cash in</p>
+                                <p style={{ margin: '0.15rem 0 0', fontFamily: 'monospace', fontWeight: 900, fontSize: '1.05rem', color: '#e4e4e7' }}>
+                                    {formatCurrency(combined.invested)}
+                                </p>
+                            </div>
+                            <div>
+                                <p style={{ margin: 0, fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 800, color: '#71717a' }}>Cash back</p>
+                                <p style={{ margin: '0.15rem 0 0', fontFamily: 'monospace', fontWeight: 900, fontSize: '1.05rem', color: combined.isFree ? '#34d399' : '#fbbf24' }}>
+                                    {formatCurrency(combined.recovered)}
+                                    <span style={{ fontSize: '0.7rem', color: '#71717a', marginLeft: '0.35rem' }}>{combined.recoveredPct.toFixed(0)}%</span>
+                                </p>
+                            </div>
+                            <div>
+                                <p style={{ margin: 0, fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 800, color: '#71717a' }}>Still held, both</p>
+                                <p style={{ margin: '0.15rem 0 0', fontFamily: 'monospace', fontWeight: 900, fontSize: '1.05rem', color: '#e4e4e7' }}>
+                                    {formatCurrency(combined.value)}
+                                </p>
+                            </div>
+                            <div>
+                                <p style={{ margin: 0, fontSize: '0.6rem', textTransform: 'uppercase', fontWeight: 800, color: '#71717a' }}>Back + held vs cost</p>
+                                <p style={{ margin: '0.15rem 0 0', fontFamily: 'monospace', fontWeight: 900, fontSize: '1.05rem', color: combined.totalReturnPct >= 100 ? '#34d399' : '#f87171' }}>
+                                    {combined.totalReturnPct.toFixed(0)}%
+                                </p>
+                            </div>
+                        </div>
+                        {!combined.isFree && (
+                            <p style={{ margin: '0.75rem 0 0', fontSize: '0.72rem', color: '#71717a' }}>
+                                {formatCurrency(combined.outstandingCost)} of the original cost is still
+                                out there — up on paper, but not yet returned in cash.
+                            </p>
+                        )}
+                    </div>
+                )}
 
                 {recovery && recovery.invested > 0 && recovery.rawPct >= NEARLY_FREE_FROM && (
                     <div style={{
@@ -915,6 +971,7 @@ const StockDetails = () => {
                 onSave={handleUpdateStock}
                 initialData={stock}
                 customColumns={market.customColumns || []}
+                allStocks={market.stocks || []}
             />
 
             <ConfirmModal

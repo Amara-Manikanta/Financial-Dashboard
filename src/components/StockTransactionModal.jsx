@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, TrendingUp, Hash, FileText, PieChart, Layers, Tag, DollarSign, CheckSquare, Info } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 
-const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [] }) => {
+const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [], allStocks = [] }) => {
     const [name, setName] = useState('');
     const [ticker, setTicker] = useState('');
     const [shares, setShares] = useState('');
@@ -16,6 +16,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const [expectsDividends, setExpectsDividends] = useState(false);
     const [marketCap, setMarketCap] = useState('');
     const [sector, setSector] = useState('');
+    const [demergedFrom, setDemergedFrom] = useState('');
 
     useEffect(() => {
         if (isOpen && initialData) {
@@ -36,6 +37,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setExpectsDividends(initialData.expectsDividends || false);
             setMarketCap(initialData.marketCap || '');
             setSector(initialData.sector || '');
+            setDemergedFrom(initialData.demergedFrom || '');
         } else if (isOpen) {
             setName('');
             setTicker('');
@@ -70,7 +72,10 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             dividends: initialData ? initialData.dividends : {},
             expectsDividends,
             marketCap: marketCap || null,
-            sector: sector || null
+            sector: sector || null,
+            // Links a demerged holding back to the company it came out of, so the
+            // two can be reported as the one investment they actually are.
+            demergedFrom: demergedFrom || null
         });
         onClose();
     };
@@ -208,6 +213,31 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     <option value="Materials" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Materials</option>
                                     <option value="Real Estate" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Real Estate</option>
                                 </select>
+                            </div>
+                            <div>
+                                <label className={labelStyle}>
+                                    <Tag size={13} className="text-teal-400" />
+                                    Demerged From
+                                </label>
+                                <select
+                                    value={demergedFrom}
+                                    onChange={(e) => setDemergedFrom(e.target.value)}
+                                    style={selectStyle}
+                                >
+                                    <option value="" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Not a demerged holding</option>
+                                    {(allStocks || [])
+                                        .filter((s) => s && String(s.id) !== String(initialData?.id))
+                                        .map((s) => (
+                                            <option key={s.id} value={s.id} style={{ backgroundColor: '#18181b', color: '#ffffff' }}>
+                                                {s.name || s.ticker}{s.isArchived ? ' (archived)' : ''}
+                                            </option>
+                                        ))}
+                                </select>
+                                <p className="text-[10px] text-zinc-500 mt-1 leading-snug">
+                                    Shares that arrived from a demerger cost no cash, but carry part of
+                                    the parent's cost basis. Linking them lets both be reported as the
+                                    one investment they are.
+                                </p>
                             </div>
                         </div>
 
