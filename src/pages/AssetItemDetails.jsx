@@ -6,7 +6,7 @@ import AssetTransactionModal from '../components/AssetTransactionModal';
 import AssetItemModal from '../components/AssetItemModal';
 import BackButton from '../components/BackButton';
 import { formatDate } from '../utils/dateUtils';
-import { ENTRY_KINDS, kindOf, summariseRental, rentLedger, expectedRentOn, formatPeriod } from '../utils/rental';
+import { ENTRY_KINDS, kindOf, summariseRental, rentLedger, billLedger, expectedRentOn, formatPeriod } from '../utils/rental';
 import WarrantyPanel from '../components/WarrantyPanel';
 
 const AssetItemDetails = () => {
@@ -43,6 +43,7 @@ const AssetItemDetails = () => {
     const categoryTitle = category.title || category.category || category.name
         || category.type?.replace('_', ' ') || 'Assets';
     const ledger = rental ? rentLedger(rental, transactions) : [];
+    const bills = isRealEstate ? billLedger(transactions) : [];
     const arrears = ledger.reduce((sum, r) => sum + r.shortfall, 0);
     const currentRent = rental ? expectedRentOn(rental, new Date().toISOString().slice(0, 10)) : 0;
 
@@ -196,7 +197,17 @@ const AssetItemDetails = () => {
                             {[
                                 { label: 'Rent received', value: summary.rentReceived, color: '#10b981' },
                                 { label: 'Advance held', value: summary.depositHeld, color: '#6366f1', note: 'Refundable' },
-                                { label: 'Current bills', value: summary.billsPaid, color: '#f59e0b' },
+                                {
+                                    label: 'Current bills',
+                                    // What the bills left you carrying, not what
+                                    // was billed — on a let shop the meter is in
+                                    // the owner's name and the money comes back.
+                                    value: summary.billsBorne,
+                                    color: '#f59e0b',
+                                    note: summary.billsRecovered > 0
+                                        ? `${formatCurrency(summary.billsPaid)} billed, ${formatCurrency(summary.billsRecovered)} recovered`
+                                        : undefined,
+                                },
                                 { label: 'Property tax', value: summary.taxPaid, color: '#ef4444' },
                                 { label: 'Arrears', value: arrears, color: arrears > 0 ? '#ef4444' : '#10b981' },
                             ].map((tile) => (
@@ -299,6 +310,53 @@ const AssetItemDetails = () => {
                                     ))}
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {bills.length > 0 && (
+                        <div className="card p-0 overflow-hidden border border-white/5">
+                            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                                <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">
+                                    Bills charged vs recovered
+                                </h4>
+                                <span className="text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                                    Most recent first
+                                </span>
+                            </div>
+                            {/* No "due" column on purpose: electricity is
+                                whatever the meter said, so nothing here can
+                                claim a bill was expected. It reports what was
+                                recorded and what that left you carrying. */}
+                            <div className="max-h-[320px] overflow-y-auto custom-scrollbar">
+                                <table className="w-full text-left text-xs">
+                                    <tbody className="divide-y divide-white/5">
+                                        {bills.map((row) => (
+                                            <tr key={row.month} className="hover:bg-white/[0.03] transition-colors">
+                                                <td className="py-3 px-6 font-mono text-gray-400">{formatPeriod(row.month)}</td>
+                                                <td className="py-3 px-6 text-right font-mono text-gray-500">
+                                                    {formatCurrency(row.billed)} billed
+                                                </td>
+                                                <td className="py-3 px-6 text-right font-mono text-gray-500">
+                                                    {formatCurrency(row.recovered)} back
+                                                </td>
+                                                <td className="py-3 px-6 text-right w-40">
+                                                    {row.borne > 0 ? (
+                                                        <span className="text-amber-400 font-black">
+                                                            you paid {formatCurrency(row.borne)}
+                                                        </span>
+                                                    ) : row.borne < 0 ? (
+                                                        <span className="text-emerald-400 font-black">
+                                                            {formatCurrency(-row.borne)} ahead
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-emerald-400 font-black">fully recovered</span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     )}
                 </div>

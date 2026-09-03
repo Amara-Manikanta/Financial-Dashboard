@@ -7,16 +7,33 @@
 // Entry kinds recorded against a property. `direction` decides whether the
 // amount is money in or out; `countsAsYield` keeps deposits out of the return
 // figure, since an advance is money held, not money earned.
+/**
+ * `hasPeriod` marks a kind that belongs to a month rather than to the day it
+ * was paid. Rent for August is routinely paid in September, and so is the
+ * August electricity bill — bucketing either by payment date reports the month
+ * unpaid and the next one double.
+ */
 export const ENTRY_KINDS = {
-    rent: { label: 'Rent', direction: 'income', countsAsYield: true, color: '#10b981' },
+    rent: { label: 'Rent', direction: 'income', countsAsYield: true, hasPeriod: true, color: '#10b981' },
     advance: { label: 'Advance / Deposit', direction: 'income', countsAsYield: false, color: '#6366f1' },
     advance_refund: { label: 'Advance Refunded', direction: 'expense', countsAsYield: false, color: '#8b5cf6' },
-    current_bill: { label: 'Current Bill', direction: 'expense', countsAsYield: true, color: '#f59e0b' },
-    property_tax: { label: 'Property Tax', direction: 'expense', countsAsYield: true, color: '#ef4444' },
+    current_bill: { label: 'Current Bill', direction: 'expense', countsAsYield: true, hasPeriod: true, color: '#f59e0b' },
+    // The other half of a bill the landlord fronts.
+    //
+    // On a let shop the meter is usually in the owner's name: you pay the
+    // board and take it back from the tenant, and you are out nothing. Without
+    // this kind that recovery had nowhere to go, so a bill paid and fully
+    // recovered still showed as a straight reduction in yield — a shop billing
+    // ₹4,000 a month looked ₹48,000 a year worse than it was.
+    bill_recovered: { label: 'Bill Recovered from Tenant', direction: 'income', countsAsYield: true, hasPeriod: true, color: '#fbbf24' },
+    property_tax: { label: 'Property Tax', direction: 'expense', countsAsYield: true, hasPeriod: true, color: '#ef4444' },
     maintenance: { label: 'Maintenance / Repairs', direction: 'expense', countsAsYield: true, color: '#f97316' },
     other_income: { label: 'Other Income', direction: 'income', countsAsYield: true, color: '#22d3ee' },
     other_expense: { label: 'Other Expense', direction: 'expense', countsAsYield: true, color: '#94a3b8' },
 };
+
+/** Does this kind belong to a month rather than to its payment date? */
+export const kindHasPeriod = (kind) => !!ENTRY_KINDS[kind]?.hasPeriod;
 
 // Entries saved before kinds existed only carry type: 'income' | 'expense'.
 export const kindOf = (entry) => {
@@ -162,6 +179,11 @@ export const summariseRental = (entries = []) => {
         byKind,
         rentReceived: byKind.rent.total,
         billsPaid: byKind.current_bill.total,
+        billsRecovered: byKind.bill_recovered.total,
+        // What the bills actually cost you once the tenant's share is back.
+        // Clamped at zero: recovering more than was billed means an arrear from
+        // an earlier month came in, not that the property earned on electricity.
+        billsBorne: Math.max(0, byKind.current_bill.total - byKind.bill_recovered.total),
         taxPaid: byKind.property_tax.total,
         maintenancePaid: byKind.maintenance.total,
         depositHeld,
@@ -169,6 +191,37 @@ export const summariseRental = (entries = []) => {
         expense,
         net: income - expense,
     };
+};
+
+/**
+ * Bills charged against bills recovered, by the month each covers.
+ *
+ * Separate from the rent ledger because there is no schedule to compare
+ * against — electricity is whatever the meter said, so nothing here can say a
+ * bill is "due". It reports only what was recorded: billed, recovered, and
+ * what that left you carrying.
+ */
+export const billLedger = (entries = []) => {
+    const months = new Map();
+    const unplaced = [];
+
+    entries.forEach((e) => {
+        const kind = kindOf(e);
+        if (kind !== 'current_bill' && kind !== 'bill_recovered') return;
+        const key = e.period ? parsePeriod(e.period) : parsePeriod(String(e.date || '').slice(0, 7));
+        if (!key) { unplaced.push(e); return; }
+        if (!months.has(key)) months.set(key, { month: key, billed: 0, recovered: 0 });
+        const row = months.get(key);
+        const amount = Math.abs(Number(e.amount) || 0);
+        if (kind === 'current_bill') row.billed += amount;
+        else row.recovered += amount;
+    });
+
+    const rows = [...months.values()]
+        .map((r) => ({ ...r, borne: r.billed - r.recovered }))
+        .sort((a, b) => b.month.localeCompare(a.month));
+    rows.unplaced = unplaced;
+    return rows;
 };
 
 /** Rent months expected vs received, so shortfalls are visible. */

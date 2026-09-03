@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
-import { ENTRY_KINDS, kindOf, parsePeriod, formatPeriod } from '../utils/rental';
+import { ENTRY_KINDS, kindOf, parsePeriod, formatPeriod, kindHasPeriod } from '../utils/rental';
 
 const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEstate = false }) => {
     const blank = () => ({
@@ -48,7 +48,7 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
             // renders a plain text box — an entry made there stored "August
             // 2026", which the rent ledger could not match to any month, so a
             // month that had been paid showed as short by the full rent.
-            period: kind === 'rent' ? (parsePeriod(formData.period) || '') : '',
+            period: kindHasPeriod(kind) ? (parsePeriod(formData.period) || '') : '',
             id: initialData?.id || Date.now().toString(),
         });
     };
@@ -107,9 +107,11 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
                                 required
                             />
                         </div>
-                        {formData.kind === 'rent' && (
+                        {kindHasPeriod(formData.kind) && (
                             <div className="flex-1">
-                                <label className="block text-sm font-medium text-gray-400 mb-1">Rent for month</label>
+                                <label className="block text-sm font-medium text-gray-400 mb-1">
+                                    {formData.kind === 'rent' ? 'Rent for month' : 'For month'}
+                                </label>
                                 <input
                                     type="month"
                                     name="period"
@@ -131,7 +133,7 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
                                     </p>
                                 ) : (
                                     <p className="text-[11px] text-gray-500 mt-1">
-                                        Which month the rent covers, not when it was paid
+                                        Which month this covers, not when it was paid
                                     </p>
                                 )}
                             </div>
