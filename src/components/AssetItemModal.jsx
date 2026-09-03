@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Tag, FileText, MapPin, Ruler, Briefcase, Coins, ShieldCheck, Trash2 } from 'lucide-react';
+import AgreementPointsEditor from './AgreementPointsEditor';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import CurrencyInput from './CurrencyInput';
@@ -501,77 +502,14 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                                             </div>
                                         </div>
 
-                                        {/* Agreement points as a list, not one
-                                            paragraph. "Current bill paid by
-                                            tenant" is the sort of thing you
-                                            need to find in ten seconds during a
-                                            disagreement, and a free-text blob
-                                            is where it goes to hide. The blob
-                                            stays below for anything that does
-                                            not reduce to a line. */}
-                                        <div className="space-y-2">
-                                            <div className="flex items-center justify-between ml-1">
-                                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest">
-                                                    Agreement points
-                                                </label>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setRental((p) => ({ ...p, terms: [...(p.terms || []), ''] }))}
-                                                    className="text-[10px] font-black text-emerald-400 hover:text-emerald-300 uppercase tracking-widest"
-                                                >
-                                                    + Add point
-                                                </button>
-                                            </div>
-
-                                            {(rental.terms || []).length === 0 && (
-                                                <div className="flex flex-wrap gap-1.5 pt-1">
-                                                    {[
-                                                        'Current bill paid by tenant',
-                                                        '2 months notice',
-                                                        '11 month lock-in',
-                                                        'Maintenance by tenant',
-                                                        'No subletting',
-                                                    ].map((suggestion) => (
-                                                        <button
-                                                            key={suggestion}
-                                                            type="button"
-                                                            onClick={() => setRental((p) => ({ ...p, terms: [...(p.terms || []), suggestion] }))}
-                                                            className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-gray-400 hover:text-white hover:border-emerald-500/40 transition-all"
-                                                        >
-                                                            + {suggestion}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            )}
-
-                                            {(rental.terms || []).map((term, i) => (
-                                                // eslint-disable-next-line react/no-array-index-key
-                                                <div key={i} className="flex gap-2 items-center">
-                                                    <span className="text-emerald-500 text-xs font-black w-4 text-center">{i + 1}</span>
-                                                    <input
-                                                        value={term}
-                                                        onChange={(e) => setRental((p) => {
-                                                            const terms = [...(p.terms || [])];
-                                                            terms[i] = e.target.value;
-                                                            return { ...p, terms };
-                                                        })}
-                                                        placeholder="e.g. Current bill paid by tenant"
-                                                        className="flex-1 bg-white/5 border border-white/10 rounded-xl py-2 px-3 text-white font-medium placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm"
-                                                    />
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setRental((p) => ({
-                                                            ...p,
-                                                            terms: (p.terms || []).filter((_, j) => j !== i),
-                                                        }))}
-                                                        className="p-2 rounded-lg text-red-400 hover:bg-red-500/15 transition-all"
-                                                        aria-label="Remove point"
-                                                    >
-                                                        <Trash2 size={13} />
-                                                    </button>
-                                                </div>
-                                            ))}
-                                        </div>
+                                        {/* Extracted to a component: the same
+                                            editor appears on the unit form, and
+                                            two copies would drift the first time
+                                            either changed. */}
+                                        <AgreementPointsEditor
+                                            terms={rental.terms}
+                                            onChange={(terms) => setRental((p) => ({ ...p, terms }))}
+                                        />
 
                                         <div className="space-y-2">
                                             <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Other notes</label>

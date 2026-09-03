@@ -1,21 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Trash2, Home } from 'lucide-react';
+import { X, Home } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
+import AgreementPointsEditor from './AgreementPointsEditor';
 import { UNIT_TYPES, blankUnit } from '../utils/propertyUnits';
 
 const inputClass = 'w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-3.5 text-white font-medium '
     + 'placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm';
 
 const labelClass = 'block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-1.5 ml-1';
-
-const SUGGESTED_TERMS = [
-    'Current bill paid by tenant',
-    '2 months notice',
-    '11 month lock-in',
-    'Maintenance by tenant',
-    'No subletting',
-];
 
 const BLANK_RENTAL = {
     tenantName: '', tenantContact: '',
@@ -204,48 +197,10 @@ const PropertyUnitModal = ({ isOpen, onClose, onSave, onDelete, initialData }) =
                                 </div>
                             </div>
 
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5 ml-1">
-                                    <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest">Agreement points</label>
-                                    <button type="button"
-                                        onClick={() => setRental((p) => ({ ...p, terms: [...(p.terms || []), ''] }))}
-                                        className="text-[10px] font-black text-emerald-400 hover:text-emerald-300 uppercase tracking-widest">
-                                        + Add point
-                                    </button>
-                                </div>
-
-                                {(rental.terms || []).length === 0 && (
-                                    <div className="flex flex-wrap gap-1.5">
-                                        {SUGGESTED_TERMS.map((s) => (
-                                            <button key={s} type="button"
-                                                onClick={() => setRental((p) => ({ ...p, terms: [...(p.terms || []), s] }))}
-                                                className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[10px] text-gray-400 hover:text-white hover:border-emerald-500/40 transition-all">
-                                                + {s}
-                                            </button>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {(rental.terms || []).map((term, i) => (
-                                    // eslint-disable-next-line react/no-array-index-key
-                                    <div key={i} className="flex gap-2 items-center mt-2">
-                                        <span className="text-emerald-500 text-xs font-black w-4 text-center">{i + 1}</span>
-                                        <input value={term}
-                                            onChange={(e) => setRental((p) => {
-                                                const terms = [...(p.terms || [])];
-                                                terms[i] = e.target.value;
-                                                return { ...p, terms };
-                                            })}
-                                            placeholder="e.g. Current bill paid by tenant"
-                                            className={inputClass} />
-                                        <button type="button"
-                                            onClick={() => setRental((p) => ({ ...p, terms: (p.terms || []).filter((_, j) => j !== i) }))}
-                                            className="p-2 rounded-lg text-red-400 hover:bg-red-500/15 transition-all" aria-label="Remove point">
-                                            <Trash2 size={13} />
-                                        </button>
-                                    </div>
-                                ))}
-                            </div>
+                            <AgreementPointsEditor
+                                terms={rental.terms}
+                                onChange={(terms) => setRental((p) => ({ ...p, terms }))}
+                            />
 
                             <div>
                                 <label className={labelClass}>Other notes</label>
