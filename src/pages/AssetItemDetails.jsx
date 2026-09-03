@@ -60,8 +60,18 @@ const AssetItemDetails = () => {
 
     // Yield deliberately excludes a refundable deposit: it is money held on the
     // tenant's behalf, not a return on the asset.
-    const totalIncome = summary.income;
-    const totalExpenses = summary.expense;
+    /**
+     * The headline figures: the whole property until a unit is chosen.
+     *
+     * These used to read only `item.transactions`, which on a property tracked
+     * by units is just the building's own costs — so a house with three shops
+     * let showed a total yield of ₹0 while the units below it plainly said
+     * otherwise.
+     */
+    const showingWholeProperty = usesUnits && !activeUnit;
+    const totalIncome = showingWholeProperty ? property.income : summary.income;
+    const totalExpenses = showingWholeProperty ? property.expense : summary.expense;
+    const headlineDeposit = showingWholeProperty ? property.depositHeld : summary.depositHeld;
 
     const categoryTitle = category.title || category.category || category.name
         || category.type?.replace('_', ' ') || 'Assets';
@@ -232,7 +242,12 @@ const AssetItemDetails = () => {
                 </div>
                 <div className="card group relative overflow-hidden">
                     <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 relative z-10">
-                        Total Yield (Income){summary.depositHeld > 0 ? ' · excl. deposit' : ''}
+                        Total Yield (Income){headlineDeposit > 0 ? ' · excl. deposit' : ''}
+                        {usesUnits && (
+                            <span className="text-gray-600 normal-case tracking-normal font-bold">
+                                {' · '}{activeUnit ? activeUnit.name : 'all units'}
+                            </span>
+                        )}
                     </p>
                     <p className="text-3xl font-black text-blue-400 tracking-tight relative z-10 flex items-center gap-2">
                         {formatCurrency(totalIncome)}
@@ -241,7 +256,14 @@ const AssetItemDetails = () => {
                     <div className="absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-[0.03] group-hover:opacity-[0.05] transition-opacity bg-blue-500" />
                 </div>
                 <div className="card group relative overflow-hidden">
-                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 relative z-10">Maintenance (Expenses)</p>
+                    <p className="text-[10px] text-gray-500 font-black uppercase tracking-widest mb-2 relative z-10">
+                        Maintenance (Expenses)
+                        {usesUnits && (
+                            <span className="text-gray-600 normal-case tracking-normal font-bold">
+                                {' · '}{activeUnit ? activeUnit.name : 'all units'}
+                            </span>
+                        )}
+                    </p>
                     <p className="text-3xl font-black text-red-400 tracking-tight relative z-10 flex items-center gap-2">
                         {formatCurrency(totalExpenses)}
                         <TrendingDown size={24} className="opacity-20" />
