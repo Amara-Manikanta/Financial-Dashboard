@@ -75,6 +75,20 @@ const monthOf = (tx) => {
     return /^\d{4}-\d{2}$/.test(key) ? key : null;
 };
 
+/**
+ * Below this, a percentage change is noise dressed as a finding.
+ *
+ * Medical spending went from a ₹2 median month to ₹20,882, which is a true
+ * "+1,044,000%" and a useless one — it ranks above every real move and says
+ * nothing the ₹20,880 figure beside it does not say better. A ratio needs a
+ * denominator worth dividing by; under this floor there is none, so the
+ * percentage is withheld and the rupee change stands on its own.
+ */
+const PCT_FLOOR = 100;
+
+const pctChange = (before, after) =>
+    (before >= PCT_FLOOR ? ((after - before) / before) * 100 : null);
+
 const median = (values = []) => {
     const sorted = [...values].filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
     if (sorted.length === 0) return 0;
@@ -247,7 +261,7 @@ export const categoryMovers = (expenses = {}, categoryKinds = {}, {
             current: money(now),
             normal: money(normal),
             change: money(now - normal),
-            changePct: normal > 0 ? ((now - normal) / normal) * 100 : null,
+            changePct: pctChange(normal, now),
             monthsSeen: seen,
             baselineMonths: baseline.length,
             establishedBaseline: seen >= minMonths,
@@ -295,7 +309,7 @@ export const categoryTrends = (expenses = {}, categoryKinds = {}, windowMonths =
             before: money(before),
             after: money(after),
             change: money(after - before),
-            changePct: before > 0 ? ((after - before) / before) * 100 : null,
+            changePct: pctChange(before, after),
             direction: after > before ? 'up' : after < before ? 'down' : 'flat',
             months: months.map((m) => ({ month: m, amount: num(byMonth[m]?.[category]) })),
             activeMonths: [...earlierValues, ...recentValues].filter((v) => v > 0).length,

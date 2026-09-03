@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Tag, FileText, MapPin, Ruler, Briefcase, Coins, ShieldCheck } from 'lucide-react';
+import { X, Calendar, Tag, FileText, MapPin, Ruler, Briefcase, Coins, ShieldCheck, Trash2 } from 'lucide-react';
+import AgreementPointsEditor from './AgreementPointsEditor';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import CurrencyInput from './CurrencyInput';
@@ -18,7 +19,7 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
         unitName: '', tenantName: '', tenantContact: '',
         monthlyRent: '', rentDueDay: '', advanceAmount: '',
         escalationType: 'percent', escalationValue: '', escalationEveryMonths: 12,
-        leaseStart: '', leaseEnd: '', rules: '',
+        leaseStart: '', leaseEnd: '', rules: '', terms: [],
     };
     const [isLet, setIsLet] = useState(false);
     const [rental, setRental] = useState(BLANK_RENTAL);
@@ -40,6 +41,8 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
     };
 
     const isRealEstate = categoryType === 'real_estate';
+    /** Units own the tenancies; the property must not carry one as well. */
+    const hasUnitsTracking = Array.isArray(initialData?.units) && initialData.units.length > 0;
 
     const warrantyInputCls = 'w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-medium placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm';
 
@@ -120,9 +123,15 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                     escalationValue: Number(rental.escalationValue) || 0,
                     escalationEveryMonths: Number(rental.escalationEveryMonths) || 12,
                     rentDueDay: Number(rental.rentDueDay) || '',
+                    // Blank rows are the ones you added and then thought better
+                    // of; storing them puts empty bullets in the agreement.
+                    terms: (rental.terms || []).map((t) => String(t).trim()).filter(Boolean),
                 }
                 : undefined,
-            transactions: initialData?.transactions || []
+            transactions: initialData?.transactions || [],
+            // Units are edited on the property page, not here — carried through
+            // so saving the item's details cannot drop its tenancies.
+            units: initialData?.units,
         });
         onClose();
     };
@@ -365,7 +374,26 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                             </div>
                         )}
 
-                        {isRealEstate && (
+                        {/* A property tracked by units has no tenancy of its own.
+                            Leaving this section available gave a second place to
+                            enter a rent and a set of agreement points — one that
+                            belongs to no unit and reads as common to all of them,
+                            which is exactly how it looked. */}
+                        {isRealEstate && hasUnitsTracking && (
+                            <div className="pt-5 border-t border-white/5">
+                                <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-2">
+                                    Let out by unit
+                                </p>
+                                <p className="text-[11px] text-gray-500 leading-relaxed">
+                                    This property has {initialData.units.length} units. Rent, tenant, lease and
+                                    agreement points belong to each unit separately — edit them from the Units
+                                    section on the property page. Nothing is set here, so the same terms cannot
+                                    end up applied to every unit at once.
+                                </p>
+                            </div>
+                        )}
+
+                        {isRealEstate && !hasUnitsTracking && (
                             <div className="pt-5 border-t border-white/5 space-y-5">
                                 <label className="flex items-center gap-3 cursor-pointer">
                                     <input
@@ -495,13 +523,22 @@ const AssetItemModal = ({ isOpen, onClose, onSave, initialData = null, categoryT
                                             </div>
                                         </div>
 
+                                        {/* Extracted to a component: the same
+                                            editor appears on the unit form, and
+                                            two copies would drift the first time
+                                            either changed. */}
+                                        <AgreementPointsEditor
+                                            terms={rental.terms}
+                                            onChange={(terms) => setRental((p) => ({ ...p, terms }))}
+                                        />
+
                                         <div className="space-y-2">
-                                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Rules / agreement notes</label>
+                                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Other notes</label>
                                             <textarea
                                                 value={rental.rules}
                                                 onChange={setRentalField('rules')}
                                                 className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-medium placeholder:text-gray-700 focus:outline-none focus:border-emerald-500/50 transition-all text-sm min-h-[80px] resize-none"
-                                                placeholder="Lock-in 11 months, 2 months notice, maintenance by tenant, current bill paid by tenant..."
+                                                placeholder="Anything that does not fit as a single point"
                                             />
                                         </div>
                                     </div>
