@@ -1,14 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance, API_URL } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, PieChart as PieChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight, Layers } from 'lucide-react';
 import { resolveMarketCap } from '../utils/nifty50Data';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
+import { readQuote, triggeredAlerts } from '../utils/priceRange';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
+import BenchmarkPanel from '../components/BenchmarkPanel';
 
 const StockTreemapContent = (props) => {
     const { depth, x, y, width, height, index, name, ticker, percentage, value } = props;
@@ -417,7 +419,11 @@ const StockMarketDetails = () => {
         if (existingStockIndex >= 0) {
             updatedStocks = [...stocks];
             // Preserve existing transactions when editing
+            // Merged, not replaced. The modal now spreads what it was given,
+            // but the page holds the stored stock and should not be capable of
+            // erasing a field the form never knew about.
             updatedStocks[existingStockIndex] = {
+                ...stocks[existingStockIndex],
                 ...stockData,
                 transactions: stocks[existingStockIndex].transactions || []
             };
@@ -1563,8 +1569,56 @@ const StockMarketDetails = () => {
                                                     }}>
                                                         {Number(stock.currentPrice) > 0 ? formatCurrency(stock.currentPrice) : 'no price'}
                                                     </span>
+                                                    {(() => {
+                                                        const q = readQuote(stock);
+                                                        if (q.dayChangePct === null) return null;
+                                                        const up = q.dayChangePct >= 0;
+                                                        return (
+                                                            <span style={{ marginLeft: '0.4rem', fontSize: '10px', fontWeight: 700, color: up ? '#34d399' : '#f87171' }}>
+                                                                {up ? '▲' : '▼'}{Math.abs(q.dayChangePct).toFixed(2)}%
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </div>
                                             </div>
+
+                                            {/* Where the price sits in its own 52-week range.
+                                                A position, not a verdict: the marker says where the
+                                                price is between its low and high, and nothing about
+                                                whether that is a good place for it to be. */}
+                                            {(() => {
+                                                const q = readQuote(stock);
+                                                if (!q.hasRange) return null;
+                                                const fired = triggeredAlerts(stock);
+                                                return (
+                                                    <div style={{ marginBottom: '1rem' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '9px', color: '#71717a', marginBottom: '0.3rem', fontWeight: 700 }}>
+                                                            <span>52W {formatCurrency(q.low)}</span>
+                                                            <span style={{
+                                                                color: q.nearLow ? '#60a5fa' : q.nearHigh ? '#fbbf24' : '#71717a',
+                                                                fontWeight: 800,
+                                                            }}>
+                                                                {q.nearLow ? 'NEAR LOW' : q.nearHigh ? 'NEAR HIGH' : `${q.rangePct.toFixed(0)}% of range`}
+                                                            </span>
+                                                            <span>{formatCurrency(q.high)}</span>
+                                                        </div>
+                                                        <div style={{ position: 'relative', height: '5px', borderRadius: '3px', background: 'linear-gradient(90deg, rgba(96,165,250,0.35), rgba(255,255,255,0.08), rgba(251,191,36,0.35))' }}>
+                                                            <div style={{
+                                                                position: 'absolute', top: '-3px',
+                                                                left: `calc(${Math.min(100, Math.max(0, q.rangePct))}% - ic)`.replace('ic', '5px'),
+                                                                width: '10px', height: '11px', borderRadius: '3px',
+                                                                backgroundColor: q.nearLow ? '#60a5fa' : q.nearHigh ? '#fbbf24' : '#e4e4e7',
+                                                                border: '2px solid #18181b',
+                                                            }} />
+                                                        </div>
+                                                        {fired.length > 0 && (
+                                                            <div style={{ marginTop: '0.4rem', fontSize: '10px', color: '#c084fc', fontWeight: 700 }}>
+                                                                🔔 {fired.length} alert{fired.length === 1 ? '' : 's'} triggered
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
 
                                             {/* P&L Status Indicator */}
                                             <div style={{ marginBottom: '1rem' }}>
@@ -1890,6 +1944,16 @@ const StockMarketDetails = () => {
                                 stocks={stocks}
                                 formatCurrency={formatCurrency}
                             />
+
+                            <div style={{ display: 'grid', gap: '1.5rem', marginTop: '1.5rem' }}>
+                                <BenchmarkPanel
+                                    stocks={stocks}
+                                    sectorLimits={market.sectorLimits || {}}
+                                    onSaveLimits={(limits) => updateItem('savings', { ...market, sectorLimits: limits })}
+                                    formatCurrency={formatCurrency}
+                                    apiUrl={API_URL}
+                                />
+                            </div>
 
                             {/* Dividend Performance Section */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>

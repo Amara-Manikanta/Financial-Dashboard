@@ -16,6 +16,7 @@ import CashflowForecast from './pages/CashflowForecast';
 import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
+import Watchlist from './pages/Watchlist';
 import IpoTracker from './pages/IpoTracker';
 import FreeHoldings from './pages/FreeHoldings';
 import DividendIncome from './pages/DividendIncome';
@@ -142,6 +143,7 @@ function App() {
                                     <Route path="salary" element={<Salary />} />
                                     <Route path="savings" element={<Savings />} />
                                     <Route path="investments" element={<Investments />} />
+                                    <Route path="investments/watchlist" element={<Watchlist />} />
                                     <Route path="investments/ipos" element={<IpoTracker />} />
                                     <Route path="investments/free-holdings" element={<FreeHoldings />} />
                                     <Route path="investments/dividend-income" element={<DividendIncome />} />

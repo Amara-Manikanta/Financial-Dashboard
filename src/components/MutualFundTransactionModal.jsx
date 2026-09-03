@@ -80,6 +80,12 @@ const MutualFundTransactionModal = ({ isOpen, onClose, onSave, initialData, isEm
     const handleSubmit = (e) => {
         e.preventDefault();
         onSave({
+            // Spread first. A stored row carries more than this form shows —
+            // a fund transaction linked to an expense carries `expenseId` and
+            // `adoptedByExpense`, and detachExpense deletes rather than releases
+            // a row whose flag has gone missing. Rebuilding the object dropped
+            // both and silently broke the link.
+            ...(initialData || {}),
             id: initialData?.id || Date.now(),
             date,
             type,

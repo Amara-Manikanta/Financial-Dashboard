@@ -346,6 +346,13 @@ const handleImageRequest = (req, res) => {
  */
 const MAX_SYMBOLS_PER_REQUEST = 60;
 
+// A quote older than this is a delisted or renamed series, not a live price.
+// Generous enough to survive a long market holiday.
+const STALE_QUOTE_DAYS = 10;
+
+/** Yahoo omits fields rather than sending nulls; absent means "not known". */
+const num = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
 const handleQuoteRequest = async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PROXY_PORT}`);
     const raw = (url.searchParams.get('symbols') || '').trim();
@@ -361,6 +368,7 @@ const handleQuoteRequest = async (req, res) => {
 
     const quotes = {};
     const failed = [];
+    const stale = [];
 
     await Promise.all(symbols.map(async (symbol) => {
         // Only a ticker shape is ever interpolated into the URL — never raw
@@ -379,19 +387,110 @@ const handleQuoteRequest = async (req, res) => {
             clearTimeout(timer);
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const data = await r.json();
-            const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-            if (typeof price === 'number' && Number.isFinite(price) && price > 0) {
-                quotes[symbol] = price;
-            } else {
+            const meta = data?.chart?.result?.[0]?.meta;
+            const price = meta?.regularMarketPrice;
+            if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) {
                 failed.push(symbol);
+                return;
             }
+
+            // A dead listing still answers with a price — it is simply the last
+            // one ever traded. MINDSPACE.NS returns ₹345.06 from July 2024 and
+            // looks exactly like a live quote, so accepting any number here
+            // silently wrote a two-year-old price into the portfolio.
+            const tradedAt = typeof meta.regularMarketTime === 'number'
+                ? meta.regularMarketTime * 1000
+                : null;
+            const ageDays = tradedAt ? Math.round((Date.now() - tradedAt) / 86400000) : null;
+
+            if (ageDays !== null && ageDays > STALE_QUOTE_DAYS) {
+                stale.push({ symbol, price, ageDays, lastTraded: new Date(tradedAt).toISOString() });
+                return;
+            }
+
+            // The whole quote, not just the price. The 52-week range, the day's
+            // move and the previous close all arrive in this same response and
+            // were being discarded — refetching them later would be a second
+            // round trip for data already in hand.
+            quotes[symbol] = {
+                price,
+                previousClose: num(meta.chartPreviousClose ?? meta.previousClose),
+                dayLow: num(meta.regularMarketDayLow),
+                dayHigh: num(meta.regularMarketDayHigh),
+                fiftyTwoWeekLow: num(meta.fiftyTwoWeekLow),
+                fiftyTwoWeekHigh: num(meta.fiftyTwoWeekHigh),
+                volume: num(meta.regularMarketVolume),
+                currency: meta.currency || null,
+                longName: meta.longName || meta.shortName || null,
+                tradedAt: tradedAt ? new Date(tradedAt).toISOString() : null,
+            };
         } catch (err) {
             failed.push(symbol);
         }
     }));
 
     res.writeHead(200);
-    res.end(JSON.stringify({ quotes, failed }));
+    res.end(JSON.stringify({ quotes, failed, stale }));
+};
+
+
+/**
+ * Daily closes for one symbol, for comparing a portfolio against an index.
+ *
+ * A separate endpoint from /api/quote because the shape is different: one
+ * symbol, many days, and the response is large enough that folding it into the
+ * quote path would make every price refresh pay for data it does not use.
+ *
+ * GET /api/history?symbol=^NSEI&range=5y
+ *   -> { symbol, closes: { "2021-09-02": 17234.15, ... } }
+ */
+const handleHistoryRequest = async (req, res) => {
+    const url = new URL(req.url, `http://localhost:${PROXY_PORT}`);
+    const symbol = (url.searchParams.get('symbol') || '').trim();
+    const range = (url.searchParams.get('range') || '5y').trim();
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (!/^[A-Za-z0-9.^\-&]{1,20}$/.test(symbol)) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ error: 'a valid symbol is required' }));
+    }
+    if (!/^(1mo|3mo|6mo|1y|2y|5y|10y|max)$/.test(range)) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ error: 'unsupported range' }));
+    }
+
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+        const r = await fetch(
+            `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${range}&interval=1d`,
+            { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: controller.signal },
+        );
+        clearTimeout(timer);
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        const result = data?.chart?.result?.[0];
+        const stamps = result?.timestamp || [];
+        const closes = result?.indicators?.quote?.[0]?.close || [];
+
+        const byDate = {};
+        stamps.forEach((t, i) => {
+            const c = closes[i];
+            if (typeof c === 'number' && Number.isFinite(c)) {
+                byDate[new Date(t * 1000).toISOString().slice(0, 10)] = c;
+            }
+        });
+
+        if (Object.keys(byDate).length === 0) throw new Error('no closes returned');
+
+        res.writeHead(200);
+        res.end(JSON.stringify({ symbol, range, closes: byDate }));
+    } catch (err) {
+        res.writeHead(502);
+        res.end(JSON.stringify({ error: `could not fetch history for ${symbol}: ${err.message}` }));
+    }
 };
 
 const proxy = http.createServer((req, res) => {
@@ -405,6 +504,9 @@ const proxy = http.createServer((req, res) => {
     }
     if (req.url.startsWith('/api/quote') && req.method === 'GET') {
         return handleQuoteRequest(req, res);
+    }
+    if (req.url.startsWith('/api/history') && req.method === 'GET') {
+        return handleHistoryRequest(req, res);
     }
 
     // 2. PROXY LOGIC: Forward to internal server

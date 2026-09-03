@@ -40,17 +40,6 @@ const RecurringDepositDetails = () => {
 
     const account = savings.find(s => s.id.toString() === id);
 
-    if (!account) {
-        return (
-            <div className="p-8 text-white">
-                <p>Recurring Deposit account not found.</p>
-                <button onClick={() => navigate(-1)} className="text-blue-400 hover:underline mt-4">
-                    Back to Savings
-                </button>
-            </div>
-        );
-    }
-
     const handleSaveRD = (rd) => {
         let updatedRDs = account.recurringDeposits ? [...account.recurringDeposits] : [];
 
@@ -78,15 +67,15 @@ const RecurringDepositDetails = () => {
     };
 
     const totalInstallment = useMemo(() => {
-        return account.recurringDeposits?.reduce((sum, d) => sum + (Number(d.installmentAmount) || 0), 0) || 0;
+        return account?.recurringDeposits?.reduce((sum, d) => sum + (Number(d.installmentAmount) || 0), 0) || 0;
     }, [account]);
 
     const totalMaturity = useMemo(() => {
-        return account.recurringDeposits?.reduce((sum, d) => sum + (Number(d.maturityAmount) || 0), 0) || 0;
+        return account?.recurringDeposits?.reduce((sum, d) => sum + (Number(d.maturityAmount) || 0), 0) || 0;
     }, [account]);
 
     const totalCurrentValue = useMemo(() => {
-        return account.recurringDeposits?.reduce((sum, rd) => {
+        return account?.recurringDeposits?.reduce((sum, rd) => {
             const rdTotalPaid = (rd.installments || []).reduce((acc, tx) => acc + (tx.amount || 0), 0);
             return sum + rdTotalPaid;
         }, 0) || 0;
@@ -117,6 +106,23 @@ const RecurringDepositDetails = () => {
         borderRadius: '1.25rem',
         boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)'
     };
+
+    // Below every hook, deliberately.
+    //
+    // This guard sat above five useMemo calls. On a direct page load `savings`
+    // is still empty, so the first render took this branch and ran five fewer
+    // hooks than the second — React refuses that, and the page died with
+    // "Rendered more hooks than during the previous render" on every refresh.
+    if (!account) {
+        return (
+            <div className="p-8 text-white">
+                <p>Recurring Deposit account not found.</p>
+                <button onClick={() => navigate(-1)} className="text-blue-400 hover:underline mt-4">
+                    Back to Savings
+                </button>
+            </div>
+        );
+    }
 
     return (
         <div style={{ padding: 'var(--spacing-xl) var(--spacing-lg)', minHeight: '100vh', backgroundColor: '#070715' }}>

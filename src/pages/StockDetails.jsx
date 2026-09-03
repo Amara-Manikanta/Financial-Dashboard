@@ -11,6 +11,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import { recomputeStockMetrics } from '../utils/investmentSync';
 import { costRecovery, NEARLY_FREE_FROM, combinedWithParent } from '../utils/costRecovery';
 import { dividendProfile } from '../utils/dividendAnalytics';
+import { readQuote, triggeredAlerts } from '../utils/priceRange';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -153,7 +154,9 @@ const StockDetails = () => {
     const handleUpdateStock = async (updatedStockData) => {
         const updatedStocks = market.stocks.map(s => {
             if (s.id.toString() === stockId) {
-                return { ...updatedStockData, transactions: s.transactions };
+                // Merged over the stored stock, so a field the form does not
+                // expose cannot be dropped from here either.
+                return { ...s, ...updatedStockData, transactions: s.transactions };
             }
             return s;
         });
@@ -249,6 +252,9 @@ const StockDetails = () => {
         () => (stock ? recomputeStockMetrics(stock.transactions || []).realisedByTx : {}),
         [stock],
     );
+
+    const priceInfo = useMemo(() => (stock ? readQuote(stock) : null), [stock]);
+    const firedAlerts = useMemo(() => (stock ? triggeredAlerts(stock) : []), [stock]);
 
     const currentYear = new Date().getFullYear();
     const dividendYears = useMemo(() => Array.from({ length: 5 }, (_, i) => (currentYear - i).toString()), [currentYear]);
@@ -521,6 +527,57 @@ const StockDetails = () => {
                                 {formatCurrency(recovery.isFree ? recovery.value : recovery.outstandingCost)}
                             </p>
                         </div>
+                    </div>
+                )}
+
+                {priceInfo?.hasRange && (
+                    <div style={{
+                        marginBottom: '1.25rem', padding: '1rem 1.25rem', borderRadius: '1rem',
+                        border: '1px solid rgba(255,255,255,0.07)', backgroundColor: 'rgba(255,255,255,0.02)',
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '0.6rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#71717a' }}>
+                                52-week position
+                            </span>
+                            <span style={{
+                                fontSize: '11px', fontWeight: 800,
+                                color: priceInfo.nearLow ? '#60a5fa' : priceInfo.nearHigh ? '#fbbf24' : '#a1a1aa',
+                            }}>
+                                {priceInfo.rangePct.toFixed(0)}% of range
+                                {priceInfo.aboveLowPct !== null && ` · ${priceInfo.aboveLowPct.toFixed(0)}% above the low · ${priceInfo.belowHighPct.toFixed(0)}% below the high`}
+                            </span>
+                        </div>
+                        <div style={{ position: 'relative', height: '7px', borderRadius: '4px', background: 'linear-gradient(90deg, rgba(96,165,250,0.35), rgba(255,255,255,0.07), rgba(251,191,36,0.35))' }}>
+                            <div style={{
+                                position: 'absolute', top: '-4px',
+                                left: `calc(${Math.min(100, Math.max(0, priceInfo.rangePct))}% - 6px)`,
+                                width: '12px', height: '15px', borderRadius: '4px',
+                                backgroundColor: priceInfo.nearLow ? '#60a5fa' : priceInfo.nearHigh ? '#fbbf24' : '#e4e4e7',
+                                border: '2px solid #0a0a12',
+                            }} />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.4rem', fontSize: '11px', color: '#71717a', fontFamily: 'monospace' }}>
+                            <span>{formatCurrency(priceInfo.low)}</span>
+                            {priceInfo.dayChangePct !== null && (
+                                <span style={{ color: priceInfo.dayChangePct >= 0 ? '#34d399' : '#f87171', fontWeight: 700 }}>
+                                    today {priceInfo.dayChangePct >= 0 ? '+' : ''}{priceInfo.dayChangePct.toFixed(2)}%
+                                </span>
+                            )}
+                            <span>{formatCurrency(priceInfo.high)}</span>
+                        </div>
+                        {firedAlerts.length > 0 && (
+                            <div style={{ marginTop: '0.75rem', paddingTop: '0.65rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                                {firedAlerts.map((a) => (
+                                    <p key={a.id} style={{ margin: '0.15rem 0', fontSize: '0.76rem', color: '#c084fc', fontWeight: 600 }}>
+                                        🔔 Your alert: {a.type} {formatCurrency(a.price)}{a.note ? ` — ${a.note}` : ''}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
+                        <p style={{ margin: '0.6rem 0 0', fontSize: '0.68rem', color: '#52525b', lineHeight: 1.5 }}>
+                            Where the price sits between its own 52-week low and high. A position, not a
+                            verdict — a price can sit at either end for reasons this app cannot see.
+                        </p>
                     </div>
                 )}
 

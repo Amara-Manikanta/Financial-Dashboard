@@ -31,7 +31,7 @@ const FinanceContext = createContext();
 // a different instance, which is what makes it possible to exercise the real UI
 // — including saves — against an isolated copy of the database instead of the
 // live one. Without it, any end-to-end check writes to the real records.
-const API_URL = import.meta.env?.VITE_API_URL
+export const API_URL = import.meta.env?.VITE_API_URL
     || (typeof window !== 'undefined'
         ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000`
         : 'http://localhost:3000');
@@ -184,6 +184,7 @@ export function FinanceProvider({ children }) {
     const [salaryDetails, setSalaryDetails] = useState([]);
     const [goals, setGoals] = useState([]);
     const [ipoApplications, setIpoApplications] = useState([]);
+    const [watchlist, setWatchlist] = useState([]);
     const [loans, setLoans] = useState([]);
     const [insuranceProfile, setInsuranceProfile] = useState({ age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
     const [salaryStats, setSalaryStats] = useState({});
@@ -263,7 +264,7 @@ export function FinanceProvider({ children }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes, ipoRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes, ipoRes, watchRes] = await Promise.all([
                     fetch(`${API_URL}/expenses`),
                     fetch(`${API_URL}/savings`),
                     fetch(`${API_URL}/metals`),
@@ -281,7 +282,8 @@ export function FinanceProvider({ children }) {
                     // every response after it onto the wrong variable.
                     // Tolerates a 404 so an older database without the collection
                     // still loads; it is created on first save.
-                    fetch(`${API_URL}/ipoApplications`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
+                    fetch(`${API_URL}/ipoApplications`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
+                    fetch(`${API_URL}/watchlist`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
                 ]);
 
                 // Remember which version of expenses this tab is working from, so
@@ -301,6 +303,7 @@ export function FinanceProvider({ children }) {
                 const salaryDetailsData = await salRes.json();
                 const goalsData = await goalsRes.json();
                 const ipoData = await ipoRes.json();
+                const watchData = await watchRes.json();
                 const loansData = await loansRes.json();
 
                 const modifiedExpenses = JSON.parse(JSON.stringify(expData)); // deep-clone to avoid mutating fetched object
@@ -417,6 +420,7 @@ export function FinanceProvider({ children }) {
                 setSalaryDetails(salaryDetailsData || []);
                 setGoals((goalsData && goalsData.length > 0) ? goalsData : DEFAULT_GOALS);
                 setIpoApplications(Array.isArray(ipoData) ? ipoData : []);
+                setWatchlist(Array.isArray(watchData) ? watchData : []);
                 setLoans((loansData && loansData.length > 0) ? loansData : DEFAULT_LOANS);
                 setInsuranceProfile(appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
 
@@ -1629,7 +1633,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
 
         if (!endpoint) return;
 
@@ -1643,6 +1647,7 @@ export function FinanceProvider({ children }) {
             if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
             if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
+            if (type === 'watchlist') setWatchlist(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
             return;
         }
@@ -1662,9 +1667,16 @@ export function FinanceProvider({ children }) {
             if (type === 'taxes') setTaxes(prev => [...prev, savedItem]);
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
             if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
+            if (type === 'watchlist') setWatchlist(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
+            setSaveError(null);
+            return { success: true, item: savedItem };
         } catch (error) {
+            // Nothing was added to state here, so the row simply never appears
+            // and the user is left thinking they mis-clicked. Say so instead.
             console.error("Error adding item:", error);
+            setSaveError(`This was not saved: ${error.message}. Nothing was added — try again.`);
+            return { success: false, reason: error.message };
         }
     };
 
@@ -1973,7 +1985,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
         if (!endpoint) return;
         if (isGuest) return;
         try {
@@ -1986,9 +1998,16 @@ export function FinanceProvider({ children }) {
             if (type === 'taxes') setTaxes(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'goals') setGoals(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'ipoApplications') setIpoApplications(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'watchlist') setWatchlist(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'loans') setLoans(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
+            // A delete that failed leaves the row on the server while React
+            // state has already dropped it, so the screen shows it gone and it
+            // returns on the next reload — the same shape of silent loss the
+            // NOT SAVED banner exists to make visible.
             console.error("Error deleting item:", error);
+            setSaveError(`This did not delete: ${error.message}. It is gone from the screen only — reload to see the real state.`);
+            return { success: false, reason: error.message };
         }
     };
 
@@ -2422,7 +2441,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
         if (!endpoint || !item.id) return;
         if (isGuest) return;
         try {
@@ -2458,6 +2477,7 @@ export function FinanceProvider({ children }) {
             if (type === 'taxes') setTaxes(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'goals') setGoals(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'ipoApplications') setIpoApplications(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'watchlist') setWatchlist(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'loans') setLoans(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             return { success: true };
         } catch (error) {
@@ -2560,14 +2580,32 @@ export function FinanceProvider({ children }) {
 
             const quoteRes = await fetch(`${API_URL}/api/quote?symbols=${encodeURIComponent(symbols.join(','))}`);
             if (!quoteRes.ok) throw new Error(`quote service returned ${quoteRes.status}`);
-            const { quotes = {}, failed = [] } = await quoteRes.json();
+            const { quotes = {}, failed = [], stale = [] } = await quoteRes.json();
+            // A stale quote is a delisted or renamed ticker still answering with
+            // its final price. It is reported separately so the fix — correcting
+            // the symbol — is obvious, rather than the holding just never moving.
+            const staleBySymbol = Object.fromEntries(stale.map((q) => [q.symbol, q]));
 
             const updated = [];
             const notUpdated = [];
+            const staleTickers = [];
             refreshable.forEach((stock) => {
-                const price = quotes[symbolFor(stock)];
-                if (typeof price === 'number' && price > 0) {
-                    updated.push({ id: stock.id, currentPrice: price });
+                const symbol = symbolFor(stock);
+                const q = quotes[symbol];
+                if (q && typeof q.price === 'number' && q.price > 0) {
+                    // currentPrice stays the single field every existing view
+                    // reads; `quote` carries the rest of what the same response
+                    // already contained.
+                    updated.push({
+                        id: stock.id,
+                        currentPrice: q.price,
+                        quote: { ...q, fetchedAt: new Date().toISOString() },
+                    });
+                    return;
+                }
+                const old = staleBySymbol[symbol];
+                if (old) {
+                    staleTickers.push(`${stock.name || stock.ticker} (${symbol} last traded ${old.ageDays} days ago)`);
                 } else {
                     notUpdated.push(stock.name || stock.ticker);
                 }
@@ -2593,7 +2631,7 @@ export function FinanceProvider({ children }) {
             const mergedStocks = latestMarket.stocks.map(stock => {
                 const newPriceData = updatedStockPrices.find(p => p.id === stock.id);
                 if (newPriceData) {
-                    return { ...stock, currentPrice: newPriceData.currentPrice };
+                    return { ...stock, currentPrice: newPriceData.currentPrice, quote: newPriceData.quote };
                 }
                 return stock;
             });
@@ -2617,7 +2655,12 @@ export function FinanceProvider({ children }) {
 
             await updateItem('savings', finalMarket);
 
-            if (notUpdated.length > 0) {
+            if (staleTickers.length > 0) {
+                setSaveError(
+                    `These tickers are no longer trading and were not updated: ${staleTickers.join('; ')}. `
+                    + 'Correct the ticker on the holding — the old symbol still answers with its final price.'
+                );
+            } else if (notUpdated.length > 0) {
                 // Partial success is still a partial failure, and the holdings
                 // that kept a stale price have to be named — otherwise the page
                 // shows old numbers beside new ones with nothing to tell them apart.
@@ -2633,11 +2676,59 @@ export function FinanceProvider({ children }) {
                 updated: updated.length,
                 total: refreshable.length,
                 notUpdated,
+                staleTickers,
             };
         } catch (error) {
             console.error("Error refreshing stock prices:", error);
             setSaveError(`Prices could not be refreshed: ${error.message}. The figures on screen are unchanged, not current.`);
             return { success: false, message: `Refresh failed: ${error.message}` };
+        }
+    };
+
+    /**
+     * Prices for the watchlist — things not owned yet.
+     *
+     * Deliberately a separate call rather than folding these symbols into the
+     * holdings refresh: a watchlist entry has no shares and must never reach
+     * the code that recomputes a position. Same endpoint, same staleness rules.
+     */
+    const refreshWatchlistPrices = async () => {
+        if (isGuest) return { success: false, message: 'Guest mode: Cannot refresh prices' };
+        const entries = (watchlist || []).filter(w => w && w.ticker);
+        if (entries.length === 0) return { success: true, updated: 0, total: 0 };
+
+        const symbolFor = (w) => (w.ticker.includes('.') ? w.ticker : `${w.ticker}.NS`);
+        try {
+            const res = await fetch(`${API_URL}/api/quote?symbols=${encodeURIComponent(entries.map(symbolFor).join(','))}`);
+            if (!res.ok) throw new Error(`quote service returned ${res.status}`);
+            const { quotes = {}, stale = [] } = await res.json();
+
+            let updated = 0;
+            const staleNames = [];
+            const staleBySymbol = Object.fromEntries(stale.map(q => [q.symbol, q]));
+
+            await Promise.all(entries.map(async (w) => {
+                const q = quotes[symbolFor(w)];
+                if (q && typeof q.price === 'number' && q.price > 0) {
+                    updated += 1;
+                    await updateItem('watchlist', {
+                        ...w,
+                        currentPrice: q.price,
+                        quote: { ...q, fetchedAt: new Date().toISOString() },
+                    });
+                } else if (staleBySymbol[symbolFor(w)]) {
+                    staleNames.push(`${w.name || w.ticker} (${symbolFor(w)})`);
+                }
+            }));
+
+            if (staleNames.length > 0) {
+                setSaveError(`Watchlist tickers no longer trading: ${staleNames.join('; ')}. Correct the ticker.`);
+            }
+            return { success: true, updated, total: entries.length, staleNames };
+        } catch (error) {
+            console.error('Error refreshing watchlist prices:', error);
+            setSaveError(`Watchlist prices could not be refreshed: ${error.message}.`);
+            return { success: false, message: error.message };
         }
     };
 
@@ -2717,7 +2808,7 @@ export function FinanceProvider({ children }) {
     const value = {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         recurringOverrides, saveRecurringOverrides,
-        goals, loans, ipoApplications, insuranceProfile,
+        goals, loans, ipoApplications, watchlist, refreshWatchlistPrices, insuranceProfile,
         pendingWalletCredits, applyWalletAutoCredits,
         loadError,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,

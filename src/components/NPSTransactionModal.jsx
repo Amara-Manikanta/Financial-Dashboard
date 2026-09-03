@@ -68,6 +68,12 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings })
         const parsedAmount = parseFloat(amount || 0);
         
         onSave({
+            // Spread first. A stored row carries more than this form shows —
+            // a fund transaction linked to an expense carries `expenseId` and
+            // `adoptedByExpense`, and detachExpense deletes rather than releases
+            // a row whose flag has gone missing. Rebuilding the object dropped
+            // both and silently broke the link.
+            ...(initialData || {}),
             id: initialData?.id || Date.now(),
             // Taken from the holding itself rather than Number(schemeId): the
             // select yields a string, and coercing an id that is not numeric
