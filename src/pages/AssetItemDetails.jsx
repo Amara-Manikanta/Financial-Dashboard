@@ -6,7 +6,10 @@ import AssetTransactionModal from '../components/AssetTransactionModal';
 import AssetItemModal from '../components/AssetItemModal';
 import BackButton from '../components/BackButton';
 import { formatDate } from '../utils/dateUtils';
-import { ENTRY_KINDS, kindOf, summariseRental, rentLedger, billLedger, expectedRentOn, formatPeriod } from '../utils/rental';
+import {
+    ENTRY_KINDS, kindOf, summariseRental, rentLedger, billLedger, expectedRentOn, formatPeriod,
+    BORNE_BY, asksWhoPays, borneBy, netCost,
+} from '../utils/rental';
 import WarrantyPanel from '../components/WarrantyPanel';
 import PropertyUnitModal from '../components/PropertyUnitModal';
 import {
@@ -615,7 +618,14 @@ const AssetItemDetails = () => {
                                                     {formatCurrency(row.billed)} billed
                                                 </td>
                                                 <td className="py-3 px-6 text-right font-mono text-gray-500">
-                                                    {formatCurrency(row.recovered)} back
+                                                    {row.tenantPaid > 0 && (
+                                                        <span className="text-indigo-400">
+                                                            {formatCurrency(row.tenantPaid)} by tenant
+                                                        </span>
+                                                    )}
+                                                    {row.tenantPaid > 0 && row.recovered > 0 && ' · '}
+                                                    {row.recovered > 0 && `${formatCurrency(row.recovered)} back`}
+                                                    {row.tenantPaid === 0 && row.recovered === 0 && '—'}
                                                 </td>
                                                 <td className="py-3 px-6 text-right w-40">
                                                     {row.borne > 0 ? (
@@ -626,6 +636,9 @@ const AssetItemDetails = () => {
                                                         <span className="text-emerald-400 font-black">
                                                             {formatCurrency(-row.borne)} ahead
                                                         </span>
+                                                    ) : row.billed === 0 && row.tenantPaid > 0 ? (
+                                                        // Never yours to recover — you did not pay it.
+                                                        <span className="text-indigo-400 font-black">not your bill</span>
                                                     ) : (
                                                         <span className="text-emerald-400 font-black">fully recovered</span>
                                                     )}
@@ -704,9 +717,27 @@ const AssetItemDetails = () => {
                                                     for {formatPeriod(tx.period)}
                                                 </span>
                                             )}
+                                            {/* Who carried it, whenever that is
+                                                not simply you. */}
+                                            {asksWhoPays(kindOf(tx)) && borneBy(tx) !== 'owner' && (
+                                                <span className="block text-[10px] font-bold mt-1"
+                                                    style={{ color: BORNE_BY[borneBy(tx)].color }}>
+                                                    {BORNE_BY[borneBy(tx)].short}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-5 px-6 text-right font-black text-sm text-white">
                                             {formatCurrency(tx.amount)}
+                                            {/* The billed figure stays the headline —
+                                                it is what the invoice said — with what
+                                                it actually cost you beneath it. */}
+                                            {asksWhoPays(kindOf(tx)) && netCost(tx) !== Math.abs(Number(tx.amount) || 0) && (
+                                                <span className="block text-[10px] font-bold text-emerald-400 mt-0.5">
+                                                    {netCost(tx) === 0
+                                                        ? 'cost you nothing'
+                                                        : `${formatCurrency(netCost(tx))} to you`}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="py-5 px-6">
                                             <span className="text-gray-400 text-xs italic">{tx.description || 'No description provided'}</span>

@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
-import { ENTRY_KINDS, kindOf, parsePeriod, formatPeriod, kindHasPeriod } from '../utils/rental';
+import {
+    ENTRY_KINDS, kindOf, parsePeriod, formatPeriod, kindHasPeriod,
+    BORNE_BY, asksWhoPays, borneBy, netCost,
+} from '../utils/rental';
 
 /** The option meaning "not any one unit" — the building's own costs. */
 export const BUILDING_SCOPE = '';
@@ -17,6 +20,8 @@ const AssetTransactionModal = ({
         amount: '',
         period: '',
         description: '',
+        borne: 'owner',
+        recoveredAmount: '',
     });
 
     const [formData, setFormData] = useState(blank);
@@ -32,7 +37,12 @@ const AssetTransactionModal = ({
 
     useEffect(() => {
         if (initialData) {
-            setFormData({ ...blank(), ...initialData, kind: kindOf(initialData) });
+            setFormData({
+                ...blank(),
+                ...initialData,
+                kind: kindOf(initialData),
+                borne: borneBy(initialData),
+            });
         } else {
             setFormData(blank());
         }
@@ -65,6 +75,13 @@ const AssetTransactionModal = ({
             // 2026", which the rent ledger could not match to any month, so a
             // month that had been paid showed as short by the full rent.
             period: kindHasPeriod(kind) ? (parsePeriod(formData.period) || '') : '',
+            // Only meaningful on an expense a tenant could have covered. Cleared
+            // otherwise so a stale value cannot survive a change of kind and
+            // quietly zero out a cost you do carry.
+            borne: asksWhoPays(kind) ? (formData.borne || 'owner') : undefined,
+            recoveredAmount: asksWhoPays(kind) && formData.borne === 'recovered' && formData.recoveredAmount !== ''
+                ? Number(formData.recoveredAmount) || 0
+                : undefined,
             id: initialData?.id || Date.now().toString(),
             // The target is passed alongside rather than stored on the entry:
             // an entry already knows where it lives by being in that unit's
@@ -77,9 +94,13 @@ const AssetTransactionModal = ({
 
     if (!isOpen) return null;
 
-    const kindOptions = isRealEstate
+    // `legacy` kinds still render on entries that use them, but are not offered
+    // for new ones — two ways to record the same thing is how a figure ends up
+    // counted twice.
+    const kindOptions = (isRealEstate
         ? Object.entries(ENTRY_KINDS)
-        : Object.entries(ENTRY_KINDS).filter(([k]) => k.startsWith('other') || k === 'maintenance');
+        : Object.entries(ENTRY_KINDS).filter(([k]) => k.startsWith('other') || k === 'maintenance')
+    ).filter(([k, meta]) => !meta.legacy || k === formData.kind);
 
     const activeKind = ENTRY_KINDS[formData.kind] || ENTRY_KINDS.other_income;
 
@@ -201,6 +222,69 @@ const AssetTransactionModal = ({
                             />
                         </div>
                     </div>
+
+                    {/* Who actually carries this.
+                        A bill you pay, a bill you pay and take back, and a bill
+                        the tenant pays direct are three different things that
+                        the amount alone cannot distinguish — and two of them
+                        cost you nothing. */}
+                    {asksWhoPays(formData.kind) && (
+                        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                            <label className="block text-sm font-medium text-gray-400 mb-2">Who pays this?</label>
+                            <div className="space-y-1.5">
+                                {Object.entries(BORNE_BY).map(([key, meta]) => {
+                                    const active = (formData.borne || 'owner') === key;
+                                    return (
+                                        <button
+                                            key={key}
+                                            type="button"
+                                            onClick={() => setFormData((p) => ({ ...p, borne: key }))}
+                                            className="w-full text-left px-3 py-2 rounded-lg border transition-all"
+                                            style={{
+                                                backgroundColor: active ? `${meta.color}1a` : 'rgba(255,255,255,0.02)',
+                                                borderColor: active ? `${meta.color}59` : 'rgba(255,255,255,0.06)',
+                                            }}
+                                        >
+                                            <span className="text-[12px] font-bold block"
+                                                style={{ color: active ? meta.color : '#a1a1aa' }}>
+                                                {meta.label}
+                                            </span>
+                                            <span className="text-[10px] text-gray-500">{meta.blurb}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            {formData.borne === 'recovered' && (
+                                <div className="mt-3">
+                                    <label className="block text-[11px] font-medium text-gray-400 mb-1">
+                                        How much has come back? Leave blank if all of it.
+                                    </label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        name="recoveredAmount"
+                                        value={formData.recoveredAmount}
+                                        onChange={handleChange}
+                                        placeholder={formData.amount ? `${formData.amount} (all of it)` : 'all of it'}
+                                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-indigo-500"
+                                    />
+                                </div>
+                            )}
+
+                            {/* The consequence, in rupees, before it is saved. */}
+                            {Number(formData.amount) > 0 && (
+                                <p className="text-[11px] mt-2.5 font-mono"
+                                    style={{ color: BORNE_BY[formData.borne || 'owner'].color }}>
+                                    Costs you {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
+                                        .format(netCost({ amount: formData.amount, borne: formData.borne, recoveredAmount: formData.recoveredAmount }))}
+                                    {' '}of the {new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 })
+                                        .format(Math.abs(Number(formData.amount) || 0))} billed
+                                </p>
+                            )}
+                        </div>
+                    )}
 
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">Notes</label>

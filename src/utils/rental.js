@@ -25,7 +25,11 @@ export const ENTRY_KINDS = {
     // this kind that recovery had nowhere to go, so a bill paid and fully
     // recovered still showed as a straight reduction in yield — a shop billing
     // ₹4,000 a month looked ₹48,000 a year worse than it was.
-    bill_recovered: { label: 'Bill Recovered from Tenant', direction: 'income', countsAsYield: true, hasPeriod: true, color: '#fbbf24' },
+    // Superseded by the "who pays this" question on the bill itself, which
+    // answers it where it is asked instead of requiring a second row. Kept so
+    // any entry already recorded this way still reads correctly, and hidden
+    // from the picker so there are not two ways to say the same thing.
+    bill_recovered: { label: 'Bill Recovered from Tenant', direction: 'income', countsAsYield: true, hasPeriod: true, legacy: true, color: '#fbbf24' },
     property_tax: { label: 'Property Tax', direction: 'expense', countsAsYield: true, hasPeriod: true, color: '#ef4444' },
     maintenance: { label: 'Maintenance / Repairs', direction: 'expense', countsAsYield: true, color: '#f97316' },
     other_income: { label: 'Other Income', direction: 'income', countsAsYield: true, color: '#22d3ee' },
@@ -153,43 +157,132 @@ export const escalationSchedule = (rental, untilISO) => {
     return rows;
 };
 
+/* ------------------------------------------------------------------ *
+ * Who actually carries a cost
+ * ------------------------------------------------------------------ */
+
+/**
+ * A bill against a let property has three quite different meanings, and the
+ * amount on its own tells you none of them:
+ *
+ *   owner      you paid it and you are out the money
+ *   recovered  you paid it and took it back from the tenant — you are out
+ *              nothing, or out the part they have not repaid yet
+ *   tenant     the tenant paid the provider directly. Worth recording, because
+ *              you want the service history and the meter readings, but it is
+ *              not your expense and must not reduce your yield
+ *
+ * Without this, all three looked identical: a ₹4,000 monthly bill the tenant
+ * always paid dragged ₹48,000 a year off the return on a property that had
+ * never actually spent it.
+ *
+ * Absent means `owner`. Every entry recorded before this existed was one the
+ * owner paid, so the default cannot change any figure already on screen.
+ */
+export const BORNE_BY = {
+    owner: {
+        label: 'I paid it, and I am carrying it',
+        short: 'You paid',
+        blurb: 'Counts as your expense in full.',
+        color: '#f87171',
+    },
+    recovered: {
+        label: 'I paid it, and the tenant pays me back',
+        short: 'Recovered',
+        blurb: 'Costs you nothing once repaid — enter a part amount if only some has come back.',
+        color: '#34d399',
+    },
+    tenant: {
+        label: 'The tenant paid it directly',
+        short: 'Tenant paid',
+        blurb: 'Kept for the record. Never counted as your expense.',
+        color: '#818cf8',
+    },
+};
+
+/** Which kinds it makes sense to ask about — an expense a tenant might cover. */
+export const asksWhoPays = (kind) =>
+    ENTRY_KINDS[kind]?.direction === 'expense' && kind !== 'advance_refund';
+
+export const borneBy = (entry) => {
+    const b = String(entry?.borne || '').trim().toLowerCase();
+    return BORNE_BY[b] ? b : 'owner';
+};
+
+/**
+ * What an expense actually cost you.
+ *
+ * A `recovered` entry with no figure means fully recovered — that is what
+ * choosing it says. A figure narrows it to a partial repayment, and is clamped
+ * to the bill: getting back more than was billed is an earlier month's arrear
+ * arriving, not a profit on electricity.
+ */
+export const netCost = (entry) => {
+    const amount = Math.abs(Number(entry?.amount) || 0);
+    const borne = borneBy(entry);
+    if (borne === 'tenant') return 0;
+    if (borne === 'recovered') {
+        const raw = entry?.recoveredAmount;
+        const back = raw === '' || raw === undefined || raw === null
+            ? amount
+            : Math.min(amount, Math.max(0, Number(raw) || 0));
+        return amount - back;
+    }
+    return amount;
+};
+
+/** How much of an expense has come back from the tenant. */
+export const recoveredFrom = (entry) => Math.abs(Number(entry?.amount) || 0) - netCost(entry);
+
 /** Totals per kind, deposit still held, and net yield. */
 export const summariseRental = (entries = []) => {
     const byKind = {};
-    Object.keys(ENTRY_KINDS).forEach((k) => { byKind[k] = { total: 0, count: 0 }; });
+    Object.keys(ENTRY_KINDS).forEach((k) => {
+        byKind[k] = { total: 0, net: 0, recovered: 0, count: 0 };
+    });
 
     entries.forEach((e) => {
         const k = kindOf(e);
         const amount = Math.abs(Number(e.amount) || 0);
+        const isExpense = ENTRY_KINDS[k].direction === 'expense';
         byKind[k].total += amount;
+        byKind[k].net += isExpense ? netCost(e) : amount;
+        byKind[k].recovered += isExpense ? recoveredFrom(e) : 0;
         byKind[k].count += 1;
     });
 
     const income = Object.entries(byKind)
         .filter(([k]) => ENTRY_KINDS[k].direction === 'income' && ENTRY_KINDS[k].countsAsYield)
         .reduce((s, [, v]) => s + v.total, 0);
+    // Net, not gross: an expense the tenant paid or repaid never left you.
     const expense = Object.entries(byKind)
         .filter(([k]) => ENTRY_KINDS[k].direction === 'expense' && ENTRY_KINDS[k].countsAsYield)
-        .reduce((s, [, v]) => s + v.total, 0);
+        .reduce((s, [, v]) => s + v.net, 0);
 
     // Money held on behalf of the tenant, still owed back at lease end.
     const depositHeld = byKind.advance.total - byKind.advance_refund.total;
+
+    // A recovery logged as its own income row still works, for anyone who wants
+    // it dated. It is subtracted here rather than in `expense` so it cannot be
+    // counted twice alongside a `recovered` flag on the bill itself.
+    const separateRecoveries = byKind.bill_recovered.total;
 
     return {
         byKind,
         rentReceived: byKind.rent.total,
         billsPaid: byKind.current_bill.total,
-        billsRecovered: byKind.bill_recovered.total,
-        // What the bills actually cost you once the tenant's share is back.
-        // Clamped at zero: recovering more than was billed means an arrear from
-        // an earlier month came in, not that the property earned on electricity.
-        billsBorne: Math.max(0, byKind.current_bill.total - byKind.bill_recovered.total),
-        taxPaid: byKind.property_tax.total,
-        maintenancePaid: byKind.maintenance.total,
+        billsRecovered: byKind.current_bill.recovered + separateRecoveries,
+        billsBorne: Math.max(0, byKind.current_bill.net - separateRecoveries),
+        taxPaid: byKind.property_tax.net,
+        maintenancePaid: byKind.maintenance.net,
+        maintenanceBilled: byKind.maintenance.total,
+        maintenanceRecovered: byKind.maintenance.recovered,
         depositHeld,
         income,
-        expense,
-        net: income - expense,
+        expense: Math.max(0, expense - separateRecoveries),
+        /** Everything a tenant covered, however it was recorded. */
+        coveredByTenant: Object.values(byKind).reduce((s, v) => s + v.recovered, 0) + separateRecoveries,
+        net: income - Math.max(0, expense - separateRecoveries),
     };
 };
 
@@ -210,11 +303,17 @@ export const billLedger = (entries = []) => {
         if (kind !== 'current_bill' && kind !== 'bill_recovered') return;
         const key = e.period ? parsePeriod(e.period) : parsePeriod(String(e.date || '').slice(0, 7));
         if (!key) { unplaced.push(e); return; }
-        if (!months.has(key)) months.set(key, { month: key, billed: 0, recovered: 0 });
+        if (!months.has(key)) months.set(key, { month: key, billed: 0, recovered: 0, tenantPaid: 0 });
         const row = months.get(key);
         const amount = Math.abs(Number(e.amount) || 0);
-        if (kind === 'current_bill') row.billed += amount;
-        else row.recovered += amount;
+        if (kind === 'bill_recovered') { row.recovered += amount; return; }
+
+        // A bill the tenant settled directly is reported in its own column,
+        // not as a bill you paid and got back — you never handled the money,
+        // and showing it as recovered would imply you had.
+        if (borneBy(e) === 'tenant') { row.tenantPaid += amount; return; }
+        row.billed += amount;
+        row.recovered += recoveredFrom(e);
     });
 
     const rows = [...months.values()]
