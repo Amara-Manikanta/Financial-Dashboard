@@ -731,7 +731,7 @@ const AssetItemDetails = () => {
                                             )}
                                             {/* Who carried it, whenever that is
                                                 not simply you. */}
-                                            {asksWhoPays(kindOf(tx)) && borneBy(tx) !== 'owner' && (
+                                            {asksWhoPays(kindOf(tx), isRealEstate) && borneBy(tx) !== 'owner' && (
                                                 <span className="block text-[10px] font-bold mt-1"
                                                     style={{ color: BORNE_BY[borneBy(tx)].color }}>
                                                     {BORNE_BY[borneBy(tx)].short}
@@ -743,7 +743,7 @@ const AssetItemDetails = () => {
                                             {/* The billed figure stays the headline —
                                                 it is what the invoice said — with what
                                                 it actually cost you beneath it. */}
-                                            {asksWhoPays(kindOf(tx)) && netCost(tx) !== Math.abs(Number(tx.amount) || 0) && (
+                                            {asksWhoPays(kindOf(tx), isRealEstate) && netCost(tx) !== Math.abs(Number(tx.amount) || 0) && (
                                                 <span className="block text-[10px] font-bold text-emerald-400 mt-0.5">
                                                     {netCost(tx) === 0
                                                         ? 'cost you nothing'

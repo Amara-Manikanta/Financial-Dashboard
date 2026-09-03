@@ -13,11 +13,19 @@
  * August electricity bill — bucketing either by payment date reports the month
  * unpaid and the next one double.
  */
+/**
+ * `scope` says where a kind belongs: a let property, an owned good, or both.
+ *
+ * The two lists had been split by a string test on the key — anything starting
+ * `other`, plus maintenance — which gave a water purifier a rental vocabulary
+ * with almost nothing usable in it. A washing machine has installation costs
+ * and filter changes; it has no rent, no deposit and no property tax.
+ */
 export const ENTRY_KINDS = {
-    rent: { label: 'Rent', direction: 'income', countsAsYield: true, hasPeriod: true, color: '#10b981' },
-    advance: { label: 'Advance / Deposit', direction: 'income', countsAsYield: false, color: '#6366f1' },
-    advance_refund: { label: 'Advance Refunded', direction: 'expense', countsAsYield: false, color: '#8b5cf6' },
-    current_bill: { label: 'Current Bill', direction: 'expense', countsAsYield: true, hasPeriod: true, color: '#f59e0b' },
+    rent: { label: 'Rent', direction: 'income', countsAsYield: true, hasPeriod: true, scope: 'property', color: '#10b981' },
+    advance: { label: 'Advance / Deposit', direction: 'income', countsAsYield: false, scope: 'property', color: '#6366f1' },
+    advance_refund: { label: 'Advance Refunded', direction: 'expense', countsAsYield: false, scope: 'property', color: '#8b5cf6' },
+    current_bill: { label: 'Current Bill', direction: 'expense', countsAsYield: true, hasPeriod: true, scope: 'property', color: '#f59e0b' },
     // The other half of a bill the landlord fronts.
     //
     // On a let shop the meter is usually in the owner's name: you pay the
@@ -29,12 +37,31 @@ export const ENTRY_KINDS = {
     // answers it where it is asked instead of requiring a second row. Kept so
     // any entry already recorded this way still reads correctly, and hidden
     // from the picker so there are not two ways to say the same thing.
-    bill_recovered: { label: 'Bill Recovered from Tenant', direction: 'income', countsAsYield: true, hasPeriod: true, legacy: true, color: '#fbbf24' },
-    property_tax: { label: 'Property Tax', direction: 'expense', countsAsYield: true, hasPeriod: true, color: '#ef4444' },
-    maintenance: { label: 'Maintenance / Repairs', direction: 'expense', countsAsYield: true, color: '#f97316' },
-    other_income: { label: 'Other Income', direction: 'income', countsAsYield: true, color: '#22d3ee' },
-    other_expense: { label: 'Other Expense', direction: 'expense', countsAsYield: true, color: '#94a3b8' },
+    bill_recovered: { label: 'Bill Recovered from Tenant', direction: 'income', countsAsYield: true, hasPeriod: true, legacy: true, scope: 'property', color: '#fbbf24' },
+    property_tax: { label: 'Property Tax', direction: 'expense', countsAsYield: true, hasPeriod: true, scope: 'property', color: '#ef4444' },
+
+    // No separate "Repair" kind: this one already says repairs, and two
+    // near-identical options is a choice with no right answer.
+    maintenance: { label: 'Maintenance / Repairs', direction: 'expense', countsAsYield: true, scope: 'both', color: '#f97316' },
+    installation: { label: 'Installation / Fitting', direction: 'expense', countsAsYield: true, scope: 'both', color: '#a78bfa' },
+    // Filters, cartridges, refills — the running cost of owning the thing,
+    // which is not a repair and not a one-off fitting.
+    consumables: { label: 'Consumables / Parts', direction: 'expense', countsAsYield: true, scope: 'goods', color: '#38bdf8' },
+    amc: { label: 'AMC / Service Plan', direction: 'expense', countsAsYield: true, scope: 'goods', color: '#2dd4bf' },
+    resale: { label: 'Sold / Resale Value', direction: 'income', countsAsYield: true, scope: 'goods', color: '#34d399' },
+
+    other_income: { label: 'Other Income', direction: 'income', countsAsYield: true, scope: 'both', color: '#22d3ee' },
+    other_expense: { label: 'Other Expense', direction: 'expense', countsAsYield: true, scope: 'both', color: '#94a3b8' },
 };
+
+/** The kinds offered for one sort of asset, newest entry's kind always kept. */
+export const kindsFor = (isRealEstate, keep) => Object.entries(ENTRY_KINDS)
+    .filter(([k, meta]) => {
+        if (k === keep) return true;               // never drop what is already set
+        if (meta.legacy) return false;
+        const wanted = isRealEstate ? 'property' : 'goods';
+        return meta.scope === wanted || meta.scope === 'both';
+    });
 
 /** Does this kind belong to a month rather than to its payment date? */
 export const kindHasPeriod = (kind) => !!ENTRY_KINDS[kind]?.hasPeriod;
@@ -200,9 +227,17 @@ export const BORNE_BY = {
     },
 };
 
-/** Which kinds it makes sense to ask about — an expense a tenant might cover. */
-export const asksWhoPays = (kind) =>
-    ENTRY_KINDS[kind]?.direction === 'expense' && kind !== 'advance_refund';
+/**
+ * Which costs it makes sense to ask "who pays this" about.
+ *
+ * Only on a let property. The question is about a tenant, and a water purifier
+ * does not have one — asking it on a household good offered a choice where
+ * there is only ever one answer, and implied the app thought otherwise.
+ */
+export const asksWhoPays = (kind, isRealEstate = true) =>
+    !!isRealEstate
+    && ENTRY_KINDS[kind]?.direction === 'expense'
+    && kind !== 'advance_refund';
 
 export const borneBy = (entry) => {
     const b = String(entry?.borne || '').trim().toLowerCase();

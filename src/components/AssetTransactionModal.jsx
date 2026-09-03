@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 import {
-    ENTRY_KINDS, kindOf, parsePeriod, formatPeriod, kindHasPeriod,
+    ENTRY_KINDS, kindOf, parsePeriod, formatPeriod, kindHasPeriod, kindsFor,
     BORNE_BY, asksWhoPays, borneBy, netCost,
 } from '../utils/rental';
 
@@ -15,8 +15,12 @@ const AssetTransactionModal = ({
 }) => {
     const blank = () => ({
         date: new Date().toISOString().split('T')[0],
-        kind: isRealEstate ? 'rent' : 'other_income',
-        type: 'income',
+        // Rent for a let property, a repair for a good — what each is most
+        // often used to record. `other_income` was the default for goods, which
+        // is close to the least likely thing anyone logs against a washing
+        // machine, and it started every entry on the wrong side of the ledger.
+        kind: isRealEstate ? 'rent' : 'maintenance',
+        type: isRealEstate ? 'income' : 'expense',
         amount: '',
         period: '',
         description: '',
@@ -78,8 +82,8 @@ const AssetTransactionModal = ({
             // Only meaningful on an expense a tenant could have covered. Cleared
             // otherwise so a stale value cannot survive a change of kind and
             // quietly zero out a cost you do carry.
-            borne: asksWhoPays(kind) ? (formData.borne || 'owner') : undefined,
-            recoveredAmount: asksWhoPays(kind) && formData.borne === 'recovered' && formData.recoveredAmount !== ''
+            borne: asksWhoPays(kind, isRealEstate) ? (formData.borne || 'owner') : undefined,
+            recoveredAmount: asksWhoPays(kind, isRealEstate) && formData.borne === 'recovered' && formData.recoveredAmount !== ''
                 ? Number(formData.recoveredAmount) || 0
                 : undefined,
             id: initialData?.id || Date.now().toString(),
@@ -94,13 +98,11 @@ const AssetTransactionModal = ({
 
     if (!isOpen) return null;
 
-    // `legacy` kinds still render on entries that use them, but are not offered
-    // for new ones — two ways to record the same thing is how a figure ends up
-    // counted twice.
-    const kindOptions = (isRealEstate
-        ? Object.entries(ENTRY_KINDS)
-        : Object.entries(ENTRY_KINDS).filter(([k]) => k.startsWith('other') || k === 'maintenance')
-    ).filter(([k, meta]) => !meta.legacy || k === formData.kind);
+    // Scoped to the kind of asset, with whatever is already set always kept so
+    // editing an old entry cannot silently change its classification. `legacy`
+    // kinds are hidden from new entries — two ways to record the same thing is
+    // how a figure ends up counted twice.
+    const kindOptions = kindsFor(isRealEstate, formData.kind);
 
     const activeKind = ENTRY_KINDS[formData.kind] || ENTRY_KINDS.other_income;
 
@@ -234,7 +236,7 @@ const AssetTransactionModal = ({
                         the tenant pays direct are three different things that
                         the amount alone cannot distinguish — and two of them
                         cost you nothing. */}
-                    {asksWhoPays(formData.kind) && (
+                    {asksWhoPays(formData.kind, isRealEstate) && (
                         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
                             <label className="block text-sm font-medium text-gray-400 mb-2">Who pays this?</label>
                             <div className="space-y-1.5">
