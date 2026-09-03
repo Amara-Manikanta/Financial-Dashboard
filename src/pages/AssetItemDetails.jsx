@@ -6,7 +6,7 @@ import AssetTransactionModal from '../components/AssetTransactionModal';
 import AssetItemModal from '../components/AssetItemModal';
 import BackButton from '../components/BackButton';
 import { formatDate } from '../utils/dateUtils';
-import { ENTRY_KINDS, kindOf, summariseRental, rentLedger, expectedRentOn } from '../utils/rental';
+import { ENTRY_KINDS, kindOf, summariseRental, rentLedger, expectedRentOn, formatPeriod } from '../utils/rental';
 import WarrantyPanel from '../components/WarrantyPanel';
 
 const AssetItemDetails = () => {
@@ -259,7 +259,7 @@ const AssetItemDetails = () => {
                                     <tbody className="divide-y divide-white/5">
                                         {ledger.map((row) => (
                                             <tr key={row.month} className="hover:bg-white/[0.03] transition-colors">
-                                                <td className="py-3 px-6 font-mono text-gray-400">{row.month}</td>
+                                                <td className="py-3 px-6 font-mono text-gray-400">{formatPeriod(row.month)}</td>
                                                 <td className="py-3 px-6 text-right font-mono text-gray-500">
                                                     {formatCurrency(row.due)}
                                                 </td>
@@ -280,6 +280,25 @@ const AssetItemDetails = () => {
                                     </tbody>
                                 </table>
                             </div>
+                            {/* A payment whose month could not be read is named
+                                rather than dropped. Dropping it is what made a
+                                month that had been paid show as short. */}
+                            {(ledger.unplaced || []).length > 0 && (
+                                <div className="px-6 py-4 border-t border-amber-500/20 bg-amber-500/[0.04]">
+                                    <p className="text-[11px] font-black text-amber-400 uppercase tracking-wider">
+                                        {ledger.unplaced.length} rent payment{ledger.unplaced.length === 1 ? '' : 's'} not counted above
+                                    </p>
+                                    <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                                        The month each covers could not be read, so it is not matched to any row.
+                                        Edit the entry and set the month as <span className="font-mono">2026-08</span>.
+                                    </p>
+                                    {ledger.unplaced.map((e) => (
+                                        <p key={e.id} className="text-[11px] text-gray-500 mt-1 font-mono">
+                                            {e.date} · {formatCurrency(e.amount)} · period “{String(e.period || '').trim() || 'blank'}”
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -335,7 +354,7 @@ const AssetItemDetails = () => {
                                             </span>
                                             {tx.period && (
                                                 <span className="block text-[10px] text-gray-600 font-mono mt-1">
-                                                    for {tx.period}
+                                                    for {formatPeriod(tx.period)}
                                                 </span>
                                             )}
                                         </td>

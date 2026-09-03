@@ -24,6 +24,62 @@ export const kindOf = (entry) => {
     return entry?.type === 'expense' ? 'other_expense' : 'other_income';
 };
 
+const MONTH_NAMES = ['january', 'february', 'march', 'april', 'may', 'june',
+    'july', 'august', 'september', 'october', 'november', 'december'];
+
+/**
+ * The `YYYY-MM` a rent entry's period refers to, whatever shape it was stored in.
+ *
+ * The form uses `<input type="month">`, which yields `2026-08`. Safari does not
+ * implement that input type and renders a plain text box instead, so an entry
+ * made there carries whatever was typed — "August 2026" in this database. The
+ * ledger keyed months with `String(period).slice(0, 7)`, which turns that into
+ * `"August "`, matches no month, and reports rent that was paid as unpaid.
+ *
+ * Accepts, in order: an ISO month or date (`2026-08`, `2026-08-01`), a month
+ * name with a year in either order ("August 2026", "Aug 2026", "2026 August"),
+ * and numeric forms ("08/2026", "8-2026"). Returns null when it cannot tell,
+ * rather than guessing — a rent payment filed against the wrong month is worse
+ * than one the ledger admits it cannot place.
+ */
+export const parsePeriod = (value) => {
+    const raw = String(value ?? '').trim();
+    if (!raw) return null;
+
+    // 2026-08 or 2026-08-01
+    const iso = raw.match(/^(\d{4})-(\d{1,2})(?:-\d{1,2})?$/);
+    if (iso) {
+        const month = Number(iso[2]);
+        if (month >= 1 && month <= 12) return `${iso[1]}-${String(month).padStart(2, '0')}`;
+        return null;
+    }
+
+    const year = raw.match(/\b(19|20)\d{2}\b/);
+    if (!year) return null;
+
+    const lower = raw.toLowerCase();
+    const nameIndex = MONTH_NAMES.findIndex((m) => lower.includes(m.slice(0, 3)));
+    if (nameIndex >= 0) return `${year[0]}-${String(nameIndex + 1).padStart(2, '0')}`;
+
+    // 08/2026, 8-2026, 2026/08 — the number that is not the year is the month.
+    const numeric = raw.match(/^\s*(\d{1,2})\s*[/\-.\s]\s*(\d{4})\s*$/)
+        || raw.match(/^\s*(\d{4})\s*[/\-.\s]\s*(\d{1,2})\s*$/);
+    if (numeric) {
+        const month = Number(numeric[1].length === 4 ? numeric[2] : numeric[1]);
+        if (month >= 1 && month <= 12) return `${year[0]}-${String(month).padStart(2, '0')}`;
+    }
+    return null;
+};
+
+/** A period rendered for reading: "August 2026". */
+export const formatPeriod = (value) => {
+    const key = parsePeriod(value);
+    if (!key) return String(value ?? '');
+    const [y, m] = key.split('-');
+    const name = MONTH_NAMES[Number(m) - 1];
+    return `${name.charAt(0).toUpperCase()}${name.slice(1)} ${y}`;
+};
+
 const monthsBetween = (fromISO, toISO) => {
     if (!fromISO || !toISO) return 0;
     const [fy, fm, fd] = fromISO.split('-').map(Number);
@@ -123,10 +179,17 @@ export const rentLedger = (rental, entries = [], asOf = new Date()) => {
     const endISO = rental.leaseEnd && rental.leaseEnd < todayISO ? rental.leaseEnd : todayISO;
 
     const received = new Map();
+    const unplaced = [];
     entries.filter((e) => kindOf(e) === 'rent').forEach((e) => {
-        // `period` is the month the rent covers; fall back to the payment date.
-        const key = String(e.period || e.date || '').slice(0, 7);
-        if (key) received.set(key, (received.get(key) || 0) + (Math.abs(Number(e.amount)) || 0));
+        // `period` is the month the rent covers; the payment date is only a
+        // fallback, because rent for August is routinely paid in September and
+        // bucketing by payment date reports August unpaid and September double.
+        const key = e.period ? parsePeriod(e.period) : parsePeriod(String(e.date || '').slice(0, 7));
+        if (key) {
+            received.set(key, (received.get(key) || 0) + (Math.abs(Number(e.amount)) || 0));
+        } else {
+            unplaced.push(e);
+        }
     });
 
     const rows = [];
@@ -139,5 +202,9 @@ export const rentLedger = (rental, entries = [], asOf = new Date()) => {
         const got = received.get(monthKey) || 0;
         rows.push({ month: monthKey, due, received: got, shortfall: Math.max(0, due - got) });
     }
-    return rows.reverse();
+    rows.reverse();
+    // Carried on the array so a caller can say which payments could not be
+    // placed. Silently dropping them is what made a paid month read as unpaid.
+    rows.unplaced = unplaced;
+    return rows;
 };

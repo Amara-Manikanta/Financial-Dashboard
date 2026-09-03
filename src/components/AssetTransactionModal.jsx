@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
-import { ENTRY_KINDS, kindOf } from '../utils/rental';
+import { ENTRY_KINDS, kindOf, parsePeriod, formatPeriod } from '../utils/rental';
 
 const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEstate = false }) => {
     const blank = () => ({
@@ -43,10 +43,18 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
             kind,
             type: ENTRY_KINDS[kind]?.direction || 'income',
             amount: Number(formData.amount),
-            period: kind === 'rent' ? formData.period : '',
+            // Stored as YYYY-MM whatever was typed. `<input type="month">` gives
+            // that already in Chrome, but Safari has no such input type and
+            // renders a plain text box — an entry made there stored "August
+            // 2026", which the rent ledger could not match to any month, so a
+            // month that had been paid showed as short by the full rent.
+            period: kind === 'rent' ? (parsePeriod(formData.period) || '') : '',
             id: initialData?.id || Date.now().toString(),
         });
     };
+
+    /** What the typed period resolves to, so an unreadable one is visible. */
+    const periodKey = parsePeriod(formData.period);
 
     if (!isOpen) return null;
 
@@ -107,8 +115,25 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
                                     name="period"
                                     value={formData.period}
                                     onChange={handleChange}
+                                    placeholder="2026-08"
                                     className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
                                 />
+                                {/* Confirmed back in words. In Safari this is a
+                                    plain text box, so without an echo there is
+                                    nothing to tell a typo from a valid month
+                                    until the rent ledger quietly reports the
+                                    month unpaid. */}
+                                {formData.period ? (
+                                    <p className={`text-[11px] mt-1 ${periodKey ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                        {periodKey
+                                            ? `Counted against ${formatPeriod(periodKey)}`
+                                            : 'Not a month I can read — try 2026-08 or August 2026'}
+                                    </p>
+                                ) : (
+                                    <p className="text-[11px] text-gray-500 mt-1">
+                                        Which month the rent covers, not when it was paid
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>
