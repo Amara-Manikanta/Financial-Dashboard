@@ -62,11 +62,14 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings })
         }
     }, [isOpen, initialData, holdings]);
 
+    /** NAV is amount ÷ units, so it never has to be typed if both are known. */
+    const derivedNav = Number(units) > 0 ? Math.abs(Number(amount) || 0) / Number(units) : 0;
+
     const handleSubmit = (e) => {
         e.preventDefault();
-        
+
         const parsedAmount = parseFloat(amount || 0);
-        
+
         onSave({
             // Spread first. A stored row carries more than this form shows —
             // a fund transaction linked to an expense carries `expenseId` and
@@ -82,7 +85,12 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings })
             date,
             description,
             amount: parsedAmount,
-            nav: parseFloat(nav || 0),
+            // Left blank means "work it out", not zero — a stored NAV of 0 is
+            // what three existing rows carry and it makes the unit price
+            // unrecoverable later.
+            nav: nav === '' || nav === null || nav === undefined
+                ? Math.round(derivedNav * 10000) / 10000
+                : parseFloat(nav),
             units: parseFloat(units || 0),
             type: parsedAmount < 0 ? 'billing' : 'contribution'
         });
@@ -145,9 +153,18 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings })
                         <div className="relative">
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">NAV</label>
                             <div className="relative">
-                                <input type="number" step="any" required value={nav} onChange={e => setNav(e.target.value)} style={inputStyle} placeholder="0.0000" />
+                                {/* Optional: it is the amount divided by the
+                                    units, and a statement does not always print
+                                    it. Three rows on record have none. */}
+                                <input type="number" step="any" value={nav} onChange={e => setNav(e.target.value)} style={inputStyle}
+                                    placeholder={derivedNav ? derivedNav.toFixed(4) : '0.0000'} />
                                 <div style={iconStyle}><span className="text-sm font-bold">₹</span></div>
                             </div>
+                            {derivedNav > 0 && !nav && (
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    Will be worked out as ₹{derivedNav.toFixed(4)}
+                                </p>
+                            )}
                         </div>
                         <div className="relative">
                             <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Units</label>
@@ -161,13 +178,19 @@ const NPSTransactionModal = ({ isOpen, onClose, onSave, initialData, holdings })
                     <div className="relative">
                         <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Description</label>
                         <div className="relative">
+                            {/* Not required.
+                                It had been, and there was never a reason: a
+                                contribution is identified by its scheme, date,
+                                amount and units. Four of the 69 rows on record
+                                carry a description and all four say some form of
+                                "By Volunteer", so the rule blocked entry for the
+                                other 65 to collect nothing. */}
                             <input
                                 type="text"
-                                required
                                 value={description}
                                 onChange={e => setDescription(e.target.value)}
                                 style={inputStyle}
-                                placeholder="By Voluntary Contributions..."
+                                placeholder="Optional — e.g. By Voluntary Contribution"
                             />
                             <FileText style={iconStyle} />
                         </div>
