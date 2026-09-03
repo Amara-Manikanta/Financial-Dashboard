@@ -59,6 +59,16 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const handleSubmit = (e) => {
         e.preventDefault();
         onSave({
+            // Spread first. This form knows fifteen fields; a stock also carries
+            // `quote` (its 52-week range and day move), the legacy `avgPrice`,
+            // `symbol`, and `isArchived`. Rebuilding the object dropped all of
+            // them — the range bar vanished until the next refresh, and editing
+            // an archived holding quietly un-archived it.
+            //
+            // Both calling pages hand-rescue `transactions`, which is the same
+            // bug patched at the symptom. Spreading here fixes it at the source,
+            // and means the next field added is safe without touching them.
+            ...(initialData || {}),
             id: initialData ? initialData.id : `s${Date.now()}`,
             name,
             ticker,

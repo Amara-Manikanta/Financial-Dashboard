@@ -187,3 +187,78 @@ export const incomeSummary = (stocks = [], now = new Date()) => {
         years,
     };
 };
+
+/* ------------------------------------------------------------------ *
+ * When dividends actually arrive
+ * ------------------------------------------------------------------ */
+
+/**
+ * The months a holding has historically paid in.
+ *
+ * Indian companies pay on a fairly settled rhythm — a final after the AGM, an
+ * interim mid-year — so the months repeat even though the amounts do not. This
+ * reports the pattern, not a forecast: no amount is projected forward, because
+ * a payout is declared by a board and not predictable from arithmetic.
+ */
+export const payoutMonths = (stock) => {
+    const byMonth = {};
+    dividendTxs(stock).forEach((t) => {
+        const d = new Date(t.date);
+        if (Number.isNaN(d.getTime())) return;
+        const m = d.getMonth();
+        byMonth[m] = byMonth[m] || { month: m, count: 0, total: 0, years: new Set() };
+        byMonth[m].count += 1;
+        byMonth[m].total = money(byMonth[m].total + payout(t));
+        byMonth[m].years.add(String(d.getFullYear()));
+    });
+    return Object.values(byMonth)
+        .map((r) => ({
+            month: r.month,
+            payments: r.count,
+            total: r.total,
+            years: r.years.size,
+            /** Average per payment in that month, across the years it paid. */
+            averagePerYear: money(r.total / r.years.size),
+        }))
+        .sort((a, b) => a.month - b.month);
+};
+
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+
+/**
+ * A calendar of which holdings have paid in each month, and roughly how much.
+ *
+ * `typicalTotal` is the average of what actually arrived in that month across
+ * the years it arrived — a description of history, not a prediction. Companies
+ * cut, skip and reschedule dividends, and nothing here assumes they will not.
+ */
+export const dividendCalendar = (stocks = []) => {
+    const months = MONTH_NAMES.map((name, i) => ({
+        month: i, name, payers: [], typicalTotal: 0, payments: 0,
+    }));
+
+    (stocks || []).filter((s) => s && !s.isArchived).forEach((s) => {
+        const held = Number(s.shares) > 0;
+        payoutMonths(s).forEach((m) => {
+            months[m.month].payers.push({
+                id: s.id,
+                name: s.name || s.ticker,
+                held,
+                averagePerYear: m.averagePerYear,
+                years: m.years,
+                payments: m.payments,
+            });
+            months[m.month].typicalTotal = money(months[m.month].typicalTotal + m.averagePerYear);
+            months[m.month].payments += m.payments;
+        });
+    });
+
+    months.forEach((m) => m.payers.sort((a, b) => b.averagePerYear - a.averagePerYear));
+    return months;
+};
+
+/** The months that have historically paid the most, busiest first. */
+export const busiestMonths = (stocks = []) => dividendCalendar(stocks)
+    .filter((m) => m.payments > 0)
+    .sort((a, b) => b.typicalTotal - a.typicalTotal);

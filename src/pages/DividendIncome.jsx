@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Coins, AlertTriangle, Info } from 'lucide-react';
+import { Coins, AlertTriangle, Info, CalendarDays } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
 } from 'recharts';
 import {
     incomeByYear, incomeByMonth, incomeSummary, dividendPayers, lapsedPayers,
+    dividendCalendar, busiestMonths,
 } from '../utils/dividendAnalytics';
 
 const card = {
@@ -54,6 +55,8 @@ const DividendIncome = () => {
     const years = useMemo(() => incomeByYear(stocks), [stocks]);
     const payers = useMemo(() => dividendPayers(stocks), [stocks]);
     const lapsed = useMemo(() => lapsedPayers(stocks), [stocks]);
+    const calendar = useMemo(() => dividendCalendar(stocks), [stocks]);
+    const busiest = useMemo(() => busiestMonths(stocks), [stocks]);
 
     const latestYear = years.length ? years[years.length - 1].year : String(new Date().getFullYear());
     const [selectedYear, setSelectedYear] = useState(latestYear);
@@ -182,6 +185,64 @@ const DividendIncome = () => {
                     the chart deliberately — dividend income is lumpy, and hiding the silent months
                     would make it look like a salary.
                 </p>
+            </div>
+
+            <div style={{ ...card, marginBottom: '2rem' }}>
+                <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', margin: '0 0 0.4rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <CalendarDays size={16} style={{ color: '#2dd4bf' }} /> When dividends arrive
+                </h3>
+                <p style={{ fontSize: '0.75rem', color: '#a1a1aa', margin: '0 0 1.1rem', maxWidth: '78ch', lineHeight: 1.55 }}>
+                    Which months your holdings have paid in, and the average that arrived in each.
+                    A description of what has happened, not a forecast — boards declare dividends,
+                    and nothing here assumes last year's will repeat.
+                    {busiest.length > 0 && (
+                        <> Busiest historically: <strong style={{ color: '#2dd4bf' }}>
+                            {busiest.slice(0, 3).map((m) => m.name).join(', ')}
+                        </strong>.</>
+                    )}
+                </p>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.85rem' }}>
+                    {calendar.map((m) => {
+                        const quiet = m.payments === 0;
+                        return (
+                            <div key={m.month} style={{
+                                border: `1px solid ${quiet ? 'rgba(255,255,255,0.05)' : 'rgba(45,212,191,0.2)'}`,
+                                backgroundColor: quiet ? 'rgba(255,255,255,0.015)' : 'rgba(45,212,191,0.05)',
+                                borderRadius: '0.9rem', padding: '0.85rem 1rem', opacity: quiet ? 0.5 : 1,
+                            }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                                    <span style={{ fontSize: '11px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.06em', color: quiet ? '#52525b' : '#2dd4bf' }}>
+                                        {m.name.slice(0, 3)}
+                                    </span>
+                                    <span style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: '0.85rem', color: quiet ? '#52525b' : '#e4e4e7' }}>
+                                        {quiet ? '—' : formatCurrency(m.typicalTotal)}
+                                    </span>
+                                </div>
+                                {!quiet && (
+                                    <>
+                                        <p style={{ margin: '0.3rem 0 0.4rem', fontSize: '0.65rem', color: '#71717a' }}>
+                                            {m.payers.length} payer{m.payers.length === 1 ? '' : 's'} · {m.payments} payment{m.payments === 1 ? '' : 's'}
+                                        </p>
+                                        {m.payers.slice(0, 3).map((p) => (
+                                            <div key={p.id} style={{ fontSize: '0.66rem', color: p.held ? '#a1a1aa' : '#52525b', display: 'flex', justifyContent: 'space-between', gap: '0.4rem' }}>
+                                                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                    {p.name}{!p.held && ' (exited)'}
+                                                </span>
+                                                <span style={{ fontFamily: 'monospace', flexShrink: 0 }}>{formatCurrency(p.averagePerYear)}</span>
+                                            </div>
+                                        ))}
+                                        {m.payers.length > 3 && (
+                                            <p style={{ margin: '0.25rem 0 0', fontSize: '0.62rem', color: '#52525b' }}>
+                                                +{m.payers.length - 3} more
+                                            </p>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
 
             {lapsed.length > 0 && (
