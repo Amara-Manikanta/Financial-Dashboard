@@ -1,9 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Edit2, Trash2, Eye, RefreshCw, Bell, Info } from 'lucide-react';
+import { Plus, Edit2, Trash2, Eye, Bell, Info } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import WatchlistItemModal from '../components/WatchlistItemModal';
+import RefreshAllPricesButton from '../components/RefreshAllPricesButton';
 import { readQuote, triggeredAlerts, atRangeEdges, NEAR_EDGE_PCT } from '../utils/priceRange';
+import { normaliseSector, sectorMeta } from '../utils/sectors';
+import {
+    RISK_LEVELS, RISK_META, riskOf, riskCounts,
+    PRIORITY_LEVELS, PRIORITY_META, priorityOf, priorityCounts, byPriority,
+} from '../utils/watchlistRisk';
+import { MARKET_CAPS, capMeta, resolveMarketCap } from '../utils/nifty50Data';
 
 const card = {
     backgroundColor: 'rgba(24, 24, 27, 0.4)',
@@ -36,26 +43,82 @@ const td = (align = 'left', color = '#e4e4e7') => ({
  * make its silence look like approval.
  */
 const Watchlist = () => {
-    const { watchlist, refreshWatchlistPrices, addItem, updateItem, deleteItem, formatCurrency } = useFinance();
+    const { watchlist, addItem, updateItem, deleteItem, formatCurrency } = useFinance();
 
     const [isOpen, setIsOpen] = useState(false);
     const [editing, setEditing] = useState(null);
-    const [busy, setBusy] = useState(false);
-    const [note, setNote] = useState(null);
+    const [sectorFilter, setSectorFilter] = useState('All');
+    const [riskFilter, setRiskFilter] = useState('All');
+    const [capFilter, setCapFilter] = useState('All');
+    const [priorityFilter, setPriorityFilter] = useState('All');
+    const [sortBy, setSortBy] = useState('range');
 
-    const rows = useMemo(() => (watchlist || []).map((w) => ({
+    const allRows = useMemo(() => (watchlist || []).map((w) => ({
         ...w,
         q: readQuote(w),
         fired: triggeredAlerts(w),
-    })).sort((a, b) => {
-        const ar = a.q.rangePct, br = b.q.rangePct;
-        if (ar === null) return 1;
-        if (br === null) return -1;
-        return ar - br;
-    }), [watchlist]);
+        // Normalised so "Financial Services" and "Financials" cannot appear as
+        // two tabs for one exposure — the same collision that split the sector
+        // breakdown on the holdings page.
+        sectorKey: normaliseSector(w.sector),
+        riskKey: riskOf(w),
+        // Same resolver the holdings page uses: an explicit marketCap wins,
+        // otherwise it is looked up from the benchmark lists by name.
+        capKey: resolveMarketCap(w),
+        priorityKey: priorityOf(w),
+    })), [watchlist]);
+
+    const sorted = useMemo(() => {
+        const byRange = (a, b) => {
+            const ar = a.q.rangePct, br = b.q.rangePct;
+            if (ar === null && br === null) return 0;
+            if (ar === null) return 1;
+            if (br === null) return -1;
+            return ar - br;
+        };
+        const copy = [...allRows];
+        // Priority first, then position in range as the tie-break — within one
+        // priority band the interesting name is the one nearest its low.
+        if (sortBy === 'priority') return copy.sort((a, b) => byPriority(a, b) || byRange(a, b));
+        if (sortBy === 'name') return copy.sort((a, b) => String(a.name || '').localeCompare(String(b.name || '')));
+        return copy.sort(byRange);
+    }, [allRows, sortBy]);
+
+    /** Tabs are built from what is actually on the list, not the full sector table. */
+    const sectorTabs = useMemo(() => {
+        const counts = {};
+        allRows.forEach((r) => { counts[r.sectorKey] = (counts[r.sectorKey] || 0) + 1; });
+        return Object.entries(counts)
+            .map(([name, count]) => ({ name, count, ...sectorMeta(name) }))
+            .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+    }, [allRows]);
+
+    const risks = useMemo(() => riskCounts(allRows), [allRows]);
+
+    const capTabs = useMemo(() => {
+        const counts = {};
+        allRows.forEach((r) => { counts[r.capKey] = (counts[r.capKey] || 0) + 1; });
+        return [...MARKET_CAPS, 'Unclassified']
+            .filter((c) => counts[c])
+            .map((name) => ({ name, count: counts[name], ...capMeta(name) }));
+    }, [allRows]);
+
+    const priorities = useMemo(() => priorityCounts(allRows), [allRows]);
+
+    const rows = useMemo(() => sorted.filter((r) => {
+        if (sectorFilter !== 'All' && r.sectorKey !== sectorFilter) return false;
+        if (riskFilter !== 'All' && r.riskKey !== riskFilter) return false;
+        if (capFilter !== 'All' && r.capKey !== capFilter) return false;
+        if (priorityFilter !== 'All' && r.priorityKey !== priorityFilter) return false;
+        return true;
+    }), [sorted, sectorFilter, riskFilter, capFilter, priorityFilter]);
 
     const edges = useMemo(() => atRangeEdges(watchlist), [watchlist]);
-    const firedCount = rows.reduce((n, r) => n + r.fired.length, 0);
+    const firedCount = allRows.reduce((n, r) => n + r.fired.length, 0);
+    const filtered = sectorFilter !== 'All' || riskFilter !== 'All' || capFilter !== 'All' || priorityFilter !== 'All';
+    const clearAll = () => {
+        setSectorFilter('All'); setRiskFilter('All'); setCapFilter('All'); setPriorityFilter('All');
+    };
 
     const save = async (item) => {
         if (editing) await updateItem('watchlist', item);
@@ -66,14 +129,6 @@ const Watchlist = () => {
 
     const remove = async (id) => {
         if (window.confirm('Remove from watchlist?')) await deleteItem('watchlist', id);
-    };
-
-    const refresh = async () => {
-        setBusy(true);
-        setNote(null);
-        const r = await refreshWatchlistPrices();
-        setBusy(false);
-        setNote(r.success ? `Updated ${r.updated} of ${r.total}` : (r.message || 'Refresh failed'));
     };
 
     return (
@@ -87,19 +142,11 @@ const Watchlist = () => {
                     </h2>
                     <p style={{ fontSize: '0.8rem', color: '#a1a1aa', margin: '0.5rem 0 0', maxWidth: '66ch', lineHeight: 1.6 }}>
                         Companies you are following but do not own. Prices and 52-week ranges come
-                        from the same refresh as your holdings; the alert levels are yours.
+                        from the same refresh as your holdings; the alert levels and risk ratings are yours.
                     </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.6rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                    {note && <span style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 600 }}>{note}</span>}
-                    <button onClick={refresh} disabled={busy}
-                        style={{
-                            padding: '0.625rem 1.1rem', borderRadius: '0.875rem', border: '1px solid rgba(45,212,191,0.3)',
-                            backgroundColor: 'rgba(45,212,191,0.15)', color: '#2dd4bf', fontSize: '12px', fontWeight: 'bold',
-                            cursor: busy ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', opacity: busy ? 0.6 : 1,
-                        }}>
-                        <RefreshCw size={15} className={busy ? 'animate-spin' : ''} /> {busy ? 'Fetching…' : 'Refresh'}
-                    </button>
+                    <RefreshAllPricesButton />
                     <button onClick={() => { setEditing(null); setIsOpen(true); }}
                         style={{
                             padding: '0.625rem 1.25rem', borderRadius: '0.875rem', backgroundColor: '#6366f1',
@@ -132,12 +179,156 @@ const Watchlist = () => {
                 </div>
             </div>
 
+            {/* Risk tabs. Unrated is a tab of its own rather than folded into
+                "low", so a list that has never been rated cannot read as safe. */}
+            {allRows.length > 0 && (
+                <div style={{ marginBottom: '1rem' }}>
+                    <p style={{ ...label, marginBottom: '0.6rem' }}>Risk, as you rated it</p>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={() => setRiskFilter('All')}
+                            style={{
+                                padding: '0.45rem 0.9rem', borderRadius: '0.7rem', fontSize: '11px', fontWeight: 800,
+                                cursor: 'pointer',
+                                backgroundColor: riskFilter === 'All' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.02)',
+                                border: `1px solid ${riskFilter === 'All' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                                color: riskFilter === 'All' ? 'white' : '#71717a',
+                            }}
+                        >
+                            All {allRows.length}
+                        </button>
+                        {[...RISK_LEVELS].reverse().concat('unrated').map((level) => {
+                            const meta = RISK_META[level];
+                            const count = risks[level];
+                            const active = riskFilter === level;
+                            return (
+                                <button
+                                    key={level}
+                                    onClick={() => setRiskFilter(active ? 'All' : level)}
+                                    disabled={count === 0}
+                                    title={meta.blurb}
+                                    style={{
+                                        padding: '0.45rem 0.9rem', borderRadius: '0.7rem', fontSize: '11px', fontWeight: 800,
+                                        cursor: count === 0 ? 'default' : 'pointer',
+                                        opacity: count === 0 ? 0.35 : 1,
+                                        backgroundColor: active ? meta.bg : 'rgba(255,255,255,0.02)',
+                                        border: `1px solid ${active ? meta.border : 'rgba(255,255,255,0.06)'}`,
+                                        color: active ? meta.color : '#71717a',
+                                    }}
+                                >
+                                    {meta.label} {count}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Market cap tabs. */}
+            {capTabs.length > 1 && (
+                <div style={{ marginBottom: '1rem' }}>
+                    <p style={{ ...label, marginBottom: '0.6rem' }}>Market cap</p>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={() => setCapFilter('All')}
+                            style={{
+                                padding: '0.45rem 0.9rem', borderRadius: '0.7rem', fontSize: '11px', fontWeight: 800,
+                                cursor: 'pointer',
+                                backgroundColor: capFilter === 'All' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.02)',
+                                border: `1px solid ${capFilter === 'All' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                                color: capFilter === 'All' ? 'white' : '#71717a',
+                            }}
+                        >
+                            All caps {allRows.length}
+                        </button>
+                        {capTabs.map((c) => {
+                            const active = capFilter === c.name;
+                            return (
+                                <button
+                                    key={c.name}
+                                    onClick={() => setCapFilter(active ? 'All' : c.name)}
+                                    style={{
+                                        padding: '0.45rem 0.9rem', borderRadius: '0.7rem', fontSize: '11px', fontWeight: 800,
+                                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                        backgroundColor: active ? c.bg : 'rgba(255,255,255,0.02)',
+                                        border: `1px solid ${active ? c.border : 'rgba(255,255,255,0.06)'}`,
+                                        color: active ? c.color : '#71717a',
+                                    }}
+                                >
+                                    <span>{c.icon}</span> {c.name} {c.count}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Sector tabs, drawn with the same icons and colours as the holdings
+                page so one company reads the same in both places. */}
+            {sectorTabs.length > 1 && (
+                <div style={{ marginBottom: '1.25rem' }}>
+                    <p style={{ ...label, marginBottom: '0.6rem' }}>Sector</p>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={() => setSectorFilter('All')}
+                            style={{
+                                padding: '0.45rem 0.9rem', borderRadius: '0.7rem', fontSize: '11px', fontWeight: 800,
+                                cursor: 'pointer',
+                                backgroundColor: sectorFilter === 'All' ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.02)',
+                                border: `1px solid ${sectorFilter === 'All' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                                color: sectorFilter === 'All' ? 'white' : '#71717a',
+                            }}
+                        >
+                            All sectors {allRows.length}
+                        </button>
+                        {sectorTabs.map((s) => {
+                            const active = sectorFilter === s.name;
+                            return (
+                                <button
+                                    key={s.name}
+                                    onClick={() => setSectorFilter(active ? 'All' : s.name)}
+                                    style={{
+                                        padding: '0.45rem 0.9rem', borderRadius: '0.7rem', fontSize: '11px', fontWeight: 800,
+                                        cursor: 'pointer',
+                                        display: 'flex', alignItems: 'center', gap: '0.4rem',
+                                        backgroundColor: active ? `${s.color}22` : 'rgba(255,255,255,0.02)',
+                                        border: `1px solid ${active ? s.color : 'rgba(255,255,255,0.06)'}`,
+                                        color: active ? s.color : '#71717a',
+                                        boxShadow: active ? `0 0 16px ${s.color}22` : 'none',
+                                    }}
+                                >
+                                    <span>{s.icon}</span> {s.name} {s.count}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {filtered && (
+                <p style={{ fontSize: '0.72rem', color: '#71717a', margin: '0 0 0.85rem' }}>
+                    Showing {rows.length} of {allRows.length}
+                    {sectorFilter !== 'All' && ` · ${sectorFilter}`}
+                    {capFilter !== 'All' && ` · ${capFilter}`}
+                    {riskFilter !== 'All' && ` · ${RISK_META[riskFilter].label} risk`}
+                    <button
+                        onClick={clearAll}
+                        style={{ marginLeft: '0.6rem', background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '0.72rem', fontWeight: 700, padding: 0 }}
+                    >
+                        clear
+                    </button>
+                </p>
+            )}
+
             <div style={{ ...card, padding: 0, overflow: 'hidden' }}>
                 <div style={{ overflowX: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '980px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '1380px' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                                 <th style={th()}>Company</th>
+                                <th style={th()}>Sector</th>
+                                <th style={th('center')}>Cap</th>
+                                <th style={th('center')}>Risk</th>
                                 <th style={th('right')}>Price</th>
                                 <th style={th('right')}>Day</th>
                                 <th style={th()}>52-week position</th>
@@ -154,6 +345,51 @@ const Watchlist = () => {
                                         {w.name}
                                         {w.ticker && <span style={{ color: '#71717a', marginLeft: '0.45rem', fontSize: '0.7rem' }}>{w.ticker}</span>}
                                         {w.notes && <div style={{ fontSize: '0.68rem', color: '#71717a', marginTop: '2px' }}>{w.notes}</div>}
+                                    </td>
+                                    <td style={td()}>
+                                        {(() => {
+                                            const m = sectorMeta(w.sectorKey);
+                                            return (
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                                                    padding: '0.2rem 0.5rem', borderRadius: '0.4rem',
+                                                    backgroundColor: `${m.color}18`, border: `1px solid ${m.color}33`,
+                                                    color: m.color, fontSize: '0.68rem', fontWeight: 700, whiteSpace: 'nowrap',
+                                                }}>
+                                                    <span>{m.icon}</span> {w.sectorKey}
+                                                </span>
+                                            );
+                                        })()}
+                                    </td>
+                                    <td style={td('center')}>
+                                        {(() => {
+                                            const m = capMeta(w.capKey);
+                                            return (
+                                                <span style={{
+                                                    display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                                                    padding: '0.2rem 0.5rem', borderRadius: '0.4rem',
+                                                    backgroundColor: m.bg, border: `1px solid ${m.border}`,
+                                                    color: m.color, fontSize: '0.65rem', fontWeight: 800, whiteSpace: 'nowrap',
+                                                }}>
+                                                    <span>{m.icon}</span> {w.capKey.replace(' Cap', '')}
+                                                </span>
+                                            );
+                                        })()}
+                                    </td>
+                                    <td style={td('center')}>
+                                        {(() => {
+                                            const m = RISK_META[w.riskKey];
+                                            return (
+                                                <span style={{
+                                                    padding: '0.2rem 0.55rem', borderRadius: '0.4rem',
+                                                    backgroundColor: m.bg, border: `1px solid ${m.border}`,
+                                                    color: m.color, fontSize: '0.65rem', fontWeight: 900,
+                                                    textTransform: 'uppercase', letterSpacing: '0.04em',
+                                                }}>
+                                                    {m.label}
+                                                </span>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={{ ...td('right'), fontFamily: 'monospace', fontWeight: 700 }}>
                                         {w.q.price ? formatCurrency(w.q.price) : <span style={{ color: '#fbbf24' }}>—</span>}
@@ -219,10 +455,28 @@ const Watchlist = () => {
                 {rows.length === 0 && (
                     <div style={{ padding: '3rem 1.5rem', textAlign: 'center' }}>
                         <Eye size={28} style={{ color: '#3f3f46', marginBottom: '0.75rem' }} />
-                        <p style={{ color: '#71717a', fontSize: '0.9rem', margin: 0 }}>Nothing on the watchlist yet.</p>
-                        <p style={{ color: '#52525b', fontSize: '0.75rem', margin: '0.5rem 0 0' }}>
-                            Add a ticker to follow its price and 52-week range without owning it.
-                        </p>
+                        {/* An empty list and a filter that matched nothing look
+                            identical otherwise, and the fix for each is different. */}
+                        {allRows.length === 0 ? (
+                            <>
+                                <p style={{ color: '#71717a', fontSize: '0.9rem', margin: 0 }}>Nothing on the watchlist yet.</p>
+                                <p style={{ color: '#52525b', fontSize: '0.75rem', margin: '0.5rem 0 0' }}>
+                                    Add a ticker to follow its price and 52-week range without owning it.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <p style={{ color: '#71717a', fontSize: '0.9rem', margin: 0 }}>
+                                    None of your {allRows.length} entries match this filter.
+                                </p>
+                                <button
+                                    onClick={clearAll}
+                                    style={{ marginTop: '0.6rem', background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 700 }}
+                                >
+                                    Clear filters
+                                </button>
+                            </>
+                        )}
                     </div>
                 )}
             </div>

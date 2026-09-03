@@ -14,11 +14,27 @@
  * counts every payout twice.
  */
 
+import { readDividend } from './dividendTax.js';
+
 const num = (v) => Number(v) || 0;
 const money = (v) => Math.round(num(v) * 100) / 100;
 
-/** A dividend leg's cash. Payouts are recorded in `price`, not `amount`. */
-const payout = (tx) => num(tx.amount) || num(tx.price);
+/**
+ * A dividend leg's cash, gross of any tax withheld.
+ *
+ * Gross rather than what reached the bank: dividend income is what the company
+ * declared, and the tax taken out of it is a credit you claim back, not a
+ * reduction in what you earned. Yield on cost measured on the net figure would
+ * quietly understate every payer that crosses a withholding threshold.
+ *
+ * Read through readDividend so the gross/net rule lives in one place. Rows with
+ * no `tds` — which is all 152 currently in this database — are unchanged: gross,
+ * net and the stored amount are the same number.
+ */
+const payout = (tx) => readDividend(tx).gross;
+
+/** What actually reached the bank, for the rare place that wants it. */
+const payoutNet = (tx) => readDividend(tx).net;
 
 const dividendTxs = (stock) => (stock?.transactions || []).filter((t) => t.type === 'dividend');
 

@@ -1053,6 +1053,8 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [price, setPrice] = useState('');
     const [splitFrom, setSplitFrom] = useState('');
     const [splitTo, setSplitTo] = useState('');
+    const [tds, setTds] = useState('');
+    const [amountIsNet, setAmountIsNet] = useState(false);
 
     useEffect(() => {
         if (isOpen) {
@@ -1063,6 +1065,8 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                 setPrice(initialData.price || '');
                 setSplitFrom(initialData.splitFrom || '');
                 setSplitTo(initialData.splitTo || '');
+                setTds(initialData.tds || '');
+                setAmountIsNet(initialData.amountIsNet === true);
             } else {
                 setDate(new Date().toISOString().split('T')[0]);
                 setType('buy');
@@ -1070,6 +1074,8 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                 setPrice('');
                 setSplitFrom('');
                 setSplitTo('');
+                setTds('');
+                setAmountIsNet(false);
             }
         }
     }, [isOpen, initialData]);
@@ -1078,14 +1084,27 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        // Spread the stored row first.
+        //
+        // This used to build a fresh object from the six fields the form knows
+        // about, which silently dropped everything else on the transaction —
+        // `amount`, `remarks`, `expenseId`, `adoptedByExpense`. Losing that last
+        // pair is not cosmetic: detachExpense DELETES a transaction it created
+        // and only RELEASES one it adopted, so an edit that dropped the flag
+        // turned a later unlink into the destruction of a real purchase record.
         onSave({
+            ...(initialData || {}),
             id: initialData?.id,
             date,
             type,
             quantity: Number(quantity),
             price: Number(price),
             splitFrom: type === 'split' ? Number(splitFrom) : undefined,
-            splitTo: type === 'split' ? Number(splitTo) : undefined
+            splitTo: type === 'split' ? Number(splitTo) : undefined,
+            // Tax withheld belongs only on a dividend. Clearing it on the other
+            // types stops a stale figure surviving a change of transaction type.
+            tds: type === 'dividend' ? Number(tds) || 0 : undefined,
+            amountIsNet: type === 'dividend' ? amountIsNet : undefined,
         });
     };
 
@@ -1153,6 +1172,43 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                                 {type === 'dividend' ? 'Total Dividend Amount' : type === 'demerger' ? 'New Average Price' : 'Price per share'}
                             </label>
                             <input type="number" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="0.00" />
+                        </div>
+                    )}
+                    {type === 'dividend' && (
+                        <div style={{ borderRadius: '0.75rem', border: '1px solid rgba(45,212,191,0.2)', backgroundColor: 'rgba(45,212,191,0.05)', padding: '0.9rem' }}>
+                            <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#2dd4bf', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>
+                                Tax deducted (TDS)
+                            </label>
+                            <input type="number" step="0.01" min="0" value={tds} onChange={e => setTds(e.target.value)}
+                                style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }}
+                                placeholder="0.00 — leave blank if none was withheld" />
+
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.7rem', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={amountIsNet} onChange={e => setAmountIsNet(e.target.checked)}
+                                    style={{ width: '15px', height: '15px', accentColor: '#2dd4bf', cursor: 'pointer' }} />
+                                <span style={{ fontSize: '0.75rem', color: '#d4d4d8' }}>
+                                    The amount above is what was <strong>credited</strong>, after tax
+                                </span>
+                            </label>
+
+                            {Number(tds) > 0 && (
+                                <p style={{ fontSize: '0.7rem', color: '#a1a1aa', margin: '0.6rem 0 0', fontFamily: 'monospace' }}>
+                                    Gross ₹{(amountIsNet ? Number(price) + Number(tds) : Number(price)).toFixed(2)}
+                                    {' · '}TDS ₹{Number(tds).toFixed(2)}
+                                    {' · '}Net ₹{(amountIsNet ? Number(price) : Number(price) - Number(tds)).toFixed(2)}
+                                </p>
+                            )}
+
+                            {/* Said here rather than left for the user to discover:
+                                a REIT withholds from the first rupee, an ordinary
+                                company only above a yearly threshold, and that is
+                                why one small payout shows tax and a larger one does not. */}
+                            <p style={{ fontSize: '0.68rem', color: '#71717a', margin: '0.6rem 0 0', lineHeight: 1.5 }}>
+                                REITs and InvITs withhold 10% from the first rupee. Ordinary companies
+                                only withhold once dividends from that one company pass ₹10,000 in a
+                                financial year (₹5,000 before FY 2025-26). Tax withheld is claimable
+                                against your own liability, so recording it is worth the keystrokes.
+                            </p>
                         </div>
                     )}
                     <button type="submit" style={{ width: '100%', backgroundColor: '#4f46e5', color: 'white', fontWeight: '700', padding: '0.75rem', borderRadius: '0.75rem', border: 'none', cursor: 'pointer', transition: 'background-color 0.2s', marginTop: '0.5rem' }} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4338ca'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#4f46e5'}>

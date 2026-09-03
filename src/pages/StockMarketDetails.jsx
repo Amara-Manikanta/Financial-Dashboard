@@ -7,6 +7,7 @@ import { resolveMarketCap } from '../utils/nifty50Data';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
+import { OFFICIAL_SECTORS } from '../utils/sectors';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
@@ -118,19 +119,9 @@ const DividendTreemapContent = (props) => {
     );
 };
 
-const OFFICIAL_SECTORS = [
-    { name: 'Information Technology', icon: '💻', color: '#3b82f6' },
-    { name: 'Financials', icon: '🏦', color: '#10b981' },
-    { name: 'Health Care', icon: '🩺', color: '#ec4899' },
-    { name: 'Consumer Discretionary', icon: '🛍️', color: '#f59e0b' },
-    { name: 'Consumer Staples', icon: '🛒', color: '#84cc16' },
-    { name: 'Industrials', icon: '⚙️', color: '#6366f1' },
-    { name: 'Communication Services', icon: '📡', color: '#8b5cf6' },
-    { name: 'Energy', icon: '⚡', color: '#ef4444' },
-    { name: 'Utilities', icon: '🚰', color: '#06b6d4' },
-    { name: 'Materials', icon: '🏗️', color: '#d97706' },
-    { name: 'Real Estate', icon: '🏢', color: '#14b8a6' }
-];
+// OFFICIAL_SECTORS used to be defined here. It moved to utils/sectors.js when
+// the watchlist started drawing the same chips — two copies of a colour table
+// is exactly how the two sector vocabularies drifted apart in the first place.
 
 // A stock that has paid a dividend before is assumed to expect one again,
 // unless expectsDividends says otherwise. Requiring the flag outright meant
@@ -174,7 +165,7 @@ const isStale = (iso) => {
 const StockMarketDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { savings, formatCurrency, updateItem, refreshStockPrices } = useFinance();
+    const { savings, formatCurrency, updateItem, refreshAllPrices } = useFinance();
     const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
     const [refreshNote, setRefreshNote] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -1096,19 +1087,20 @@ const StockMarketDetails = () => {
                                     <span>Add Column</span>
                                 </button>
 
-                                {/* Refresh Prices.
-                                    refreshStockPrices has existed in the context all
-                                    along with nothing calling it — there was no way to
-                                    update prices from the interface at all. */}
+                                {/* Refresh, holdings and watchlist together.
+                                    This used to refresh only the holdings, so the
+                                    watchlist could sit hours behind while comparing
+                                    itself against freshly priced positions. */}
                                 <button
                                     disabled={isRefreshingPrices}
                                     onClick={async () => {
                                         setIsRefreshingPrices(true);
                                         setRefreshNote(null);
-                                        const r = await refreshStockPrices(String(market.id));
+                                        const r = await refreshAllPrices();
                                         setIsRefreshingPrices(false);
+                                        const missed = r.stocks?.notUpdated?.length || 0;
                                         setRefreshNote(r.success
-                                            ? `Updated ${r.updated} of ${r.total} prices${r.notUpdated?.length ? ` · no quote for ${r.notUpdated.length}` : ''}`
+                                            ? `${r.message}${missed ? ` · no quote for ${missed}` : ''}`
                                             : (r.message || 'Refresh failed'));
                                     }}
                                     style={{
@@ -1118,7 +1110,7 @@ const StockMarketDetails = () => {
                                     }}
                                 >
                                     <RefreshCw size={16} className={isRefreshingPrices ? 'animate-spin' : ''} />
-                                    <span>{isRefreshingPrices ? 'Fetching…' : 'Refresh Prices'}</span>
+                                    <span>{isRefreshingPrices ? 'Fetching…' : 'Refresh all prices'}</span>
                                 </button>
 
                                 {/* Add Stock */}

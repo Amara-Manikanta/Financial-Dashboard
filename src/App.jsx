@@ -17,6 +17,11 @@ import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
 import Watchlist from './pages/Watchlist';
+import MoneyFlow from './pages/MoneyFlow';
+import CapitalGains from './pages/CapitalGains';
+import Returns from './pages/Returns';
+import CardIntelligence from './pages/CardIntelligence';
+import NetWorthHistory from './pages/NetWorthHistory';
 import IpoTracker from './pages/IpoTracker';
 import FreeHoldings from './pages/FreeHoldings';
 import DividendIncome from './pages/DividendIncome';
@@ -140,10 +145,13 @@ function App() {
                                     <Route path="expenses" element={<Expenses />} />
                                     <Route path="expenses/:year/:month" element={<ExpenseDetails />} />
                                     <Route path="analytics" element={<Analytics />} />
+                                    <Route path="money-flow" element={<MoneyFlow />} />
                                     <Route path="salary" element={<Salary />} />
                                     <Route path="savings" element={<Savings />} />
                                     <Route path="investments" element={<Investments />} />
                                     <Route path="investments/watchlist" element={<Watchlist />} />
+                                    <Route path="investments/capital-gains" element={<CapitalGains />} />
+                                    <Route path="investments/returns" element={<Returns />} />
                                     <Route path="investments/ipos" element={<IpoTracker />} />
                                     <Route path="investments/free-holdings" element={<FreeHoldings />} />
                                     <Route path="investments/dividend-income" element={<DividendIncome />} />
@@ -180,6 +188,8 @@ function App() {
                                     <Route path="category-budgets" element={<CategoryBudgets />} />
                                     <Route path="profile" element={<Profile />} />
                                     <Route path="credit-cards" element={<CreditCardDetails />} />
+                                    <Route path="credit-cards/intelligence" element={<CardIntelligence />} />
+                                    <Route path="net-worth" element={<NetWorthHistory />} />
                                     <Route path="credit-cards/:id" element={<SingleCreditCardDetails />} />
                                     <Route path="all-transactions" element={<AllTransactions />} />
                                     <Route path="taxes" element={<Taxes />} />

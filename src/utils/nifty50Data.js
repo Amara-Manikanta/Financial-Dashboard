@@ -146,6 +146,25 @@ export const ALL_BENCHMARK_STOCKS = [
  * and the small-cap set — by symbol, name or alias. An explicit marketCap on the record always wins, so anything the list
  * does not cover — ETFs, REITs and smaller names — can still be set manually.
  */
+/** The three bands, plus the honest fourth. */
+export const MARKET_CAPS = ['Large Cap', 'Mid Cap', 'Small Cap'];
+
+/**
+ * Icon and colour per band.
+ *
+ * Shared so a company reads the same on the holdings page and the watchlist —
+ * the colours were previously inlined in StockMarketDetails and reachable from
+ * nowhere else.
+ */
+export const CAP_META = {
+    'Large Cap': { color: '#818cf8', bg: 'rgba(99, 102, 241, 0.1)', border: 'rgba(99, 102, 241, 0.3)', icon: '🏢' },
+    'Mid Cap': { color: '#fbbf24', bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', icon: '🏗️' },
+    'Small Cap': { color: '#22d3ee', bg: 'rgba(6, 182, 212, 0.1)', border: 'rgba(6, 182, 212, 0.3)', icon: '🚀' },
+    Unclassified: { color: '#71717a', bg: 'rgba(255,255,255,0.04)', border: 'rgba(255,255,255,0.08)', icon: '📁' },
+};
+
+export const capMeta = (cap) => CAP_META[cap] || CAP_META.Unclassified;
+
 export const resolveMarketCap = (stock) => {
     if (!stock) return 'Unclassified';
     if (stock.marketCap) return stock.marketCap;
