@@ -106,8 +106,14 @@ const AssetTransactionModal = ({
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-            <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl scale-100 animate-scale-in">
-                <div className="p-6 border-b border-white/10 flex justify-between items-center">
+            {/* Capped and scrollable.
+                The card had no height limit and no overflow, so once the form
+                grew — a unit picker, then the "who pays this" block — the
+                Cancel and Add buttons fell below the bottom of the window with
+                no way to reach them. The header and footer stay put; only the
+                fields between them scroll. */}
+            <div className="bg-[#1e1e1e] border border-white/10 rounded-2xl w-full max-w-md shadow-2xl scale-100 animate-scale-in flex flex-col max-h-[90vh]">
+                <div className="p-6 border-b border-white/10 flex justify-between items-center shrink-0">
                     <h2 className="text-xl font-bold bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
                         {initialData ? 'Edit Entry' : 'Add Entry'}
                     </h2>
@@ -116,7 +122,7 @@ const AssetTransactionModal = ({
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto custom-scrollbar flex-1 min-h-0">
                     {/* First, because it decides where everything below lands.
                         A rent row against the wrong shop is silently wrong: it
                         clears one unit's arrears and leaves another's standing. */}
@@ -297,23 +303,28 @@ const AssetTransactionModal = ({
                         />
                     </div>
 
-                    <div className="pt-4 flex gap-3">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="flex-1 px-4 py-2 rounded-lg bg-white/5 text-gray-300 font-medium hover:bg-white/10 transition-colors"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
-                        >
-                            <Save size={18} />
-                            {initialData ? 'Update' : 'Add'}
-                        </button>
-                    </div>
                 </form>
+
+                {/* Outside the scroll area, so it is reachable however long the
+                    form gets. Submits the form by id rather than by being
+                    inside it. */}
+                <div className="p-6 border-t border-white/10 flex gap-3 shrink-0">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex-1 px-4 py-2 rounded-lg bg-white/5 text-gray-300 font-medium hover:bg-white/10 transition-colors"
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={handleSubmit}
+                        className="flex-1 px-4 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                    >
+                        <Save size={18} />
+                        {initialData ? 'Update' : 'Add'}
+                    </button>
+                </div>
             </div>
         </div>
     );

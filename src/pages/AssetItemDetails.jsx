@@ -83,14 +83,26 @@ const AssetItemDetails = () => {
     const arrears = ledger.reduce((sum, r) => sum + r.shortfall, 0);
     const currentRent = rental ? expectedRentOn(rental, new Date().toISOString().slice(0, 10)) : 0;
 
+    /**
+     * Compared as strings, like the lookup above.
+     *
+     * 15 of 25 asset items carry a numeric id from Date.now(), and a URL param
+     * is always a string, so `i.id === itemId` matched nothing on those items:
+     * `map` returned the array unchanged and the save wrote the collection back
+     * exactly as it was. It looked like a success — no error, no banner — and
+     * the change was simply gone on the next load. Uploading a receipt for the
+     * Aquaguard put the file on disk twice and recorded neither.
+     */
     const handleSaveAsset = async (updatedData) => {
-        const updatedItems = category.items.map(i => i.id === itemId ? updatedData : i);
+        const updatedItems = category.items.map(i => (String(i.id) === String(itemId) ? updatedData : i));
         await updateItem('asset', { ...category, items: updatedItems });
     };
 
     const handleDeleteAsset = async () => {
         if (window.confirm('Delete this entire asset and all its transaction history?')) {
-            const updatedItems = category.items.filter(i => i.id !== itemId);
+            // Same trap: with a numeric id this filtered nothing out, so the
+            // delete quietly did nothing at all.
+            const updatedItems = category.items.filter(i => String(i.id) !== String(itemId));
             await updateItem('asset', { ...category, items: updatedItems });
             navigate(`/assets/${categoryId}`);
         }

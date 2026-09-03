@@ -271,7 +271,10 @@ const FixedDepositDetails = () => {
 
     const handleConfirmCloseModal = ({ depositId, closureDate, finalInterestEarned, closureRemarks }) => {
         const updatedDeposits = fund.deposits.map(d => {
-            if (d.id === depositId) {
+            // Compared as strings: one deposit carries a numeric id from
+            // Date.now(), and a strict match against it silently changed
+            // nothing while reporting success.
+            if (String(d.id) === String(depositId)) {
                 const P = Number(d.originalAmount) || 0;
                 const finalInterest = Number(finalInterestEarned) || 0;
                 return {
@@ -297,7 +300,7 @@ const FixedDepositDetails = () => {
 
     const handleRestoreDeposit = (depositId) => {
         const updatedDeposits = fund.deposits.map(d => {
-            if (d.id === depositId) {
+            if (String(d.id) === String(depositId)) {
                 return { ...d, isArchived: false };
             }
             return d;
