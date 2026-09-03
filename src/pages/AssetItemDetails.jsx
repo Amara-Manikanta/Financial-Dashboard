@@ -116,18 +116,54 @@ const AssetItemDetails = () => {
         setEditingUnit(null);
     };
 
-    const handleSaveTx = async (txData) => {
-        const updatedTransactions = editingTx
-            ? transactions.map(t => t.id === txData.id ? txData : t)
-            : [...transactions, txData];
+    /** Add or replace an entry in whichever tenancy holds it. */
+    const withEntry = (base, targetId, entry, mode) => {
+        const target = targetId
+            ? allUnits(base).find((u) => String(u.id) === String(targetId))
+            : null;
+        const current = target ? (target.transactions || []) : (base.transactions || []);
+        const next = mode === 'replace'
+            ? current.map((t) => (t.id === entry.id ? entry : t))
+            : [...current, entry];
+        return target
+            ? applyUnit(base, { ...target, transactions: next })
+            : { ...base, transactions: next };
+    };
 
-        // An entry belongs to whichever tenancy is on screen. With a unit
-        // selected it is that unit's; with none it is the building's.
-        const updatedItem = activeUnit
-            ? applyUnit(item, { ...activeUnit, transactions: updatedTransactions })
-            : { ...item, transactions: updatedTransactions };
+    /** Drop an entry id from whichever tenancy currently holds it. */
+    const withoutEntry = (base, sourceId, entryId) => {
+        const source = sourceId
+            ? allUnits(base).find((u) => String(u.id) === String(sourceId))
+            : null;
+        const current = source ? (source.transactions || []) : (base.transactions || []);
+        const next = current.filter((t) => t.id !== entryId);
+        return source
+            ? applyUnit(base, { ...source, transactions: next })
+            : { ...base, transactions: next };
+    };
 
-        await persistItem(updatedItem);
+    const handleSaveTx = async (txData, targetUnitId) => {
+        // Undefined means the form had no unit picker (a property without
+        // units), so the entry goes wherever the page is already pointed.
+        const target = targetUnitId === undefined
+            ? (activeUnit ? activeUnit.id : '')
+            : targetUnitId;
+        const from = activeUnit ? activeUnit.id : '';
+
+        let next;
+        if (editingTx && String(from) !== String(target)) {
+            // Moved to a different unit. Removing before adding matters: doing
+            // it the other way round on the same target would delete the row
+            // that was just written.
+            next = withEntry(withoutEntry(item, from, txData.id), target, txData, 'add');
+        } else {
+            next = withEntry(item, target, txData, editingTx ? 'replace' : 'add');
+        }
+
+        await persistItem(next);
+        // Follow the entry, so a row saved against another unit is visible
+        // rather than appearing to have vanished.
+        if (usesUnits) setSelectedUnitId(target || null);
         setIsTxModalOpen(false);
         setEditingTx(null);
     };
@@ -314,12 +350,21 @@ const AssetItemDetails = () => {
                                                             {formatCurrency(u.arrears)} behind
                                                         </p>
                                                     )}
-                                                    <button
-                                                        onClick={(e) => { e.stopPropagation(); setEditingUnit(u.unit); setIsUnitModalOpen(true); }}
-                                                        className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest"
-                                                    >
-                                                        Edit
-                                                    </button>
+                                                    <div className="flex items-center gap-2 justify-end">
+                                                        {/* Two different actions, and they were easy to
+                                                            confuse: the card opens the unit's ledger,
+                                                            Edit changes its tenant and rent. */}
+                                                        <span className="text-[10px] font-black uppercase tracking-widest"
+                                                            style={{ color: selected ? sm.color : '#52525b' }}>
+                                                            {selected ? 'Showing' : 'Open'}
+                                                        </span>
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setEditingUnit(u.unit); setIsUnitModalOpen(true); }}
+                                                            className="text-[10px] font-black text-indigo-400 hover:text-indigo-300 uppercase tracking-widest"
+                                                        >
+                                                            Edit
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
@@ -347,7 +392,12 @@ const AssetItemDetails = () => {
                                 </div>
                                 <div>
                                     <h3 className="text-lg font-black text-white tracking-tight">
-                                        {rental.unitName || item.name}
+                                        {/* The unit's name when one is selected.
+                                            It fell back to the property name,
+                                            so every unit's panel was headed
+                                            with the building and there was no
+                                            sign of which one you were editing. */}
+                                        {activeUnit ? activeUnit.name : (rental.unitName || item.name)}
                                     </h3>
                                     <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
                                         <User size={11} />
@@ -452,7 +502,9 @@ const AssetItemDetails = () => {
                         )}
                     </div>
 
-                    {ledger.length > 0 && (
+                    {/* Also shown when the ledger has no rows: a payment
+                        outside the lease window still has to be visible. */}
+                    {(ledger.length > 0 || (ledger.unplaced || []).length > 0) && (
                         <div className="card p-0 overflow-hidden border border-white/5">
                             <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
                                 <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">
@@ -496,13 +548,20 @@ const AssetItemDetails = () => {
                                     <p className="text-[11px] font-black text-amber-400 uppercase tracking-wider">
                                         {ledger.unplaced.length} rent payment{ledger.unplaced.length === 1 ? '' : 's'} not counted above
                                     </p>
+                                    {/* Two different causes with two different
+                                        fixes: an unreadable month is corrected
+                                        on the entry, a month outside the lease
+                                        is corrected on the lease dates. */}
                                     <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
-                                        The month each covers could not be read, so it is not matched to any row.
-                                        Edit the entry and set the month as <span className="font-mono">2026-08</span>.
+                                        {ledger.unplaced.some((e) => e.outsideLease)
+                                            ? 'Some cover months outside the lease period, so there is no row to match them against. Check the lease start and end dates on the unit.'
+                                            : 'The month each covers could not be read, so it is not matched to any row.'}
+                                        {' '}Months are stored as <span className="font-mono">2026-08</span>.
                                     </p>
                                     {ledger.unplaced.map((e) => (
                                         <p key={e.id} className="text-[11px] text-gray-500 mt-1 font-mono">
-                                            {e.date} · {formatCurrency(e.amount)} · period “{String(e.period || '').trim() || 'blank'}”
+                                            {e.date} · {formatCurrency(e.amount)} · for {formatPeriod(e.period) || 'blank'}
+                                            {e.outsideLease ? ' · outside the lease period' : ' · month unreadable'}
                                         </p>
                                     ))}
                                 </div>
@@ -559,15 +618,26 @@ const AssetItemDetails = () => {
                 </div>
             )}
 
-            <div className="flex justify-between items-center mb-6">
-                <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">
-                    {rental ? 'Rent, Bills & Tax Entries' : 'Transaction History'}
-                </h3>
+            <div className="flex flex-wrap gap-4 justify-between items-center mb-6">
+                <div>
+                    <h3 className="text-sm font-black uppercase tracking-widest text-gray-400">
+                        {rental ? 'Rent, Bills & Tax Entries' : 'Transaction History'}
+                    </h3>
+                    {/* Which tenancy an entry will land against, said before the
+                        button is pressed rather than discovered afterwards. */}
+                    {usesUnits && (
+                        <p className="text-[11px] text-gray-600 mt-1">
+                            {activeUnit
+                                ? <>For <span className="text-emerald-400 font-bold">{activeUnit.name}</span> — select a different unit above to switch</>
+                                : <>For the <span className="text-indigo-400 font-bold">building itself</span> — select a unit above to record its rent</>}
+                        </p>
+                    )}
+                </div>
                 <button
                     onClick={() => { setEditingTx(null); setIsTxModalOpen(true); }}
                     className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-500 transition-all text-xs font-black uppercase tracking-widest shadow-lg shadow-indigo-500/20"
                 >
-                    <Plus size={16} /> Add Transaction
+                    <Plus size={16} /> Add {usesUnits && activeUnit ? `entry to ${activeUnit.name}` : 'Transaction'}
                 </button>
             </div>
 
@@ -649,6 +719,8 @@ const AssetItemDetails = () => {
                 onSave={handleSaveTx}
                 initialData={editingTx}
                 isRealEstate={isRealEstate}
+                units={usesUnits ? allUnits(item).map((u) => ({ id: u.id, name: u.name, selfOccupied: u.selfOccupied })) : []}
+                unitId={activeUnit ? activeUnit.id : ''}
             />
 
             <AssetItemModal

@@ -233,7 +233,8 @@ export const rentLedger = (rental, entries = [], asOf = new Date()) => {
 
     const received = new Map();
     const unplaced = [];
-    entries.filter((e) => kindOf(e) === 'rent').forEach((e) => {
+    const rentEntries = entries.filter((e) => kindOf(e) === 'rent');
+    rentEntries.forEach((e) => {
         // `period` is the month the rent covers; the payment date is only a
         // fallback, because rent for August is routinely paid in September and
         // bucketing by payment date reports August unpaid and September double.
@@ -256,6 +257,20 @@ export const rentLedger = (rental, entries = [], asOf = new Date()) => {
         rows.push({ month: monthKey, due, received: got, shortfall: Math.max(0, due - got) });
     }
     rows.reverse();
+
+    // Rent recorded for a month the lease does not cover.
+    //
+    // The ledger runs from lease start to today, so a payment dated outside
+    // that window — rent for September against a lease starting on the 4th, an
+    // advance month paid up front, a row still on the old lease's dates —
+    // matched no row and simply disappeared. It is money that was recorded and
+    // then shown nowhere, which is the same failure as an unreadable period.
+    const covered = new Set(rows.map((r) => r.month));
+    rentEntries.forEach((e) => {
+        const key = e.period ? parsePeriod(e.period) : parsePeriod(String(e.date || '').slice(0, 7));
+        if (key && !covered.has(key)) unplaced.push({ ...e, outsideLease: true, month: key });
+    });
+
     // Carried on the array so a caller can say which payments could not be
     // placed. Silently dropping them is what made a paid month read as unpaid.
     rows.unplaced = unplaced;

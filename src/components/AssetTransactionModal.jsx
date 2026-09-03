@@ -3,7 +3,13 @@ import { X, Save } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
 import { ENTRY_KINDS, kindOf, parsePeriod, formatPeriod, kindHasPeriod } from '../utils/rental';
 
-const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEstate = false }) => {
+/** The option meaning "not any one unit" — the building's own costs. */
+export const BUILDING_SCOPE = '';
+
+const AssetTransactionModal = ({
+    isOpen, onClose, onSave, initialData, isRealEstate = false,
+    units = [], unitId = BUILDING_SCOPE,
+}) => {
     const blank = () => ({
         date: new Date().toISOString().split('T')[0],
         kind: isRealEstate ? 'rent' : 'other_income',
@@ -14,6 +20,15 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
     });
 
     const [formData, setFormData] = useState(blank);
+    /**
+     * Which unit this entry belongs to.
+     *
+     * Held here rather than taken from whatever the page had selected. The unit
+     * was previously implied by a card highlighted behind the modal, which is
+     * invisible while the form is open — you could not tell which shop you were
+     * recording rent against, and could not change it without cancelling.
+     */
+    const [scope, setScope] = useState(unitId);
 
     useEffect(() => {
         if (initialData) {
@@ -21,8 +36,9 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
         } else {
             setFormData(blank());
         }
+        setScope(unitId);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [initialData, isOpen]);
+    }, [initialData, isOpen, unitId]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -50,7 +66,10 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
             // month that had been paid showed as short by the full rent.
             period: kindHasPeriod(kind) ? (parsePeriod(formData.period) || '') : '',
             id: initialData?.id || Date.now().toString(),
-        });
+            // The target is passed alongside rather than stored on the entry:
+            // an entry already knows where it lives by being in that unit's
+            // array, and a second copy of that fact could disagree with it.
+        }, scope);
     };
 
     /** What the typed period resolves to, so an unreadable one is visible. */
@@ -77,6 +96,34 @@ const AssetTransactionModal = ({ isOpen, onClose, onSave, initialData, isRealEst
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* First, because it decides where everything below lands.
+                        A rent row against the wrong shop is silently wrong: it
+                        clears one unit's arrears and leaves another's standing. */}
+                    {units.length > 0 && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-400 mb-1">Which unit?</label>
+                            <select
+                                value={scope}
+                                onChange={(e) => setScope(e.target.value)}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-indigo-500"
+                            >
+                                {units.map((u) => (
+                                    <option key={u.id} value={u.id} className="bg-gray-900">
+                                        {u.name}{u.selfOccupied ? ' (self-occupied)' : ''}
+                                    </option>
+                                ))}
+                                <option value={BUILDING_SCOPE} className="bg-gray-900">
+                                    The building itself
+                                </option>
+                            </select>
+                            <p className="text-[11px] text-gray-500 mt-1.5">
+                                {scope === BUILDING_SCOPE
+                                    ? 'A cost for the whole property — tax on the structure, a shared repair'
+                                    : 'This unit\'s rent, deposit or meter'}
+                            </p>
+                        </div>
+                    )}
+
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-1">What is this?</label>
                         <select
