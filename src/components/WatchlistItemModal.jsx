@@ -45,10 +45,24 @@ const WatchlistItemModal = ({ isOpen, onClose, onSave, initialData }) => {
 
     const removeAlert = (id) => setForm((p) => ({ ...p, alerts: p.alerts.filter((a) => a.id !== id) }));
 
+    /**
+     * Fields a page computed for rendering, which must never be stored.
+     *
+     * Spreading `initialData` is what keeps an edit from dropping fields the
+     * form does not know about — that rule stands. But it also means anything a
+     * caller bolted onto the record gets written back, and the watchlist page
+     * did exactly that: it passed its decorated row and persisted a stale price
+     * snapshot alongside four derived keys. The spread stays; the derived keys
+     * are removed on the way out.
+     */
+    const COMPUTED = ['q', 'fired', 'sectorKey', 'riskKey', 'capKey', 'priorityKey', '_raw'];
+
     const submit = (e) => {
         e.preventDefault();
+        const stored = { ...(initialData || {}) };
+        COMPUTED.forEach((k) => delete stored[k]);
         onSave({
-            ...(initialData || {}),
+            ...stored,
             id: form.id || `w_${Date.now()}`,
             name: String(form.name || '').trim(),
             ticker: String(form.ticker || '').trim().toUpperCase(),
