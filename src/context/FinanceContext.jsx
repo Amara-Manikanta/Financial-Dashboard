@@ -170,6 +170,32 @@ export const isProtectionOnlyPolicy = (policy) => {
     return ['bike', 'car', 'health', 'home'].includes(category);
 };
 
+/**
+ * What has actually been put into a policy: premiums paid, less anything the
+ * policy has already paid back.
+ *
+ * This is the only defensible cost figure here. A policy's `amount` field is
+ * the SUM ASSURED on most records — what it would pay out on a claim — and
+ * reading that as money invested counted ₹90.74 lakh against ₹3.65 lakh of
+ * premiums actually paid, which is why the Savings page reported roughly
+ * -₹65 lakh of "accumulated growth".
+ *
+ * Used for both the cost and the value side deliberately. This database holds
+ * no surrender value or fund value for any policy, so the honest answer for
+ * growth is zero — not a number derived from a payout ceiling.
+ */
+export const policyContributed = (policy) => {
+    if (!policy || isProtectionOnlyPolicy(policy)) return 0;
+    const premiums = policy.premiums || [];
+    const paid = premiums
+        .filter((p) => p.status === 'Paid')
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const received = premiums
+        .filter((p) => p.status === 'Received Back' || p.status === 'Received')
+        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    return paid - received;
+};
+
 export const METAL_CATEGORIES = ['gold', 'silver', 'platinum', 'antique_coins', 'currencies'];
 
 export function FinanceProvider({ children }) {
@@ -207,6 +233,9 @@ export function FinanceProvider({ children }) {
     const [employments, setEmployments] = useState([]);
     const [categoryRules, setCategoryRules] = useState({});
     const [recurringOverrides, setRecurringOverrides] = useState({});
+    // What each expense category actually is: spending, a transfer into savings,
+    // a card settlement, or money lent. See utils/transactionKind.js.
+    const [categoryKinds, setCategoryKinds] = useState({});
     const [groceryCategories, setGroceryCategories] = useState(DEFAULT_GROCERY_CATEGORIES);
     const [isLoading, setIsLoading] = useState(true);
     // Set when the initial load failed. State is empty in that situation, so
@@ -384,6 +413,7 @@ export function FinanceProvider({ children }) {
                 setCategories(appData.categories || []);
                 setCategoryRules(appData.categoryRules || {});
                 setRecurringOverrides(appData.recurringOverrides || {});
+                setCategoryKinds(appData.categoryKinds || {});
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
                 setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
@@ -508,6 +538,38 @@ export function FinanceProvider({ children }) {
             // Never let a failed write look successful: roll the UI back and say so.
             setRecurringOverrides(previous);
             setSaveError(`Could not save the subscription status: ${error.message}. Your change was not kept.`);
+        }
+    };
+
+    /**
+     * Reclassify a whole category at once.
+     *
+     * Per-row editing is not a realistic option for the categories that matter:
+     * `bank transfer` alone is 988 rows. The map is stored rather than applied
+     * to the rows, so nothing rewrites 7,900 transactions and a rule can be
+     * changed back without a migration.
+     */
+    const saveCategoryKinds = async (nextKinds) => {
+        const previous = categoryKinds;
+        setCategoryKinds(nextKinds);
+        if (isGuest) {
+            setSaveError('Signed in as guest — nothing you change is being saved. Sign in as admin to keep it.');
+            return;
+        }
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            if (!res.ok) throw new Error(`could not read appData (${res.status})`);
+            const currentAppData = await res.json();
+            const write = await fetch(`${API_URL}/appData`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, categoryKinds: nextKinds })
+            });
+            if (!write.ok) throw new Error(`server returned ${write.status}`);
+            setSaveError(null);
+        } catch (error) {
+            setCategoryKinds(previous);
+            setSaveError(`Could not save the category classification: ${error.message}. Your change was not kept.`);
         }
     };
 
@@ -2110,10 +2172,7 @@ export function FinanceProvider({ children }) {
                 // Protection-only cover returns nothing at maturity, so its
                 // premiums are an expense, not savings. Counting them inflated
                 // net worth with motor and term policies that hold no value.
-                if (isProtectionOnlyPolicy(item)) return 0;
-                const paid = (item.premiums || []).filter(p => p.status === 'Paid').reduce((sum, p) => sum + Number(p.amount || 0), 0);
-                const received = (item.premiums || []).filter(p => p.status === 'Received Back' || p.status === 'Received').reduce((sum, p) => sum + Number(p.amount || 0), 0);
-                return paid - received;
+                return policyContributed(item);
 
             case 'savings_account':
                 return (item.transactions || []).reduce((sum, t) => {
@@ -2202,6 +2261,12 @@ export function FinanceProvider({ children }) {
                     const holding = readSgbHolding(h);
                     return sum + (holding.units * holding.issuePrice);
                 }, 0);
+
+            case 'policy':
+            case 'Policy':
+                // There was no case here at all, so a policy fell through to the
+                // default below and reported its SUM ASSURED as money invested.
+                return policyContributed(item);
 
             default:
                 return Number(item.investedAmount || item.amount || 0);
@@ -2732,6 +2797,60 @@ export function FinanceProvider({ children }) {
         }
     };
 
+    /**
+     * One refresh for holdings and watchlist together.
+     *
+     * They were two buttons on two pages, so the prices on one were routinely
+     * hours older than the other and nothing said so — the watchlist compares
+     * a company against holdings priced at a different moment.
+     *
+     * Run in sequence, not in parallel. Both write to the database, and the
+     * holdings path is a read-modify-write of the whole stock_market record:
+     * overlapping it with the per-entry watchlist writes is how a lost update
+     * happens. It also keeps the two bursts of outbound quote requests apart,
+     * which matters — twenty rapid refreshes have already taken the local
+     * server down once.
+     *
+     * Neither half is allowed to hide the other's failure. A partial result is
+     * reported as partial.
+     */
+    const refreshAllPrices = async () => {
+        if (isGuest) return { success: false, message: 'Guest mode: Cannot refresh prices' };
+
+        const market = (savings || []).find((s) => s.type === 'stock_market' && !s.isArchived);
+        const hasWatchlist = (watchlist || []).some((w) => w && w.ticker);
+
+        if (!market && !hasWatchlist) {
+            return { success: false, message: 'Nothing to refresh — no holdings and no watchlist entries.' };
+        }
+
+        const stocks = market
+            ? await refreshStockPrices(String(market.id))
+            : { success: true, updated: 0, total: 0, skipped: true };
+
+        const watch = hasWatchlist
+            ? await refreshWatchlistPrices()
+            : { success: true, updated: 0, total: 0, skipped: true };
+
+        const updated = (stocks.updated || 0) + (watch.updated || 0);
+        const total = (stocks.total || 0) + (watch.total || 0);
+
+        return {
+            // Only a total failure of both halves is a failure. One half working
+            // still moved real prices, and saying otherwise would push someone
+            // to refresh again for no reason.
+            success: stocks.success || watch.success,
+            updated,
+            total,
+            stocks,
+            watchlist: watch,
+            message: [
+                market ? `${stocks.updated || 0}/${stocks.total || 0} holdings` : null,
+                hasWatchlist ? `${watch.updated || 0}/${watch.total || 0} watchlist` : null,
+            ].filter(Boolean).join(' · '),
+        };
+    };
+
     const refreshMutualFundNAV = async (fundId) => {
         if (isGuest) return { success: false, message: 'Guest mode: Cannot refresh NAV' };
 
@@ -2808,6 +2927,7 @@ export function FinanceProvider({ children }) {
     const value = {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         recurringOverrides, saveRecurringOverrides,
+        categoryKinds, saveCategoryKinds,
         goals, loans, ipoApplications, watchlist, refreshWatchlistPrices, insuranceProfile,
         pendingWalletCredits, applyWalletAutoCredits,
         loadError,
@@ -2819,6 +2939,7 @@ export function FinanceProvider({ children }) {
         calculateItemInvestedValue,
         refreshMutualFundNAV,
         refreshStockPrices,
+        refreshAllPrices,
         customSalaryFields,
         hiddenSalaryFields,
         updateSalaryFieldsConfig,

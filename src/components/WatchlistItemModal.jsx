@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Plus, Trash2, Bell } from 'lucide-react';
 import { ALERT_TYPES, writeAlert } from '../utils/priceRange';
-import { CANONICAL_SECTORS } from '../utils/sectors';
+import { CANONICAL_SECTORS, SECTOR_META } from '../utils/sectors';
+import { RISK_LEVELS, RISK_META, PRIORITY_LEVELS, PRIORITY_META } from '../utils/watchlistRisk';
+import { MARKET_CAPS, CAP_META, resolveMarketCap } from '../utils/nifty50Data';
 
 const inputStyle = {
     backgroundColor: '#27272a', color: 'white', border: '1px solid #3f3f46',
@@ -12,7 +14,7 @@ const inputStyle = {
 
 const labelStyle = 'block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5';
 
-const blank = { name: '', ticker: '', sector: '', notes: '', alerts: [] };
+const blank = { name: '', ticker: '', sector: '', marketCap: '', risk: '', priority: '', notes: '', alerts: [] };
 
 /**
  * A watchlist entry and the levels its owner wants to hear about.
@@ -51,6 +53,9 @@ const WatchlistItemModal = ({ isOpen, onClose, onSave, initialData }) => {
             name: String(form.name || '').trim(),
             ticker: String(form.ticker || '').trim().toUpperCase(),
             sector: form.sector || '',
+            marketCap: form.marketCap || '',
+            risk: form.risk || '',
+            priority: form.priority || '',
             notes: String(form.notes || '').trim(),
             addedAt: form.addedAt || new Date().toISOString(),
             alerts: (form.alerts || []).filter((a) => Number(a.price) > 0).map(writeAlert),
@@ -88,13 +93,118 @@ const WatchlistItemModal = ({ isOpen, onClose, onSave, initialData }) => {
                             <label className={labelStyle}>Sector</label>
                             <select value={form.sector} onChange={set('sector')} style={inputStyle}>
                                 <option value="">Not set</option>
-                                {CANONICAL_SECTORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                                {CANONICAL_SECTORS.map((c) => (
+                                    <option key={c} value={c}>{SECTOR_META[c]?.icon} {c}</option>
+                                ))}
                             </select>
                         </div>
                         <div>
                             <label className={labelStyle}>Why you are watching</label>
                             <input value={form.notes} onChange={set('notes')} style={inputStyle} placeholder="optional" />
                         </div>
+                    </div>
+
+                    <div>
+                        <label className={labelStyle}>Market cap</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {['', ...MARKET_CAPS].map((cap) => {
+                                const meta = CAP_META[cap || 'Unclassified'];
+                                const active = (form.marketCap || '') === cap;
+                                return (
+                                    <button
+                                        key={cap || 'auto'}
+                                        type="button"
+                                        onClick={() => setForm((p) => ({ ...p, marketCap: cap }))}
+                                        className="px-2 py-2 rounded-lg text-[11px] font-black transition-all flex items-center justify-center gap-1"
+                                        style={{
+                                            backgroundColor: active ? meta.bg : 'rgba(255,255,255,0.02)',
+                                            border: `1px solid ${active ? meta.border : 'rgba(255,255,255,0.06)'}`,
+                                            color: active ? meta.color : '#71717a',
+                                        }}
+                                    >
+                                        <span>{meta.icon}</span>
+                                        {cap ? cap.replace(' Cap', '') : 'Auto'}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {/* "Auto" is not "unknown": the band is looked up from the
+                            benchmark lists by name, and only falls through to
+                            Unclassified for names none of them carry. */}
+                        <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">
+                            {form.marketCap
+                                ? 'Set by hand — this overrides the lookup.'
+                                : `Auto looks the band up from the Nifty 50, Next 50 and small-cap lists. ${
+                                    form.name || form.ticker
+                                        ? `Right now that gives "${resolveMarketCap({ name: form.name, ticker: form.ticker })}".`
+                                        : 'Enter a name or ticker to see what it resolves to.'
+                                }`}
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className={labelStyle}>Risk, as you see it</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {['', ...RISK_LEVELS].map((level) => {
+                                const meta = RISK_META[level || 'unrated'];
+                                const active = (form.risk || '') === level;
+                                return (
+                                    <button
+                                        key={level || 'unrated'}
+                                        type="button"
+                                        onClick={() => setForm((p) => ({ ...p, risk: level }))}
+                                        title={meta.blurb}
+                                        className="px-2 py-2 rounded-lg text-[11px] font-black transition-all"
+                                        style={{
+                                            backgroundColor: active ? meta.bg : 'rgba(255,255,255,0.02)',
+                                            border: `1px solid ${active ? meta.border : 'rgba(255,255,255,0.06)'}`,
+                                            color: active ? meta.color : '#71717a',
+                                        }}
+                                    >
+                                        {meta.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {/* Stated plainly, because a risk badge on a stock page is
+                            exactly the kind of thing a reader assumes was calculated. */}
+                        <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">
+                            Your own judgement, stored as you set it. Nothing here computes a risk rating —
+                            a number the app produced would read as its opinion on whether to buy, and it
+                            has none. Leaving it unrated is fine; unrated is not the same as low.
+                        </p>
+                    </div>
+
+                    <div>
+                        <label className={labelStyle}>Priority</label>
+                        <div className="grid grid-cols-4 gap-2">
+                            {['', ...[...PRIORITY_LEVELS].reverse()].map((level) => {
+                                const meta = PRIORITY_META[level || 'unset'];
+                                const active = (form.priority || '') === level;
+                                return (
+                                    <button
+                                        key={level || 'unset'}
+                                        type="button"
+                                        onClick={() => setForm((p) => ({ ...p, priority: level }))}
+                                        title={meta.blurb}
+                                        className="px-2 py-2 rounded-lg text-[11px] font-black transition-all"
+                                        style={{
+                                            backgroundColor: active ? meta.bg : 'rgba(255,255,255,0.02)',
+                                            border: `1px solid ${active ? meta.border : 'rgba(255,255,255,0.06)'}`,
+                                            color: active ? meta.color : '#71717a',
+                                        }}
+                                    >
+                                        {meta.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {/* Kept separate from risk on purpose — see watchlistRisk.js. */}
+                        <p className="text-[10px] text-zinc-500 mt-1.5 leading-snug">
+                            How much you want it, which is a different question from how risky it is. A
+                            high-risk name can still be top of your list, and it is that combination — high
+                            priority and high risk together — that is worth the most thought.
+                        </p>
                     </div>
 
                     <div className="rounded-xl border border-purple-500/20 bg-purple-500/5 p-4 space-y-3">

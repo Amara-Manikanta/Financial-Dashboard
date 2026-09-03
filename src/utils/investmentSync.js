@@ -69,7 +69,11 @@ export const recomputeStockMetrics = (txList = []) => {
             totalCost = currentShares * price;
         } else if (tx.type === 'dividend') {
             const year = new Date(tx.date).getFullYear().toString();
-            calculatedDividends[year] = (calculatedDividends[year] || 0) + price;
+            // Gross, before any tax withheld — the same basis dividendAnalytics
+            // uses. Tax deducted is a credit reclaimed at filing, not a smaller
+            // dividend, and the two views must not disagree about the amount.
+            const gross = tx.amountIsNet === true ? price + (Number(tx.tds) || 0) : price;
+            calculatedDividends[year] = (calculatedDividends[year] || 0) + gross;
         }
     });
 

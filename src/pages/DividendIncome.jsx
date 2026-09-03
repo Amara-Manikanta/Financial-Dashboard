@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Coins, AlertTriangle, Info, CalendarDays } from 'lucide-react';
+import { Coins, AlertTriangle, Info, CalendarDays, Receipt } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import {
     BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
@@ -10,6 +10,7 @@ import {
     incomeByYear, incomeByMonth, incomeSummary, dividendPayers, lapsedPayers,
     dividendCalendar, busiestMonths,
 } from '../utils/dividendAnalytics';
+import { dividendTaxSummary } from '../utils/dividendTax';
 
 const card = {
     backgroundColor: 'rgba(24, 24, 27, 0.4)',
@@ -62,6 +63,8 @@ const DividendIncome = () => {
     const [selectedYear, setSelectedYear] = useState(latestYear);
     const months = useMemo(() => incomeByMonth(stocks, selectedYear), [stocks, selectedYear]);
 
+    const tax = useMemo(() => dividendTaxSummary(stocks), [stocks]);
+
     const open = (id) => market?.id && navigate(`/savings/stock-market/${market.id}/stock/${id}`);
 
     const monthsWithIncome = months.filter((m) => m.amount > 0).length;
@@ -77,6 +80,118 @@ const DividendIncome = () => {
                 <p style={{ fontSize: '0.8rem', color: '#a1a1aa', margin: '0.5rem 0 0', maxWidth: '62ch', lineHeight: 1.6 }}>
                     Cash your holdings have actually paid you, arranged by when it arrived.
                 </p>
+            </div>
+
+            {/* Tax withheld. Placed above the income figures on purpose: if any
+                of them is net of TDS, every number below it is understated. */}
+            <div style={{ ...card, marginBottom: '2rem', border: '1px solid rgba(45,212,191,0.22)' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div>
+                        <p style={{ ...label, color: '#2dd4bf', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <Receipt size={13} /> Tax withheld on dividends
+                        </p>
+                        <p style={{ fontSize: '0.78rem', color: '#a1a1aa', margin: '0.5rem 0 0', maxWidth: '70ch', lineHeight: 1.6 }}>
+                            Since 2020 a dividend is taxed in your hands and the payer withholds part of it
+                            first, so what reaches the bank is less than what was declared. The difference is
+                            claimable against your own tax.
+                        </p>
+                    </div>
+                    <div style={{ display: 'flex', gap: '2rem' }}>
+                        <div>
+                            <p style={label}>Gross, all time</p>
+                            <p style={{ fontSize: '1.35rem', fontWeight: 900, color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0' }}>
+                                {formatCurrency(tax.lifetimeGross)}
+                            </p>
+                        </div>
+                        <div>
+                            <p style={label}>TDS recorded</p>
+                            <p style={{ fontSize: '1.35rem', fontWeight: 900, color: tax.lifetimeTds > 0 ? '#2dd4bf' : '#52525b', fontFamily: 'monospace', margin: '0.25rem 0 0' }}>
+                                {formatCurrency(tax.lifetimeTds)}
+                            </p>
+                        </div>
+                        <div>
+                            <p style={label}>Net received</p>
+                            <p style={{ fontSize: '1.35rem', fontWeight: 900, color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0' }}>
+                                {formatCurrency(tax.lifetimeNet)}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {tax.needsChecking.length > 0 && (
+                    <div style={{ marginTop: '1.25rem', padding: '1rem', borderRadius: '0.85rem', border: '1px solid rgba(251,191,36,0.25)', backgroundColor: 'rgba(251,191,36,0.05)' }}>
+                        <p style={{ fontSize: '0.8rem', fontWeight: 800, color: '#fbbf24', margin: 0, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <AlertTriangle size={14} /> {tax.needsChecking.length} payout{tax.needsChecking.length === 1 ? '' : 's'} where tax was probably withheld but none is recorded
+                        </p>
+                        <p style={{ fontSize: '0.73rem', color: '#a1a1aa', margin: '0.5rem 0 0.75rem', lineHeight: 1.6, maxWidth: '80ch' }}>
+                            A REIT or InvIT withholds 10% from the first rupee — there is no threshold, which is
+                            why a small distribution can show tax while a much larger ordinary dividend shows
+                            none. An ordinary company withholds only above ₹10,000 from that one company in a
+                            financial year (₹5,000 before FY 2025-26). Check the payout advice and enter the
+                            figure on the transaction; nothing here guesses it, because the split of a REIT
+                            distribution across interest, rent and dividend is set by the trust per payout.
+                        </p>
+                        {tax.needsChecking.map((r) => (
+                            <div key={`${r.holdingId}-${r.fy}`}
+                                onClick={() => open(r.holdingId)}
+                                style={{ display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0', borderTop: '1px solid rgba(255,255,255,0.04)', cursor: 'pointer' }}>
+                                <span style={{ fontSize: '0.76rem', color: '#e4e4e7' }}>
+                                    {r.name}
+                                    <span style={{
+                                        marginLeft: '0.5rem', padding: '0.1rem 0.4rem', borderRadius: '0.3rem',
+                                        backgroundColor: r.isTrust ? 'rgba(129,140,248,0.15)' : 'rgba(255,255,255,0.05)',
+                                        color: r.isTrust ? '#818cf8' : '#71717a', fontSize: '0.6rem', fontWeight: 900, textTransform: 'uppercase',
+                                    }}>
+                                        {r.isTrust ? 'REIT / InvIT — no threshold' : `over ${formatCurrency(r.threshold)}`}
+                                    </span>
+                                </span>
+                                <span style={{ fontSize: '0.76rem', color: '#a1a1aa', fontFamily: 'monospace' }}>
+                                    FY {r.fy} · {formatCurrency(r.gross)} across {r.payments} payment{r.payments === 1 ? '' : 's'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {tax.years.length > 0 && (
+                    <div style={{ marginTop: '1.25rem', overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '620px' }}>
+                            <thead>
+                                <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                                    <th style={th()}>Financial year</th>
+                                    <th style={th('right')}>Gross</th>
+                                    <th style={th('right')}>TDS</th>
+                                    <th style={th('right')}>Net</th>
+                                    <th style={th('right')}>Effective rate</th>
+                                    <th style={th('right')}>Payments</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {tax.years.map((y) => (
+                                    <tr key={y.fy} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                        <td style={{ ...td(), fontWeight: 700 }}>
+                                            {y.fy}
+                                            {y.fy === tax.currentFy && (
+                                                <span style={{ marginLeft: '0.5rem', fontSize: '0.6rem', color: '#2dd4bf', fontWeight: 900, textTransform: 'uppercase' }}>current</span>
+                                            )}
+                                        </td>
+                                        <td style={{ ...td('right'), fontFamily: 'monospace' }}>{formatCurrency(y.gross)}</td>
+                                        <td style={{ ...td('right', y.tds > 0 ? '#2dd4bf' : '#52525b'), fontFamily: 'monospace' }}>
+                                            {y.tds > 0 ? formatCurrency(y.tds) : '—'}
+                                        </td>
+                                        <td style={{ ...td('right'), fontFamily: 'monospace' }}>{formatCurrency(y.net)}</td>
+                                        <td style={{ ...td('right', '#a1a1aa'), fontFamily: 'monospace', fontSize: '0.74rem' }}>
+                                            {y.gross > 0 ? `${y.effectiveRate.toFixed(1)}%` : '—'}
+                                        </td>
+                                        <td style={{ ...td('right', '#71717a'), fontFamily: 'monospace', fontSize: '0.74rem' }}>
+                                            {y.payments} from {y.companies}
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
             </div>
 
             <div style={{

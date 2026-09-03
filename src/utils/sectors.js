@@ -42,6 +42,39 @@ export const CANONICAL_SECTORS = [
 export const UNCLASSIFIED_SECTOR = 'Other';
 
 /**
+ * The icon and colour each sector is drawn with.
+ *
+ * Lives here rather than in a page because two pages now draw sector chips —
+ * the holdings list and the watchlist — and a second copy would drift. It
+ * already had: this table was `OFFICIAL_SECTORS` inside StockMarketDetails,
+ * where nothing else could reach it.
+ *
+ * Keyed by the canonical name, so `normaliseSector` output indexes it directly.
+ */
+export const SECTOR_META = {
+    'Information Technology': { icon: '💻', color: '#3b82f6' },
+    Financials: { icon: '🏦', color: '#10b981' },
+    'Health Care': { icon: '🩺', color: '#ec4899' },
+    'Consumer Discretionary': { icon: '🛍️', color: '#f59e0b' },
+    'Consumer Staples': { icon: '🛒', color: '#84cc16' },
+    Industrials: { icon: '⚙️', color: '#6366f1' },
+    'Communication Services': { icon: '📡', color: '#8b5cf6' },
+    Energy: { icon: '⚡', color: '#ef4444' },
+    Utilities: { icon: '🚰', color: '#06b6d4' },
+    Materials: { icon: '🏗️', color: '#d97706' },
+    'Real Estate': { icon: '🏢', color: '#14b8a6' },
+    Other: { icon: '📁', color: '#71717a' },
+    Unclassified: { icon: '📁', color: '#71717a' },
+};
+
+/** Icon and colour for any sector string, canonical or not. Never undefined. */
+export const sectorMeta = (sector) =>
+    SECTOR_META[sector] || SECTOR_META[normaliseSector(sector)] || SECTOR_META.Other;
+
+/** The same list the picker offers, as objects. Matches the old OFFICIAL_SECTORS. */
+export const OFFICIAL_SECTORS = CANONICAL_SECTORS.map((name) => ({ name, ...SECTOR_META[name] }));
+
+/**
  * Aliases onto the canonical names, keyed lowercase.
  *
  * Several NSE sectors have no exact GICS twin and are mapped to the closest

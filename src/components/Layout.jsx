@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock, Shuffle, Gauge } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
@@ -178,7 +178,8 @@ const Layout = () => {
                             items={[
                                 { to: '/goals', label: 'Financial Goals', icon: Target },
                                 { to: '/insurance-analysis', label: 'Insurance Gap Analysis', icon: ShieldCheck },
-                                { to: '/cashflow', label: 'Cashflow Forecast', icon: CalendarClock }
+                                { to: '/cashflow', label: 'Cashflow Forecast', icon: CalendarClock },
+                                { to: '/net-worth', label: 'Net Worth Over Time', icon: BarChart3 }
                             ]} 
                         />
                         
@@ -188,7 +189,9 @@ const Layout = () => {
                             items={[
                                 { to: '/expenses', label: 'All Expenses', icon: Receipt },
                                 { to: '/all-transactions', label: 'All Transactions', icon: List },
+                                { to: '/money-flow', label: 'Money Flow', icon: Shuffle },
                                 { to: '/credit-cards', label: 'Cards', icon: CreditCard },
+                                { to: '/credit-cards/intelligence', label: 'Card Intelligence', icon: Gauge },
                                 { to: '/category-budgets', label: 'Budget Limits', icon: Target },
                                 { to: '/recurring', label: 'Recurring & Subscriptions', icon: Repeat },
                                 { to: '/fuel', label: 'Fuel Analytics', icon: Fuel },
