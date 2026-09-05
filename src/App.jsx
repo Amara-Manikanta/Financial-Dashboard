@@ -18,6 +18,7 @@ import Savings from './pages/Savings';
 import Investments from './pages/Investments';
 import Watchlist from './pages/Watchlist';
 import MoneyFlow from './pages/MoneyFlow';
+import OrnamentGallery from './pages/OrnamentGallery';
 import CapitalGains from './pages/CapitalGains';
 import Returns from './pages/Returns';
 import CardIntelligence from './pages/CardIntelligence';
@@ -171,6 +172,7 @@ function App() {
                                     <Route path="savings/recurring-deposit/:id" element={<RecurringDepositDetails />} />
                                     <Route path="savings/recurring-deposit/:id/rd/:rdId" element={<SingleRecurringDepositDetails />} />
                                     <Route path="metals" element={<Metals />} />
+                                    <Route path="metals/gallery" element={<OrnamentGallery />} />
                                     <Route path="metals/:type" element={<MetalDetails />} />
                                     <Route path="metals/:type/:itemId" element={<MetalItemDetails />} />
                                     <Route path="assets" element={<Assets />} />

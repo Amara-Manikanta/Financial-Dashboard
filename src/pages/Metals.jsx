@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Coins, ChevronRight, ArrowUpRight, Shield, Award } from 'lucide-react';
+import { Plus, Coins, ChevronRight, ArrowUpRight, Shield, Award, Image as ImageIcon } from 'lucide-react';
 import MetalModal from '../components/MetalModal';
 
 const Metals = () => {
@@ -87,9 +87,23 @@ const Metals = () => {
     return (
         <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
             {/* Header Title Panel */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '2.5rem' }}>
-                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Precious Metals</h2>
-                <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Manage and track your physical gold and silver assets</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '2.5rem' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Precious Metals</h2>
+                    <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Manage and track your physical gold and silver assets</p>
+                </div>
+                {/* Jewellery is recognised by sight, not by a row in a table. */}
+                <button
+                    onClick={() => navigate('/metals/gallery')}
+                    style={{
+                        padding: '0.625rem 1.1rem', borderRadius: '0.875rem',
+                        border: '1px solid rgba(251,191,36,0.3)', backgroundColor: 'rgba(251,191,36,0.12)',
+                        color: '#fbbf24', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer',
+                        display: 'flex', alignItems: 'center', gap: '0.5rem',
+                    }}
+                >
+                    <ImageIcon size={15} /> View Gallery
+                </button>
             </div>
 
             {/* Stats Overview Panel */}

@@ -12,13 +12,25 @@ import {
     ArrowRight,
     ShieldCheck,
     Briefcase,
-    Gem
+    Gem,
+    Image as ImageIcon
 } from 'lucide-react';
+import { galleryItems } from '../utils/ornamentPhotos';
 
 const Dashboard = () => {
     const navigate = useNavigate();
     const { savings, metals, assets, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
+
+    // Must come after `metals` is destructured, not before it: a const is
+    // hoisted but not initialised, so reading it above threw "Cannot access
+    // 'metals' before initialization" at runtime while the build stayed happy.
+    // Counted with the same helper the gallery uses, so the two cannot disagree
+    // about how many pieces have a picture.
+    const photographedCount = useMemo(
+        () => new Set(galleryItems(metals).shots.map((s) => s.item.id)).size,
+        [metals],
+    );
 
     const handleSaveTransaction = async (transaction) => {
         await addItem('expense', transaction);
@@ -225,6 +237,30 @@ const Dashboard = () => {
                     </div>
                     <span style={{ fontSize: '9px', fontWeight: '900', color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Precious Metals</span>
                     <h3 style={{ fontSize: '2rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.25rem 0 0 0' }}>{formatCurrency(stats.totalMetals)}</h3>
+                    {/* A second destination inside the card, because the value
+                        and the pictures are two different questions about the
+                        same collection. stopPropagation so it does not also
+                        fire the card's own navigate to /metals. */}
+                    {photographedCount > 0 && (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); navigate('/metals/gallery'); }}
+                            style={{
+                                marginTop: '1rem', padding: '0.4rem 0.75rem', borderRadius: '0.6rem',
+                                backgroundColor: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.25)',
+                                color: '#fbbf24', fontSize: '10px', fontWeight: 900, cursor: 'pointer',
+                                display: 'inline-flex', alignItems: 'center', gap: '0.35rem',
+                                textTransform: 'uppercase', letterSpacing: '0.05em',
+                            }}
+                        >
+                            {/* Deliberately no count.
+                                Whether a photo actually loads is only knowable
+                                once the browser tries, so any number here would
+                                be the count of references — 42 — while the
+                                gallery shows the 19 that exist. The gallery
+                                reports the real breakdown; this is just a door. */}
+                            <ImageIcon size={12} /> View ornament gallery
+                        </button>
+                    )}
                 </div>
 
                 <div
