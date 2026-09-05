@@ -222,6 +222,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     <option value="Utilities" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Utilities</option>
                                     <option value="Materials" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Materials</option>
                                     <option value="Real Estate" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Real Estate</option>
+                                    <option value="Other" style={{ backgroundColor: '#18181b', color: '#ffffff' }}>Other</option>
                                 </select>
                             </div>
                             <div>

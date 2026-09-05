@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock, Shuffle, Gauge } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock, Shuffle, Gauge, Image as ImageIcon } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
@@ -203,7 +203,14 @@ const Layout = () => {
                         
                         <NavItem to="/savings" icon={PiggyBank} label="Savings" />
                         <NavItem to="/investments" icon={TrendingUp} label="Investments" />
-                        <NavItem to="/metals" icon={Coins} label="Gold & Silver" />
+                        <NavDropdown
+                            label="Gold & Silver"
+                            icon={Coins}
+                            items={[
+                                { to: '/metals', label: 'All Metals', icon: Coins },
+                                { to: '/metals/gallery', label: 'Ornament Gallery', icon: ImageIcon }
+                            ]}
+                        />
                         {/* Grouped rather than added alongside: another top-level
                             item pushes the ones after it off-screen. */}
                         <NavDropdown
