@@ -12,6 +12,7 @@ import { recomputeStockMetrics } from '../utils/investmentSync';
 import { costRecovery, NEARLY_FREE_FROM, combinedWithParent } from '../utils/costRecovery';
 import { dividendProfile } from '../utils/dividendAnalytics';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
+import StockFinancialsCard from '../components/StockFinancialsCard';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -650,6 +651,16 @@ const StockDetails = () => {
                     )}
                 </div>
             </div>
+
+            {/* Business Health & Quarterly Results — purely read-only, never touches db.json */}
+            {stock.ticker && !stock.isArchived && (
+                <div style={{ marginTop: '2rem' }}>
+                    <StockFinancialsCard
+                        symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
+                        name={stock.name}
+                    />
+                </div>
+            )}
 
             <div style={styles.tableContainer}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '1.25rem 1.5rem', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>

@@ -37,6 +37,7 @@ export const CANONICAL_SECTORS = [
     'Utilities',
     'Materials',
     'Real Estate',
+    'Other',
 ];
 
 export const UNCLASSIFIED_SECTOR = 'Other';

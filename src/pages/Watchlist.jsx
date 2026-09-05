@@ -8,6 +8,7 @@ import WatchlistItemModal from '../components/WatchlistItemModal';
 import RefreshAllPricesButton from '../components/RefreshAllPricesButton';
 import { readQuote, triggeredAlerts, atRangeEdges, NEAR_EDGE_PCT } from '../utils/priceRange';
 import { normaliseSector, sectorMeta } from '../utils/sectors';
+import StockFinancialsCard from '../components/StockFinancialsCard';
 import {
     RISK_LEVELS, RISK_META, riskOf, riskCounts,
     PRIORITY_LEVELS, PRIORITY_META, priorityOf, priorityCounts, byPriority,
@@ -543,6 +544,15 @@ const Watchlist = () => {
                                         }}>
                                             {w.notes}
                                         </p>
+                                    )}
+
+                                    {/* Business Health — compact scorecard, loads on demand, writes nothing */}
+                                    {w.ticker && (
+                                        <StockFinancialsCard
+                                            symbol={w.ticker.includes('.') ? w.ticker : `${w.ticker}.NS`}
+                                            name={w.name}
+                                            compact
+                                        />
                                     )}
                                 </div>
                             );

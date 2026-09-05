@@ -493,6 +493,190 @@ const handleHistoryRequest = async (req, res) => {
     }
 };
 
+// --- NEW CODE: Yahoo Finance Session Manager for quoteSummary ---
+let yfSession = { cookie: null, crumb: null, expiresAt: 0 };
+async function getYfSession() {
+    if (Date.now() < yfSession.expiresAt && yfSession.cookie && yfSession.crumb) {
+        return yfSession;
+    }
+    const r = await fetch('https://fc.yahoo.com', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+    const cookies = r.headers.get('set-cookie');
+    if (!cookies) throw new Error('No cookie from fc.yahoo.com');
+    const cookie = cookies.split(';')[0];
+    
+    const crumbR = await fetch('https://query1.finance.yahoo.com/v1/test/getcrumb', {
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Cookie': cookie }
+    });
+    if (!crumbR.ok) throw new Error('Failed to get crumb');
+    const crumb = await crumbR.text();
+    yfSession = { cookie, crumb, expiresAt: Date.now() + 24 * 60 * 60 * 1000 };
+    return yfSession;
+}
+
+const financialsCache = new Map();
+const CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+
+const handleStockFinancialsRequest = async (req, res) => {
+    const url = new URL(req.url, `http://localhost:${PROXY_PORT}`);
+    const symbol = (url.searchParams.get('symbol') || '').trim();
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (!/^[A-Za-z0-9.\-&]{1,20}$/.test(symbol)) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ symbol, error: 'a valid symbol is required', healthScore: null, signal: null }));
+    }
+
+    const cached = financialsCache.get(symbol);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL_MS) {
+        console.log(`[Cache Hit] Financials for ${symbol}`);
+        res.writeHead(200);
+        return res.end(JSON.stringify(cached.data));
+    }
+    console.log(`[Cache Miss] Financials for ${symbol}`);
+
+    try {
+        const { cookie, crumb } = await getYfSession();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+
+        const yfUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?crumb=${crumb}&modules=financialData,defaultKeyStatistics,earnings`;
+        const r = await fetch(yfUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Cookie': cookie },
+            signal: controller.signal
+        });
+        clearTimeout(timer);
+
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        
+        const summary = data?.quoteSummary?.result?.[0];
+        if (!summary) throw new Error('No data found for symbol');
+
+        const fd = summary.financialData || {};
+        const dks = summary.defaultKeyStatistics || {};
+        const earn = summary.earnings?.financialsChart?.quarterly || [];
+
+        const quarterly = earn.map(q => ({
+            date: q.date,
+            revenue: q.revenue?.raw || 0,
+            revenueFmt: q.revenue?.fmt || '0',
+            earnings: q.earnings?.raw || 0,
+            earningsFmt: q.earnings?.fmt || '0',
+            profitMargin: (q.revenue?.raw && q.earnings?.raw) ? (q.earnings.raw / q.revenue.raw * 100) : 0
+        }));
+
+        let goodChecks = 0;
+        const checks = [];
+
+        const revGrowth = fd.revenueGrowth?.raw || 0;
+        let revGrowthStatus, revGrowthDetail;
+        if (revGrowth > 0.10) { revGrowthStatus = 'good'; goodChecks++; }
+        else if (revGrowth > 0) revGrowthStatus = 'caution';
+        else revGrowthStatus = 'bad';
+        revGrowthDetail = `${(revGrowth > 0 ? '+' : '')}${(revGrowth * 100).toFixed(1)}% YoY`;
+        checks.push({ name: 'Revenue Growth', status: revGrowthStatus, detail: revGrowthDetail });
+
+        let profitStatus = 'bad';
+        let profitDetail = 'Has quarterly losses';
+        if (quarterly.length > 0) {
+            const allProfitable = quarterly.every(q => q.earnings > 0);
+            const growing = quarterly.length >= 2 && quarterly[quarterly.length-1].earnings > quarterly[0].earnings;
+            if (allProfitable && growing) { profitStatus = 'good'; goodChecks++; profitDetail = 'Consistent growth'; }
+            else if (allProfitable) { profitStatus = 'caution'; profitDetail = 'Positive but flat/declining'; }
+        }
+        checks.push({ name: 'Profitability', status: profitStatus, detail: profitDetail });
+
+        const opMargin = fd.operatingMargins?.raw || 0;
+        let marginStatus, marginDetail;
+        if (opMargin > 0.15) { marginStatus = 'good'; goodChecks++; }
+        else if (opMargin >= 0.08) marginStatus = 'caution';
+        else marginStatus = 'bad';
+        marginDetail = `Operating margin ${(opMargin * 100).toFixed(1)}%`;
+        checks.push({ name: 'Margins', status: marginStatus, detail: marginDetail });
+
+        const debtEq = fd.debtToEquity?.raw || 0;
+        let debtStatus, debtDetail;
+        if (debtEq < 50) { debtStatus = 'good'; goodChecks++; }
+        else if (debtEq <= 100) debtStatus = 'caution';
+        else debtStatus = 'bad';
+        debtDetail = `D/E ratio ${(debtEq / 100).toFixed(2)} (low debt)`;
+        if (debtEq >= 50) debtDetail = `D/E ratio ${(debtEq / 100).toFixed(2)}`;
+        checks.push({ name: 'Debt Health', status: debtStatus, detail: debtDetail });
+
+        const fpe = dks.forwardPE?.raw || 0;
+        let valStatus, valDetail;
+        if (fpe > 0 && fpe < 20) { valStatus = 'good'; goodChecks++; }
+        else if (fpe >= 20 && fpe <= 50) valStatus = 'caution';
+        else valStatus = 'bad';
+        valDetail = fpe > 0 ? `Forward P/E ${fpe.toFixed(1)}x` : 'Negative earnings';
+        checks.push({ name: 'Valuation', status: valStatus, detail: valDetail });
+
+        const healthScore = {
+            total: goodChecks,
+            max: 5,
+            label: goodChecks >= 4 ? 'Strong Fundamentals' : goodChecks >= 3 ? 'Good Fundamentals' : goodChecks >= 2 ? 'Mixed Fundamentals' : 'Poor Fundamentals',
+            color: goodChecks >= 4 ? '#34d399' : goodChecks >= 3 ? '#4ade80' : goodChecks >= 2 ? '#fbbf24' : '#f87171',
+            checks
+        };
+
+        let action, label, color, icon;
+        if (goodChecks >= 4 && revGrowth > 0.10 && quarterly.every(q => q.earnings > 0)) {
+            action = 'strong_buy'; label = 'Strong Buy / Accumulate'; color = '#34d399'; icon = '🟢';
+        } else if (goodChecks >= 3 && revGrowth > 0 && quarterly.every(q => q.earnings >= 0)) {
+            action = 'buy'; label = 'Buy on Dips'; color = '#4ade80'; icon = '🟢';
+        } else if (goodChecks <= 1 || quarterly.filter(q => q.earnings < 0).length > 1 || (revGrowth < 0 && marginStatus === 'bad')) {
+            action = 'sell'; label = 'Review for Exit'; color = '#f87171'; icon = '🔴';
+        } else if (goodChecks <= 2 || (valStatus === 'bad' && marginStatus === 'bad')) {
+            action = 'trim'; label = 'Consider Trimming'; color = '#fb923c'; icon = '🟠';
+        } else {
+            action = 'hold'; label = 'Hold & Watch'; color = '#fbbf24'; icon = '🟡';
+        }
+
+        const reasons = [];
+        if (revGrowth > 0.10) reasons.push(`Revenue grew +${(revGrowth*100).toFixed(1)}% — strong momentum`);
+        else if (revGrowth < 0) reasons.push(`Revenue declining (${(revGrowth*100).toFixed(1)}%) — contracting business`);
+        else reasons.push('Revenue growth is modest but positive');
+        
+        if (marginStatus === 'bad') reasons.push(`Operating margins are weak at ${(opMargin*100).toFixed(1)}%`);
+        else if (marginStatus === 'good') reasons.push(`Strong operating margins (${(opMargin*100).toFixed(1)}%)`);
+
+        if (debtStatus === 'bad') reasons.push(`High debt-to-equity ratio (${(debtEq/100).toFixed(2)}x)`);
+        
+        if (valStatus === 'bad' && fpe > 0) reasons.push(`Valuation is stretched at ${fpe.toFixed(1)}x forward P/E`);
+
+        if (reasons.length === 0) reasons.push('Fundamentals are mixed', 'No major red flags', 'Watch for earnings growth');
+
+        const signal = { action, label, color, icon, reasons: reasons.slice(0, 3) };
+
+        const responseData = {
+            symbol,
+            quarterly,
+            fundamentals: {
+                operatingMargins: { raw: fd.operatingMargins?.raw || 0, fmt: fd.operatingMargins?.fmt || '0%' },
+                profitMargins: { raw: fd.profitMargins?.raw || 0, fmt: fd.profitMargins?.fmt || '0%' },
+                revenueGrowth: { raw: fd.revenueGrowth?.raw || 0, fmt: fd.revenueGrowth?.fmt || '0%' },
+                debtToEquity: { raw: fd.debtToEquity?.raw || 0, fmt: fd.debtToEquity?.fmt || '0' },
+                forwardPE: { raw: dks.forwardPE?.raw || 0, fmt: dks.forwardPE?.fmt || '0' },
+                priceToBook: { raw: dks.priceToBook?.raw || 0, fmt: dks.priceToBook?.fmt || '0' },
+                beta: { raw: dks.beta?.raw || 0, fmt: dks.beta?.fmt || '0' }
+            },
+            healthScore,
+            signal,
+            cachedAt: new Date().toISOString()
+        };
+
+        financialsCache.set(symbol, { timestamp: Date.now(), data: responseData });
+        res.writeHead(200);
+        res.end(JSON.stringify(responseData));
+    } catch (err) {
+        console.error(`[Financials] Error fetching ${symbol}:`, err.message);
+        res.writeHead(200);
+        res.end(JSON.stringify({ symbol, error: err.message, healthScore: null, signal: null }));
+    }
+};
+
 const proxy = http.createServer((req, res) => {
     // Image routes are handled here, before the json-server proxy, so uploads
     // are never mistaken for a database mutation.
@@ -507,6 +691,9 @@ const proxy = http.createServer((req, res) => {
     }
     if (req.url.startsWith('/api/history') && req.method === 'GET') {
         return handleHistoryRequest(req, res);
+    }
+    if (req.url.startsWith('/api/stock-financials') && req.method === 'GET') {
+        return handleStockFinancialsRequest(req, res);
     }
 
     // 2. PROXY LOGIC: Forward to internal server

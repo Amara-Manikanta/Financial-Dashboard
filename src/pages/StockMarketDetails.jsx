@@ -12,6 +12,7 @@ import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
 import BenchmarkPanel from '../components/BenchmarkPanel';
+import { StockHealthBadge } from '../components/StockFinancialsCard';
 
 const StockTreemapContent = (props) => {
     const { depth, x, y, width, height, index, name, ticker, percentage, value } = props;
@@ -1495,6 +1496,11 @@ const StockMarketDetails = () => {
                                                         {OFFICIAL_SECTORS.find(s => s.name === stock.sector)?.icon || '📊'} {stock.sector}
                                                     </span>
                                                 )}
+                                                {stock.ticker && (
+                                                    <span style={{ marginLeft: '0.375rem' }}>
+                                                        <StockHealthBadge symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`} />
+                                                    </span>
+                                                )}
                                                 <h4
                                                     onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
                                                     style={{
@@ -1752,13 +1758,16 @@ const StockMarketDetails = () => {
                                                 <td
                                                     style={styles.td('left', true, 'var(--text-primary)', false, isDividendPending)}
                                                 >
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                                                         <span 
                                                             onClick={() => navigate(`/savings/stock-market/${id}/stock/${stock.id}`)}
                                                             style={{ textDecoration: 'underline', cursor: 'pointer' }}
                                                         >
                                                             {stock.name}
                                                         </span>
+                                                        {stock.ticker && (
+                                                            <StockHealthBadge symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`} />
+                                                        )}
                                                         {isDividendPending && (
                                                             <span style={{
                                                                 padding: '0.125rem 0.375rem',

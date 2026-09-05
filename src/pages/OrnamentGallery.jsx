@@ -1,9 +1,9 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { createPortal } from 'react-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Gem, X, ChevronLeft, ChevronRight, ImageOff, ExternalLink, Camera } from 'lucide-react';
+import { ImageOff, ExternalLink, Camera } from 'lucide-react';
 import BackButton from '../components/BackButton';
+import PhotoLightbox from '../components/PhotoLightbox';
 import { galleryItems, categoryLabel, categoryColor } from '../utils/ornamentPhotos';
 
 const panel = {
@@ -86,27 +86,6 @@ const OrnamentGallery = () => {
     }, [shots, live, withoutPhotos]);
 
     const close = useCallback(() => setLightbox(null), []);
-    const step = useCallback((delta) => {
-        setLightbox((i) => {
-            if (i === null) return null;
-            const next = i + delta;
-            if (next < 0 || next >= shown.length) return i;
-            return next;
-        });
-    }, [shown.length]);
-
-    // Bound to the window, not the overlay: the overlay would need focus to
-    // receive them, and nothing here is focusable.
-    useEffect(() => {
-        if (lightbox === null) return undefined;
-        const onKey = (e) => {
-            if (e.key === 'Escape') close();
-            else if (e.key === 'ArrowRight') step(1);
-            else if (e.key === 'ArrowLeft') step(-1);
-        };
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [lightbox, close, step]);
 
     const active = lightbox !== null ? shown[lightbox] : null;
 
@@ -286,66 +265,39 @@ const OrnamentGallery = () => {
                 </div>
             )}
 
-            {active && createPortal(
-                <div
-                    onClick={close}
-                    style={{
-                        position: 'fixed', inset: 0, zIndex: 1000,
-                        backgroundColor: 'rgba(0,0,0,0.92)', backdropFilter: 'blur(6px)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '2rem',
-                    }}
-                >
-                    <button onClick={close} aria-label="Close"
-                        style={{ position: 'absolute', top: '1.25rem', right: '1.5rem', background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer' }}>
-                        <X size={26} />
-                    </button>
-
-                    {lightbox > 0 && (
-                        <button onClick={(e) => { e.stopPropagation(); step(-1); }} aria-label="Previous"
-                            style={{ position: 'absolute', left: '1rem', background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '999px', padding: '0.6rem', color: 'white', cursor: 'pointer' }}>
-                            <ChevronLeft size={22} />
-                        </button>
-                    )}
-                    {lightbox < shown.length - 1 && (
-                        <button onClick={(e) => { e.stopPropagation(); step(1); }} aria-label="Next"
-                            style={{ position: 'absolute', right: '1rem', background: 'rgba(255,255,255,0.06)', border: 'none', borderRadius: '999px', padding: '0.6rem', color: 'white', cursor: 'pointer' }}>
-                            <ChevronRight size={22} />
-                        </button>
-                    )}
-
-                    <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: '92vw', maxHeight: '88vh', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
-                        <img
-                            src={active.url}
-                            alt={active.name}
-                            style={{ maxWidth: '92vw', maxHeight: '72vh', objectFit: 'contain', borderRadius: '0.75rem' }}
-                        />
+            {active && (
+                <PhotoLightbox
+                    photos={shown.map((s) => s.url)}
+                    index={lightbox}
+                    onIndex={setLightbox}
+                    onClose={close}
+                    caption={(
                         <div style={{ textAlign: 'center' }}>
                             <p style={{ fontSize: '1.05rem', fontWeight: 800, color: 'white', margin: 0 }}>{active.name}</p>
                             <p style={{ fontSize: '0.75rem', color: '#a1a1aa', margin: '0.3rem 0 0', fontFamily: 'monospace' }}>
                                 {categoryLabel(active.category)}
-                                {active.weight > 0 ? ` · ${active.weight}g` : ''}
-                                {active.purity ? ` · ${active.purity}` : ''}
-                                {active.total > 1 ? ` · photo ${active.index + 1} of ${active.total}` : ''}
-                            </p>
-                            <button
-                                onClick={() => openItem(active)}
-                                style={{
-                                    marginTop: '0.8rem', padding: '0.5rem 1rem', borderRadius: '0.7rem',
-                                    backgroundColor: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
-                                    color: '#818cf8', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer',
-                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                                }}
-                            >
-                                Open this piece <ExternalLink size={12} />
-                            </button>
-                            <p style={{ fontSize: '0.66rem', color: '#52525b', margin: '0.75rem 0 0' }}>
-                                {lightbox + 1} of {shown.length} · arrow keys to move · Esc to close
+                                {active.weight > 0 ? ` \u00b7 ${active.weight}g` : ''}
+                                {active.purity ? ` \u00b7 ${active.purity}` : ''}
+                                {active.total > 1 ? ` \u00b7 photo ${active.index + 1} of ${active.total}` : ''}
                             </p>
                         </div>
-                    </div>
-                </div>,
-                document.body,
+                    )}
+                    actions={(
+                        <button
+                            onClick={() => openItem(active)}
+                            style={{
+                                padding: '0.5rem 1rem', borderRadius: '0.7rem',
+                                backgroundColor: 'rgba(99,102,241,0.15)', border: '1px solid rgba(99,102,241,0.3)',
+                                color: '#818cf8', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer',
+                                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                            }}
+                        >
+                            Open this piece <ExternalLink size={12} />
+                        </button>
+                    )}
+                />
             )}
+
         </div>
     );
 };

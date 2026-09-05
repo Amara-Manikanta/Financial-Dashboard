@@ -1,10 +1,11 @@
 import React, { useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, Trash2, Plus, Image as ImageIcon, MapPin, Calendar, Weight, Info, Save, FileText, Receipt, Download, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Trash2, Plus, Image as ImageIcon, MapPin, Calendar, Weight, Info, Save, FileText, Receipt, Download, AlertTriangle, Maximize2, Star } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import BackButton from '../components/BackButton';
 import { uploadFile, isImageRef } from '../utils/uploadFile';
+import PhotoLightbox from '../components/PhotoLightbox';
 
 const MetalItemDetails = () => {
     const { type, itemId } = useParams();
@@ -18,6 +19,10 @@ const MetalItemDetails = () => {
     // Photos whose file no longer exists on disk (dead legacy seed paths).
     // Tracked so a graceful placeholder replaces the browser's broken icon.
     const [brokenImages, setBrokenImages] = useState({});
+    // Which photo is open full screen, or null. Held here rather than in the
+    // lightbox so it survives a reorder — making a photo the cover moves it to
+    // the front, and the view has to follow it.
+    const [preview, setPreview] = useState(null);
 
     // Find the item
     const metalItems = metals[type] || [];
@@ -90,6 +95,26 @@ const MetalItemDetails = () => {
     const handleDeletePhoto = (indexToDelete) => {
         if (!window.confirm('Are you sure you want to delete this photo?')) return;
         saveImages(images.filter((_, index) => index !== indexToDelete));
+        // Whatever was open is no longer at that position. Closing is the only
+        // honest option: keeping the index would show a different photo.
+        setPreview(null);
+    };
+
+    /**
+     * Make one photo the cover.
+     *
+     * The cover is simply the first entry — `saveImages` already writes
+     * `images[0]` into `image`, `imageUrl` and `photo` together, which is the
+     * rule that stops a deleted photo coming back from a stale legacy field.
+     * So this reorders rather than adding a flag: a second way of saying which
+     * photo is the cover could disagree with the first.
+     */
+    const handleSetCover = (indexToPromote) => {
+        if (indexToPromote === 0) return;
+        const chosen = images[indexToPromote];
+        saveImages([chosen, ...images.filter((_, i) => i !== indexToPromote)]);
+        // It is at the front now, so follow it there.
+        if (preview !== null) setPreview(0);
     };
 
     const handleAddBill = async (e) => {
@@ -252,11 +277,37 @@ const MetalItemDetails = () => {
                                         <img
                                             src={imgSrc}
                                             alt={`${item.name} - ${index + 1}`}
+                                            onClick={() => setPreview(index)}
                                             onError={() => setBrokenImages((prev) => ({ ...prev, [imgSrc]: true }))}
-                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 cursor-zoom-in"
                                         />
                                     )}
                                     <div className="absolute inset-0 gallery-overlay transition-all duration-300 flex items-center justify-center gap-3">
+                                        {/* A broken reference can only be deleted — there is
+                                            nothing to enlarge and nothing worth making the cover. */}
+                                        {!brokenImages[imgSrc] && (
+                                            <>
+                                                <button
+                                                    onClick={() => setPreview(index)}
+                                                    className="p-3 bg-white/15 text-white rounded-full hover:bg-white/30 transition-all transform hover:scale-110"
+                                                    title="View full screen"
+                                                >
+                                                    <Maximize2 size={20} />
+                                                </button>
+                                                <button
+                                                    onClick={() => handleSetCover(index)}
+                                                    disabled={index === 0}
+                                                    className={`p-3 rounded-full transition-all transform ${
+                                                        index === 0
+                                                            ? 'bg-amber-500/30 text-amber-200 cursor-default'
+                                                            : 'bg-amber-500/20 text-amber-200 hover:bg-amber-500 hover:text-white hover:scale-110'
+                                                    }`}
+                                                    title={index === 0 ? 'Already the cover photo' : 'Make this the cover photo'}
+                                                >
+                                                    <Star size={20} fill={index === 0 ? 'currentColor' : 'none'} />
+                                                </button>
+                                            </>
+                                        )}
                                         <button
                                             onClick={() => handleDeletePhoto(index)}
                                             className="p-3 bg-red-500/20 text-red-200 rounded-full hover:bg-red-500 hover:text-white transition-all transform hover:scale-110"
@@ -361,6 +412,57 @@ const MetalItemDetails = () => {
                     )}
                 </div>
             </div>
+
+            {preview !== null && (
+                <PhotoLightbox
+                    photos={images}
+                    index={preview}
+                    onIndex={setPreview}
+                    onClose={() => setPreview(null)}
+                    caption={(
+                        <div style={{ textAlign: 'center' }}>
+                            <p style={{ fontSize: '1.05rem', fontWeight: 800, color: 'white', margin: 0 }}>{item.name}</p>
+                            <p style={{ fontSize: '0.75rem', color: '#a1a1aa', margin: '0.3rem 0 0', fontFamily: 'monospace' }}>
+                                {formattedType}
+                                {item.weightGm ? ` · ${item.weightGm}g` : ''}
+                                {item.purity ? ` · ${item.purity}` : ''}
+                                {preview === 0 ? ' · cover photo' : ''}
+                            </p>
+                        </div>
+                    )}
+                    actions={(
+                        <div style={{ display: 'flex', gap: '0.6rem' }}>
+                            <button
+                                onClick={() => handleSetCover(preview)}
+                                disabled={preview === 0}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '0.7rem',
+                                    backgroundColor: preview === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(251,191,36,0.15)',
+                                    border: `1px solid ${preview === 0 ? 'rgba(255,255,255,0.08)' : 'rgba(251,191,36,0.3)'}`,
+                                    color: preview === 0 ? '#52525b' : '#fbbf24',
+                                    fontSize: '0.72rem', fontWeight: 800,
+                                    cursor: preview === 0 ? 'default' : 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                }}
+                            >
+                                <Star size={13} fill={preview === 0 ? 'currentColor' : 'none'} />
+                                {preview === 0 ? 'Cover photo' : 'Make cover'}
+                            </button>
+                            <button
+                                onClick={() => handleDeletePhoto(preview)}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '0.7rem',
+                                    backgroundColor: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.3)',
+                                    color: '#f87171', fontSize: '0.72rem', fontWeight: 800, cursor: 'pointer',
+                                    display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
+                                }}
+                            >
+                                <Trash2 size={13} /> Delete
+                            </button>
+                        </div>
+                    )}
+                />
+            )}
         </div>
     );
 };
