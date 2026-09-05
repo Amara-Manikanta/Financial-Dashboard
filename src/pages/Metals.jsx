@@ -1,11 +1,20 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Coins, ChevronRight, ArrowUpRight, Shield, Award, Image as ImageIcon } from 'lucide-react';
+import { Plus, Coins, ChevronRight, ArrowUpRight, Shield, Award, Image as ImageIcon, AlertTriangle } from 'lucide-react';
 import MetalModal from '../components/MetalModal';
 
 const Metals = () => {
-    const { metals, formatCurrency, addMetal, metalRates } = useFinance();
+    const { metals, formatCurrency, addMetal, effectiveMetalRates, metalRateError } = useFinance();
+
+    /* Where a rate came from, said on the card.
+       "₹14,575/g" is a very different claim depending on whether it is today's
+       market or a number typed in months ago, and the card gave no way to tell. */
+    const SOURCE_NOTE = {
+        manual: { text: 'Your own rate', color: '#a1a1aa' },
+        live: { text: 'Live market rate', color: '#34d399' },
+        fallback: { text: 'Placeholder — set your own rate', color: '#fbbf24' },
+    };
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalType, setModalType] = useState('gold');
@@ -106,6 +115,30 @@ const Metals = () => {
                 </button>
             </div>
 
+            {/* A failed rate fetch, said out loud.
+                It used to log "using cached rates" to the console and carry on
+                — nothing was cached, the rates stayed at zero, and the only
+                visible symptom was a card reading ₹0. */}
+            {metalRateError && (
+                <div style={{
+                    display: 'flex', alignItems: 'flex-start', gap: '0.6rem',
+                    padding: '0.9rem 1.1rem', marginBottom: '1.5rem', borderRadius: '1rem',
+                    backgroundColor: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.25)',
+                }}>
+                    <AlertTriangle size={15} style={{ color: '#fbbf24', flexShrink: 0, marginTop: '1px' }} />
+                    <div>
+                        <p style={{ fontSize: '0.75rem', fontWeight: 800, color: '#fbbf24', margin: 0 }}>
+                            Live metal rates could not be fetched — {metalRateError}
+                        </p>
+                        <p style={{ fontSize: '0.7rem', color: '#a1a1aa', margin: '0.3rem 0 0', lineHeight: 1.6 }}>
+                            Your holdings are valued at the rates shown below. Set your own rate to keep the
+                            valuation current — an Indian retail rate includes import duty and GST, so it is
+                            not the same as the international spot price anyway.
+                        </p>
+                    </div>
+                </div>
+            )}
+
             {/* Stats Overview Panel */}
             <div style={{
                 display: 'grid',
@@ -148,7 +181,10 @@ const Metals = () => {
                 }}>
                     <div>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#71717a', marginBottom: '0.25rem', margin: 0 }}>Gold Rate (24K)</p>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#eab308', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(metalRates?.gold || 0)} <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>/ g</span></h3>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#eab308', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(effectiveMetalRates.gold.rate)} <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>/ g</span></h3>
+                        <p style={{ fontSize: '0.6rem', margin: '0.2rem 0 0', fontWeight: 700, color: SOURCE_NOTE[effectiveMetalRates.gold.source].color }}>
+                            {SOURCE_NOTE[effectiveMetalRates.gold.source].text}
+                        </p>
                     </div>
                     <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '0.75rem', margin: 0 }}>
                         Gold holdings weight: <span style={{ fontWeight: 'bold', color: 'white' }}>{parseFloat(goldWeight.toFixed(3))}g</span>
@@ -167,7 +203,10 @@ const Metals = () => {
                 }}>
                     <div>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: '800', color: '#71717a', marginBottom: '0.25rem', margin: 0 }}>Silver Rate</p>
-                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#cbd5e1', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(metalRates?.silver || 0)} <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>/ g</span></h3>
+                        <h3 style={{ fontSize: '1.5rem', fontWeight: '900', color: '#cbd5e1', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(effectiveMetalRates.silver.rate)} <span style={{ fontSize: '0.75rem', color: '#a1a1aa' }}>/ g</span></h3>
+                        <p style={{ fontSize: '0.6rem', margin: '0.2rem 0 0', fontWeight: 700, color: SOURCE_NOTE[effectiveMetalRates.silver.source].color }}>
+                            {SOURCE_NOTE[effectiveMetalRates.silver.source].text}
+                        </p>
                     </div>
                     <p style={{ fontSize: '0.625rem', color: '#a1a1aa', marginTop: '0.75rem', margin: 0 }}>
                         Silver holdings weight: <span style={{ fontWeight: 'bold', color: 'white' }}>{parseFloat(silverWeight.toFixed(3))}g</span>

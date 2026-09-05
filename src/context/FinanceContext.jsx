@@ -228,6 +228,7 @@ export function FinanceProvider({ children }) {
     const [groceryItemFlavourMap, setGroceryItemFlavourMap] = useState({});
     const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
+    const [metalRateError, setMetalRateError] = useState(null);
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
     const [hiddenSalaryFields, setHiddenSalaryFields] = useState([]);
     const [employments, setEmployments] = useState([]);
@@ -277,16 +278,19 @@ export function FinanceProvider({ children }) {
     const fetchMetalRates = async () => {
         try {
             const res = await fetch('/api/goldprice/dbXRates/INR');
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            if (!res.ok) throw new Error(`the rate service returned ${res.status}`);
             const data = await res.json();
-            if (data.items && data.items.length > 0) {
-                const item = data.items[0];
-                const goldPerGram = item.xauPrice / 31.1034768;
-                const silverPerGram = item.xagPrice / 31.1034768;
-                setMetalRates({ gold: goldPerGram, silver: silverPerGram });
-            }
+            if (!data.items || data.items.length === 0) throw new Error('the rate service returned no rates');
+            const item = data.items[0];
+            const TROY_OUNCE_GRAMS = 31.1034768;
+            setMetalRates({ gold: item.xauPrice / TROY_OUNCE_GRAMS, silver: item.xagPrice / TROY_OUNCE_GRAMS });
+            setMetalRateError(null);
         } catch (error) {
-            console.warn("Metal rates API currently unavailable, using cached rates.");
+            // The old message claimed it was "using cached rates". It was not —
+            // nothing is cached, and the rates stayed at zero, which is how the
+            // page came to display a gold rate of ₹0 while valuing 594g of gold
+            // at the manual rate of ₹14,575/g. A failed fetch has to be visible.
+            setMetalRateError(error.message || 'the rate service could not be reached');
         }
     };
 
@@ -2075,6 +2079,31 @@ export function FinanceProvider({ children }) {
 
 
 
+    /**
+     * The rate every valuation on the page is actually using, and where it came
+     * from.
+     *
+     * The cards used to read `metalRates` — the live figure — while the
+     * valuations read this precedence. When the rate service started returning
+     * 403 the two diverged completely: the card showed ₹0 per gram while 594g
+     * of gold was being valued at the manual ₹14,575. One value, one source.
+     */
+    const effectiveMetalRates = React.useMemo(() => {
+        const manualGold = Number(manualMetalRates?.gold);
+        const manualSilver = Number(manualMetalRates?.silver);
+        const gold = manualGold > 0
+            ? { rate: manualGold, source: 'manual' }
+            : metalRates.gold > 0
+                ? { rate: metalRates.gold, source: 'live' }
+                : { rate: 7600, source: 'fallback' };
+        const silver = manualSilver > 0
+            ? { rate: manualSilver, source: 'manual' }
+            : metalRates.silver > 0
+                ? { rate: metalRates.silver, source: 'live' }
+                : { rate: 95, source: 'fallback' };
+        return { gold, silver };
+    }, [metalRates, manualMetalRates]);
+
     const processedMetals = React.useMemo(() => {
         // Prefer manual rates if set (> 0), else fallback to API
         const manualGold = Number(manualMetalRates?.gold);
@@ -2946,6 +2975,8 @@ export function FinanceProvider({ children }) {
         employments,
         updateEmploymentsConfig,
         metalRates,
+        effectiveMetalRates,
+        metalRateError,
         fetchMetalRates,
         manualMetalRates,
         updateManualRates,
