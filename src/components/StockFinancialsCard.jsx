@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
 import { AlertTriangle, Shield, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
+import { GLOSSARY, CHECK_HELP, debtRatio, isMissingDebtData } from '../utils/financialGlossary';
 
 // Client-side cache to avoid refetching across pages/components within the session
 const clientCache = new Map();
@@ -191,8 +192,21 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
 
     const unit = isIndian ? '₹ Cr' : '$B';
 
-    const statusColor = (s) => s === 'good' ? '#34d399' : s === 'caution' ? '#fbbf24' : '#f87171';
-    const statusIcon = (s) => s === 'good' ? '✓' : s === 'caution' ? '!' : '✕';
+    // 'unknown' is its own state, not a failure: a figure the source does not
+    // report is a gap in the data, and colouring it red would read as a verdict
+    // on the company rather than on what is known about it.
+    const statusColor = (s) => (
+        s === 'good' ? '#34d399'
+            : s === 'caution' ? '#fbbf24'
+                : s === 'unknown' ? '#71717a'
+                    : '#f87171'
+    );
+    const statusIcon = (s) => (
+        s === 'good' ? '✓'
+            : s === 'caution' ? '!'
+                : s === 'unknown' ? '?'
+                    : '✕'
+    );
 
     return (
         <div style={{ ...panelStyle, padding: compact ? '1rem' : '1.5rem' }}>
@@ -317,17 +331,25 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
                                         boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
                                     }}
                                     labelStyle={{ color: '#a1a1aa', fontWeight: 800, marginBottom: '0.2rem' }}
+                                    // Recharts colours a tooltip row from its
+                                    // Bar's `fill`, and these Bars carry none —
+                                    // the colour is on the Cells, which style
+                                    // the bars but not the tooltip. With no fill
+                                    // it fell back to its default black, on a
+                                    // #18181b panel. Set explicitly so the text
+                                    // cannot go dark again whatever the series.
+                                    itemStyle={{ color: '#e4e4e7', fontWeight: 600 }}
                                     formatter={(value, name) => [
                                         `${unit === '₹ Cr' ? '₹' : '$'}${Number(value).toLocaleString()} ${unit === '₹ Cr' ? 'Cr' : 'B'}`,
                                         name === 'revenue' ? 'Revenue' : 'Net Profit'
                                     ]}
                                 />
-                                <Bar dataKey="revenue" name="revenue" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                                <Bar dataKey="revenue" name="revenue" fill="rgba(99,102,241,0.75)" radius={[4, 4, 0, 0]} maxBarSize={28}>
                                     {chartData.map((_, i) => (
                                         <Cell key={i} fill="rgba(99,102,241,0.75)" />
                                     ))}
                                 </Bar>
-                                <Bar dataKey="profit" name="profit" radius={[4, 4, 0, 0]} maxBarSize={28}>
+                                <Bar dataKey="profit" name="profit" fill="rgba(52,211,153,0.85)" radius={[4, 4, 0, 0]} maxBarSize={28}>
                                     {chartData.map((entry, i) => (
                                         <Cell key={i} fill={entry.profit >= 0 ? 'rgba(52,211,153,0.85)' : 'rgba(248,113,113,0.85)'} />
                                     ))}
@@ -390,6 +412,14 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
                                     <p style={{ margin: '0.1rem 0 0', fontSize: '0.6rem', color: '#a1a1aa' }}>
                                         {c.detail}
                                     </p>
+                                    {/* What the check is even asking. A tick beside
+                                        "Margins" tells you nothing if "margin" is
+                                        not already a word you think in. */}
+                                    {CHECK_HELP[c.name] && (
+                                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.58rem', color: '#71717a', lineHeight: 1.45 }}>
+                                            {CHECK_HELP[c.name]}
+                                        </p>
+                                    )}
                                 </div>
                             </div>
                         ))}
@@ -408,17 +438,47 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
                     </p>
                     <div style={{
                         display: 'grid',
-                        gridTemplateColumns: compact ? 'repeat(2, 1fr)' : 'repeat(auto-fit, minmax(100px, 1fr))',
+                        gridTemplateColumns: compact ? '1fr' : 'repeat(auto-fit, minmax(230px, 1fr))',
                         gap: '0.4rem',
                     }}>
                         {[
-                            { label: 'Op. Margin', value: fundamentals.operatingMargins?.fmt },
-                            { label: 'Net Margin', value: fundamentals.profitMargins?.fmt },
-                            { label: 'Rev. Growth', value: fundamentals.revenueGrowth?.fmt },
-                            { label: 'D/E Ratio', value: fundamentals.debtToEquity?.raw != null ? (fundamentals.debtToEquity.raw / 100).toFixed(2) + 'x' : 'N/A' },
-                            { label: 'Fwd P/E', value: fundamentals.forwardPE?.fmt || 'N/A' },
-                            { label: 'P/B Ratio', value: fundamentals.priceToBook?.fmt || 'N/A' },
-                            { label: 'Beta', value: fundamentals.beta?.fmt || 'N/A' },
+                            {
+                                label: 'Op. Margin', value: fundamentals.operatingMargins?.fmt,
+                                help: GLOSSARY.operatingMargin.plain((fundamentals.operatingMargins?.raw ?? null) === null ? null : fundamentals.operatingMargins.raw * 100),
+                            },
+                            {
+                                label: 'Net Margin', value: fundamentals.profitMargins?.fmt,
+                                help: GLOSSARY.netMargin.plain((fundamentals.profitMargins?.raw ?? null) === null ? null : fundamentals.profitMargins.raw * 100),
+                            },
+                            {
+                                label: 'Rev. Growth', value: fundamentals.revenueGrowth?.fmt,
+                                help: GLOSSARY.revenueGrowth.plain((fundamentals.revenueGrowth?.raw ?? null) === null ? null : fundamentals.revenueGrowth.raw * 100),
+                            },
+                            {
+                                label: 'D/E Ratio',
+                                // Not reported is not zero. Yahoo omits this for
+                                // banks, and showing "0.00x" claimed the most
+                                // leveraged businesses there are carry no debt.
+                                value: isMissingDebtData(fundamentals.debtToEquity?.raw)
+                                    ? 'Not reported'
+                                    : `${debtRatio(fundamentals.debtToEquity.raw).toFixed(2)}x`,
+                                help: GLOSSARY.debtToEquity.plain(
+                                    isMissingDebtData(fundamentals.debtToEquity?.raw) ? null : debtRatio(fundamentals.debtToEquity.raw),
+                                ),
+                                muted: isMissingDebtData(fundamentals.debtToEquity?.raw),
+                            },
+                            {
+                                label: 'Fwd P/E', value: fundamentals.forwardPE?.fmt || 'N/A',
+                                help: GLOSSARY.forwardPE.plain(fundamentals.forwardPE?.raw ?? null),
+                            },
+                            {
+                                label: 'P/B Ratio', value: fundamentals.priceToBook?.fmt || 'N/A',
+                                help: GLOSSARY.priceToBook.plain(fundamentals.priceToBook?.raw ?? null),
+                            },
+                            {
+                                label: 'Beta', value: fundamentals.beta?.fmt || 'N/A',
+                                help: GLOSSARY.beta.plain(fundamentals.beta?.raw ?? null),
+                            },
                         ].map((m, i) => (
                             <div key={i} style={{
                                 padding: '0.45rem 0.55rem', borderRadius: '0.5rem',
@@ -428,9 +488,17 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
                                 <p style={{ margin: 0, fontSize: '0.55rem', fontWeight: 800, color: '#71717a', textTransform: 'uppercase' }}>
                                     {m.label}
                                 </p>
-                                <p style={{ margin: '0.15rem 0 0', fontSize: '0.82rem', fontWeight: 900, color: '#e4e4e7', fontFamily: 'monospace' }}>
+                                <p style={{
+                                    margin: '0.15rem 0 0', fontSize: '0.82rem', fontWeight: 900,
+                                    color: m.muted ? '#71717a' : '#e4e4e7', fontFamily: 'monospace',
+                                }}>
                                     {m.value || 'N/A'}
                                 </p>
+                                {m.help && (
+                                    <p style={{ margin: '0.3rem 0 0', fontSize: '0.6rem', color: '#a1a1aa', lineHeight: 1.5, fontFamily: 'inherit' }}>
+                                        {m.help}
+                                    </p>
+                                )}
                             </div>
                         ))}
                     </div>

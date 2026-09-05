@@ -596,13 +596,28 @@ const handleStockFinancialsRequest = async (req, res) => {
         marginDetail = `Operating margin ${(opMargin * 100).toFixed(1)}%`;
         checks.push({ name: 'Margins', status: marginStatus, detail: marginDetail });
 
-        const debtEq = fd.debtToEquity?.raw || 0;
+        // Yahoo omits debtToEquity for banks and finance companies, and `|| 0`
+        // turned "not reported" into "no debt at all" — the most leveraged
+        // businesses there are scored a point for it. SBI read 5/5 partly
+        // because the app believed a bank had no borrowings. Missing data now
+        // scores nothing and says so.
+        const debtRaw = typeof fd.debtToEquity?.raw === 'number' && fd.debtToEquity.raw > 0
+            ? fd.debtToEquity.raw
+            : null;
         let debtStatus, debtDetail;
-        if (debtEq < 50) { debtStatus = 'good'; goodChecks++; }
-        else if (debtEq <= 100) debtStatus = 'caution';
-        else debtStatus = 'bad';
-        debtDetail = `D/E ratio ${(debtEq / 100).toFixed(2)} (low debt)`;
-        if (debtEq >= 50) debtDetail = `D/E ratio ${(debtEq / 100).toFixed(2)}`;
+        if (debtRaw === null) {
+            debtStatus = 'unknown';
+            debtDetail = 'Not reported — common for banks and lenders';
+        } else if (debtRaw < 50) {
+            debtStatus = 'good'; goodChecks++;
+            debtDetail = `D/E ratio ${(debtRaw / 100).toFixed(2)} (low debt)`;
+        } else if (debtRaw <= 100) {
+            debtStatus = 'caution';
+            debtDetail = `D/E ratio ${(debtRaw / 100).toFixed(2)}`;
+        } else {
+            debtStatus = 'bad';
+            debtDetail = `D/E ratio ${(debtRaw / 100).toFixed(2)}`;
+        }
         checks.push({ name: 'Debt Health', status: debtStatus, detail: debtDetail });
 
         const fpe = dks.forwardPE?.raw || 0;
@@ -622,9 +637,14 @@ const handleStockFinancialsRequest = async (req, res) => {
         };
 
         let action, label, color, icon;
-        if (goodChecks >= 4 && revGrowth > 0.10 && quarterly.every(q => q.earnings > 0)) {
+        // quarterly.every(...) is vacuously true on an empty array, so without
+        // the length guard a stock with no earnings history at all could reach
+        // "Strong Buy". The health score already guards this; the signal did not.
+        const allQuartersProfitable = quarterly.length > 0 && quarterly.every(q => q.earnings > 0);
+        const noQuarterLoss = quarterly.length > 0 && quarterly.every(q => q.earnings >= 0);
+        if (goodChecks >= 4 && revGrowth > 0.10 && allQuartersProfitable) {
             action = 'strong_buy'; label = 'Strong Buy / Accumulate'; color = '#34d399'; icon = '🟢';
-        } else if (goodChecks >= 3 && revGrowth > 0 && quarterly.every(q => q.earnings >= 0)) {
+        } else if (goodChecks >= 3 && revGrowth > 0 && noQuarterLoss) {
             action = 'buy'; label = 'Buy on Dips'; color = '#4ade80'; icon = '🟢';
         } else if (goodChecks <= 1 || quarterly.filter(q => q.earnings < 0).length > 1 || (revGrowth < 0 && marginStatus === 'bad')) {
             action = 'sell'; label = 'Review for Exit'; color = '#f87171'; icon = '🔴';
