@@ -697,6 +697,89 @@ const handleStockFinancialsRequest = async (req, res) => {
     }
 };
 
+/**
+ * What a company actually does, in its own words.
+ *
+ * "REC" and "IRCTC" are tickers, not descriptions, and a portfolio of forty
+ * holdings accumulates plenty of names nobody would recognise cold. Yahoo's
+ * `assetProfile` module carries a business summary, sector/industry and a
+ * website for almost everything on NSE — checked against Infosys, KFin
+ * Technologies and a small-cap (Shivalik Bimetal) and all three returned a real
+ * paragraph. It has nothing for a REIT, which is correct: a REIT owns
+ * buildings rather than running a business, so there is no "what it makes" to
+ * report.
+ *
+ * Cached for 7 days rather than the 12 hours financials use. A company's
+ * business description does not change between quarters the way its numbers
+ * do, and there is no reason to ask Yahoo for the same paragraph four times a
+ * day across every holding.
+ */
+const PROFILE_CACHE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+const profileCache = new Map();
+
+const handleStockProfileRequest = async (req, res) => {
+    const url = new URL(req.url, `http://localhost:${PROXY_PORT}`);
+    const symbol = (url.searchParams.get('symbol') || '').trim();
+
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Content-Type', 'application/json');
+
+    if (!/^[A-Za-z0-9.\-&]{1,20}$/.test(symbol)) {
+        res.writeHead(400);
+        return res.end(JSON.stringify({ symbol, error: 'a valid symbol is required' }));
+    }
+
+    const cached = profileCache.get(symbol);
+    if (cached && Date.now() - cached.timestamp < PROFILE_CACHE_TTL_MS) {
+        res.writeHead(200);
+        return res.end(JSON.stringify(cached.data));
+    }
+
+    try {
+        const { cookie, crumb } = await getYfSession();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000);
+
+        const yfUrl = `https://query2.finance.yahoo.com/v10/finance/quoteSummary/${encodeURIComponent(symbol)}?crumb=${crumb}&modules=assetProfile`;
+        const r = await fetch(yfUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', Cookie: cookie },
+            signal: controller.signal,
+        });
+        clearTimeout(timer);
+
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        const profile = data?.quoteSummary?.result?.[0]?.assetProfile;
+        // A REIT, InvIT or fund genuinely has none of this — it owns assets
+        // rather than running a business — so absent is reported as fact
+        // rather than as a fetch failure.
+        if (!profile || !profile.longBusinessSummary) {
+            const empty = { symbol, summary: null, sector: null, industry: null, website: null, employees: null };
+            profileCache.set(symbol, { timestamp: Date.now(), data: empty });
+            res.writeHead(200);
+            return res.end(JSON.stringify(empty));
+        }
+
+        const responseData = {
+            symbol,
+            summary: profile.longBusinessSummary,
+            sector: profile.sector || null,
+            industry: profile.industry || null,
+            website: profile.website || null,
+            employees: profile.fullTimeEmployees || null,
+            cachedAt: new Date().toISOString(),
+        };
+
+        profileCache.set(symbol, { timestamp: Date.now(), data: responseData });
+        res.writeHead(200);
+        res.end(JSON.stringify(responseData));
+    } catch (err) {
+        console.error(`[Profile] Error fetching ${symbol}:`, err.message);
+        res.writeHead(200);
+        res.end(JSON.stringify({ symbol, error: err.message, summary: null }));
+    }
+};
+
 const proxy = http.createServer((req, res) => {
     // Image routes are handled here, before the json-server proxy, so uploads
     // are never mistaken for a database mutation.
@@ -711,6 +794,9 @@ const proxy = http.createServer((req, res) => {
     }
     if (req.url.startsWith('/api/history') && req.method === 'GET') {
         return handleHistoryRequest(req, res);
+    }
+    if (req.url.startsWith('/api/stock-profile') && req.method === 'GET') {
+        return handleStockProfileRequest(req, res);
     }
     if (req.url.startsWith('/api/stock-financials') && req.method === 'GET') {
         return handleStockFinancialsRequest(req, res);

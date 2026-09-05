@@ -13,6 +13,7 @@ import { costRecovery, NEARLY_FREE_FROM, combinedWithParent } from '../utils/cos
 import { dividendProfile } from '../utils/dividendAnalytics';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
 import StockFinancialsCard from '../components/StockFinancialsCard';
+import CompanyProfile from '../components/CompanyProfile';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -652,9 +653,13 @@ const StockDetails = () => {
                 </div>
             </div>
 
-            {/* Business Health & Quarterly Results — purely read-only, never touches db.json */}
+            {/* What the company does, then how it is doing — read-only, never touches db.json */}
             {stock.ticker && !stock.isArchived && (
-                <div style={{ marginTop: '2rem' }}>
+                <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <CompanyProfile
+                        symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
+                        name={stock.name}
+                    />
                     <StockFinancialsCard
                         symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
                         name={stock.name}
