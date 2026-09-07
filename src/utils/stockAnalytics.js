@@ -6,7 +6,7 @@
  * holding is next edited and can sit stale for months. The one replay lives in
  * recomputeStockMetrics; nothing in this file re-implements it.
  */
-import { recomputeStockMetrics } from './investmentSync';
+import { recomputeStockMetrics, effectiveStockPosition } from './investmentSync';
 
 /** Sector and market cap are optional on a stock, and missing ones must be visible. */
 export const UNCLASSIFIED = 'Unclassified';
@@ -38,7 +38,13 @@ const visible = (stocks = []) => stocks.filter((s) => s && !s.isArchived);
 export const stockSummary = (stock = {}) => {
     const replay = recomputeStockMetrics(stock.transactions || []);
     const shares = num(stock.shares);
-    const avgCost = num(stock.avgCost) || replay.avgCost;
+    // This used to read `num(stock.avgCost) || replay.avgCost` — stored value
+    // first, replay only as a fallback. Since stock.avgCost is set on every
+    // holding, that fallback never actually ran, and the file's own header
+    // comment describing "computed from the transactions... because those
+    // [stored fields] can sit stale for months" was true of every figure here
+    // except this one.
+    const avgCost = effectiveStockPosition(stock).avgCost;
     const currentPrice = num(stock.currentPrice);
 
     const invested = shares * avgCost;

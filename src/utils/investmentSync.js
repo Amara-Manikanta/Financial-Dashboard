@@ -93,6 +93,38 @@ export const recomputeStockMetrics = (txList = []) => {
 };
 
 /**
+ * The shares and average cost to actually use for a stock: computed fresh
+ * from its transaction history whenever any exists, falling back to the
+ * stock's own stored fields only for a holding with none.
+ *
+ * Three different code paths write a stock's stored shares/avgCost — a manual
+ * edit on the stock's own form, adding or editing a transaction on its detail
+ * page, and the expense-linked investment sync — and for years one of the
+ * three used a different field name (`avgPrice`) for the same value. A
+ * corporate action such as a split changes what the transaction history
+ * implies without anything re-running a save, too. The result is a stored
+ * figure that is only ever as fresh as whichever path happened to run last,
+ * and stays wrong indefinitely once nothing touches that stock again — one
+ * holding here was off by more than double after an old split, and another
+ * silently disagreed with its own transaction history by ₹1 a share the
+ * moment a table stopped reading the field its own edit page had just written.
+ *
+ * Computing live is the only version that cannot drift, and it is cheap:
+ * replaying a few transactions per stock, not a network call.
+ */
+export const effectiveStockPosition = (stock) => {
+    const transactions = stock?.transactions || [];
+    if (transactions.length === 0) {
+        return {
+            shares: Number(stock?.shares) || 0,
+            avgCost: Number(stock?.avgCost ?? stock?.avgPrice) || 0,
+        };
+    }
+    const { shares, avgCost } = recomputeStockMetrics(transactions);
+    return { shares, avgCost };
+};
+
+/**
  * Total units held in a mutual fund.
  * Older rows predate the `type` field and carry the intent in `remarks`, which
  * is why the fallback sniffs for "sip" rather than assuming a buy.

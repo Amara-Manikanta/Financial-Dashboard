@@ -7,6 +7,7 @@ import { resolveMarketCap } from '../utils/nifty50Data';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
+import { effectiveStockPosition } from '../utils/investmentSync';
 import { OFFICIAL_SECTORS } from '../utils/sectors';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
@@ -210,8 +211,18 @@ const StockMarketDetails = () => {
         let currentVal = 0;
 
         const rows = activeStocks.map(stock => {
-            const sharesCount = Number(stock.shares || 0);
-            const avgCostPrice = Number(stock.avgCost || stock.avgPrice || 0);
+            // Read live from the transaction history rather than the stock's
+            // own stored shares/avgCost. Those fields are written by three
+            // different code paths — a manual edit, a transaction added here,
+            // and the expense-linked investment sync — and one of the three
+            // used a different field name (avgPrice) for the same value for
+            // years. A corporate action such as a split also changes what the
+            // transactions imply without anything re-running a save. The
+            // result was a table that showed whichever figure a manual edit or
+            // old split had last left behind, unrelated to what a fresh add or
+            // edit on the stock's own page had just computed — Wipro's avgCost
+            // was stale by more than double.
+            const { shares: sharesCount, avgCost: avgCostPrice } = effectiveStockPosition(stock);
             const currentMktPrice = Number(stock.currentPrice || 0);
 
             const investedValue = sharesCount * avgCostPrice;
@@ -225,6 +236,8 @@ const StockMarketDetails = () => {
             return {
                 ...stock,
                 ticker: stock.ticker || stock.symbol || stock.name,
+                shares: sharesCount,
+                avgCost: avgCostPrice,
                 investedValue,
                 currentValue,
                 unrealisedPL,

@@ -8,7 +8,7 @@ import StockTransactionModal from '../components/StockTransactionModal';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
-import { recomputeStockMetrics } from '../utils/investmentSync';
+import { recomputeStockMetrics, effectiveStockPosition } from '../utils/investmentSync';
 import { costRecovery, NEARLY_FREE_FROM, combinedWithParent } from '../utils/costRecovery';
 import { dividendProfile } from '../utils/dividendAnalytics';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
@@ -32,6 +32,14 @@ const StockDetails = () => {
 
     const transactions = useMemo(() => stock?.transactions || [], [stock]);
 
+    // What this stock's shares and average cost actually are: computed live
+    // from its transaction history whenever one exists, rather than trusted
+    // from the stock's own stored fields. Those fields are written by three
+    // different code paths that used two different names for the same value
+    // (avgCost here, avgPrice on the two write handlers below) — see
+    // effectiveStockPosition for the full history of how that drifted.
+    const position = useMemo(() => effectiveStockPosition(stock), [stock]);
+
     // Synthetic Initial Transaction for Legacy Data
     const effectiveTransactions = useMemo(() => {
         const txList = [...transactions];
@@ -41,12 +49,12 @@ const StockDetails = () => {
                 date: '2020-01-01', // Fallback date
                 type: 'buy',
                 quantity: Number(stock.shares),
-                price: Number(stock.avgPrice ?? stock.avgCost ?? 0),
+                price: position.avgCost,
                 remarks: 'Initial Balance (Legacy Data)'
             });
         }
         return txList;
-    }, [transactions, stock]);
+    }, [transactions, stock, position]);
 
     // Sorting transactions by date descending
     const sortedTransactions = useMemo(() => {
@@ -112,8 +120,15 @@ const StockDetails = () => {
                     ...s,
                     transactions: updatedTransactions,
                     shares,
-                    // Persist as avgPrice to match every existing record.
-                    avgPrice: avgCost,
+                    // Written as avgCost — the field every other page reads.
+                    // This used to write avgPrice instead, on the belief that
+                    // "every existing record" used that name; only about half
+                    // did, and the stock list table has never read avgPrice at
+                    // all, so this page's own recompute was invisible there
+                    // until the display was changed to stop trusting either
+                    // stored field (see effectiveStockPosition). Kept for now
+                    // rather than deleted, since old rows still carry it.
+                    avgCost,
                     dividends: { ...s.dividends, ...dividends }
                 };
             }
@@ -142,7 +157,7 @@ const StockDetails = () => {
                 ...s,
                 transactions: updatedTransactions,
                 shares,
-                avgPrice: avgCost,
+                avgCost,
                 dividends: { ...s.dividends, ...dividends }
             };
             return s;
@@ -207,12 +222,11 @@ const StockDetails = () => {
             return sum;
         }, 0);
 
-        // Stored records use avgPrice; avgCost was never written by any record
-        // and read as undefined, which is why Avg Price and Total Invested
-        // both displayed zero on every stock.
-        const avgCost = Number(stock.avgPrice ?? stock.avgCost ?? 0);
-        const totalInvested = Number(stock.shares || 0) * avgCost;
-        const currentValue = stock.shares * stock.currentPrice;
+        // position.avgCost/shares, not the stock's own stored fields — see the
+        // `position` memo above and effectiveStockPosition for why.
+        const avgCost = position.avgCost;
+        const totalInvested = position.shares * avgCost;
+        const currentValue = position.shares * stock.currentPrice;
         const unrealizedPL = currentValue - totalInvested;
         const wholePL = (currentValue + sellVal) - buyVal;
         const isProfit = wholePL >= 0;
@@ -228,7 +242,7 @@ const StockDetails = () => {
             isProfit,
             dividendEarned
         };
-    }, [transactions, stock]);
+    }, [transactions, stock, position]);
 
     // Cost recovery for this one holding. Kept beside `metrics` rather than
     // inside it because it answers a different question: `metrics` reports
@@ -586,11 +600,11 @@ const StockDetails = () => {
                 <div style={styles.statGrid}>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Quantity Held</p>
-                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{stock.shares}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{position.shares}</p>
                     </div>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Avg Price</p>
-                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(stock.avgPrice ?? stock.avgCost ?? 0)}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(position.avgCost)}</p>
                     </div>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Current Price</p>

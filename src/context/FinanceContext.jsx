@@ -12,6 +12,7 @@ import {
     findAdoptable,
     adoptTransaction,
     recomputeStockMetrics,
+    effectiveStockPosition,
     recomputeFundAmount
 } from '../utils/investmentSync';
 import { readHolding as readSgbHolding } from '../utils/sgb';
@@ -2222,9 +2223,16 @@ export function FinanceProvider({ children }) {
 
         switch (item.type) {
             case 'stock_market':
+                // Shares and avgCost read from the transaction history, not
+                // from the stock's own stored fields — see effectiveStockPosition.
+                // Trusting the stored avgCost here undercounted this exact
+                // total by however stale that field had gone on any one stock.
                 return (item.stocks || [])
                     .filter(s => !s.isArchived && Number(s.shares || 0) > 0)
-                    .reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.avgCost || 0)), 0);
+                    .reduce((sum, s) => {
+                        const { shares, avgCost } = effectiveStockPosition(s);
+                        return sum + (shares * avgCost);
+                    }, 0);
 
             case 'mutual_fund': {
                 let runningUnits = 0;

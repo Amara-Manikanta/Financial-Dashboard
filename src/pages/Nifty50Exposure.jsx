@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { ALL_BENCHMARK_STOCKS } from '../utils/nifty50Data';
 import { readComposition } from '../utils/fundComposition';
 import { sectorFor, capFor } from '../utils/sectors';
+import { effectiveStockPosition } from '../utils/investmentSync';
 import BackButton from '../components/BackButton';
 import { 
   TrendingUp, 
@@ -96,11 +97,15 @@ const Nifty50Exposure = () => {
     stockAccounts.forEach(acc => {
       (acc.stocks || []).forEach(stock => {
         if (stock.isArchived) return;
-        const shares = Number(stock.shares || 0);
+        // Live from the transaction history, not the stock's own stored
+        // avgCost — see effectiveStockPosition. Only the "invested" valuation
+        // mode used avgCost at all, so this sector map was correct in "current
+        // price" mode and quietly wrong in the other whenever a stock's stored
+        // avgCost had drifted from what its transactions actually imply.
+        const { shares, avgCost } = effectiveStockPosition(stock);
         if (shares <= 0) return;
 
         const currentPrice = Number(stock.currentPrice || 0);
-        const avgCost = Number(stock.avgCost || 0);
 
         const val = valuationMode === 'current' ? (shares * currentPrice) : (shares * avgCost);
         const cleanName = (str) => {
