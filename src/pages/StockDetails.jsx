@@ -8,7 +8,7 @@ import StockTransactionModal from '../components/StockTransactionModal';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
-import { recomputeStockMetrics, effectiveStockPosition } from '../utils/investmentSync';
+import { recomputeStockMetrics, effectiveStockPosition, fifoStockPosition } from '../utils/investmentSync';
 import { costRecovery, NEARLY_FREE_FROM, combinedWithParent } from '../utils/costRecovery';
 import { dividendProfile } from '../utils/dividendAnalytics';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
@@ -39,6 +39,15 @@ const StockDetails = () => {
     // (avgCost here, avgPrice on the two write handlers below) — see
     // effectiveStockPosition for the full history of how that drifted.
     const position = useMemo(() => effectiveStockPosition(stock), [stock]);
+
+    // The same holding under FIFO, which is what a broker statement shows and
+    // what capital gains is assessed on. Only worth surfacing once a partial
+    // sale has made it differ — until then it is the same number as the average
+    // and repeating it would just be noise on the 31 holdings that never sold.
+    const fifo = useMemo(() => fifoStockPosition(transactions), [transactions]);
+    const fifoDiffers = transactions.length > 0
+        && position.shares > 0
+        && Math.abs(fifo.avgCost - position.avgCost) > 0.005;
 
     // Synthetic Initial Transaction for Legacy Data
     const effectiveTransactions = useMemo(() => {
@@ -605,6 +614,15 @@ const StockDetails = () => {
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Avg Price</p>
                         <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(position.avgCost)}</p>
+                        {fifoDiffers && (
+                            <p
+                                title="First in, first out: what the shares still held actually cost, after the older ones were sold off. This is the basis your broker statement shows and the one capital gains is assessed on. The figure above averages every share ever bought, which is the better measure of how the position has performed."
+                                style={{ fontSize: '0.6rem', color: '#a1a1aa', fontFamily: 'monospace', margin: '0.35rem 0 0', lineHeight: 1.3, cursor: 'help' }}
+                            >
+                                {formatCurrency(fifo.avgCost)}
+                                <span style={{ fontFamily: 'system-ui, sans-serif', color: '#71717a', fontWeight: 700, letterSpacing: '0.03em' }}> FIFO</span>
+                            </p>
+                        )}
                     </div>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Current Price</p>
