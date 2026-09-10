@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Calendar, Tag, FileText, Weight, MapPin, Edit2, Coins, Image } from 'lucide-react';
+import { X, Calendar, Tag, FileText, Weight, MapPin, Edit2, Coins, Image, Landmark } from 'lucide-react';
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 import CurrencyInput from './CurrencyInput';
+import { lockerLabel } from '../utils/lockers';
 
-const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'gold' }) => {
+const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'gold', lockers = [] }) => {
     // State initialization
     const [name, setName] = useState('');
     const [weightGm, setWeightGm] = useState('');
@@ -18,6 +19,10 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
     const [foreignValue, setForeignValue] = useState('');
     const [purchaseDate, setPurchaseDate] = useState(new Date());
     const [place, setPlace] = useState('');
+    // Where the item is kept now, as opposed to `place`, which is where it was
+    // bought. Either a registered locker or free text for anywhere else.
+    const [lockerId, setLockerId] = useState('');
+    const [location, setLocation] = useState('');
     const [remarks, setRemarks] = useState('');
     const [image, setImage] = useState('');
     const [isUploading, setIsUploading] = useState(false);
@@ -41,6 +46,8 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             setPurchaseDate(!isNaN(parsedDate.getTime()) ? parsedDate : new Date());
 
             setPlace(initialData.place || '');
+            setLockerId(initialData.lockerId ? String(initialData.lockerId) : '');
+            setLocation(initialData.location || '');
             setRemarks(initialData.remarks || '');
             setImage(initialData.image || initialData.imageUrl || initialData.photo || '');
         } else if (isOpen && !initialData) {
@@ -55,6 +62,8 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             setForeignValue('');
             setPurchaseDate(new Date());
             setPlace('');
+            setLockerId('');
+            setLocation('');
             setRemarks('');
             setImage('');
         }
@@ -163,6 +172,11 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
             foreignValue: metalType === 'currencies' ? (parseFloat(foreignValue) || 0) : null,
             purchaseDate: (purchaseDate && !isNaN(purchaseDate.getTime())) ? purchaseDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             place,
+            // A locker and a free-text location are alternatives, so picking one
+            // clears the other. Keeping both would leave the item claiming to be
+            // in two places and let itemLocation's precedence decide silently.
+            lockerId: lockerId || null,
+            location: lockerId ? '' : location,
             remarks,
             image: storedImageUrl,
             imageUrl: storedImageUrl,
@@ -385,6 +399,46 @@ const MetalModal = ({ isOpen, onClose, onAdd, initialData = null, metalType = 'g
                                     placeholder="Jeweller name, City..."
                                 />
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest ml-1">Kept In</label>
+                            <div className="relative">
+                                <Landmark size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                                <select
+                                    value={lockerId}
+                                    onChange={(e) => setLockerId(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold focus:outline-none focus:border-indigo-500/50 transition-all text-sm appearance-none"
+                                >
+                                    <option value="">Somewhere else / not recorded</option>
+                                    {lockers.map((locker) => (
+                                        <option key={locker.id} value={String(locker.id)}>
+                                            {lockerLabel(locker)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {/* Only offered when no locker is chosen: the two are
+                                alternatives, and an enabled box under a chosen
+                                locker invites typing a second, conflicting answer. */}
+                            {!lockerId && (
+                                <div className="relative">
+                                    <MapPin size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                                    <input
+                                        type="text"
+                                        value={location}
+                                        onChange={(e) => setLocation(e.target.value)}
+                                        className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 pl-10 pr-3 text-white font-bold placeholder:text-gray-700 focus:outline-none focus:border-indigo-500/50 transition-all text-sm"
+                                        placeholder="Home, with a relative, elsewhere..."
+                                    />
+                                </div>
+                            )}
+                            {lockers.length === 0 && (
+                                <p className="text-[10px] text-gray-500 ml-1 leading-relaxed">
+                                    No lockers registered yet — add one on the Gold &amp; Silver page
+                                    to assign items to it.
+                                </p>
+                            )}
                         </div>
 
                         <div className="space-y-2">

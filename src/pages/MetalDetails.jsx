@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, Coins, Plus, Edit2, Trash2, MapPin, Settings, X, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Coins, Plus, Edit2, Trash2, MapPin, Settings, X, RefreshCw, Landmark } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import BackButton from '../components/BackButton';
 import MetalModal from '../components/MetalModal';
+import { itemLocation } from '../utils/lockers';
 
 const MetalDetails = () => {
     const { type } = useParams(); // 'gold' or 'silver'
     const navigate = useNavigate();
-    const { metals, formatCurrency, addMetal, updateMetal, deleteMetal, metalRates, manualMetalRates, updateManualRates } = useFinance();
+    const { metals, formatCurrency, addMetal, updateMetal, deleteMetal, metalRates, manualMetalRates, updateManualRates, lockers } = useFinance();
 
     const [searchTerm, setSearchTerm] = useState('');
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -27,7 +28,10 @@ const MetalDetails = () => {
         item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.purity && item.purity.toString().includes(searchTerm)) ||
         (item.place && item.place.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (item.remarks && item.remarks.toLowerCase().includes(searchTerm.toLowerCase()))
+        (item.remarks && item.remarks.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        // Searching where a thing is kept is the point of recording it — typing a
+        // bank or locker number should pull up everything inside that locker.
+        itemLocation(item, lockers).label.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const formattedType = type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
@@ -451,6 +455,20 @@ const MetalDetails = () => {
                                 </div>
                             </div>
 
+                            {/* Where it is kept. Shown on the card rather than only
+                                inside the edit form, because "which locker is this
+                                one in" is a question asked while looking at the list. */}
+                            {(() => {
+                                const where = itemLocation(item, lockers);
+                                if (where.kind === 'none') return null;
+                                return (
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.6rem', fontSize: '9px', fontWeight: 'bold', color: where.kind === 'locker' ? '#818cf8' : '#a1a1aa', minWidth: 0 }}>
+                                        {where.kind === 'locker' ? <Landmark size={10} style={{ flexShrink: 0 }} /> : <MapPin size={10} style={{ flexShrink: 0 }} />}
+                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{where.label}</span>
+                                    </div>
+                                );
+                            })()}
+
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.75rem', fontSize: '8px', color: '#52525b', fontWeight: 'bold', letterSpacing: '0.05em' }}>
                                 <span>{formatDate(item.purchaseDate)}</span>
                                 <span>
@@ -525,6 +543,7 @@ const MetalDetails = () => {
                 onAdd={handleSave}
                 initialData={editingItem}
                 metalType={type}
+                lockers={lockers}
             />
 
             {/* Manual Rate Modal */}

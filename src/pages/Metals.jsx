@@ -1,11 +1,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Coins, ChevronRight, ArrowUpRight, Shield, Award, Image as ImageIcon, AlertTriangle } from 'lucide-react';
+import { Plus, Coins, ChevronRight, ArrowUpRight, Shield, Award, Image as ImageIcon, AlertTriangle, Landmark, Pencil } from 'lucide-react';
 import MetalModal from '../components/MetalModal';
+import LockerModal from '../components/LockerModal';
+import {
+    lockerLabel,
+    lockerContents,
+    renewalStatus,
+    renewalText,
+    unplacedItems,
+    RENEWAL_COLOR,
+} from '../utils/lockers';
 
 const Metals = () => {
-    const { metals, formatCurrency, addMetal, effectiveMetalRates, metalRateError } = useFinance();
+    const {
+        metals, formatCurrency, addMetal, effectiveMetalRates, metalRateError,
+        lockers, addItem, updateItem,
+    } = useFinance();
 
     /* Where a rate came from, said on the card.
        "₹14,575/g" is a very different claim depending on whether it is today's
@@ -18,11 +30,24 @@ const Metals = () => {
     const navigate = useNavigate();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [modalType, setModalType] = useState('gold');
+    const [isLockerModalOpen, setIsLockerModalOpen] = useState(false);
+    const [editingLocker, setEditingLocker] = useState(null);
 
     const handleAddItem = (type) => {
         setModalType(type);
         setIsModalOpen(true);
     };
+
+    const handleSaveLocker = async (data) => {
+        // addItem/updateItem already raise the NOT SAVED banner on failure, so a
+        // rejected write cannot leave a locker on screen that was never stored.
+        if (editingLocker) await updateItem('lockers', { ...data, id: editingLocker.id });
+        else await addItem('lockers', data);
+        setIsLockerModalOpen(false);
+        setEditingLocker(null);
+    };
+
+    const unplaced = unplacedItems(metals);
 
     // Calculate aggregated metrics
     const goldValue = (metals.gold || []).reduce((sum, item) => sum + (item.currentValue || 0), 0);
@@ -328,6 +353,102 @@ const Metals = () => {
                 </button>
             </div>
 
+            {/* Bank lockers. Sits above the metal categories because it answers a
+                different question about the same items — not what they are worth,
+                but where they physically are. */}
+            <div className="mb-6 rounded-3xl border border-white/5 bg-zinc-900/40 p-6 backdrop-blur-lg">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                    <div>
+                        <h2 className="flex items-center gap-2 text-base font-black tracking-tight text-white">
+                            <Landmark size={18} className="text-indigo-400" />
+                            Bank Lockers
+                        </h2>
+                        <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-gray-500">
+                            {lockers.length === 0
+                                ? 'None registered yet'
+                                : `${lockers.length} locker${lockers.length === 1 ? '' : 's'}`}
+                        </p>
+                    </div>
+                    <button
+                        onClick={() => { setEditingLocker(null); setIsLockerModalOpen(true); }}
+                        className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/5 bg-indigo-600 px-3 py-2 text-xs font-bold text-white shadow-lg transition-all hover:bg-indigo-500"
+                    >
+                        <Plus size={14} /> Add Locker
+                    </button>
+                </div>
+
+                {lockers.length === 0 ? (
+                    <p className="text-xs leading-relaxed text-gray-500">
+                        Register a locker to record which one each item is kept in. Items kept
+                        anywhere else can carry a plain description instead.
+                    </p>
+                ) : (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        {lockers.map((locker) => {
+                            const { count, value, weightByCategory } = lockerContents(locker, metals);
+                            const renewal = renewalStatus(locker);
+                            return (
+                                <div
+                                    key={locker.id}
+                                    className="rounded-2xl border border-white/5 bg-black/20 p-4"
+                                >
+                                    <div className="flex items-start justify-between gap-2">
+                                        <p className="text-sm font-black leading-tight text-white">
+                                            {lockerLabel(locker)}
+                                        </p>
+                                        <button
+                                            onClick={() => { setEditingLocker(locker); setIsLockerModalOpen(true); }}
+                                            className="shrink-0 rounded-lg p-1.5 text-gray-500 transition-all hover:bg-white/10 hover:text-white"
+                                            title="Edit locker"
+                                        >
+                                            <Pencil size={13} />
+                                        </button>
+                                    </div>
+
+                                    <p
+                                        className="mt-2 text-[10px] font-black uppercase tracking-wider"
+                                        style={{ color: RENEWAL_COLOR[renewal.state] }}
+                                    >
+                                        {renewalText(locker)}
+                                        {locker.annualRent ? ` · ${formatCurrency(locker.annualRent)}/yr` : ''}
+                                    </p>
+
+                                    <div className="mt-3 border-t border-white/5 pt-3 text-xs text-gray-400">
+                                        {count === 0 ? (
+                                            <span className="text-gray-600">No items assigned</span>
+                                        ) : (
+                                            <>
+                                                <span className="font-bold text-white">{count}</span> item{count === 1 ? '' : 's'}
+                                                <span className="text-gray-600"> · </span>
+                                                <span className="font-bold text-white">{formatCurrency(value)}</span>
+                                                {/* Per category: grams of gold and grams of silver
+                                                    are not the same quantity, and one combined
+                                                    total would mean nothing. */}
+                                                {Object.entries(weightByCategory)
+                                                    .filter(([, grams]) => grams > 0)
+                                                    .map(([category, grams]) => (
+                                                        <div key={category} className="mt-0.5 text-[10px] capitalize text-gray-500">
+                                                            {category.replace('_', ' ')} · {grams.toFixed(2)}g
+                                                        </div>
+                                                    ))}
+                                            </>
+                                        )}
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+
+                {unplaced.length > 0 && (
+                    <p className="mt-4 border-t border-white/5 pt-3 text-[11px] leading-relaxed text-gray-500">
+                        <span className="font-bold text-amber-400">{unplaced.length}</span> item
+                        {unplaced.length === 1 ? ' has' : 's have'} no location recorded. Open an
+                        item to set where it is kept.
+                    </p>
+                )}
+            </div>
+
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
                 {renderMetalSection('Gold', metals.gold, 'rgba(234, 179, 8, 0.5)', 'rgba(234, 179, 8, 0.02)')}
                 {renderMetalSection('Silver', metals.silver, 'rgba(203, 213, 225, 0.5)', 'rgba(203, 213, 225, 0.02)')}
@@ -341,6 +462,14 @@ const Metals = () => {
                 onClose={() => setIsModalOpen(false)}
                 onAdd={(data) => addMetal(modalType, data)}
                 metalType={modalType}
+                lockers={lockers}
+            />
+
+            <LockerModal
+                isOpen={isLockerModalOpen}
+                onClose={() => { setIsLockerModalOpen(false); setEditingLocker(null); }}
+                onSave={handleSaveLocker}
+                initialData={editingLocker}
             />
         </div>
     );

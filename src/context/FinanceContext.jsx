@@ -212,6 +212,7 @@ export function FinanceProvider({ children }) {
     const [goals, setGoals] = useState([]);
     const [ipoApplications, setIpoApplications] = useState([]);
     const [watchlist, setWatchlist] = useState([]);
+    const [lockers, setLockers] = useState([]);
     const [loans, setLoans] = useState([]);
     const [insuranceProfile, setInsuranceProfile] = useState({ age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
     const [salaryStats, setSalaryStats] = useState({});
@@ -298,7 +299,7 @@ export function FinanceProvider({ children }) {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes, ipoRes, watchRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes, ipoRes, watchRes, lockerRes] = await Promise.all([
                     fetch(`${API_URL}/expenses`),
                     fetch(`${API_URL}/savings`),
                     fetch(`${API_URL}/metals`),
@@ -317,7 +318,8 @@ export function FinanceProvider({ children }) {
                     // Tolerates a 404 so an older database without the collection
                     // still loads; it is created on first save.
                     fetch(`${API_URL}/ipoApplications`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
-                    fetch(`${API_URL}/watchlist`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
+                    fetch(`${API_URL}/watchlist`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
+                    fetch(`${API_URL}/lockers`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
                 ]);
 
                 // Remember which version of expenses this tab is working from, so
@@ -338,6 +340,7 @@ export function FinanceProvider({ children }) {
                 const goalsData = await goalsRes.json();
                 const ipoData = await ipoRes.json();
                 const watchData = await watchRes.json();
+                const lockerData = await lockerRes.json();
                 const loansData = await loansRes.json();
 
                 const modifiedExpenses = JSON.parse(JSON.stringify(expData)); // deep-clone to avoid mutating fetched object
@@ -456,6 +459,7 @@ export function FinanceProvider({ children }) {
                 setGoals((goalsData && goalsData.length > 0) ? goalsData : DEFAULT_GOALS);
                 setIpoApplications(Array.isArray(ipoData) ? ipoData : []);
                 setWatchlist(Array.isArray(watchData) ? watchData : []);
+                setLockers(Array.isArray(lockerData) ? lockerData : []);
                 setLoans((loansData && loansData.length > 0) ? loansData : DEFAULT_LOANS);
                 setInsuranceProfile(appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
 
@@ -1700,7 +1704,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : type === 'lockers' ? 'lockers' : '';
 
         if (!endpoint) return;
 
@@ -1715,6 +1719,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
             if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
             if (type === 'watchlist') setWatchlist(prev => [...prev, savedItem]);
+            if (type === 'lockers') setLockers(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
             return;
         }
@@ -1735,6 +1740,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
             if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
             if (type === 'watchlist') setWatchlist(prev => [...prev, savedItem]);
+            if (type === 'lockers') setLockers(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
             setSaveError(null);
             return { success: true, item: savedItem };
@@ -2052,7 +2058,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : type === 'lockers' ? 'lockers' : '';
         if (!endpoint) return;
         if (isGuest) return;
         try {
@@ -2066,6 +2072,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'ipoApplications') setIpoApplications(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'watchlist') setWatchlist(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'lockers') setLockers(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'loans') setLoans(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
             // A delete that failed leaves the row on the server while React
@@ -2543,7 +2550,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : type === 'lockers' ? 'lockers' : '';
         if (!endpoint || !item.id) return;
         if (isGuest) return;
         try {
@@ -2580,6 +2587,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'ipoApplications') setIpoApplications(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'watchlist') setWatchlist(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'lockers') setLockers(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'loans') setLoans(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             return { success: true };
         } catch (error) {
@@ -2965,7 +2973,7 @@ export function FinanceProvider({ children }) {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         recurringOverrides, saveRecurringOverrides,
         categoryKinds, saveCategoryKinds,
-        goals, loans, ipoApplications, watchlist, refreshWatchlistPrices, insuranceProfile,
+        goals, loans, ipoApplications, watchlist, lockers, refreshWatchlistPrices, insuranceProfile,
         pendingWalletCredits, applyWalletAutoCredits,
         loadError,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,
