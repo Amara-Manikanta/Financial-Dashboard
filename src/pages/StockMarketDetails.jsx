@@ -7,6 +7,7 @@ import { resolveMarketCap } from '../utils/nifty50Data';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
+import { effectiveStockPosition, fifoStockPosition } from '../utils/investmentSync';
 import { OFFICIAL_SECTORS } from '../utils/sectors';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
@@ -210,9 +211,28 @@ const StockMarketDetails = () => {
         let currentVal = 0;
 
         const rows = activeStocks.map(stock => {
-            const sharesCount = Number(stock.shares || 0);
-            const avgCostPrice = Number(stock.avgCost || stock.avgPrice || 0);
+            // Read live from the transaction history rather than the stock's
+            // own stored shares/avgCost. Those fields are written by three
+            // different code paths — a manual edit, a transaction added here,
+            // and the expense-linked investment sync — and one of the three
+            // used a different field name (avgPrice) for the same value for
+            // years. A corporate action such as a split also changes what the
+            // transactions imply without anything re-running a save. The
+            // result was a table that showed whichever figure a manual edit or
+            // old split had last left behind, unrelated to what a fresh add or
+            // edit on the stock's own page had just computed — Wipro's avgCost
+            // was stale by more than double.
+            const { shares: sharesCount, avgCost: avgCostPrice } = effectiveStockPosition(stock);
             const currentMktPrice = Number(stock.currentPrice || 0);
+
+            // The same holding on a FIFO basis, which is what a broker statement
+            // shows. Carried per row so the table can surface it on the holdings
+            // where a partial sale has made the two diverge; everything below
+            // still totals on the weighted average, which is the measure the
+            // rest of this app reports performance against.
+            const fifoAvgCost = (stock.transactions || []).length > 0
+                ? fifoStockPosition(stock.transactions).avgCost
+                : avgCostPrice;
 
             const investedValue = sharesCount * avgCostPrice;
             const currentValue = sharesCount * currentMktPrice;
@@ -225,6 +245,9 @@ const StockMarketDetails = () => {
             return {
                 ...stock,
                 ticker: stock.ticker || stock.symbol || stock.name,
+                shares: sharesCount,
+                avgCost: avgCostPrice,
+                fifoAvgCost,
                 investedValue,
                 currentValue,
                 unrealisedPL,
@@ -1548,6 +1571,10 @@ const StockMarketDetails = () => {
                                                 border: '1px solid rgba(255,255,255,0.06)'
                                             }}>
                                                 <div>Shares: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{stock.shares}</span></div>
+                                                {/* Weighted average only. The FIFO figure lives in the table view
+                                                    and on the stock's own page: this bar is a fixed three-up row
+                                                    already at its width limit, and a second number in the middle
+                                                    cell wrapped into the two beside it at card widths. */}
                                                 <div>Avg: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span></div>
                                                 {/* The traded price itself. The card showed what the holding is
                                                     worth and what it cost, but never the number those are derived
@@ -1832,6 +1859,14 @@ const StockMarketDetails = () => {
                                                 </td>
                                                 <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
                                                     <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span>
+                                                    {Math.abs(stock.fifoAvgCost - stock.avgCost) > 0.005 && (
+                                                        <div
+                                                            title="First in, first out: what the shares still held cost, after the older ones were sold off. This is the basis your broker statement shows and the one capital gains is assessed on."
+                                                            style={{ fontFamily: 'monospace', fontSize: '10px', color: '#71717a', marginTop: '2px', cursor: 'help' }}
+                                                        >
+                                                            {formatCurrency(stock.fifoAvgCost)} FIFO
+                                                        </div>
+                                                    )}
                                                 </td>
                                                 <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
                                                     <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.investedValue)}</span>

@@ -8,11 +8,12 @@ import StockTransactionModal from '../components/StockTransactionModal';
 import BackButton from '../components/BackButton';
 import ConfirmModal from '../components/ConfirmModal';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
-import { recomputeStockMetrics } from '../utils/investmentSync';
+import { recomputeStockMetrics, effectiveStockPosition, fifoStockPosition } from '../utils/investmentSync';
 import { costRecovery, NEARLY_FREE_FROM, combinedWithParent } from '../utils/costRecovery';
 import { dividendProfile } from '../utils/dividendAnalytics';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
 import StockFinancialsCard from '../components/StockFinancialsCard';
+import CompanyProfile from '../components/CompanyProfile';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -31,6 +32,23 @@ const StockDetails = () => {
 
     const transactions = useMemo(() => stock?.transactions || [], [stock]);
 
+    // What this stock's shares and average cost actually are: computed live
+    // from its transaction history whenever one exists, rather than trusted
+    // from the stock's own stored fields. Those fields are written by three
+    // different code paths that used two different names for the same value
+    // (avgCost here, avgPrice on the two write handlers below) — see
+    // effectiveStockPosition for the full history of how that drifted.
+    const position = useMemo(() => effectiveStockPosition(stock), [stock]);
+
+    // The same holding under FIFO, which is what a broker statement shows and
+    // what capital gains is assessed on. Only worth surfacing once a partial
+    // sale has made it differ — until then it is the same number as the average
+    // and repeating it would just be noise on the 31 holdings that never sold.
+    const fifo = useMemo(() => fifoStockPosition(transactions), [transactions]);
+    const fifoDiffers = transactions.length > 0
+        && position.shares > 0
+        && Math.abs(fifo.avgCost - position.avgCost) > 0.005;
+
     // Synthetic Initial Transaction for Legacy Data
     const effectiveTransactions = useMemo(() => {
         const txList = [...transactions];
@@ -40,12 +58,12 @@ const StockDetails = () => {
                 date: '2020-01-01', // Fallback date
                 type: 'buy',
                 quantity: Number(stock.shares),
-                price: Number(stock.avgPrice ?? stock.avgCost ?? 0),
+                price: position.avgCost,
                 remarks: 'Initial Balance (Legacy Data)'
             });
         }
         return txList;
-    }, [transactions, stock]);
+    }, [transactions, stock, position]);
 
     // Sorting transactions by date descending
     const sortedTransactions = useMemo(() => {
@@ -111,8 +129,15 @@ const StockDetails = () => {
                     ...s,
                     transactions: updatedTransactions,
                     shares,
-                    // Persist as avgPrice to match every existing record.
-                    avgPrice: avgCost,
+                    // Written as avgCost — the field every other page reads.
+                    // This used to write avgPrice instead, on the belief that
+                    // "every existing record" used that name; only about half
+                    // did, and the stock list table has never read avgPrice at
+                    // all, so this page's own recompute was invisible there
+                    // until the display was changed to stop trusting either
+                    // stored field (see effectiveStockPosition). Kept for now
+                    // rather than deleted, since old rows still carry it.
+                    avgCost,
                     dividends: { ...s.dividends, ...dividends }
                 };
             }
@@ -141,7 +166,7 @@ const StockDetails = () => {
                 ...s,
                 transactions: updatedTransactions,
                 shares,
-                avgPrice: avgCost,
+                avgCost,
                 dividends: { ...s.dividends, ...dividends }
             };
             return s;
@@ -206,12 +231,11 @@ const StockDetails = () => {
             return sum;
         }, 0);
 
-        // Stored records use avgPrice; avgCost was never written by any record
-        // and read as undefined, which is why Avg Price and Total Invested
-        // both displayed zero on every stock.
-        const avgCost = Number(stock.avgPrice ?? stock.avgCost ?? 0);
-        const totalInvested = Number(stock.shares || 0) * avgCost;
-        const currentValue = stock.shares * stock.currentPrice;
+        // position.avgCost/shares, not the stock's own stored fields — see the
+        // `position` memo above and effectiveStockPosition for why.
+        const avgCost = position.avgCost;
+        const totalInvested = position.shares * avgCost;
+        const currentValue = position.shares * stock.currentPrice;
         const unrealizedPL = currentValue - totalInvested;
         const wholePL = (currentValue + sellVal) - buyVal;
         const isProfit = wholePL >= 0;
@@ -227,7 +251,7 @@ const StockDetails = () => {
             isProfit,
             dividendEarned
         };
-    }, [transactions, stock]);
+    }, [transactions, stock, position]);
 
     // Cost recovery for this one holding. Kept beside `metrics` rather than
     // inside it because it answers a different question: `metrics` reports
@@ -585,11 +609,20 @@ const StockDetails = () => {
                 <div style={styles.statGrid}>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Quantity Held</p>
-                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{stock.shares}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{position.shares}</p>
                     </div>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Avg Price</p>
-                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(stock.avgPrice ?? stock.avgCost ?? 0)}</p>
+                        <p style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(position.avgCost)}</p>
+                        {fifoDiffers && (
+                            <p
+                                title="First in, first out: what the shares still held actually cost, after the older ones were sold off. This is the basis your broker statement shows and the one capital gains is assessed on. The figure above averages every share ever bought, which is the better measure of how the position has performed."
+                                style={{ fontSize: '0.6rem', color: '#a1a1aa', fontFamily: 'monospace', margin: '0.35rem 0 0', lineHeight: 1.3, cursor: 'help' }}
+                            >
+                                {formatCurrency(fifo.avgCost)}
+                                <span style={{ fontFamily: 'system-ui, sans-serif', color: '#71717a', fontWeight: 700, letterSpacing: '0.03em' }}> FIFO</span>
+                            </p>
+                        )}
                     </div>
                     <div style={styles.glassCard()}>
                         <p style={{ fontSize: '0.625rem', textTransform: 'uppercase', color: '#71717a', fontWeight: '800', marginBottom: '0.25rem', margin: 0 }}>Current Price</p>
@@ -652,9 +685,13 @@ const StockDetails = () => {
                 </div>
             </div>
 
-            {/* Business Health & Quarterly Results — purely read-only, never touches db.json */}
+            {/* What the company does, then how it is doing — read-only, never touches db.json */}
             {stock.ticker && !stock.isArchived && (
-                <div style={{ marginTop: '2rem' }}>
+                <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    <CompanyProfile
+                        symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
+                        name={stock.name}
+                    />
                     <StockFinancialsCard
                         symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
                         name={stock.name}

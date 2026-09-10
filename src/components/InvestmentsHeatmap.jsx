@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Treemap, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFinance } from '../context/FinanceContext';
+import { effectiveStockPosition } from '../utils/investmentSync';
 import { TrendingUp, BarChart as BarChartIcon } from 'lucide-react';
 
 const StockTreemapContent = (props) => {
@@ -104,8 +105,11 @@ const InvestmentsHeatmap = () => {
             if (market.stocks) {
                 market.stocks.forEach(stock => {
                     if (stock.shares > 0) {
-                        const investedValue = stock.shares * stock.avgCost;
-                        const currentValue = stock.shares * stock.currentPrice;
+                        // Live from the transaction history, not the stock's
+                        // own stored avgCost — see effectiveStockPosition.
+                        const { shares, avgCost } = effectiveStockPosition(stock);
+                        const investedValue = shares * avgCost;
+                        const currentValue = shares * stock.currentPrice;
                         const unrealisedPL = currentValue - investedValue;
                         const unrealisedPercent = investedValue > 0 ? (unrealisedPL / investedValue) * 100 : 0;
                         

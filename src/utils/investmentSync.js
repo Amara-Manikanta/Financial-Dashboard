@@ -93,6 +93,117 @@ export const recomputeStockMetrics = (txList = []) => {
 };
 
 /**
+ * The shares and average cost to actually use for a stock: computed fresh
+ * from its transaction history whenever any exists, falling back to the
+ * stock's own stored fields only for a holding with none.
+ *
+ * Three different code paths write a stock's stored shares/avgCost — a manual
+ * edit on the stock's own form, adding or editing a transaction on its detail
+ * page, and the expense-linked investment sync — and for years one of the
+ * three used a different field name (`avgPrice`) for the same value. A
+ * corporate action such as a split changes what the transaction history
+ * implies without anything re-running a save, too. The result is a stored
+ * figure that is only ever as fresh as whichever path happened to run last,
+ * and stays wrong indefinitely once nothing touches that stock again — one
+ * holding here was off by more than double after an old split, and another
+ * silently disagreed with its own transaction history by ₹1 a share the
+ * moment a table stopped reading the field its own edit page had just written.
+ *
+ * Computing live is the only version that cannot drift, and it is cheap:
+ * replaying a few transactions per stock, not a network call.
+ */
+export const effectiveStockPosition = (stock) => {
+    const transactions = stock?.transactions || [];
+    if (transactions.length === 0) {
+        return {
+            shares: Number(stock?.shares) || 0,
+            avgCost: Number(stock?.avgCost ?? stock?.avgPrice) || 0,
+        };
+    }
+    const { shares, avgCost } = recomputeStockMetrics(transactions);
+    return { shares, avgCost };
+};
+
+/**
+ * The same position under FIFO, where a sale retires the oldest shares first
+ * and the average is whatever the surviving lots cost.
+ *
+ * This is not a correction to `recomputeStockMetrics` and does not replace it.
+ * Both answers are right; they answer different questions. Weighted average
+ * asks what the position cost on average and is what the rest of this app
+ * tracks performance against. FIFO asks which specific shares are still held,
+ * which is the basis Indian capital gains is actually assessed on — and it is
+ * what a broker statement shows, so it is the only figure that can be
+ * reconciled against one.
+ *
+ * They agree exactly until a partial sale is followed by more buying, and then
+ * they diverge for good: here that is a ₹20 gap on Infosys and a ₹900 gap on
+ * Tata Coffee, from the same transactions. A holding that has never sold has
+ * one answer, and this returns the same number as the average above.
+ *
+ * Kept beside the weighted-average replay on purpose. The two must stay in
+ * step on everything that is not the disposal rule — the same chronological
+ * order, the same clamp on overselling, the same treatment of bonus, split and
+ * demerger — so a change to how a corporate action is replayed has to be made
+ * in both or the two figures start disagreeing for a reason that is a bug
+ * rather than a method.
+ */
+export const fifoStockPosition = (txList = []) => {
+    // Open lots, oldest first: each is what one purchase still has left of it.
+    let lots = [];
+
+    const chronologicalTx = [...txList].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    chronologicalTx.forEach((tx) => {
+        const qty = Number(tx.quantity) || 0;
+        const price = Number(tx.price) || 0;
+
+        if (tx.type === 'buy' || tx.type === 'ipo') {
+            lots.push({ qty, price });
+        } else if (tx.type === 'sell' || tx.type === 'buyback') {
+            // Retire from the front. A history that sells more than it holds
+            // simply empties the queue, matching the clamp in the average above
+            // rather than carrying a negative lot forward.
+            let remaining = qty;
+            while (remaining > 0 && lots.length > 0) {
+                const taken = Math.min(lots[0].qty, remaining);
+                lots[0].qty -= taken;
+                remaining -= taken;
+                if (lots[0].qty <= 0) lots.shift();
+            }
+        } else if (tx.type === 'bonus') {
+            // Free shares, so a lot of their own at zero cost. They queue after
+            // the holding that earned them, which is where they were received.
+            lots.push({ qty, price: 0 });
+        } else if (tx.type === 'split') {
+            if (tx.splitFrom && tx.splitTo) {
+                const ratio = tx.splitTo / tx.splitFrom;
+                // Each lot keeps what it cost — more shares at a proportionally
+                // lower price. Rebasing the lots rather than the total is what
+                // keeps a later partial sale retiring the right cost.
+                lots = lots.map((lot) => ({ qty: lot.qty * ratio, price: lot.price / ratio }));
+            } else {
+                lots.push({ qty, price: 0 });
+            }
+        } else if (tx.type === 'demerger') {
+            // Re-bases the whole holding to one price, so the lot history before
+            // it no longer describes anything. Collapsed to a single lot, which
+            // is the same thing the average replay does to its total cost.
+            const shares = lots.reduce((sum, lot) => sum + lot.qty, 0) + qty;
+            lots = shares > 0 ? [{ qty: shares, price }] : [];
+        }
+    });
+
+    const shares = lots.reduce((sum, lot) => sum + lot.qty, 0);
+    const totalCost = lots.reduce((sum, lot) => sum + (lot.qty * lot.price), 0);
+
+    return {
+        shares,
+        avgCost: shares > 0 ? Math.round((totalCost / shares) * 100) / 100 : 0,
+    };
+};
+
+/**
  * Total units held in a mutual fund.
  * Older rows predate the `type` field and carry the intent in `remarks`, which
  * is why the fallback sniffs for "sip" rather than assuming a buy.

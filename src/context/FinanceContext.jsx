@@ -12,6 +12,7 @@ import {
     findAdoptable,
     adoptTransaction,
     recomputeStockMetrics,
+    effectiveStockPosition,
     recomputeFundAmount
 } from '../utils/investmentSync';
 import { readHolding as readSgbHolding } from '../utils/sgb';
@@ -211,6 +212,7 @@ export function FinanceProvider({ children }) {
     const [goals, setGoals] = useState([]);
     const [ipoApplications, setIpoApplications] = useState([]);
     const [watchlist, setWatchlist] = useState([]);
+    const [lockers, setLockers] = useState([]);
     const [loans, setLoans] = useState([]);
     const [insuranceProfile, setInsuranceProfile] = useState({ age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
     const [salaryStats, setSalaryStats] = useState({});
@@ -228,6 +230,7 @@ export function FinanceProvider({ children }) {
     const [groceryItemFlavourMap, setGroceryItemFlavourMap] = useState({});
     const [metalRates, setMetalRates] = useState({ gold: 0, silver: 0 });
     const [manualMetalRates, setManualMetalRates] = useState({ gold: 0, silver: 0 });
+    const [metalRateError, setMetalRateError] = useState(null);
     const [customSalaryFields, setCustomSalaryFields] = useState({ annual: [], monthlyEarnings: [], monthlyDeductions: [] });
     const [hiddenSalaryFields, setHiddenSalaryFields] = useState([]);
     const [employments, setEmployments] = useState([]);
@@ -277,23 +280,26 @@ export function FinanceProvider({ children }) {
     const fetchMetalRates = async () => {
         try {
             const res = await fetch('/api/goldprice/dbXRates/INR');
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            if (!res.ok) throw new Error(`the rate service returned ${res.status}`);
             const data = await res.json();
-            if (data.items && data.items.length > 0) {
-                const item = data.items[0];
-                const goldPerGram = item.xauPrice / 31.1034768;
-                const silverPerGram = item.xagPrice / 31.1034768;
-                setMetalRates({ gold: goldPerGram, silver: silverPerGram });
-            }
+            if (!data.items || data.items.length === 0) throw new Error('the rate service returned no rates');
+            const item = data.items[0];
+            const TROY_OUNCE_GRAMS = 31.1034768;
+            setMetalRates({ gold: item.xauPrice / TROY_OUNCE_GRAMS, silver: item.xagPrice / TROY_OUNCE_GRAMS });
+            setMetalRateError(null);
         } catch (error) {
-            console.warn("Metal rates API currently unavailable, using cached rates.");
+            // The old message claimed it was "using cached rates". It was not —
+            // nothing is cached, and the rates stayed at zero, which is how the
+            // page came to display a gold rate of ₹0 while valuing 594g of gold
+            // at the manual rate of ₹14,575/g. A failed fetch has to be visible.
+            setMetalRateError(error.message || 'the rate service could not be reached');
         }
     };
 
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes, ipoRes, watchRes] = await Promise.all([
+                const [expRes, savRes, metRes, assRes, appRes, snapRes, lentRes, ccRes, taxRes, salRes, goalsRes, loansRes, ipoRes, watchRes, lockerRes] = await Promise.all([
                     fetch(`${API_URL}/expenses`),
                     fetch(`${API_URL}/savings`),
                     fetch(`${API_URL}/metals`),
@@ -312,7 +318,8 @@ export function FinanceProvider({ children }) {
                     // Tolerates a 404 so an older database without the collection
                     // still loads; it is created on first save.
                     fetch(`${API_URL}/ipoApplications`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
-                    fetch(`${API_URL}/watchlist`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
+                    fetch(`${API_URL}/watchlist`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] })),
+                    fetch(`${API_URL}/lockers`).then(res => res.ok ? res : { json: () => [] }).catch(() => ({ json: () => [] }))
                 ]);
 
                 // Remember which version of expenses this tab is working from, so
@@ -333,6 +340,7 @@ export function FinanceProvider({ children }) {
                 const goalsData = await goalsRes.json();
                 const ipoData = await ipoRes.json();
                 const watchData = await watchRes.json();
+                const lockerData = await lockerRes.json();
                 const loansData = await loansRes.json();
 
                 const modifiedExpenses = JSON.parse(JSON.stringify(expData)); // deep-clone to avoid mutating fetched object
@@ -451,6 +459,7 @@ export function FinanceProvider({ children }) {
                 setGoals((goalsData && goalsData.length > 0) ? goalsData : DEFAULT_GOALS);
                 setIpoApplications(Array.isArray(ipoData) ? ipoData : []);
                 setWatchlist(Array.isArray(watchData) ? watchData : []);
+                setLockers(Array.isArray(lockerData) ? lockerData : []);
                 setLoans((loansData && loansData.length > 0) ? loansData : DEFAULT_LOANS);
                 setInsuranceProfile(appData?.insuranceProfile || { age: 30, dependents: 2, annualIncome: 1800000, liabilities: 4300000 });
 
@@ -1695,7 +1704,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : type === 'lockers' ? 'lockers' : '';
 
         if (!endpoint) return;
 
@@ -1710,6 +1719,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
             if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
             if (type === 'watchlist') setWatchlist(prev => [...prev, savedItem]);
+            if (type === 'lockers') setLockers(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
             return;
         }
@@ -1730,6 +1740,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => [...prev, savedItem]);
             if (type === 'ipoApplications') setIpoApplications(prev => [...prev, savedItem]);
             if (type === 'watchlist') setWatchlist(prev => [...prev, savedItem]);
+            if (type === 'lockers') setLockers(prev => [...prev, savedItem]);
             if (type === 'loans') setLoans(prev => [...prev, savedItem]);
             setSaveError(null);
             return { success: true, item: savedItem };
@@ -2047,7 +2058,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : type === 'lockers' ? 'lockers' : '';
         if (!endpoint) return;
         if (isGuest) return;
         try {
@@ -2061,6 +2072,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'ipoApplications') setIpoApplications(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'watchlist') setWatchlist(prev => prev.filter(i => String(i.id) !== String(id)));
+            if (type === 'lockers') setLockers(prev => prev.filter(i => String(i.id) !== String(id)));
             if (type === 'loans') setLoans(prev => prev.filter(i => String(i.id) !== String(id)));
         } catch (error) {
             // A delete that failed leaves the row on the server while React
@@ -2074,6 +2086,31 @@ export function FinanceProvider({ children }) {
     };
 
 
+
+    /**
+     * The rate every valuation on the page is actually using, and where it came
+     * from.
+     *
+     * The cards used to read `metalRates` — the live figure — while the
+     * valuations read this precedence. When the rate service started returning
+     * 403 the two diverged completely: the card showed ₹0 per gram while 594g
+     * of gold was being valued at the manual ₹14,575. One value, one source.
+     */
+    const effectiveMetalRates = React.useMemo(() => {
+        const manualGold = Number(manualMetalRates?.gold);
+        const manualSilver = Number(manualMetalRates?.silver);
+        const gold = manualGold > 0
+            ? { rate: manualGold, source: 'manual' }
+            : metalRates.gold > 0
+                ? { rate: metalRates.gold, source: 'live' }
+                : { rate: 7600, source: 'fallback' };
+        const silver = manualSilver > 0
+            ? { rate: manualSilver, source: 'manual' }
+            : metalRates.silver > 0
+                ? { rate: metalRates.silver, source: 'live' }
+                : { rate: 95, source: 'fallback' };
+        return { gold, silver };
+    }, [metalRates, manualMetalRates]);
 
     const processedMetals = React.useMemo(() => {
         // Prefer manual rates if set (> 0), else fallback to API
@@ -2193,9 +2230,16 @@ export function FinanceProvider({ children }) {
 
         switch (item.type) {
             case 'stock_market':
+                // Shares and avgCost read from the transaction history, not
+                // from the stock's own stored fields — see effectiveStockPosition.
+                // Trusting the stored avgCost here undercounted this exact
+                // total by however stale that field had gone on any one stock.
                 return (item.stocks || [])
                     .filter(s => !s.isArchived && Number(s.shares || 0) > 0)
-                    .reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.avgCost || 0)), 0);
+                    .reduce((sum, s) => {
+                        const { shares, avgCost } = effectiveStockPosition(s);
+                        return sum + (shares * avgCost);
+                    }, 0);
 
             case 'mutual_fund': {
                 let runningUnits = 0;
@@ -2506,7 +2550,7 @@ export function FinanceProvider({ children }) {
             return;
         }
 
-        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : '';
+        let endpoint = type === 'savings' ? 'savings' : type === 'asset' ? 'assets' : type === 'lents' ? 'lents' : type === 'creditCards' ? 'creditCards' : type === 'salaryDetail' ? 'salaryDetails' : type === 'taxes' ? 'taxes' : type === 'goals' ? 'goals' : type === 'loans' ? 'loans' : type === 'ipoApplications' ? 'ipoApplications' : type === 'watchlist' ? 'watchlist' : type === 'lockers' ? 'lockers' : '';
         if (!endpoint || !item.id) return;
         if (isGuest) return;
         try {
@@ -2543,6 +2587,7 @@ export function FinanceProvider({ children }) {
             if (type === 'goals') setGoals(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'ipoApplications') setIpoApplications(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'watchlist') setWatchlist(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
+            if (type === 'lockers') setLockers(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             if (type === 'loans') setLoans(prev => prev.map(i => String(i.id) === String(item.id) ? updatedItem : i));
             return { success: true };
         } catch (error) {
@@ -2928,7 +2973,7 @@ export function FinanceProvider({ children }) {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         recurringOverrides, saveRecurringOverrides,
         categoryKinds, saveCategoryKinds,
-        goals, loans, ipoApplications, watchlist, refreshWatchlistPrices, insuranceProfile,
+        goals, loans, ipoApplications, watchlist, lockers, refreshWatchlistPrices, insuranceProfile,
         pendingWalletCredits, applyWalletAutoCredits,
         loadError,
         addItem, addMetal, deleteItem, deleteMetal, updateItem, updateMetal, saveExpenses, updateCategoryRules,
@@ -2946,6 +2991,8 @@ export function FinanceProvider({ children }) {
         employments,
         updateEmploymentsConfig,
         metalRates,
+        effectiveMetalRates,
+        metalRateError,
         fetchMetalRates,
         manualMetalRates,
         updateManualRates,
