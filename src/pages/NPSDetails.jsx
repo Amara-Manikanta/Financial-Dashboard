@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, PieChart, Plus, Edit2, Trash2, Settings, History } from 'lucide-react';
+import { NpsIcon } from '../utils/customIcons';
+
 import { formatDate } from '../utils/dateUtils';
 import NPSModal from '../components/NPSModal';
 import NPSTransactionModal from '../components/NPSTransactionModal';
@@ -247,9 +249,7 @@ const NPSDetails = () => {
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem', marginBottom: '2.5rem' }}>
                 <div>
                     <h2 style={{ fontSize: '1.75rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                        <div style={{ padding: '0.75rem', backgroundColor: 'rgba(59, 130, 246, 0.1)', borderRadius: '1rem', border: '1px solid rgba(59, 130, 246, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <PieChart style={{ color: '#60a5fa' }} size={24} />
-                        </div>
+                        <NpsIcon size={60} />
                         {nps.name}
                     </h2>
                     <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.5rem 0 0 0', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PRAN: {nps.pran}</p>

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers, Archive, ArchiveRestore, Gift, Coins, Ticket, Eye, Gauge, Scale } from 'lucide-react';
+import { StockMarketIcon } from '../utils/customIcons';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -39,12 +40,12 @@ const Investments = () => {
         }
     };
 
-    const getIcon = (type) => {
+    const getIcon = (type, size = 64) => {
         switch (type) {
-            case 'stock_market': return <Layout size={64} />;
-            case 'mutual_fund': return <TrendingUp size={64} />;
-            case 'sgb': return <ScrollText size={64} />;
-            default: return <Target size={64} />;
+            case 'stock_market': return <StockMarketIcon size={size} />;
+            case 'mutual_fund': return <TrendingUp size={size} className="text-purple-400" />;
+            case 'sgb': return <ScrollText size={size} className="text-amber-400" />;
+            default: return <Target size={size} className="text-blue-400" />;
         }
     };
 
@@ -128,7 +129,10 @@ const Investments = () => {
             {/* Header Title Panel */}
             <div style={{ marginBottom: '2.5rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
                 <div>
-                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Investments</h2>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <StockMarketIcon size={60} />
+                        Investments
+                    </h2>
                     <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: '0.25rem 0 0 0' }}>Track your mutual funds and stocks</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -561,13 +565,13 @@ const Investments = () => {
                                     boxShadow: shadowStyle
                                 }}
                             >
-                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.05, color: isStockMarket ? '#3b82f6' : isSGB ? '#fbbf24' : '#a78bfa' }}>
-                                    {getIcon(item.type)}
+                                <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 5, filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5))' }}>
+                                    {getIcon(item.type, 46)}
                                 </div>
 
                                 <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                                     <div>
-                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0' }}>{item.title}</h3>
+                                        <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0', maxWidth: 'calc(100% - 50px)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</h3>
                                         <span style={{
                                             fontSize: '9px',
                                             padding: '0.125rem 0.5rem',
@@ -703,8 +707,8 @@ const Investments = () => {
                                             height: '160px'
                                         }}
                                     >
-                                        <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.25rem', opacity: 0.05, color: '#71717a' }}>
-                                            {getIcon(item.type)}
+                                        <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 5, opacity: 0.65 }}>
+                                            {getIcon(item.type, 38)}
                                         </div>
                                         <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
                                             <div>

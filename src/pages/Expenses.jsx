@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { Calendar, ChevronDown, ChevronUp, BarChart3, Plus, X, Upload, Loader2 } from 'lucide-react';
 import { processBankStatement, mergeTransactionsIntoExpenses } from '../utils/importUtils';
 import { countsAsSpending } from '../utils/payrollDeductions';
+import { ExpensesIcon } from '../utils/customIcons';
 
 const Expenses = () => {
     const { expenses, formatCurrency, salaryStats, addNewYear, categoryRules, updateCategoryRules, saveExpenses, mergedCategoryMap } = useFinance();
@@ -245,7 +246,10 @@ const Expenses = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginBottom: '2.5rem' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end', gap: '1rem' }}>
                     <div>
-                        <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0' }}>Expenses History</h2>
+                        <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: '0 0 0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <ExpensesIcon size={60} />
+                            Expenses History
+                        </h2>
                         <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Track and analyze your spending over time</p>
                     </div>
 

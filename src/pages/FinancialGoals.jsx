@@ -4,6 +4,7 @@ import { Target, Plus, TrendingUp, Calendar, AlertCircle, Edit2, Trash2, CheckCi
 import GoalModal from '../components/GoalModal';
 import { lentOutstanding, receivableLents, totalReceivable } from '../utils/lents';
 import { GoalIconDisplay } from '../utils/goalIcons';
+import { FinancialGoalsIcon } from '../utils/customIcons';
 
 const FinancialGoals = () => {
     const { goals, savings, lents, addItem, updateItem, deleteItem, formatCurrency, calculateItemCurrentValue } = useFinance();
@@ -171,7 +172,7 @@ const FinancialGoals = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <Target style={{ color: '#38bdf8' }} size={32} />
+                        <FinancialGoalsIcon size={60} />
                         Financial Goals
                     </h1>
                     <p style={{ color: '#a1a1aa', marginTop: '0.5rem' }}>Set milestones and track progress linked to live savings & investments</p>

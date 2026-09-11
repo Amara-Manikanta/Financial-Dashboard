@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Briefcase, ChevronDown, Copy, Plus, X as XIcon, EyeOff, Award, Wallet, ShieldCheck, Info, Calendar, Building2, CheckCircle2, AlertTriangle, Trash2, Edit, Check } from 'lucide-react';
+import { SalaryIcon, GratuityIcon } from '../utils/customIcons';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -562,7 +563,7 @@ const Salary = () => {
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
                     <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <Briefcase style={{ color: '#3b82f6' }} size={32} /> Salary Dashboard
+                        <SalaryIcon size={60} /> Salary Dashboard
                     </h2>
                     <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track your CTC, Payslips, Benefits, and Employment Tenures</p>
                 </div>
@@ -596,13 +597,13 @@ const Salary = () => {
                     position: 'relative',
                     overflow: 'hidden'
                 }}>
-                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.1, color: '#34d399' }}>
-                        <Award size={100} />
+                    <div style={{ position: 'absolute', top: '-10px', right: '-10px', opacity: 0.12 }}>
+                        <GratuityIcon size={100} />
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                            <div style={{ padding: '0.375rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399' }}>
-                                <Award size={18} />
+                            <div style={{ padding: '0.25rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                <GratuityIcon size={20} />
                             </div>
                             <span style={{ fontSize: '10px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
                                 Total Gratuity (Till Now)

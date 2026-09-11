@@ -44,6 +44,10 @@ const RecurringDepositModal = ({ isOpen, onClose, onSave, initialData }) => {
     const [interestRate, setInterestRate] = useState('');
     const [maturityAmount, setMaturityAmount] = useState('');
     const [status, setStatus] = useState('Active');
+    // The day of the month the bank actually takes the money. Recorded rather
+    // than inferred: without it the reminder has to guess the next installment
+    // from the last one recorded, which is only as right as the last entry.
+    const [deductionDay, setDeductionDay] = useState('');
 
     useEffect(() => {
         if (isOpen) {
@@ -55,6 +59,7 @@ const RecurringDepositModal = ({ isOpen, onClose, onSave, initialData }) => {
                 setInterestRate(initialData.interestRate || '');
                 setMaturityAmount(initialData.maturityAmount || '');
                 setStatus(initialData.status || 'Active');
+                setDeductionDay(initialData.deductionDay ?? '');
             } else {
                 setName('');
                 setInstallmentAmount('');
@@ -63,6 +68,7 @@ const RecurringDepositModal = ({ isOpen, onClose, onSave, initialData }) => {
                 setInterestRate('');
                 setMaturityAmount('');
                 setStatus('Active');
+                setDeductionDay('');
             }
         }
     }, [isOpen, initialData]);
@@ -82,7 +88,11 @@ const RecurringDepositModal = ({ isOpen, onClose, onSave, initialData }) => {
             endDate,
             interestRate: parseFloat(interestRate),
             maturityAmount: parseFloat(maturityAmount),
-            status
+            status,
+            // Blank stays null, not 0: a day nobody has entered is unknown, and
+            // 0 is not a date. The reminder falls back to inferring the next
+            // installment when this is null.
+            deductionDay: deductionDay === '' ? null : Number(deductionDay)
         });
         onClose();
     };
@@ -148,6 +158,27 @@ const RecurringDepositModal = ({ isOpen, onClose, onSave, initialData }) => {
                                 <Calendar style={iconStyle} />
                             </div>
                         </div>
+                    </div>
+
+                    <div className="relative">
+                        <label className="block text-xs font-bold text-gray-400 uppercase mb-1">Debited On (Day of Month)</label>
+                        <div className="relative">
+                            <input
+                                type="number"
+                                min="1"
+                                max="31"
+                                value={deductionDay}
+                                onChange={e => setDeductionDay(e.target.value)}
+                                style={inputStyle}
+                                placeholder="e.g. 1"
+                            />
+                            <Calendar style={iconStyle} />
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-1.5 leading-relaxed">
+                            The day the bank actually takes the money. You'll be reminded the day
+                            before and again on the day. Leave blank and the reminder falls back to
+                            guessing from the last installment recorded.
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">

@@ -4,6 +4,7 @@ import {
     ArrowDownRight, PiggyBank, CreditCard, Users, Landmark, HelpCircle, Check,
 } from 'lucide-react';
 import BackButton from '../components/BackButton';
+import { MoneyFlowIcon } from '../utils/customIcons';
 import {
     KINDS, KIND_LABELS, KIND_BLURBS, flowBreakdown, allTransactions, isDebit,
     kindFor, defaultKindForCategory, isVagueCategory, averageMonthlySpend,
@@ -123,7 +124,10 @@ const MoneyFlow = () => {
             <BackButton label="Back to Analytics" />
 
             <div className="mb-8">
-                <h1 className="text-3xl font-black text-white tracking-tight">Money Flow</h1>
+                <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
+                    <MoneyFlowIcon size={60} />
+                    Money Flow
+                </h1>
                 <p className="text-sm text-gray-400 mt-2 max-w-3xl leading-relaxed">
                     A debit is not the same as an expense. Moving cash into a fixed deposit, paying
                     off a card whose purchases were already logged, or lending to a cousin all leave

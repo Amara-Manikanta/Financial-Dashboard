@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { calculateBudgetStatus } from '../utils/budgetUtils';
 import { Target, AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Save, Wallet, Edit2, Trash2, Check, X, Plus } from 'lucide-react';
+import { FinancialGoalsIcon } from '../utils/customIcons';
 
 const CategoryBudgets = () => {
     const { 
@@ -297,7 +298,7 @@ const CategoryBudgets = () => {
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
                     <h2 style={{ fontSize: '2.25rem', fontWeight: '950', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <Target style={{ color: '#10b981' }} size={32} /> Category Budget Limits
+                        <FinancialGoalsIcon size={60} /> Category Budget Limits
                     </h2>
                     <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Manually configure category monthly spending limits and manage your categories list.</p>
                 </div>

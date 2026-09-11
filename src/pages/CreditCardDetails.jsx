@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import CreditCardModal from '../components/CreditCardModal';
 import { useNavigate } from 'react-router-dom';
 import ConfirmModal from '../components/ConfirmModal';
+import { CardsIcon } from '../utils/customIcons';
 
 const CreditCardDetails = () => {
     const { creditCards, expenses, addItem, updateItem, deleteItem, formatCurrency } = useFinance();
@@ -123,7 +124,8 @@ const CreditCardDetails = () => {
             {/* Header */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
-                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <CardsIcon size={60} />
                         Credit Cards
                     </h2>
                     <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Manage your credit cards, billing cycles, and reward points.</p>

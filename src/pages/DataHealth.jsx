@@ -5,6 +5,8 @@ import { runHealthChecks, flattenTransactions, ISSUE_FILTERS } from '../utils/da
 import {
     Stethoscope, AlertTriangle, AlertCircle, Info, CheckCircle2, ChevronDown, ArrowRight,
 } from 'lucide-react';
+import { DataHealthIcon } from '../utils/customIcons';
+
 
 const SEVERITY = {
     high: { label: 'Needs attention', icon: AlertTriangle, color: '#ef4444', ring: 'border-red-500/30 bg-red-500/5' },
@@ -125,7 +127,7 @@ const DataHealth = () => {
         <div className="p-6 md:p-8 space-y-8">
             <div>
                 <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-3">
-                    <Stethoscope className="text-emerald-400" size={26} />
+                    <DataHealthIcon size={60} />
                     Data Health
                 </h1>
                 <p className="text-xs text-gray-500 mt-1.5 font-bold uppercase tracking-wider">

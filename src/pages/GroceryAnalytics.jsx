@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ShoppingBag, TrendingDown, TrendingUp, Search, Calendar, Tags, Package } from 'lucide-react';
+import { GroceryIcon } from '../utils/customIcons';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
@@ -185,7 +186,7 @@ const GroceryAnalytics = () => {
             {/* Header */}
             <div>
                 <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <ShoppingBag style={{ color: '#10b981' }} size={32} /> Grocery Analytics
+                    <GroceryIcon size={60} /> Grocery Analytics
                 </h2>
                 <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track prices and purchase history of your groceries</p>
             </div>
