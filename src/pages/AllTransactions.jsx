@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Download, X, Edit2, Trash2, CheckSquare, Square, Tag, ChevronDown, Flame } from 'lucide-react';
@@ -23,6 +24,9 @@ const AllTransactions = () => {
     // flagging them, so it sits alongside the other filters rather than
     // behind a separate page.
     const [wasteFilter, setWasteFilter] = useState('all');
+    // The row awaiting a "why", and what has been typed so far.
+    const [flagging, setFlagging] = useState(null);
+    const [noteDraft, setNoteDraft] = useState('');
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
     const navigate = useNavigate();
@@ -194,18 +198,25 @@ const AllTransactions = () => {
         await bulkUpdateExpenses([{ id: tx.id, patch: wastePatch(!isWasteful(tx), wasteNoteOf(tx)) }]);
     };
 
-    /** Ask for the optional "why", then flag. Cancelling leaves the row alone. */
+    /**
+     * Ask for the optional "why", then flag. Unflagging needs no dialog.
+     *
+     * An in-app modal rather than window.prompt: Electron does not implement
+     * prompt() and throws on it, so in the packaged Mac app the button appeared
+     * to do nothing at all while working fine in a browser.
+     */
     const flagWithNote = async (tx) => {
         if (!tx?.id) return;
         if (isWasteful(tx)) { await toggleWasteful(tx); return; }
-        const note = window.prompt(
-            `Why was this a waste?  (optional)\n\n${tx.title || 'This transaction'} — ${formatCurrency(tx.amount)}`,
-            wasteNoteOf(tx)
-        );
-        // null means the dialog was dismissed; an empty string is a deliberate
-        // "no reason given" and still flags the row.
-        if (note === null) return;
-        await bulkUpdateExpenses([{ id: tx.id, patch: wastePatch(true, note) }]);
+        setNoteDraft('');
+        setFlagging(tx);
+    };
+
+    const confirmFlag = async () => {
+        if (!flagging?.id) return;
+        await bulkUpdateExpenses([{ id: flagging.id, patch: wastePatch(true, noteDraft) }]);
+        setFlagging(null);
+        setNoteDraft('');
     };
 
     /**
@@ -933,6 +944,66 @@ const AllTransactions = () => {
                 cancelText="Cancel"
                 type="danger"
             />
+
+            {/* Why this was a waste. The note is optional — "Flag" with an empty
+                box is a deliberate "no reason given" and still flags the row. */}
+            {flagging && createPortal(
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+                    onClick={(e) => { if (e.target === e.currentTarget) setFlagging(null); }}
+                >
+                    <div
+                        className="w-full max-w-sm bg-modal rounded-[32px] border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-6 pb-4 border-b border-white/5">
+                            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
+                                <Flame size={18} className="text-orange-400" />
+                                Flag as a waste
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                                {flagging.title || 'This transaction'} — {formatCurrency(flagging.amount)}
+                            </p>
+                        </div>
+
+                        <form
+                            onSubmit={(e) => { e.preventDefault(); confirmFlag(); }}
+                            className="p-6 space-y-4"
+                        >
+                            <div>
+                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">
+                                    Why? (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={noteDraft}
+                                    onChange={(e) => setNoteDraft(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-medium placeholder:text-gray-700 focus:outline-none focus:border-orange-500/50 transition-all text-sm"
+                                    placeholder="unused subscription, impulse buy, penalty…"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setFlagging(null)}
+                                    className="flex-1 py-3 rounded-2xl border border-white/10 bg-white/5 text-white font-bold hover:bg-white/10 transition-all text-xs uppercase tracking-widest"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-[2] py-3 rounded-2xl bg-orange-500 text-white font-black hover:opacity-90 transition-all text-xs uppercase tracking-[0.15em] shadow-lg"
+                                >
+                                    Flag
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
