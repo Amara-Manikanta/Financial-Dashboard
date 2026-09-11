@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, Landmark, FileText, CheckCircle, AlertCircle, Edit2, Trash2, ArrowUpRight, ArrowDownLeft, Calculator } from 'lucide-react';
+import { Plus, FileText, CheckCircle, AlertCircle, Edit2, Trash2, ArrowUpRight, ArrowDownLeft, Calculator } from 'lucide-react';
+import { TaxIcon } from '../utils/customIcons';
 import DocumentAttachments from '../components/DocumentAttachments';
 import TaxModal from '../components/TaxModal';
 import TaxPlanningCalculator from '../components/TaxPlanningCalculator';
@@ -79,7 +80,7 @@ const Taxes = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
                     <h1 style={{ fontSize: '2rem', fontWeight: 'bold', color: 'white', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <Landmark style={{ color: '#c084fc' }} size={32} />
+                        <TaxIcon size={60} />
                         Taxes & Regime Planning
                     </h1>
                     <p style={{ color: '#a1a1aa', marginTop: '0.5rem' }}>Compare tax regimes, calculate liabilities, and track ITR & Form 16 filings</p>

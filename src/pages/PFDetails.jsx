@@ -2,6 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, Landmark, Plus, Edit2, Trash2 } from 'lucide-react';
+import { PfIcon } from '../utils/customIcons';
+
 import { formatDate } from '../utils/dateUtils';
 import PFTransactionModal from '../components/PFTransactionModal';
 import BackButton from '../components/BackButton';
@@ -497,9 +499,7 @@ const PFDetails = () => {
             <div style={styles.headerPanel}>
                 <div>
                     <div style={styles.titleContainer}>
-                        <div style={styles.titleIcon}>
-                            <Landmark size={24} />
-                        </div>
+                        <PfIcon size={60} />
                         <h2 style={styles.titleText}>{pf.title}</h2>
                     </div>
                     <p style={styles.subtitle}>Opening Balance: {formatCurrency(openingBalance)} | Started: {formatDate(pf.date)}</p>

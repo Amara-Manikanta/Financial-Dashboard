@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X, Search, Merge } from 'lucide-react';
+import { GroceryIcon } from '../utils/customIcons';
+
 
 const GroceryMasterList = () => {
     const { 
@@ -192,7 +194,7 @@ const GroceryMasterList = () => {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
                     <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                        <ShoppingBag style={{ color: '#10b981' }} size={32} /> Master Grocery Builder
+                        <GroceryIcon size={60} /> Master Grocery Builder
                     </h2>
                     <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Manage all your categories and items to streamline your expenses tracking.</p>
                 </div>

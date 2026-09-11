@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Fuel, TrendingDown, TrendingUp, Droplets, Gauge, Car } from 'lucide-react';
+import { FuelIcon } from '../utils/customIcons';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 
 const CustomTooltip = ({ active, payload, label, formatCurrency }) => {
@@ -206,7 +207,7 @@ const FuelAnalytics = () => {
                 <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                     <div>
                         <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <Fuel style={{ color: '#eab308' }} size={32} /> Fuel Analytics
+                            <FuelIcon size={60} /> Fuel Analytics
                         </h2>
                         <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>Track your vehicle's mileage, fuel consumption, and expenses.</p>
                     </div>

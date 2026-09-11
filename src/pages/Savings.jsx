@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance, isProtectionOnlyPolicy } from '../context/FinanceContext';
 import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, Edit2, ArrowUpRight, Info, Award, Archive, ArchiveRestore } from 'lucide-react';
+import { SavingsIcon, NpsIcon, DepositIcon, PfIcon, GratuityIcon, StockMarketIcon } from '../utils/customIcons';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import SavingsItemModal from '../components/SavingsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -59,17 +60,31 @@ const Savings = () => {
         }
     };
 
-    const getIcon = (type) => {
+    const getIcon = (type, size = 64) => {
         switch (type) {
-            case 'pf': return <Landmark size={64} />;
-            case 'savings_account': return <Landmark size={64} />;
-            case 'fixed_deposit': return <Landmark size={64} />;
-            case 'recurring_deposit': return <RefreshCcw size={64} />;
-            case 'Policy': return <Shield size={64} />;
+            case 'pf':
+            case 'ppf':
+                return <PfIcon size={size} />;
+            case 'savings_account':
+                return <SavingsIcon size={size} />;
+            case 'fixed_deposit':
+            case 'recurring_deposit':
+                return <DepositIcon size={size} />;
+            case 'Policy':
+            case 'policy':
+                return <Shield size={size} className="text-amber-400" />;
             case 'stock_market':
-            case 'mutual_fund': return <TrendingUp size={64} />;
-            case 'sgb': return <ScrollText size={64} />;
-            default: return <Target size={64} />;
+                return <StockMarketIcon size={size} />;
+            case 'mutual_fund':
+                return <TrendingUp size={size} className="text-purple-400" />;
+            case 'gratuity':
+                return <GratuityIcon size={size} />;
+            case 'sgb':
+                return <ScrollText size={size} className="text-amber-400" />;
+            case 'nps':
+                return <NpsIcon size={size} />;
+            default:
+                return <Target size={size} className="text-blue-400" />;
         }
     };
 
@@ -205,7 +220,9 @@ const Savings = () => {
         <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
             {/* Header Title Panel */}
             <div style={{ marginBottom: '2.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Savings & Assets</h2>
+                <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <SavingsIcon size={60} /> Savings & Assets
+                </h2>
                 <p style={{ fontSize: '0.75rem', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.2em', margin: 0 }}>Track your savings accounts, fixed deposits, and policies</p>
             </div>
 
@@ -448,8 +465,8 @@ const Savings = () => {
                         }}
                         className="hover:scale-[1.02] transition-transform"
                     >
-                        <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.08, color: '#34d399' }}>
-                            <Award size={64} />
+                        <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 5, filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5))' }}>
+                            <GratuityIcon size={46} />
                         </div>
 
                         <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
@@ -550,14 +567,14 @@ const Savings = () => {
                                     boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.05)'
                                 }}
                             >
-                                <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.5rem', opacity: 0.05, color: '#a1a1aa' }}>
-                                    {getIcon(item.type)}
+                                <div style={{ position: 'absolute', top: '1.25rem', right: '1.25rem', zIndex: 5, filter: 'drop-shadow(0 4px 12px rgba(0, 0, 0, 0.5))' }}>
+                                    {getIcon(item.type, 46)}
                                 </div>
 
                                 <div style={{ position: 'relative', zIndex: 10, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                            <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', maxWidth: 'calc(100% - 50px)' }}>
+                                            <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                 {item.title || item.name}
                                             </h3>
                                             <Edit2 
@@ -740,8 +757,8 @@ const Savings = () => {
                                             height: '160px'
                                         }}
                                     >
-                                        <div style={{ position: 'absolute', top: 0, right: 0, padding: '1.25rem', opacity: 0.05, color: '#71717a' }}>
-                                            {getIcon(item.type)}
+                                        <div style={{ position: 'absolute', top: '1rem', right: '1rem', zIndex: 5, opacity: 0.65 }}>
+                                            {getIcon(item.type, 38)}
                                         </div>
                                         <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: '100%' }}>
                                             <div>

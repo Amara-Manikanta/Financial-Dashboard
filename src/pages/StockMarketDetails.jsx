@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance, API_URL } from '../context/FinanceContext';
 import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, PieChart as PieChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight, Layers } from 'lucide-react';
+import { StockMarketIcon } from '../utils/customIcons';
 import { resolveMarketCap } from '../utils/nifty50Data';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
 import StockTransactionModal from '../components/StockTransactionModal';
@@ -774,9 +775,7 @@ const StockMarketDetails = () => {
                     margin: 0,
                     letterSpacing: '-0.02em'
                 }}>
-                    <span style={styles.titleIcon}>
-                        <TrendingUp size={24} />
-                    </span>
+                    <StockMarketIcon size={60} />
                     {market.title}
                 </h2>
                 <p style={{ fontSize: '0.875rem', color: '#a1a1aa', margin: 0 }}>Portfolio overview, custom tracking & real-time analytics</p>

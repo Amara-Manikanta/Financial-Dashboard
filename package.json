@@ -15,7 +15,11 @@
     "sqlite:verify": "node scripts/verify-sqlite.mjs",
     "sqlite:refresh": "node scripts/migrate-to-sqlite.mjs && node scripts/verify-sqlite.mjs",
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "electron": "electron electron/main.cjs",
+    "app": "npm run build && electron electron/main.cjs",
+    "package": "npm run build && electron-builder --mac --dir",
+    "package:dmg": "npm run build && electron-builder --mac"
   },
   "dependencies": {
     "date-fns": "^4.1.0",
@@ -35,6 +39,8 @@
     "@types/react-dom": "^18.2.17",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.5.4",
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3",
     "eslint": "^8.55.0",
     "eslint-plugin-react": "^7.33.2",
     "eslint-plugin-react-hooks": "^4.6.0",
@@ -42,5 +48,37 @@
     "postcss": "^8.5.25",
     "tailwindcss": "^3.4.19",
     "vite": "^5.0.8"
-  }
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.amaramanikanta.kubera",
+    "productName": "Kubera",
+    "files": [
+      "electron/main.cjs",
+      "electron/icon.icns",
+      "!node_modules",
+      "!node_modules/**/*"
+    ],
+    "directories": {
+      "output": "release",
+      "buildResources": "electron"
+    },
+    "mac": {
+      "icon": "electron/icon.icns",
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "identity": null,
+      "hardenedRuntime": false,
+      "gatekeeperAssess": false
+    }
+  },
+  "description": "Personal finance dashboard",
+  "author": "Amara Manikanta"
 }

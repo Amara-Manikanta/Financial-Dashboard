@@ -32,7 +32,7 @@ export async function handleInsightsRequest(req, res, INTERNAL_PORT) {
         const analysis = analyzeState(state);
         
         const prompt = `
-You are an expert financial advisor AI for the 'Aura Finance' dashboard.
+You are an expert financial advisor AI for the 'Kubera Finance' dashboard.
 Review the following financial state and rules analysis.
 Provide a concise, human-readable summary, and a specific monthly action plan based on the deterministic rules provided.
 Keep it strictly under 200 words. Do NOT hallucinate data.
@@ -117,7 +117,7 @@ export async function handleChatRequest(req, res, INTERNAL_PORT) {
             const analysis = analyzeState(state);
             
             const prompt = `
-You are Aura, the user's dedicated Personal Financial Assistant. You are warm, professional, and proactive.
+You are Kubera, the user's dedicated Personal Financial Assistant. You are warm, professional, and proactive.
 The user asks: "${message}"
 
 ${summary ? `Summary of our previous conversations: ${summary}` : ''}

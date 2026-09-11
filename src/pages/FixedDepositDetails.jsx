@@ -2,6 +2,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, PiggyBank, Plus, Edit2, Trash2, RefreshCw, TrendingUp, Building2, Archive, ArchiveRestore, ChevronDown, ChevronUp, LayoutGrid, Table, Percent, Clock, MapPin, FileText } from 'lucide-react';
+import { DepositIcon } from '../utils/customIcons';
+
 import { formatDate } from '../utils/dateUtils';
 import FixedDepositModal from '../components/FixedDepositModal';
 import CloseDepositModal from '../components/CloseDepositModal';
@@ -402,7 +404,7 @@ const FixedDepositDetails = () => {
             <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
                 <div>
                     <h2 className="text-3xl md:text-4xl font-black tracking-tight flex items-center gap-3">
-                        <PiggyBank className="text-emerald-400" size={32} />
+                        <DepositIcon size={60} />
                         {fund.title}
                     </h2>
                     <p className="text-gray-500 text-sm mt-1">Summary of all your active Fixed Deposits.</p>

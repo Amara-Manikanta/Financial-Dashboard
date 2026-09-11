@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, FileText, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock, Shuffle, Gauge, Image as ImageIcon } from 'lucide-react';
+import { LayoutDashboard, Wallet, PiggyBank, TrendingUp, Coins, Car, BarChart3, Gem, LogOut, User as UserIcon, Users, CreditCard, ArrowUpRight, ArrowDownLeft, List, BrainCircuit, Briefcase, Fuel, ShoppingBag, Receipt, Edit2, Target, ShieldCheck, Calculator, Percent, Compass, Repeat, Stethoscope, CalendarClock, Shuffle, Gauge, Image as ImageIcon } from 'lucide-react';
+import { SalaryIcon, TaxIcon, FinancialGoalsIcon, ExpensesIcon, TransactionsIcon, MoneyFlowIcon, CardsIcon, FuelIcon, GroceryIcon, DataHealthIcon, SavingsIcon, StockMarketIcon, KuberaIcon } from '../utils/customIcons';
+
 import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
+import AlertNotifier from './AlertNotifier';
 
 /**
  * The three holdings the Investments page owns — mutual funds, the stock market
@@ -35,9 +38,9 @@ const NavItem = ({ to, icon: Icon, label }) => {
         to={to}
         className={({ isActive: matched }) => {
             const isActive = override === null ? matched : override;
-            return `relative flex items-center gap-1.5 px-1 py-2 text-[13px] font-medium whitespace-nowrap shrink-0 transition-all duration-200 group ${isActive
+            return `relative flex items-center gap-1.5 px-1.5 2xl:px-2 py-2 text-[14px] 2xl:text-[15px] font-semibold whitespace-nowrap shrink-0 transition-all duration-200 group ${isActive
                 ? 'text-orange-500'
-                : 'text-gray-400 hover:text-white'
+                : 'text-zinc-300 hover:text-white'
             }`;
         }}
     >
@@ -45,7 +48,7 @@ const NavItem = ({ to, icon: Icon, label }) => {
             const isActive = override === null ? matched : override;
             return (
             <>
-                <span className={`p-1.5 rounded-lg transition-colors ${isActive ? 'bg-orange-500/10' : 'group-hover:bg-white/5'}`}>
+                <span className={`p-1 rounded-lg transition-colors ${isActive ? 'bg-orange-500/10' : 'group-hover:bg-white/5'}`}>
                     <Icon size={18} />
                 </span>
                 <span className="hidden xl:inline">{label}</span>
@@ -67,21 +70,21 @@ const NavDropdown = ({ label, icon: Icon, items }) => {
             onMouseEnter={() => setIsOpen(true)}
             onMouseLeave={() => setIsOpen(false)}
         >
-            <div className="relative flex items-center gap-1.5 px-1 py-2 text-[13px] font-medium whitespace-nowrap transition-all duration-200 group text-gray-400 hover:text-white cursor-pointer">
-                <span className="p-1.5 rounded-lg transition-colors group-hover:bg-white/5">
+            <div className="relative flex items-center gap-1.5 px-1.5 2xl:px-2 py-2 text-[14px] 2xl:text-[15px] font-semibold whitespace-nowrap transition-all duration-200 group text-zinc-300 hover:text-white cursor-pointer">
+                <span className="p-1 rounded-lg transition-colors group-hover:bg-white/5">
                     <Icon size={18} />
                 </span>
                 <span className="hidden xl:inline">{label}</span>
             </div>
             {isOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 w-48 bg-[#18181b] border border-white/10 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] flex flex-col py-1 overflow-hidden animate-fade-in">
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-60 bg-[#18181b] border border-white/10 rounded-xl shadow-[0_8px_30px_rgb(0,0,0,0.5)] flex flex-col py-1.5 overflow-hidden animate-fade-in">
                     {items.map(item => (
                         <NavLink
                             key={item.to}
                             to={item.to}
-                            className={({ isActive }) => `px-4 py-2.5 text-xs transition-colors flex items-center gap-2 ${isActive ? 'text-orange-500 bg-white/5 font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+                            className={({ isActive }) => `px-4 py-2.5 text-[13.5px] font-medium transition-colors flex items-center gap-2.5 ${isActive ? 'text-orange-500 bg-white/5 font-bold' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
                         >
-                            <item.icon size={14} />
+                            <item.icon size={16} />
                             {item.label}
                         </NavLink>
                     ))}
@@ -125,29 +128,24 @@ const Layout = () => {
                     {/* Logo */}
                     <div className="shrink-0 flex items-center gap-3">
                         <div
-                            className="flex items-center justify-center"
+                            className="flex items-center justify-center transition-transform hover:scale-105"
                             style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 10,
-                                background: 'linear-gradient(135deg, #8B5CF6, #D946EF, #FF8C00)',
-                                boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
-                                color: 'white'
+                                width: 40,
+                                height: 40,
+                                filter: 'drop-shadow(0 4px 14px rgba(234, 179, 8, 0.35))'
                             }}
                         >
-                            <Gem size={20} strokeWidth={2.5} />
+                            <KuberaIcon size={40} />
                         </div>
                         <h1 style={{
                             fontSize: '1.4rem',
                             fontWeight: 900,
                             letterSpacing: '-0.04em',
-                            background: 'linear-gradient(to right, #fff, #a1a1aa)',
+                            background: 'linear-gradient(to right, #fff, #fbbf24)',
                             WebkitBackgroundClip: 'text',
                             WebkitTextFillColor: 'transparent'
                         }}>
-                            {/* The second word is dropped on narrower windows so the
-                                nav keeps enough room to show every link at once. */}
-                            AURA <span className="hidden 2xl:inline" style={{ fontWeight: 400, opacity: 0.6 }}>FINANCE</span>
+                            KUBERA <span className="hidden 2xl:inline" style={{ fontWeight: 400, opacity: 0.6, background: 'linear-gradient(to right, #e4e4e7, #a1a1aa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>FINANCE</span>
                         </h1>
                     </div>
 
@@ -161,67 +159,69 @@ const Layout = () => {
                     {/* gap-2 rather than gap-3 at xl: grouping Assets added a
                         chevron, which pushed the row 6px past the bar at exactly
                         1280px. The nav must never need to scroll. */}
-                    <nav className="flex-1 min-w-0 flex items-center justify-center gap-1.5 xl:gap-2">
-                        <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                        <NavDropdown
-                            label="Income"
-                            icon={Briefcase}
-                            items={[
-                                { to: '/salary', label: 'Salary', icon: Briefcase },
-                                { to: '/taxes', label: 'Taxes', icon: FileText }
-                            ]}
-                        />
+                    <nav className="flex-1 min-w-0 flex items-center justify-start overflow-visible">
+                        <div className="mx-auto flex items-center justify-center gap-1 xl:gap-1.5 2xl:gap-2">
+                            <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
+                            <NavDropdown
+                                label="Income"
+                                icon={Briefcase}
+                                items={[
+                                    { to: '/salary', label: 'Salary', icon: SalaryIcon },
+                                    { to: '/taxes', label: 'Taxes', icon: TaxIcon }
+                                ]}
+                            />
 
-                        <NavDropdown 
-                            label="Planning" 
-                            icon={Compass} 
-                            items={[
-                                { to: '/goals', label: 'Financial Goals', icon: Target },
-                                { to: '/insurance-analysis', label: 'Insurance Gap Analysis', icon: ShieldCheck },
-                                { to: '/cashflow', label: 'Cashflow Forecast', icon: CalendarClock },
-                                { to: '/net-worth', label: 'Net Worth Over Time', icon: BarChart3 }
-                            ]} 
-                        />
-                        
-                        <NavDropdown 
-                            label="Expenses" 
-                            icon={Wallet} 
-                            items={[
-                                { to: '/expenses', label: 'All Expenses', icon: Receipt },
-                                { to: '/all-transactions', label: 'All Transactions', icon: List },
-                                { to: '/money-flow', label: 'Money Flow', icon: Shuffle },
-                                { to: '/credit-cards', label: 'Cards', icon: CreditCard },
-                                { to: '/credit-cards/intelligence', label: 'Card Intelligence', icon: Gauge },
-                                { to: '/category-budgets', label: 'Budget Limits', icon: Target },
-                                { to: '/recurring', label: 'Recurring & Subscriptions', icon: Repeat },
-                                { to: '/fuel', label: 'Fuel Analytics', icon: Fuel },
-                                { to: '/grocery-analytics', label: 'Grocery Analytics', icon: ShoppingBag },
-                                { to: '/grocery-master-list', label: 'Grocery Builder', icon: Edit2 },
-                                { to: '/data-health', label: 'Data Health', icon: Stethoscope }
-                            ]}
-                        />
-                        
-                        <NavItem to="/savings" icon={PiggyBank} label="Savings" />
-                        <NavItem to="/investments" icon={TrendingUp} label="Investments" />
-                        <NavDropdown
-                            label="Gold & Silver"
-                            icon={Coins}
-                            items={[
-                                { to: '/metals', label: 'All Metals', icon: Coins },
-                                { to: '/metals/gallery', label: 'Ornament Gallery', icon: ImageIcon }
-                            ]}
-                        />
-                        {/* Grouped rather than added alongside: another top-level
-                            item pushes the ones after it off-screen. */}
-                        <NavDropdown
-                            label="Assets"
-                            icon={Car}
-                            items={[
-                                { to: '/assets', label: 'All Assets', icon: Car },
-                                { to: '/warranties', label: 'Warranties & Receipts', icon: ShieldCheck }
-                            ]}
-                        />
-                        <NavItem to="/lents-loans" icon={ArrowUpRight} label="Loans & Lents" />
+                            <NavDropdown 
+                                label="Planning" 
+                                icon={Compass} 
+                                items={[
+                                    { to: '/goals', label: 'Financial Goals', icon: FinancialGoalsIcon },
+                                    { to: '/insurance-analysis', label: 'Insurance Gap Analysis', icon: ShieldCheck },
+                                    { to: '/cashflow', label: 'Cashflow Forecast', icon: CalendarClock },
+                                    { to: '/net-worth', label: 'Net Worth Over Time', icon: BarChart3 }
+                                ]} 
+                            />
+                            
+                            <NavDropdown 
+                                label="Expenses" 
+                                icon={ExpensesIcon} 
+                                items={[
+                                    { to: '/expenses', label: 'All Expenses', icon: ExpensesIcon },
+                                    { to: '/all-transactions', label: 'All Transactions', icon: TransactionsIcon },
+                                    { to: '/money-flow', label: 'Money Flow', icon: MoneyFlowIcon },
+                                    { to: '/credit-cards', label: 'Cards', icon: CardsIcon },
+                                    { to: '/credit-cards/intelligence', label: 'Card Intelligence', icon: Gauge },
+                                    { to: '/category-budgets', label: 'Budget Limits', icon: FinancialGoalsIcon },
+                                    { to: '/recurring', label: 'Recurring & Subscriptions', icon: Repeat },
+                                    { to: '/fuel', label: 'Fuel Analytics', icon: FuelIcon },
+                                    { to: '/grocery-analytics', label: 'Grocery Analytics', icon: GroceryIcon },
+                                    { to: '/grocery-master-list', label: 'Grocery Builder', icon: GroceryIcon },
+                                    { to: '/data-health', label: 'Data Health', icon: DataHealthIcon }
+                                ]}
+                            />
+                            
+                            <NavItem to="/savings" icon={SavingsIcon} label="Savings" />
+                            <NavItem to="/investments" icon={StockMarketIcon} label="Investments" />
+                            <NavDropdown
+                                label="Gold & Silver"
+                                icon={Coins}
+                                items={[
+                                    { to: '/metals', label: 'All Metals', icon: Coins },
+                                    { to: '/metals/gallery', label: 'Ornament Gallery', icon: ImageIcon }
+                                ]}
+                            />
+                            {/* Grouped rather than added alongside: another top-level
+                                item pushes the ones after it off-screen. */}
+                            <NavDropdown
+                                label="Assets"
+                                icon={Car}
+                                items={[
+                                    { to: '/assets', label: 'All Assets', icon: Car },
+                                    { to: '/warranties', label: 'Warranties & Receipts', icon: ShieldCheck }
+                                ]}
+                            />
+                            <NavItem to="/lents-loans" icon={ArrowUpRight} label="Loans & Lents" />
+                        </div>
                     </nav>
 
                     {/* Right Side - Actions/Profile */}
@@ -262,7 +262,12 @@ const Layout = () => {
             >
                 <Outlet />
             </main>
-            
+
+            {/* Renders nothing — it watches for due dates and raises them as
+                native notifications. Mounted here so it runs once for the whole
+                app rather than per page. */}
+            <AlertNotifier />
+
             <ConfirmModal
                 isOpen={isLogoutModalOpen}
                 onClose={() => setIsLogoutModalOpen(false)}

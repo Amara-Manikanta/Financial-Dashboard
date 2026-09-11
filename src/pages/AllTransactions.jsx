@@ -7,6 +7,7 @@ import * as XLSX from 'xlsx';
 import TransactionModal from '../components/TransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
 import { CATEGORY_MAP } from '../utils/categories';
+import { TransactionsIcon } from '../utils/customIcons';
 
 const AllTransactions = () => {
     const { expenses, formatCurrency, updateItem, deleteItem, bulkUpdateExpenses, bulkDeleteExpenses, mergedCategoryMap } = useFinance();
@@ -262,7 +263,10 @@ const AllTransactions = () => {
 
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
-                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>Transaction History</h2>
+                    <h2 style={{ fontSize: '2.25rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <TransactionsIcon size={60} />
+                        Transaction History
+                    </h2>
                     <p style={{ fontSize: '0.875rem', color: '#71717a', margin: '0.25rem 0 0 0' }}>
                         {filteredTransactions.length.toLocaleString()} Total Transactions
                         {bulkMode && selectedIds.size > 0 && (

@@ -24,6 +24,10 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
     // the premium to get the total contract value.
     const [policyTerm, setPolicyTerm] = useState(editingPolicy?.policyDetails?.policyTerm ?? '');
     const [premiumPayingTerm, setPremiumPayingTerm] = useState(editingPolicy?.policyDetails?.premiumPayingTerm ?? '');
+    // The date the premium actually leaves the account. Recorded rather than
+    // inferred: without it the reminder falls back to the start-date
+    // anniversary, which drifts whenever a premium is paid early or late.
+    const [premiumDeductionDate, setPremiumDeductionDate] = useState(editingPolicy?.policyDetails?.premiumDeductionDate || '');
     const [ncb, setNcb] = useState(editingPolicy?.policyDetails?.ncb || '0');
     const [notes, setNotes] = useState(editingPolicy?.policyDetails?.notes || '');
 
@@ -185,6 +189,7 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
                 // Left as typed so "Whole Life (100 Years)" survives a round trip.
                 policyTerm: typeof policyTerm === 'string' ? policyTerm.trim() : policyTerm,
                 premiumPayingTerm: premiumPayingTerm === '' ? '' : Number(premiumPayingTerm) || '',
+                premiumDeductionDate: premiumDeductionDate || null,
                 maturityDate: expiryDate,
                 expiryDate,
                 ncb: Number(ncb) || 0,
@@ -431,6 +436,32 @@ const PolicyScannerModal = ({ isOpen, onClose, onSave, editingPolicy }) => {
                         <p style={{ fontSize: '0.75rem', color: '#fbbf24', margin: '-0.5rem 0 0' }}>
                             The end date is not after the start date — check them.
                         </p>
+                    )}
+
+                    {/* Only for policies that are still being paid for. A vehicle
+                        policy paid in one go has nothing recurring to remind about
+                        — its renewal is already covered by the expiry date above. */}
+                    {premiumPayingTerm !== '' && Number(premiumPayingTerm) > 0 && (
+                        <div>
+                            <label style={{ display: 'block', fontSize: '0.85rem', color: '#a1a1aa', marginBottom: '0.4rem' }}>
+                                Premium Debited On
+                            </label>
+                            <input
+                                type="date"
+                                value={premiumDeductionDate}
+                                onChange={(e) => setPremiumDeductionDate(e.target.value)}
+                                style={{
+                                    width: '100%', padding: '0.75rem 1rem', borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                                    color: 'white', outline: 'none'
+                                }}
+                            />
+                            <p style={{ fontSize: '0.75rem', color: '#71717a', margin: '0.4rem 0 0', lineHeight: 1.5 }}>
+                                The date the premium actually leaves your account. It repeats every
+                                year, and you'll be reminded the day before and again on the day.
+                                Leave blank and the reminder falls back to the start-date anniversary.
+                            </p>
+                        </div>
                     )}
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>

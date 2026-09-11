@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { ArrowLeft, RefreshCcw, Plus, Edit2, Trash2, TrendingUp, PiggyBank, Sparkles, Calendar, DollarSign, LayoutGrid, Table, Percent, Clock, MapPin, FileText, ArrowRight } from 'lucide-react';
+import { DepositIcon } from '../utils/customIcons';
+
 import { formatDate } from '../utils/dateUtils';
 import RecurringDepositModal from '../components/RecurringDepositModal';
 import BackButton from '../components/BackButton';
@@ -146,18 +148,7 @@ const RecurringDepositDetails = () => {
                 boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem' }}>
-                    <div style={{
-                        padding: '1rem',
-                        borderRadius: '1rem',
-                        background: 'linear-gradient(135deg, #2563eb 0%, #4f46e5 100%)',
-                        color: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 0 20px rgba(37, 99, 235, 0.4)'
-                    }}>
-                        <RefreshCcw size={28} />
-                    </div>
+                    <DepositIcon size={60} />
                     <div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.375rem' }}>
                             <h2 style={{ fontSize: '2rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0, lineHeight: 1.2 }}>
