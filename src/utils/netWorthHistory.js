@@ -1,3 +1,4 @@
+import { ownHoldings } from './holdingOwner';
 /**
  * Net worth over time, rebuilt from the dated records rather than from
  * snapshots.
@@ -118,7 +119,7 @@ export const netWorthSeries = ({
         if (!item) return;
         switch (item.type) {
             case 'stock_market':
-                (item.stocks || []).forEach((s) => {
+                ownHoldings(item.stocks).forEach((s) => {
                     (s.transactions || []).forEach((tx) => {
                         const type = String(tx.type || '').toLowerCase();
                         const cash = cashOf(tx);

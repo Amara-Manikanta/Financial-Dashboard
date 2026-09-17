@@ -11,6 +11,7 @@ import {
     dividendCalendar, busiestMonths,
 } from '../utils/dividendAnalytics';
 import { dividendTaxSummary } from '../utils/dividendTax';
+import { ownHoldings } from '../utils/holdingOwner';
 
 const card = {
     backgroundColor: 'rgba(24, 24, 27, 0.4)',
@@ -50,7 +51,7 @@ const DividendIncome = () => {
         () => (savings || []).find((s) => s.type === 'stock_market' && !s.isArchived),
         [savings],
     );
-    const stocks = market?.stocks || [];
+    const stocks = useMemo(() => ownHoldings(market?.stocks), [market]);
 
     const summary = useMemo(() => incomeSummary(stocks), [stocks]);
     const years = useMemo(() => incomeByYear(stocks), [stocks]);

@@ -37,6 +37,7 @@ import {
   PieChart,
   Pie
 } from 'recharts';
+import { ownHoldings } from '../utils/holdingOwner';
 
 const Nifty50Exposure = () => {
   const navigate = useNavigate();
@@ -95,7 +96,7 @@ const Nifty50Exposure = () => {
     const map = {};
 
     stockAccounts.forEach(acc => {
-      (acc.stocks || []).forEach(stock => {
+      ownHoldings(acc.stocks).forEach(stock => {
         if (stock.isArchived) return;
         // Live from the transaction history, not the stock's own stored
         // avgCost — see effectiveStockPosition. Only the "invested" valuation

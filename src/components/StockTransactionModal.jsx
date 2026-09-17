@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, TrendingUp, Hash, FileText, PieChart, Layers, Tag, DollarSign, CheckSquare, Info } from 'lucide-react';
 import CurrencyInput from './CurrencyInput';
+import { useFinance } from '../context/FinanceContext';
+import { ownerOptions, SELF_OWNER } from '../utils/holdingOwner';
 
-const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [], allStocks = [] }) => {
+const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, customColumns = [], allStocks = [], defaultOwner = null }) => {
     const [name, setName] = useState('');
     const [ticker, setTicker] = useState('');
     const [shares, setShares] = useState('');
@@ -17,6 +19,8 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const [marketCap, setMarketCap] = useState('');
     const [sector, setSector] = useState('');
     const [demergedFrom, setDemergedFrom] = useState('');
+    const [owner, setOwner] = useState(SELF_OWNER);
+    const { docuSetu } = useFinance();
 
     useEffect(() => {
         if (isOpen && initialData) {
@@ -38,6 +42,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setMarketCap(initialData.marketCap || '');
             setSector(initialData.sector || '');
             setDemergedFrom(initialData.demergedFrom || '');
+            setOwner(initialData.owner || SELF_OWNER);
         } else if (isOpen) {
             setName('');
             setTicker('');
@@ -51,8 +56,9 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setExpectsDividends(false);
             setMarketCap('');
             setSector('');
+            setOwner(defaultOwner || SELF_OWNER);
         }
-    }, [isOpen, initialData]);
+    }, [isOpen, initialData, defaultOwner]);
 
     if (!isOpen) return null;
 
@@ -85,7 +91,9 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             sector: sector || null,
             // Links a demerged holding back to the company it came out of, so the
             // two can be reported as the one investment they actually are.
-            demergedFrom: demergedFrom || null
+            demergedFrom: demergedFrom || null,
+            // Anyone but "Me" is tracked without counting toward portfolio totals.
+            owner: owner === SELF_OWNER ? null : owner
         });
         onClose();
     };
@@ -180,6 +188,24 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     placeholder="e.g. TMCV"
                                 />
                             </div>
+                        </div>
+
+                        {/* Owner */}
+                        <div>
+                            <label className={labelStyle}>
+                                <Info size={13} className="text-sky-400" />
+                                Owner
+                            </label>
+                            <select value={owner} onChange={(e) => setOwner(e.target.value)} style={selectStyle}>
+                                {ownerOptions(docuSetu?.familyMembers).map((o) => (
+                                    <option key={o.id} value={o.id} style={{ backgroundColor: '#18181b', color: '#ffffff' }}>{o.label}</option>
+                                ))}
+                            </select>
+                            {owner !== SELF_OWNER && (
+                                <p className="text-[11px] text-sky-300/80 mt-1.5 ml-1">
+                                    Tracked with live prices, but not added to your portfolio value, net worth, gains or dividends.
+                                </p>
+                            )}
                         </div>
 
                         {/* Market Cap & Sector */}
