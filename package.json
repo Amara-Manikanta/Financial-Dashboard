@@ -22,6 +22,7 @@
     "package:dmg": "npm run build && electron-builder --mac"
   },
   "dependencies": {
+    "canvas-confetti": "^1.9.4",
     "date-fns": "^4.1.0",
     "json-server": "^1.0.0-beta.3",
     "lucide-react": "^0.300.0",

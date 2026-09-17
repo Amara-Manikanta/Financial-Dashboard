@@ -1,8 +1,10 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Download, X, Edit2, Trash2, CheckSquare, Square, Tag, ChevronDown } from 'lucide-react';
+import { Search, Filter, Calendar, ArrowUpCircle, ArrowDownCircle, ChevronLeft, ChevronRight, Download, X, Edit2, Trash2, CheckSquare, Square, Tag, ChevronDown, Flame } from 'lucide-react';
 import { ISSUE_FILTERS, matchesIssue } from '../utils/dataHealth';
+import { isWasteful, wasteNoteOf, wastePatch, wasteSummary } from '../utils/wasteful';
 import * as XLSX from 'xlsx';
 import TransactionModal from '../components/TransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -18,6 +20,13 @@ const AllTransactions = () => {
     const [monthFilter, setMonthFilter] = useState('all');
     const [categoryFilter, setCategoryFilter] = useState('all');
     const [subCategoryFilter, setSubCategoryFilter] = useState('all');
+    // 'all' | 'only' — narrowing to the flagged rows is the whole point of
+    // flagging them, so it sits alongside the other filters rather than
+    // behind a separate page.
+    const [wasteFilter, setWasteFilter] = useState('all');
+    // The row awaiting a "why", and what has been typed so far.
+    const [flagging, setFlagging] = useState(null);
+    const [noteDraft, setNoteDraft] = useState('');
     const [itemsPerPage, setItemsPerPage] = useState(20);
     const [currentPage, setCurrentPage] = useState(1);
     const navigate = useNavigate();
@@ -117,12 +126,21 @@ const AllTransactions = () => {
                 }
             }
 
-            return matchesSearch && matchesType && matchesYear && matchesMonth && matchesTheIssue && matchesCategory;
+            const matchesWaste = wasteFilter === 'only' ? isWasteful(t) : true;
+
+            return matchesSearch && matchesType && matchesYear && matchesMonth && matchesTheIssue && matchesCategory && matchesWaste;
         });
-    }, [allTransactions, searchTerm, typeFilter, yearFilter, monthFilter, issue, categoryFilter, subCategoryFilter, mergedCategoryMap]);
+    }, [allTransactions, searchTerm, typeFilter, yearFilter, monthFilter, issue, categoryFilter, subCategoryFilter, mergedCategoryMap, wasteFilter]);
+
+    /**
+     * What the flagged rows come to — measured across everything currently
+     * filtered, not just the page on screen, so paging through does not change
+     * the figure.
+     */
+    const waste = useMemo(() => wasteSummary(filteredTransactions), [filteredTransactions]);
 
     // Reset to page 1 whenever any filter changes
-    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, yearFilter, monthFilter, categoryFilter, subCategoryFilter, itemsPerPage, issue]);
+    useEffect(() => { setCurrentPage(1); }, [searchTerm, typeFilter, yearFilter, monthFilter, categoryFilter, subCategoryFilter, itemsPerPage, issue, wasteFilter]);
 
     const handleClearFilters = () => {
         setSearchTerm('');
@@ -131,8 +149,9 @@ const AllTransactions = () => {
         setMonthFilter('all');
         setCategoryFilter('all');
         setSubCategoryFilter('all');
+        setWasteFilter('all');
     };
-    const hasActiveFilters = searchTerm || typeFilter !== 'all' || yearFilter !== 'all' || monthFilter !== 'all' || categoryFilter !== 'all';
+    const hasActiveFilters = searchTerm || typeFilter !== 'all' || yearFilter !== 'all' || monthFilter !== 'all' || categoryFilter !== 'all' || wasteFilter !== 'all';
 
     // Pagination
     const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
@@ -163,6 +182,63 @@ const AllTransactions = () => {
         if (transaction.id) updateItem('expense', transaction);
         setEditingTransaction(null);
         setIsModalOpen(false);
+    };
+
+    /**
+     * Flag or unflag one row.
+     *
+     * Patched through bulkUpdateExpenses rather than updateItem even for a
+     * single row: that path merges a patch into the stored transaction and
+     * rebuilds the month's `categories` aggregate afterwards, where updateItem
+     * would round-trip the whole record and can drop fields this page never
+     * loaded.
+     */
+    const toggleWasteful = async (tx) => {
+        if (!tx?.id) return;
+        await bulkUpdateExpenses([{ id: tx.id, patch: wastePatch(!isWasteful(tx), wasteNoteOf(tx)) }]);
+    };
+
+    /**
+     * Ask for the optional "why", then flag. Unflagging needs no dialog.
+     *
+     * An in-app modal rather than window.prompt: Electron does not implement
+     * prompt() and throws on it, so in the packaged Mac app the button appeared
+     * to do nothing at all while working fine in a browser.
+     */
+    const flagWithNote = async (tx) => {
+        if (!tx?.id) return;
+        if (isWasteful(tx)) { await toggleWasteful(tx); return; }
+        setNoteDraft('');
+        setFlagging(tx);
+    };
+
+    const confirmFlag = async () => {
+        if (!flagging?.id) return;
+        await bulkUpdateExpenses([{ id: flagging.id, patch: wastePatch(true, noteDraft) }]);
+        setFlagging(null);
+        setNoteDraft('');
+    };
+
+    /**
+     * Flag or unflag everything selected.
+     *
+     * Two things a single shared patch got wrong. Credits are skipped when
+     * flagging — the per-row button already hides on them, and a flagged credit
+     * is stored but never counted, because the total only sums debits. And each
+     * row keeps its own note: patching them all with one empty note wiped the
+     * reasons off rows that already had them.
+     */
+    const bulkFlagWasteful = async (flagged) => {
+        if (selectedIds.size === 0) return;
+
+        const byId = new Map(allTransactions.filter((t) => t.id).map((t) => [String(t.id), t]));
+        const updates = [...selectedIds]
+            .map((id) => ({ id, tx: byId.get(String(id)) }))
+            .filter(({ tx }) => !flagged || !tx?.isCredited)
+            .map(({ id, tx }) => ({ id, patch: wastePatch(flagged, flagged ? wasteNoteOf(tx) : '') }));
+
+        if (updates.length) await bulkUpdateExpenses(updates);
+        setSelectedIds(new Set());
     };
 
     const handleDeleteTransaction = (id) => {
@@ -273,6 +349,30 @@ const AllTransactions = () => {
                             <span style={{ color: '#eab308', marginLeft: '0.5rem' }}>• {selectedIds.size} selected</span>
                         )}
                     </p>
+
+                    {/* What the flagged rows come to. Shown only once something
+                        has been flagged — a permanent "₹0 wasted" is just noise. */}
+                    {waste.count > 0 && (
+                        <button
+                            onClick={() => setWasteFilter(wasteFilter === 'only' ? 'all' : 'only')}
+                            style={{
+                                marginTop: '0.6rem', padding: '0.4rem 0.8rem', borderRadius: '0.6rem',
+                                backgroundColor: wasteFilter === 'only' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.08)',
+                                border: `1px solid rgba(249, 115, 22, ${wasteFilter === 'only' ? 0.45 : 0.2})`,
+                                color: '#fb923c', cursor: 'pointer',
+                                display: 'inline-flex', alignItems: 'center', gap: '0.45rem',
+                                fontSize: '0.78rem', fontWeight: 700
+                            }}
+                            title={wasteFilter === 'only' ? 'Show everything again' : 'Show only the flagged rows'}
+                        >
+                            <Flame size={13} />
+                            {formatCurrency(waste.total)} flagged as waste
+                            <span style={{ color: '#a1a1aa', fontWeight: 500 }}>
+                                · {waste.count} {waste.count === 1 ? 'row' : 'rows'}
+                            </span>
+                            {wasteFilter === 'only' && <X size={12} />}
+                        </button>
+                    )}
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                     {bulkMode ? (
@@ -291,6 +391,36 @@ const AllTransactions = () => {
                                 }}
                             >
                                 <Tag size={14} /> Bulk Edit Category
+                            </button>
+                            <button
+                                onClick={() => bulkFlagWasteful(true)}
+                                disabled={selectedIds.size === 0}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '0.75rem',
+                                    backgroundColor: selectedIds.size > 0 ? 'rgba(249, 115, 22, 0.15)' : 'rgba(255,255,255,0.03)',
+                                    border: `1px solid ${selectedIds.size > 0 ? 'rgba(249, 115, 22, 0.3)' : 'rgba(255,255,255,0.08)'}`,
+                                    color: selectedIds.size > 0 ? '#fb923c' : '#71717a',
+                                    fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase',
+                                    letterSpacing: '0.05em', cursor: selectedIds.size > 0 ? 'pointer' : 'not-allowed',
+                                    display: 'flex', alignItems: 'center', gap: '0.375rem'
+                                }}
+                            >
+                                <Flame size={14} /> Flag as Waste
+                            </button>
+                            <button
+                                onClick={() => bulkFlagWasteful(false)}
+                                disabled={selectedIds.size === 0}
+                                style={{
+                                    padding: '0.5rem 1rem', borderRadius: '0.75rem',
+                                    backgroundColor: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    color: selectedIds.size > 0 ? '#a1a1aa' : '#71717a',
+                                    fontWeight: 'bold', fontSize: '0.75rem', textTransform: 'uppercase',
+                                    letterSpacing: '0.05em', cursor: selectedIds.size > 0 ? 'pointer' : 'not-allowed',
+                                    display: 'flex', alignItems: 'center', gap: '0.375rem'
+                                }}
+                            >
+                                <X size={14} /> Unflag
                             </button>
                             <button
                                 onClick={() => setBulkDeleteConfirm(true)}
@@ -561,6 +691,26 @@ const AllTransactions = () => {
                                             <td style={{ padding: '1rem 1rem 1rem 0.5rem' }}>
                                                 {t.id && (
                                                     <div style={{ display: 'flex', gap: '0.375rem', justifyContent: 'center' }}>
+                                                        {/* Only debits can be a waste: a credit is money arriving. */}
+                                                        {!t.isCredited && (
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); flagWithNote(t); }}
+                                                                style={{
+                                                                    padding: '0.375rem', borderRadius: '0.5rem', border: 'none',
+                                                                    backgroundColor: isWasteful(t) ? 'rgba(249, 115, 22, 0.25)' : 'rgba(249, 115, 22, 0.08)',
+                                                                    color: isWasteful(t) ? '#fb923c' : '#71717a',
+                                                                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                                                    transition: 'all 0.2s'
+                                                                }}
+                                                                title={isWasteful(t)
+                                                                    ? `Flagged as a waste${wasteNoteOf(t) ? ` — ${wasteNoteOf(t)}` : ''}. Click to unflag.`
+                                                                    : 'Flag as a waste / loss'}
+                                                                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(249, 115, 22, 0.3)'}
+                                                                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = isWasteful(t) ? 'rgba(249, 115, 22, 0.25)' : 'rgba(249, 115, 22, 0.08)'}
+                                                            >
+                                                                <Flame size={13} />
+                                                            </button>
+                                                        )}
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); setEditingTransaction(t); setIsModalOpen(true); }}
                                                             style={{
@@ -794,6 +944,66 @@ const AllTransactions = () => {
                 cancelText="Cancel"
                 type="danger"
             />
+
+            {/* Why this was a waste. The note is optional — "Flag" with an empty
+                box is a deliberate "no reason given" and still flags the row. */}
+            {flagging && createPortal(
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
+                    onClick={(e) => { if (e.target === e.currentTarget) setFlagging(null); }}
+                >
+                    <div
+                        className="w-full max-w-sm bg-modal rounded-[32px] border border-white/10 shadow-[0_32px_64px_-12px_rgba(0,0,0,0.8)] animate-slide-up overflow-hidden"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <div className="p-6 pb-4 border-b border-white/5">
+                            <h2 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
+                                <Flame size={18} className="text-orange-400" />
+                                Flag as a waste
+                            </h2>
+                            <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">
+                                {flagging.title || 'This transaction'} — {formatCurrency(flagging.amount)}
+                            </p>
+                        </div>
+
+                        <form
+                            onSubmit={(e) => { e.preventDefault(); confirmFlag(); }}
+                            className="p-6 space-y-4"
+                        >
+                            <div>
+                                <label className="block text-[9px] font-black text-gray-500 uppercase tracking-widest mb-2 ml-1">
+                                    Why? (optional)
+                                </label>
+                                <input
+                                    type="text"
+                                    autoFocus
+                                    value={noteDraft}
+                                    onChange={(e) => setNoteDraft(e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-2xl py-3 px-4 text-white font-medium placeholder:text-gray-700 focus:outline-none focus:border-orange-500/50 transition-all text-sm"
+                                    placeholder="unused subscription, impulse buy, penalty…"
+                                />
+                            </div>
+
+                            <div className="flex gap-3 pt-1">
+                                <button
+                                    type="button"
+                                    onClick={() => setFlagging(null)}
+                                    className="flex-1 py-3 rounded-2xl border border-white/10 bg-white/5 text-white font-bold hover:bg-white/10 transition-all text-xs uppercase tracking-widest"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    className="flex-[2] py-3 rounded-2xl bg-orange-500 text-white font-black hover:opacity-90 transition-all text-xs uppercase tracking-[0.15em] shadow-lg"
+                                >
+                                    Flag
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>,
+                document.body
+            )}
         </div>
     );
 };
