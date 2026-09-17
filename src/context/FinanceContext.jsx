@@ -239,6 +239,8 @@ export function FinanceProvider({ children }) {
     // What each expense category actually is: spending, a transfer into savings,
     // a card settlement, or money lent. See utils/transactionKind.js.
     const [categoryKinds, setCategoryKinds] = useState({});
+    // DocuSetu checklists: { progress, familyMembers }. null until loaded.
+    const [docuSetu, setDocuSetu] = useState(null);
     const [groceryCategories, setGroceryCategories] = useState(DEFAULT_GROCERY_CATEGORIES);
     const [isLoading, setIsLoading] = useState(true);
     // Set when the initial load failed. State is empty in that situation, so
@@ -422,6 +424,7 @@ export function FinanceProvider({ children }) {
                 setCategoryRules(appData.categoryRules || {});
                 setRecurringOverrides(appData.recurringOverrides || {});
                 setCategoryKinds(appData.categoryKinds || {});
+                setDocuSetu(appData.docuSetu || {});
                 setManualMetalRates(appData.manualMetalRates || { gold: 0, silver: 0 });
                 setCustomSalaryFields(appData.customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] });
                 setHiddenSalaryFields(appData.hiddenSalaryFields || []);
@@ -579,6 +582,35 @@ export function FinanceProvider({ children }) {
         } catch (error) {
             setCategoryKinds(previous);
             setSaveError(`Could not save the category classification: ${error.message}. Your change was not kept.`);
+        }
+    };
+
+    /**
+     * DocuSetu document checklists and family profiles. Stored in appData so
+     * ticks and "where is this document" notes survive across the browser and
+     * the desktop app, instead of living in one origin's localStorage.
+     */
+    const saveDocuSetu = async (next) => {
+        setDocuSetu(next);
+        if (isGuest) {
+            setSaveError('Signed in as guest — nothing you change is being saved. Sign in as admin to keep it.');
+            return false;
+        }
+        try {
+            const res = await fetch(`${API_URL}/appData`);
+            if (!res.ok) throw new Error(`could not read appData (${res.status})`);
+            const currentAppData = await res.json();
+            const write = await fetch(`${API_URL}/appData`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...currentAppData, docuSetu: next })
+            });
+            if (!write.ok) throw new Error(`server returned ${write.status}`);
+            setSaveError(null);
+            return true;
+        } catch (error) {
+            setSaveError(`Could not save the document checklist: ${error.message}. It is only on screen.`);
+            return false;
         }
     };
 
@@ -2973,6 +3005,7 @@ export function FinanceProvider({ children }) {
         expenses, savings, metals: processedMetals, assets, creditCards, lents, taxes, salaryStats, categories, snapshots, categoryBudgets, salaryDetails, categoryRules,
         recurringOverrides, saveRecurringOverrides,
         categoryKinds, saveCategoryKinds,
+        docuSetu, saveDocuSetu,
         goals, loans, ipoApplications, watchlist, lockers, refreshWatchlistPrices, insuranceProfile,
         pendingWalletCredits, applyWalletAutoCredits,
         loadError,

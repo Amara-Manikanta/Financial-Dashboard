@@ -62,6 +62,7 @@ import CategoryBudgets from './pages/CategoryBudgets';
 import Taxes from './pages/Taxes';
 import FinancialGoals from './pages/FinancialGoals';
 import InsuranceAnalysis from './pages/InsuranceAnalysis';
+import DocuSetu from './docusetu/DocuSetuApp';
 import TaxPlanning from './pages/TaxPlanning';
 import LoanTracker from './pages/LoanTracker';
 
@@ -197,6 +198,7 @@ function App() {
                                     <Route path="taxes" element={<Taxes />} />
                                      <Route path="goals" element={<FinancialGoals />} />
                                      <Route path="insurance-analysis" element={<InsuranceAnalysis />} />
+                                     <Route path="docusetu" element={<DocuSetu />} />
                                      <Route path="tax-planning" element={<Navigate to="/taxes?tab=planning" replace />} />
                                      <Route path="loan-tracker" element={<Navigate to="/lents-loans?tab=loans" replace />} />
                                     
