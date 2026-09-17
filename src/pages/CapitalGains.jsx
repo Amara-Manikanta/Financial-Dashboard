@@ -7,6 +7,7 @@ import BackButton from '../components/BackButton';
 import {
     disposalsForStocks, gainsLedger, unrealisedSummary, matchLots, fyFor, exemptionFor,
 } from '../utils/capitalGains';
+import { ownHoldings } from '../utils/holdingOwner';
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 
@@ -39,7 +40,7 @@ const CapitalGains = () => {
         () => (savings || []).find((s) => s.type === 'stock_market'),
         [savings],
     );
-    const stocks = market?.stocks || [];
+    const stocks = useMemo(() => ownHoldings(market?.stocks), [market]);
 
     const { disposals, unmatched } = useMemo(() => disposalsForStocks(stocks), [stocks]);
     const ledger = useMemo(() => gainsLedger(disposals), [disposals]);

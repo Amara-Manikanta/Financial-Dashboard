@@ -16,6 +16,7 @@ import {
     recomputeFundAmount
 } from '../utils/investmentSync';
 import { readHolding as readSgbHolding } from '../utils/sgb';
+import { ownHoldings } from '../utils/holdingOwner';
 // NOTE: db.json is deliberately NOT imported here.
 // Vite inlines a JSON import at build time, producing a snapshot that never
 // refreshes (vite.config.js also excludes db.json from the watcher). Seeding
@@ -2180,7 +2181,8 @@ export function FinanceProvider({ children }) {
 
         switch (item.type) {
             case 'stock_market':
-                return (item.stocks || [])
+                // Family and paper holdings are tracked but are not this portfolio.
+                return ownHoldings(item.stocks)
                     .filter(s => !s.isArchived && Number(s.shares || 0) > 0)
                     .reduce((sum, s) => sum + (Number(s.shares || 0) * Number(s.currentPrice || 0)), 0);
 
@@ -2266,7 +2268,7 @@ export function FinanceProvider({ children }) {
                 // from the stock's own stored fields — see effectiveStockPosition.
                 // Trusting the stored avgCost here undercounted this exact
                 // total by however stale that field had gone on any one stock.
-                return (item.stocks || [])
+                return ownHoldings(item.stocks)
                     .filter(s => !s.isArchived && Number(s.shares || 0) > 0)
                     .reduce((sum, s) => {
                         const { shares, avgCost } = effectiveStockPosition(s);

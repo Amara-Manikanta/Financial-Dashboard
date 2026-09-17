@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance, API_URL } from '../context/FinanceContext';
@@ -15,6 +15,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
 import BenchmarkPanel from '../components/BenchmarkPanel';
 import { StockHealthBadge } from '../components/StockFinancialsCard';
+import { ownerOf, ownerLabel, SELF_OWNER } from '../utils/holdingOwner';
 
 const StockTreemapContent = (props) => {
     const { depth, x, y, width, height, index, name, ticker, percentage, value } = props;
@@ -168,7 +169,7 @@ const isStale = (iso) => {
 const StockMarketDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { savings, formatCurrency, updateItem, refreshAllPrices } = useFinance();
+    const { savings, formatCurrency, updateItem, refreshAllPrices, docuSetu } = useFinance();
     const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
     const [refreshNote, setRefreshNote] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -187,19 +188,47 @@ const StockMarketDetails = () => {
     const [showPendingOnly, setShowPendingOnly] = useState(false);
     const [capFilter, setCapFilter] = useState('All'); // 'All' | 'Large Cap' | 'Mid Cap' | 'Small Cap' | 'Unclassified'
     const [sectorFilter, setSectorFilter] = useState('All');
+    // Whose holdings are on screen. "Me" is the portfolio; anyone else is
+    // tracked only, so their figures never mix into the portfolio's.
+    const [ownerFilter, setOwnerFilter] = useState(SELF_OWNER);
 
     const market = useMemo(() => savings.find(s => s.id.toString() === id), [savings, id]);
 
     const stocks = useMemo(() => market?.stocks || [], [market]);
     const customColumns = useMemo(() => market?.customColumns || [], [market]);
 
+    // Per-owner subtotals for the owner strip, over every active holding.
+    // `stocks` itself stays unfiltered: saving rebuilds the whole list from it.
+    const ownerSummary = useMemo(() => {
+        const groups = {};
+        stocks.forEach(stock => {
+            if (stock.isArchived || Number(stock.shares || 0) <= 0) return;
+            const id = ownerOf(stock);
+            const { shares, avgCost } = effectiveStockPosition(stock);
+            const g = groups[id] || (groups[id] = { id, count: 0, invested: 0, current: 0 });
+            g.count += 1;
+            g.invested += shares * avgCost;
+            g.current += shares * Number(stock.currentPrice || 0);
+        });
+        return Object.values(groups).sort((a, b) =>
+            (a.id === SELF_OWNER ? -1 : b.id === SELF_OWNER ? 1 : b.current - a.current));
+    }, [stocks]);
+    const hasOtherOwners = ownerSummary.some(g => g.id !== SELF_OWNER)
+        || stocks.some(stock => ownerOf(stock) !== SELF_OWNER);
+    const viewingOthers = ownerFilter !== SELF_OWNER;
+    // Once the last holding of the owner on screen moves away, return to the portfolio.
+    useEffect(() => {
+        if (viewingOthers && !stocks.some(stock => ownerOf(stock) === ownerFilter)) setOwnerFilter(SELF_OWNER);
+    }, [stocks, ownerFilter, viewingOthers]);
+
     // Filter and Separating Stocks
     const filteredStocks = useMemo(() => {
         return stocks.filter(stock =>
+            ownerOf(stock) === ownerFilter && (
             (stock.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (stock.ticker || stock.symbol || '').toLowerCase().includes(searchTerm.toLowerCase())
+            (stock.ticker || stock.symbol || '').toLowerCase().includes(searchTerm.toLowerCase()))
         );
-    }, [stocks, searchTerm]);
+    }, [stocks, searchTerm, ownerFilter]);
 
     const activeStocks = useMemo(() => filteredStocks.filter(stock => !stock.isArchived && Number(stock.shares || 0) > 0), [filteredStocks]);
     const archivedStocks = useMemo(() => filteredStocks.filter(stock => stock.isArchived || Number(stock.shares || 0) === 0), [filteredStocks]);
@@ -428,7 +457,14 @@ const StockMarketDetails = () => {
         );
     }
 
-    const handleSaveStock = async (stockData) => {
+    // Figures this page derives for display. The edit form is opened from a
+    // display row, so without this they were saved into the holding and then
+    // sat there going stale as prices moved.
+    const DISPLAY_ONLY_FIELDS = ['fifoAvgCost', 'investedValue', 'currentValue', 'unrealisedPL', 'unrealisedPercent'];
+
+    const handleSaveStock = async (rawStockData) => {
+        const stockData = { ...rawStockData };
+        DISPLAY_ONLY_FIELDS.forEach((field) => { delete stockData[field]; });
         let updatedStocks;
         const existingStockIndex = stocks.findIndex(s => s.id === stockData.id);
 
@@ -443,6 +479,7 @@ const StockMarketDetails = () => {
                 ...stockData,
                 transactions: stocks[existingStockIndex].transactions || []
             };
+            DISPLAY_ONLY_FIELDS.forEach((field) => { delete updatedStocks[existingStockIndex][field]; });
         } else {
             // New stock: Create initial transaction if shares > 0
             let initialTransactions = [];
@@ -780,6 +817,42 @@ const StockMarketDetails = () => {
                 </h2>
                 <p style={{ fontSize: '0.875rem', color: '#a1a1aa', margin: 0 }}>Portfolio overview, custom tracking & real-time analytics</p>
             </div>
+
+            {/* Owners: your portfolio plus family / paper holdings tracked alongside it */}
+            {hasOtherOwners && (
+                <div className="mb-6">
+                    <div className="flex flex-wrap gap-3">
+                        {ownerSummary.map(g => {
+                            const pl = g.current - g.invested;
+                            const active = ownerFilter === g.id;
+                            return (
+                                <button
+                                    key={g.id}
+                                    onClick={() => setOwnerFilter(g.id)}
+                                    className={`text-left rounded-xl border px-4 py-3 min-w-[12rem] transition-colors ${active ? 'border-sky-400/60 bg-sky-500/10' : 'border-white/10 bg-white/[0.03] hover:border-white/25'}`}
+                                >
+                                    <div className="flex items-center justify-between gap-2">
+                                        <span className="text-xs font-bold text-white">{ownerLabel(g.id, docuSetu?.familyMembers)}</span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${g.id === SELF_OWNER ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                            {g.id === SELF_OWNER ? 'Portfolio' : 'Tracked only'}
+                                        </span>
+                                    </div>
+                                    <div className="mt-1 font-mono text-sm font-bold text-white">{formatCurrency(g.current)}</div>
+                                    <div className="text-[11px] text-slate-400">
+                                        {g.count} holding{g.count === 1 ? '' : 's'} · invested {formatCurrency(g.invested)} ·{' '}
+                                        <span className={pl >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{pl >= 0 ? '+' : ''}{formatCurrency(pl)}</span>
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                    {viewingOthers && (
+                        <p className="mt-3 text-xs text-sky-300">
+                            Showing {ownerLabel(ownerFilter, docuSetu?.familyMembers)}'s holdings. These are tracked with live prices but are not part of your portfolio value, net worth, gains or dividends.
+                        </p>
+                    )}
+                </div>
+            )}
 
             {/* Modern Premium Stat Cards */}
             <div style={styles.statGrid}>
@@ -2329,6 +2402,7 @@ const StockMarketDetails = () => {
                 initialData={editingStock}
                 customColumns={customColumns}
                 allStocks={stocks}
+                defaultOwner={ownerFilter}
             />
 
             <ConfirmModal

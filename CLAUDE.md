@@ -376,6 +376,23 @@ Verified on isolated copies: two concurrent edits to different transactions both
 survive (with whole-collection writes one would be lost), 25 concurrent creates
 all landed with no duplicate ids, and the round-trip check still passes.
 
+### json-server must never write from a stale copy
+
+json-server keeps the whole database in memory and writes all of it back on
+every save. It learns about per-row writes only through a file watcher, and
+that watcher ignores changes landing while json-server is itself writing. The
+per-row endpoint also used to run outside the mutation queue. Once one reload
+was missed, every later save through json-server — of anything — wrote its old
+copy back and erased the rows added since. Logging a stock purchase lost its
+expense rows while the holding survived, and three older expenses went with
+them.
+
+So `/api/tx` now runs inside `runExclusive`, and `ensureJsonServerFresh()`
+compares json-server's view against `db.json` before any write, waits for a
+reload, restarts json-server if it never comes, and refuses the write (503)
+if even that fails. To reproduce the old failure deterministically, start the
+sandbox with `NODE_ENV=production`, which disables json-server's watcher.
+
 ### The client uses them, and falls back when they are off
 
 `addItem` (logging a transaction) now tries `POST /api/tx` first and falls back

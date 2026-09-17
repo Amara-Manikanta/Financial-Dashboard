@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { Gauge, Info, ArrowUpDown } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import { rankedReturns, portfolioReturn } from '../utils/xirr';
+import { ownHoldings } from '../utils/holdingOwner';
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 const pct = (n) => `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(1)}%`;
@@ -32,7 +33,7 @@ const Returns = () => {
 
     const market = useMemo(() => (savings || []).find((s) => s.type === 'stock_market'), [savings]);
     const marketId = market?.id;
-    const stocks = market?.stocks || [];
+    const stocks = useMemo(() => ownHoldings(market?.stocks), [market]);
     const funds = useMemo(() => (savings || []).filter((s) => s.type === 'mutual_fund'), [savings]);
 
     const rows = useMemo(() => {

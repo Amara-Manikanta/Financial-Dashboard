@@ -3,6 +3,7 @@ import { Treemap, Tooltip, ResponsiveContainer } from 'recharts';
 import { useFinance } from '../context/FinanceContext';
 import { effectiveStockPosition } from '../utils/investmentSync';
 import { TrendingUp, BarChart as BarChartIcon } from 'lucide-react';
+import { ownHoldings } from '../utils/holdingOwner';
 
 const StockTreemapContent = (props) => {
     const { depth, x, y, width, height, ticker, name, percentage } = props;
@@ -103,7 +104,7 @@ const InvestmentsHeatmap = () => {
         // Gather all active stocks across all stock market accounts
         savings.filter(item => item.type === 'stock_market').forEach(market => {
             if (market.stocks) {
-                market.stocks.forEach(stock => {
+                ownHoldings(market.stocks).forEach(stock => {
                     if (stock.shares > 0) {
                         // Live from the transaction history, not the stock's
                         // own stored avgCost — see effectiveStockPosition.

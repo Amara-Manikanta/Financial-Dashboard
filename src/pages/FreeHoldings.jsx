@@ -6,6 +6,7 @@ import BackButton from '../components/BackButton';
 import {
     recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings, NEARLY_FREE_FROM,
 } from '../utils/costRecovery';
+import { ownHoldings } from '../utils/holdingOwner';
 
 const card = {
     backgroundColor: 'rgba(24, 24, 27, 0.4)',
@@ -43,7 +44,7 @@ const FreeHoldings = () => {
 
     const stocks = useMemo(() => {
         const market = (savings || []).find((s) => s.type === 'stock_market' && !s.isArchived);
-        return market?.stocks || [];
+        return ownHoldings(market?.stocks);
     }, [savings]);
 
     const marketId = useMemo(

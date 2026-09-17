@@ -14,11 +14,12 @@ import { dividendProfile } from '../utils/dividendAnalytics';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
 import StockFinancialsCard from '../components/StockFinancialsCard';
 import CompanyProfile from '../components/CompanyProfile';
+import { isOwnHolding, ownerOf, ownerLabel } from '../utils/holdingOwner';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
     const navigate = useNavigate();
-    const { savings, updateItem, formatCurrency } = useFinance();
+    const { savings, updateItem, formatCurrency, docuSetu } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingTx, setEditingTx] = useState(null);
     const [isEditStockModalOpen, setIsEditStockModalOpen] = useState(false);
@@ -439,6 +440,11 @@ const StockDetails = () => {
                             <TrendingUp size={24} />
                         </span>
                         {stock.name} <span style={{ color: '#71717a', fontSize: '1.25rem', fontWeight: '500', marginLeft: '0.25rem' }}>({stock.symbol || stock.ticker || '—'})</span>
+                        {!isOwnHolding(stock) && (
+                            <span className="ml-2 align-middle text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border border-sky-500/30 bg-sky-500/10 text-sky-300" title="Tracked only — not counted in your portfolio">
+                                {ownerLabel(ownerOf(stock), docuSetu?.familyMembers)} · tracked only
+                            </span>
+                        )}
                     </h2>
                     <div style={{ display: 'flex', gap: '0.75rem' }}>
                         <button

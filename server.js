@@ -87,9 +87,61 @@ if (!fs.existsSync(JSON_SERVER_BIN)) {
     console.error(`[SafetyGuard] ✖ json-server not found at ${JSON_SERVER_BIN}. Run "npm install" first.`);
     process.exit(1);
 }
-const jsonServerProcess = spawn(JSON_SERVER_BIN, ['--watch', DB_FILE, '--port', String(INTERNAL_PORT)], {
+const spawnJsonServer = () => spawn(JSON_SERVER_BIN, ['--watch', DB_FILE, '--port', String(INTERNAL_PORT)], {
     stdio: 'inherit'
 });
+let jsonServerProcess = spawnJsonServer();
+
+// json-server keeps the whole database in memory and writes all of it back on
+// every save. It only notices db.json changing underneath it through a file
+// watcher, and that watcher ignores any change that lands while json-server is
+// itself writing. Per-row writes (/api/tx) replace db.json directly, so one
+// missed reload leaves json-server holding an old copy — and its next save,
+// of anything at all, writes that old copy back. That is how logging a stock
+// purchase erased the expense rows added moments before it: the holding saved,
+// the expense rows vanished, and it kept happening on every later save.
+//
+// So before json-server is allowed to write, prove its memory matches the file.
+// If it is still behind after a short wait, restart it, which forces a fresh
+// read. If even that fails, refuse the write rather than let it clobber.
+const jsonServerMatchesFile = async () => {
+    const file = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
+    const keys = Object.keys(file);
+    const served = await Promise.all(keys.map((k) =>
+        fetch(`http://127.0.0.1:${INTERNAL_PORT}/${k}`).then((r) => (r.ok ? r.json() : undefined))));
+    return keys.filter((k, i) => JSON.stringify(served[i]) !== JSON.stringify(file[k]));
+};
+
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const ensureJsonServerFresh = async () => {
+    for (let attempt = 0; attempt < 20; attempt++) {
+        try {
+            const stale = await jsonServerMatchesFile();
+            if (stale.length === 0) return true;
+            if (attempt === 0) console.warn(`[SafetyGuard] ⏳ json-server is behind db.json on: ${stale.join(', ')} — waiting for it to reload`);
+        } catch {
+            // Not answering yet; treat like stale and keep waiting.
+        }
+        await sleep(100);
+    }
+
+    console.error('[SafetyGuard] ♻️  json-server never reloaded db.json — restarting it so it cannot write an old copy back');
+    jsonServerProcess.kill();
+    jsonServerProcess = spawnJsonServer();
+    for (let attempt = 0; attempt < 100; attempt++) {
+        await sleep(100);
+        try {
+            if ((await jsonServerMatchesFile()).length === 0) {
+                console.log('[SafetyGuard] ✅ json-server restarted and matches db.json');
+                return true;
+            }
+        } catch {
+            // Still starting.
+        }
+    }
+    return false;
+};
 
 const ICLOUD_DIR = path.join(process.env.HOME || '/Users/manikantaamara', 'Library/Mobile Documents/com~apple~CloudDocs/FinanceAnalyser');
 const ICLOUD_DB_FILE = path.join(ICLOUD_DIR, 'db.json');
@@ -855,18 +907,35 @@ const proxy = http.createServer((req, res) => {
                 return;
             }
 
-            // Same backup discipline as every other mutation.
-            if (sqliteWrites.isEnabled) createVerifiedBackup();
+            // Through the same queue as json-server writes. Outside it, a row
+            // could replace db.json while json-server was mid-save; json-server
+            // then skipped the reload and wrote its old copy over the new row.
+            runExclusive(async () => {
+                // Start from a db.json that already holds json-server's last write.
+                if (!(await ensureJsonServerFresh())) {
+                    sendJson(res, 503, {
+                        error: 'Write refused: the database server could not reload the latest data',
+                        reason: 'Nothing was written — restart the server and try again.',
+                    });
+                    return;
+                }
 
-            const result = sqliteWrites.applyChange(
-                { op, id: isBulkCategory ? null : txId, transaction: parsed.transaction || parsed, patch: parsed },
-                inspectWrite,
-            );
-            if (!result.ok) {
-                console.error(`[SQLite] ⛔ per-row ${op} refused: ${result.body.reason || result.body.error}`);
-            }
-            sendJson(res, result.status, result.body);
-            if (result.ok) setTimeout(syncToICloud, 200);
+                // Same backup discipline as every other mutation.
+                if (sqliteWrites.isEnabled) createVerifiedBackup();
+
+                const result = sqliteWrites.applyChange(
+                    { op, id: isBulkCategory ? null : txId, transaction: parsed.transaction || parsed, patch: parsed },
+                    inspectWrite,
+                );
+                if (!result.ok) {
+                    console.error(`[SQLite] ⛔ per-row ${op} refused: ${result.body.reason || result.body.error}`);
+                }
+                // Hold the queue until json-server has picked the new row up,
+                // so the next write cannot be built from its old copy.
+                if (result.ok) await ensureJsonServerFresh();
+                sendJson(res, result.status, result.body);
+                if (result.ok) setTimeout(syncToICloud, 200);
+            });
         });
         return;
     }
@@ -1027,7 +1096,17 @@ const proxy = http.createServer((req, res) => {
     req.on('end', () => {
       // Everything from here on reads db.json, decides, and writes. Run one at
       // a time so each decision sees the previous write's result.
-      runExclusive(() => new Promise((release) => {
+      runExclusive(async () => {
+        // json-server writes its whole in-memory copy, so it must be current
+        // before it touches db.json — see ensureJsonServerFresh.
+        if (!(await ensureJsonServerFresh())) {
+            sendJson(res, 503, {
+                error: 'Write refused: the database server could not reload the latest data',
+                reason: 'Saving now could erase recent entries. Nothing was written — restart the server and try again.',
+            });
+            return;
+        }
+        return new Promise((release) => {
         let body = Buffer.concat(chunks).toString('utf8');
 
         // LOST-UPDATE CHECK. A whole-collection write replaces everything, so a
@@ -1091,7 +1170,8 @@ const proxy = http.createServer((req, res) => {
         // request is dispatched — otherwise the next mutation would merge
         // against a db.json this one has not updated yet.
         forward(body, method.verb, release);
-      }));
+        });
+      });
     });
 });
 
