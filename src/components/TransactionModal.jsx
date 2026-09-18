@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import TextPromptModal from './TextPromptModal';
 import { createPortal } from 'react-dom';
 import { X, Calendar, Calculator, CreditCard, Wallet, Tag, FileText, ChevronDown, Check, ArrowUpCircle, ArrowDownCircle, Landmark } from 'lucide-react';
 import { activeOrdersForCard, suggestTitle } from '../utils/emiOrders';
@@ -18,6 +19,9 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
     const [title, setTitle] = useState('');
     const [amount, setAmount] = useState('');
     const [mainCategory, setMainCategory] = useState('');
+    // Which name is being asked for, if any. window.prompt cannot be used —
+    // Electron does not implement it. See TextPromptModal.
+    const [prompting, setPrompting] = useState(null);
     const [category, setCategory] = useState('');
     const [date, setDate] = useState(new Date());
     const [paymentMode, setPaymentMode] = useState('direct');
@@ -123,8 +127,18 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
         if (!title.trim()) setTitle(suggestTitle(order, isoDate));
     };
 
+    /**
+     * Read when the form opens, but deliberately not a dependency of the reset
+     * below. Adding a category from inside this form changes the map, which
+     * re-ran the reset and wiped every field the user had filled in — the new
+     * category included. That is why "+ Add New Main Category" looked broken.
+     */
+    const categoryMapRef = useRef(mergedCategoryMap);
+    categoryMapRef.current = mergedCategoryMap;
+
     // Sync state with initialData
     useEffect(() => {
+        const catMap = categoryMapRef.current;
         if (isOpen && initialData) {
             setTitle(initialData.title || '');
             setAmount(initialData.amount || '');
@@ -137,10 +151,10 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
 
             // If stored mainCategory is not a recognized dropdown key, try to resolve from subcategory
             // This prevents the select from falling back to 'Income' (first option) for unknown values like 'Others'
-            if (!initialMain || !mergedCategoryMap[initialMain]) {
+            if (!initialMain || !catMap[initialMain]) {
                 let resolved = '';
                 if (initialCat) {
-                    for (const [main, subs] of Object.entries(mergedCategoryMap)) {
+                    for (const [main, subs] of Object.entries(catMap)) {
                         const matched = subs.find(s => s.toLowerCase() === initialCat.toLowerCase());
                         if (matched) {
                             resolved = main;
@@ -148,7 +162,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                         }
                     }
                 }
-                initialMain = resolved || (mergedCategoryMap[initialMain] ? initialMain : 'Miscellaneous');
+                initialMain = resolved || (catMap[initialMain] ? initialMain : 'Miscellaneous');
             }
 
             setMainCategory(initialMain);
@@ -211,7 +225,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
             setInvestmentLegs([]);
             setGroceryItems([]);
         }
-    }, [initialData, isOpen, defaultDate, mergedCategoryMap]);
+    }, [initialData, isOpen, defaultDate]);
 
     // Picking a payroll-deduction category defaults the toggle off, the way the
     // importer has always done it. Only for new rows and only while the user has
@@ -514,13 +528,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                         value={mainCategory}
                                         onChange={(e) => {
                                             if (e.target.value === '__add_custom__') {
-                                                const newMain = window.prompt("Enter new Main Category name:");
-                                                if (newMain && newMain.trim()) {
-                                                    const formattedMain = newMain.trim();
-                                                    addCustomCategory(formattedMain);
-                                                    setMainCategory(formattedMain);
-                                                    setCategory('');
-                                                }
+                                                setPrompting('main');
                                             } else {
                                                 setMainCategory(e.target.value);
                                                 setCategory(''); // reset sub category
@@ -545,12 +553,7 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                                         value={category}
                                         onChange={(e) => {
                                             if (e.target.value === '__add_custom__') {
-                                                const newSub = window.prompt(`Enter new Sub Category for ${mainCategory}:`);
-                                                if (newSub && newSub.trim()) {
-                                                    const formattedSub = newSub.trim();
-                                                    addCustomCategory(mainCategory, formattedSub);
-                                                    setCategory(formattedSub);
-                                                }
+                                                setPrompting('sub');
                                             } else {
                                                 setCategory(e.target.value);
                                             }
@@ -750,6 +753,25 @@ const TransactionModal = ({ isOpen, onClose, onAdd, initialData = null, defaultD
                     </button>
                 </div>
             </div>
+
+            <TextPromptModal
+                isOpen={prompting !== null}
+                title={prompting === 'sub' ? `New sub category in ${mainCategory}` : 'New main category'}
+                label="Name"
+                placeholder={prompting === 'sub' ? 'e.g. mobile recharge' : 'e.g. Utilities'}
+                onCancel={() => setPrompting(null)}
+                onSubmit={(name) => {
+                    if (prompting === 'sub') {
+                        addCustomCategory(mainCategory, name);
+                        setCategory(name);
+                    } else {
+                        addCustomCategory(name);
+                        setMainCategory(name);
+                        setCategory('');
+                    }
+                    setPrompting(null);
+                }}
+            />
         </div>,
         document.body
     );

@@ -59,6 +59,14 @@ export const costRecovery = (stock = {}) => {
                 bonusShares += qtyOf(tx);
                 receivedShares += qtyOf(tx);
                 break;
+            case 'merger_in':
+                // Money that went in through the company that merged away.
+                invested += cashOf(tx);
+                break;
+            case 'merger_out':
+                // That cost now sits in the acquirer, not at risk here.
+                invested = Math.max(0, invested - cashOf(tx));
+                break;
             case 'demerger':
                 // No cash changes hands, so this is not `invested`. But it is
                 // not free either: a demerger splits the parent's cost basis

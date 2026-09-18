@@ -67,6 +67,15 @@ export const recomputeStockMetrics = (txList = []) => {
         } else if (tx.type === 'demerger') {
             currentShares += qty;
             totalCost = currentShares * price;
+        } else if (tx.type === 'merger_out') {
+            // Shares given up in a merger (see stockMerger.js). Not a sale:
+            // nothing is banked, and their cost travels to the merger_in leg.
+            const avgCost = currentShares > 0 ? totalCost / currentShares : 0;
+            currentShares = Math.max(0, currentShares - qty);
+            totalCost = currentShares * avgCost;
+        } else if (tx.type === 'merger_in') {
+            totalCost = currentShares === 0 ? qty * price : totalCost + (qty * price);
+            currentShares += qty;
         } else if (tx.type === 'dividend') {
             const year = new Date(tx.date).getFullYear().toString();
             // Gross, before any tax withheld — the same basis dividendAnalytics
@@ -88,7 +97,8 @@ export const recomputeStockMetrics = (txList = []) => {
         avgCost: finalAvgCost,
         dividends: calculatedDividends,
         realised: Math.round(realised * 100) / 100,
-        realisedByTx
+        realisedByTx,
+        totalCost: currentShares > 0 ? totalCost : 0
     };
 };
 
@@ -160,7 +170,7 @@ export const fifoStockPosition = (txList = []) => {
 
         if (tx.type === 'buy' || tx.type === 'ipo') {
             lots.push({ qty, price });
-        } else if (tx.type === 'sell' || tx.type === 'buyback') {
+        } else if (tx.type === 'sell' || tx.type === 'buyback' || tx.type === 'merger_out') {
             // Retire from the front. A history that sells more than it holds
             // simply empties the queue, matching the clamp in the average above
             // rather than carrying a negative lot forward.
@@ -171,6 +181,10 @@ export const fifoStockPosition = (txList = []) => {
                 remaining -= taken;
                 if (lots[0].qty <= 0) lots.shift();
             }
+        } else if (tx.type === 'merger_in') {
+            // The surrendered shares' lots, restated per share received.
+            const carried = Array.isArray(tx.lots) && tx.lots.length ? tx.lots : [{ quantity: qty, costPerShare: price }];
+            carried.forEach((lot) => lots.push({ qty: Number(lot.quantity) || 0, price: Number(lot.costPerShare) || 0 }));
         } else if (tx.type === 'bonus') {
             // Free shares, so a lot of their own at zero cost. They queue after
             // the holding that earned them, which is where they were received.
