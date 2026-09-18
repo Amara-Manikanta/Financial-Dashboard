@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useFinance } from '../context/FinanceContext';
+import TextPromptModal from './TextPromptModal';
 
 const QUANTITY_OPTIONS = {
     'Milk Products': ['250 ml', '500 ml', '1 L', '2 L', 'Custom'],
@@ -14,6 +15,9 @@ const QUANTITY_OPTIONS = {
 };
 
 const GroceryBuilder = ({ items, onChange, expenses }) => {
+    // { kind: 'item' | 'brand' | 'flavour', row }. Not window.prompt: Electron
+    // does not implement it, so these buttons did nothing in the Mac app.
+    const [prompting, setPrompting] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedItem, setSelectedItem] = useState('');
     const [finalBillAmount, setFinalBillAmount] = useState('');
@@ -193,12 +197,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                         value={selectedItem}
                         onChange={(e) => {
                             if (e.target.value === '__add_new__') {
-                                const newItem = window.prompt(`Enter new product name for ${selectedCategory}:`);
-                                if (newItem && newItem.trim()) {
-                                    const formatted = newItem.trim().charAt(0).toUpperCase() + newItem.trim().slice(1);
-                                    addCustomGroceryItem(selectedCategory, formatted);
-                                    setSelectedItem(formatted);
-                                }
+                                setPrompting({ kind: 'item' });
                             } else {
                                 setSelectedItem(e.target.value);
                             }
@@ -261,26 +260,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                                                 value={item.brand}
                                                 onChange={(e) => {
                                                     if (e.target.value === '__add_new__') {
-                                                        const newBrand = window.prompt("Enter new brand name:");
-                                                        if (newBrand && newBrand.trim()) {
-                                                            const formatted = newBrand.trim().charAt(0).toUpperCase() + newBrand.trim().slice(1);
-                                                            addGroceryBrand(item.subcategory, formatted);
-                                                            
-                                                            // Also map this brand to the specific item automatically
-                                                            const catMap = groceryItemBrandMap[item.subcategory] || {};
-                                                            const currentMapped = catMap[item.name] || [];
-                                                            if (!currentMapped.includes(formatted)) {
-                                                                saveGroceryItemBrandMap({
-                                                                    ...groceryItemBrandMap,
-                                                                    [item.subcategory]: {
-                                                                        ...catMap,
-                                                                        [item.name]: [...currentMapped, formatted].sort()
-                                                                    }
-                                                                });
-                                                            }
-                                                            
-                                                            updateItem(item.id, 'brand', formatted);
-                                                        }
+                                                        setPrompting({ kind: 'brand', row: item });
                                                     } else {
                                                         updateItem(item.id, 'brand', e.target.value);
                                                     }
@@ -300,26 +280,7 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                                                 value={item.flavour || ''}
                                                 onChange={(e) => {
                                                     if (e.target.value === '__add_new__') {
-                                                        const newFlavour = window.prompt("Enter new flavour/type:");
-                                                        if (newFlavour && newFlavour.trim()) {
-                                                            const formatted = newFlavour.trim().charAt(0).toUpperCase() + newFlavour.trim().slice(1);
-                                                            addGroceryFlavour(item.subcategory, formatted);
-
-                                                            // Also map this flavour to the specific item automatically
-                                                            const catMap = groceryItemFlavourMap[item.subcategory] || {};
-                                                            const currentMapped = catMap[item.name] || [];
-                                                            if (!currentMapped.includes(formatted)) {
-                                                                saveGroceryItemFlavourMap({
-                                                                    ...groceryItemFlavourMap,
-                                                                    [item.subcategory]: {
-                                                                        ...catMap,
-                                                                        [item.name]: [...currentMapped, formatted].sort()
-                                                                    }
-                                                                });
-                                                            }
-
-                                                            updateItem(item.id, 'flavour', formatted);
-                                                        }
+                                                        setPrompting({ kind: 'flavour', row: item });
                                                     } else {
                                                         updateItem(item.id, 'flavour', e.target.value);
                                                     }
@@ -440,6 +401,46 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                     )}
                 </div>
             )}
+
+            <TextPromptModal
+                isOpen={prompting !== null}
+                title={prompting?.kind === 'brand' ? 'New brand' : prompting?.kind === 'flavour' ? 'New flavour or type' : `New product in ${selectedCategory}`}
+                label="Name"
+                placeholder={prompting?.kind === 'brand' ? 'e.g. Amul' : prompting?.kind === 'flavour' ? 'e.g. Toned' : 'e.g. Milk'}
+                onCancel={() => setPrompting(null)}
+                onSubmit={(name) => {
+                    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+                    const row = prompting.row;
+                    if (prompting.kind === 'item') {
+                        addCustomGroceryItem(selectedCategory, formatted);
+                        setSelectedItem(formatted);
+                    } else if (prompting.kind === 'brand') {
+                        addGroceryBrand(row.subcategory, formatted);
+                        // Mapped to this product too, so it is offered next time.
+                        const catMap = groceryItemBrandMap[row.subcategory] || {};
+                        const mapped = catMap[row.name] || [];
+                        if (!mapped.includes(formatted)) {
+                            saveGroceryItemBrandMap({
+                                ...groceryItemBrandMap,
+                                [row.subcategory]: { ...catMap, [row.name]: [...mapped, formatted].sort() },
+                            });
+                        }
+                        updateItem(row.id, 'brand', formatted);
+                    } else {
+                        addGroceryFlavour(row.subcategory, formatted);
+                        const catMap = groceryItemFlavourMap[row.subcategory] || {};
+                        const mapped = catMap[row.name] || [];
+                        if (!mapped.includes(formatted)) {
+                            saveGroceryItemFlavourMap({
+                                ...groceryItemFlavourMap,
+                                [row.subcategory]: { ...catMap, [row.name]: [...mapped, formatted].sort() },
+                            });
+                        }
+                        updateItem(row.id, 'flavour', formatted);
+                    }
+                    setPrompting(null);
+                }}
+            />
         </div>
     );
 };
