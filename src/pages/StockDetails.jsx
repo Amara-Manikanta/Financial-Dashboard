@@ -15,6 +15,7 @@ import { readQuote, triggeredAlerts } from '../utils/priceRange';
 import StockFinancialsCard from '../components/StockFinancialsCard';
 import CompanyProfile from '../components/CompanyProfile';
 import { isOwnHolding, ownerOf, ownerLabel } from '../utils/holdingOwner';
+import { recordMerger, removeMerger, relinkMergers, isMergerLeg } from '../utils/stockMerger';
 
 const StockDetails = () => {
     const { id, stockId } = useParams();
@@ -118,6 +119,22 @@ const StockDetails = () => {
     const recalculateStockMetrics = recomputeStockMetrics;
 
     const handleSaveTransaction = async (txData) => {
+        if (txData.type === 'merger') {
+            let mergedStocks;
+            try {
+                mergedStocks = recordMerger(market.stocks, {
+                    sourceId: stock.id, targetId: txData.mergedIntoId, date: txData.date,
+                    surrendered: txData.quantity, received: txData.receivedQuantity,
+                    ratioNew: txData.ratioNew, ratioOld: txData.ratioOld,
+                });
+            } catch (err) {
+                return err.message;
+            }
+            await updateItem('savings', { ...market, stocks: mergedStocks });
+            setIsModalOpen(false);
+            setEditingTx(null);
+            return null;
+        }
         const updatedTransactions = editingTx
             ? transactions.map(t => t.id === txData.id ? txData : t)
             : [...transactions, { ...txData, id: Date.now().toString() }];
@@ -145,7 +162,8 @@ const StockDetails = () => {
             return s;
         });
 
-        const updatedMarket = { ...market, stocks: updatedStocks };
+        // A merger's carried cost is derived from this history; keep it current.
+        const updatedMarket = { ...market, stocks: relinkMergers(updatedStocks) };
         await updateItem('savings', updatedMarket);
         setIsModalOpen(false);
         setEditingTx(null);
@@ -158,6 +176,13 @@ const StockDetails = () => {
 
     const confirmDeleteTransaction = async () => {
         if (!txToDelete) return;
+        const pending = transactions.find(t => String(t.id) === String(txToDelete));
+        if (pending?.mergerId) {
+            await updateItem('savings', { ...market, stocks: relinkMergers(removeMerger(market.stocks, pending.mergerId)) });
+            setTxToDelete(null);
+            setIsDeleteModalOpen(false);
+            return;
+        }
         const updatedTransactions = transactions.filter(t => String(t.id) !== String(txToDelete));
 
         const { shares, avgCost, dividends } = recalculateStockMetrics(updatedTransactions);
@@ -172,7 +197,7 @@ const StockDetails = () => {
             };
             return s;
         });
-        const updatedMarket = { ...market, stocks: updatedStocks };
+        const updatedMarket = { ...market, stocks: relinkMergers(updatedStocks) };
         await updateItem('savings', updatedMarket);
         setTxToDelete(null);
         setIsDeleteModalOpen(false);
@@ -219,14 +244,14 @@ const StockDetails = () => {
                      unrealizedPL: 0, wholePL: 0, isProfit: true, dividendEarned: 0 };
         }
         const buyVal = transactions.reduce((sum, tx) => {
-            if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+            if (['buy', 'ipo', 'demerger', 'merger_in'].includes(tx.type)) {
                 return sum + (Number(tx.quantity) * Number(tx.price));
             }
             return sum;
         }, 0);
 
         const sellVal = transactions.reduce((sum, tx) => {
-            if (['sell', 'buyback'].includes(tx.type)) {
+            if (['sell', 'buyback', 'merger_out'].includes(tx.type)) {
                 return sum + (Number(tx.quantity) * Number(tx.price));
             }
             return sum;
@@ -770,21 +795,33 @@ const StockDetails = () => {
                                             letterSpacing: '0.05em',
                                             backgroundColor: ['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? 'rgba(16, 185, 129, 0.12)' :
                                                 ['sell', 'buyback'].includes(tx.type) ? 'rgba(239, 68, 68, 0.12)' :
-                                                    tx.type === 'demerger' ? 'rgba(245, 158, 11, 0.12)' :
+                                                    ['demerger', 'merger_in', 'merger_out'].includes(tx.type) ? 'rgba(245, 158, 11, 0.12)' :
                                                         'rgba(59, 130, 246, 0.12)',
                                             color: ['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? '#34d399' :
                                                 ['sell', 'buyback'].includes(tx.type) ? '#f87171' :
-                                                    tx.type === 'demerger' ? '#fbbf24' :
+                                                    ['demerger', 'merger_in', 'merger_out'].includes(tx.type) ? '#fbbf24' :
                                                         '#60a5fa',
                                             border: `1px solid ${
                                                 ['buy', 'ipo', 'bonus', 'split'].includes(tx.type) ? 'rgba(16, 185, 129, 0.2)' :
                                                 ['sell', 'buyback'].includes(tx.type) ? 'rgba(239, 68, 68, 0.2)' :
-                                                tx.type === 'demerger' ? 'rgba(245, 158, 11, 0.2)' :
+                                                ['demerger', 'merger_in', 'merger_out'].includes(tx.type) ? 'rgba(245, 158, 11, 0.2)' :
                                                 'rgba(59, 130, 246, 0.2)'
                                             }`
                                         }}>
-                                            {tx.type.toUpperCase()}
+                                            {tx.type === 'merger_out' ? 'MERGED OUT' : tx.type === 'merger_in' ? 'MERGER' : tx.type.toUpperCase()}
                                         </span>
+                                        {isMergerLeg(tx) && (() => {
+                                            const otherId = tx.type === 'merger_out' ? tx.mergedIntoId : tx.mergedFromId;
+                                            const other = market.stocks.find(s => String(s.id) === String(otherId));
+                                            return (
+                                                <div className="mt-1 text-[10px] text-zinc-400">
+                                                    {tx.type === 'merger_out' ? `→ ${tx.receivedQuantity} shares of ` : `for ${tx.surrenderedQuantity} shares of `}
+                                                    <button type="button" onClick={() => navigate(`/savings/stock-market/${id}/stock/${otherId}`)} className="underline text-amber-300 hover:text-amber-200">
+                                                        {other?.name || 'a removed holding'}
+                                                    </button>
+                                                </div>
+                                            );
+                                        })()}
                                     </td>
                                     <td style={styles.td('right', false, 'white')}>
                                         <span style={{ fontFamily: 'monospace' }}>
@@ -831,7 +868,7 @@ const StockDetails = () => {
                                                     </div>
                                                 );
                                             }
-                                            if (tx.type === 'buy' || tx.type === 'ipo') {
+                                            if (tx.type === 'buy' || tx.type === 'ipo' || tx.type === 'merger_in') {
                                                 const pl = (stock.currentPrice - tx.price) * tx.quantity;
                                                 const up = pl >= 0;
                                                 return (
@@ -845,7 +882,8 @@ const StockDetails = () => {
                                     </td>
                                     <td style={styles.td('center')}>
                                         <div style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
-                                            <button onClick={() => {
+                                            {/* A merger leg is edited by deleting the pair and recording it again. */}
+                                            {!isMergerLeg(tx) && <button onClick={() => {
                                                 if (tx.id === 'synthetic-initial') {
                                                     setEditingTx({ ...tx, id: undefined, date: new Date().toISOString().split('T')[0] });
                                                 } else {
@@ -854,7 +892,7 @@ const StockDetails = () => {
                                                 setIsModalOpen(true);
                                             }} style={styles.actionBtnCell('#60a5fa')} onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(59, 130, 246, 0.12)'} onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.03)'}>
                                                 <Edit2 size={14} />
-                                            </button>
+                                            </button>}
                                             {tx.id !== 'synthetic-initial' && (
                                                 <button
                                                     onClick={(e) => {
@@ -1074,6 +1112,8 @@ const StockDetails = () => {
                 onClose={() => setIsModalOpen(false)}
                 onSave={handleSaveTransaction}
                 initialData={editingTx}
+                otherStocks={(market.stocks || []).filter(s => String(s.id) !== String(stockId))}
+                heldShares={position.shares}
             />
 
             <StockTransactionModal
@@ -1093,14 +1133,21 @@ const StockDetails = () => {
                 }}
                 onConfirm={confirmDeleteTransaction}
                 title="Delete Transaction"
-                message="Are you sure you want to delete this transaction? This will automatically recalculate your stock metrics."
+                message={transactions.some(t => String(t.id) === String(txToDelete) && t.mergerId)
+                    ? 'This deletes the merger from both holdings: the shares given up come back here, and the shares received are removed from the other company.'
+                    : 'Are you sure you want to delete this transaction? This will automatically recalculate your stock metrics.'}
                 confirmText="Delete"
             />
         </div>
     );
 };
 
-const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
+const TransactionModal = ({ isOpen, onClose, onSave, initialData, otherStocks = [], heldShares = 0 }) => {
+    const [mergedIntoId, setMergedIntoId] = useState('');
+    const [receivedQuantity, setReceivedQuantity] = useState('');
+    const [ratioNew, setRatioNew] = useState('');
+    const [ratioOld, setRatioOld] = useState('');
+    const [formError, setFormError] = useState('');
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [type, setType] = useState('buy');
     const [quantity, setQuantity] = useState('');
@@ -1112,6 +1159,11 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
 
     useEffect(() => {
         if (isOpen) {
+            setMergedIntoId('');
+            setReceivedQuantity('');
+            setRatioNew('');
+            setRatioOld('');
+            setFormError('');
             if (initialData) {
                 setDate(initialData.date);
                 setType(initialData.type);
@@ -1136,7 +1188,12 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
 
     if (!isOpen) return null;
 
-    const handleSubmit = (e) => {
+    // Fractions of a share are paid out in cash, so the count rounds down.
+    const fillReceived = (q, n, o) => {
+        if (Number(q) > 0 && Number(n) > 0 && Number(o) > 0) setReceivedQuantity(String(Math.floor(Number(q) * Number(n) / Number(o))));
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         // Spread the stored row first.
         //
@@ -1146,7 +1203,7 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
         // pair is not cosmetic: detachExpense DELETES a transaction it created
         // and only RELEASES one it adopted, so an edit that dropped the flag
         // turned a later unlink into the destruction of a real purchase record.
-        onSave({
+        const error = await onSave({
             ...(initialData || {}),
             id: initialData?.id,
             date,
@@ -1159,7 +1216,9 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
             // types stops a stale figure surviving a change of transaction type.
             tds: type === 'dividend' ? Number(tds) || 0 : undefined,
             amountIsNet: type === 'dividend' ? amountIsNet : undefined,
+            ...(type === 'merger' ? { mergedIntoId, receivedQuantity: Number(receivedQuantity), ratioNew, ratioOld } : {}),
         });
+        setFormError(typeof error === 'string' ? error : '');
     };
 
     return createPortal(
@@ -1189,7 +1248,10 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                     </div>
                     <div>
                         <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>Type</label>
-                        <select value={type} onChange={e => setType(e.target.value)} style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }}>
+                        <select value={type} onChange={e => {
+                            setType(e.target.value);
+                            if (e.target.value === 'merger' && !quantity && heldShares > 0) setQuantity(String(heldShares));
+                        }} style={{ width: '100%', backgroundColor: '#18181b', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }}>
                             <option value="buy">Buy</option>
                             <option value="sell">Sell</option>
                             <option value="dividend">Dividend</option>
@@ -1198,8 +1260,32 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                             <option value="ipo">IPO</option>
                             <option value="buyback">Buyback</option>
                             <option value="demerger">Demerger</option>
+                            {!initialData && <option value="merger">Merger (exchanged for another company)</option>}
                         </select>
                     </div>
+                    {type === 'merger' && (
+                        <>
+                            <div>
+                                <label className="block text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 mb-1.5">Merged into</label>
+                                <select required value={mergedIntoId} onChange={e => setMergedIntoId(e.target.value)} className="w-full rounded-xl border border-white/10 bg-zinc-900 px-4 py-2.5 text-sm text-white outline-none">
+                                    <option value="">Pick the holding that received the shares</option>
+                                    {otherStocks.map(s => <option key={s.id} value={s.id}>{s.name}{s.owner ? ' (tracked only)' : ''}</option>)}
+                                </select>
+                                <p className="mt-1 text-[11px] text-zinc-500">Not listed? Add that company from the Stocks page first, with 0 shares.</p>
+                            </div>
+                            <div className="flex items-end gap-2">
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 mb-1.5">New shares</label>
+                                    <input type="number" min="0" value={ratioNew} onChange={e => { setRatioNew(e.target.value); fillReceived(quantity, e.target.value, ratioOld); }} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none" placeholder="1" />
+                                </div>
+                                <span className="pb-2.5 text-zinc-500 font-bold">for every</span>
+                                <div className="flex-1">
+                                    <label className="block text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 mb-1.5">Old shares</label>
+                                    <input type="number" min="0" value={ratioOld} onChange={e => { setRatioOld(e.target.value); fillReceived(quantity, ratioNew, e.target.value); }} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none" placeholder="5" />
+                                </div>
+                            </div>
+                        </>
+                    )}
                     {type === 'split' ? (
                         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
                             <div style={{ flex: 1 }}>
@@ -1215,9 +1301,9 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                     ) : (type !== 'dividend') && (
                         <div>
                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>
-                                {type === 'demerger' ? 'Shares Received' : 'Quantity'}
+                                {type === 'demerger' ? 'Shares Received' : type === 'merger' ? 'Shares given up' : 'Quantity'}
                             </label>
-                            <input type="number" required value={quantity} onChange={e => setQuantity(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="0" />
+                            <input type="number" required value={quantity} onChange={e => { setQuantity(e.target.value); if (type === 'merger') fillReceived(e.target.value, ratioNew, ratioOld); }} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="0" />
                         </div>
                     )}
                     {['buy', 'sell', 'ipo', 'buyback', 'dividend', 'demerger'].includes(type) && (
@@ -1228,6 +1314,17 @@ const TransactionModal = ({ isOpen, onClose, onSave, initialData }) => {
                             <input type="number" step="0.01" required value={price} onChange={e => setPrice(e.target.value)} style={{ width: '100%', backgroundColor: 'rgba(255, 255, 255, 0.05)', border: '1px solid rgba(255, 255, 255, 0.1)', borderRadius: '0.75rem', padding: '0.625rem 1rem', color: 'white', outline: 'none', fontSize: '0.875rem' }} placeholder="0.00" />
                         </div>
                     )}
+                    {type === 'merger' && (
+                        <div>
+                            <label className="block text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 mb-1.5">Shares received</label>
+                            <input type="number" required min="0" step="any" value={receivedQuantity} onChange={e => setReceivedQuantity(e.target.value)} className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white outline-none" placeholder="0" />
+                            <p className="mt-2 text-[11px] leading-relaxed text-zinc-400">
+                                Not recorded as a sale. The cost and purchase dates of these shares carry over to the new holding.
+                                Record later bonuses on that holding.
+                            </p>
+                        </div>
+                    )}
+                    {formError && <p className="text-xs font-semibold text-rose-400">{formError}</p>}
                     {type === 'dividend' && (
                         <div style={{ borderRadius: '0.75rem', border: '1px solid rgba(45,212,191,0.2)', backgroundColor: 'rgba(45,212,191,0.05)', padding: '0.9rem' }}>
                             <label style={{ display: 'block', fontSize: '10px', fontWeight: '800', color: '#2dd4bf', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>

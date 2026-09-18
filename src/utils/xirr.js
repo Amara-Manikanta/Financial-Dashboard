@@ -134,6 +134,10 @@ export const stockCashflows = (stock, asOf = new Date()) => {
         if (!cash) return;
         if (ACQUIRE.includes(type)) flows.push({ date: tx.date, amount: -cash });
         else if (DISPOSE.includes(type)) flows.push({ date: tx.date, amount: cash });
+        // A merger moves cost between two holdings on one day. Pooled, the two
+        // legs cancel; per holding, each side is measured on the cost that moved.
+        else if (type === 'merger_out') flows.push({ date: tx.date, amount: cash });
+        else if (type === 'merger_in') flows.push({ date: tx.date, amount: -cash });
         else if (type === 'dividend') {
             // A payout sits in `price` with quantity 0, so cashOf would read 0.
             flows.push({ date: tx.date, amount: num(tx.amount) || num(tx.price) });

@@ -15,7 +15,9 @@ import ConfirmModal from '../components/ConfirmModal';
 import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
 import BenchmarkPanel from '../components/BenchmarkPanel';
 import { StockHealthBadge } from '../components/StockFinancialsCard';
-import { ownerOf, ownerLabel, SELF_OWNER } from '../utils/holdingOwner';
+import { ownerOf, ownerLabel, isOwnHolding, SELF_OWNER } from '../utils/holdingOwner';
+
+const ALL_OWNERS = 'all';
 
 const StockTreemapContent = (props) => {
     const { depth, x, y, width, height, index, name, ticker, percentage, value } = props;
@@ -215,20 +217,27 @@ const StockMarketDetails = () => {
     }, [stocks]);
     const hasOtherOwners = ownerSummary.some(g => g.id !== SELF_OWNER)
         || stocks.some(stock => ownerOf(stock) !== SELF_OWNER);
-    const viewingOthers = ownerFilter !== SELF_OWNER;
+    const viewingAll = ownerFilter === ALL_OWNERS;
+    const viewingOthers = ownerFilter !== SELF_OWNER && !viewingAll;
+    const allOwnersSummary = useMemo(() => ownerSummary.reduce(
+        (acc, g) => ({ ...acc, count: acc.count + g.count, invested: acc.invested + g.invested, current: acc.current + g.current }),
+        { id: ALL_OWNERS, count: 0, invested: 0, current: 0 }
+    ), [ownerSummary]);
+    const trackedOnlyValue = allOwnersSummary.current - (ownerSummary.find(g => g.id === SELF_OWNER)?.current || 0);
     // Once the last holding of the owner on screen moves away, return to the portfolio.
     useEffect(() => {
         if (viewingOthers && !stocks.some(stock => ownerOf(stock) === ownerFilter)) setOwnerFilter(SELF_OWNER);
-    }, [stocks, ownerFilter, viewingOthers]);
+        if (viewingAll && !hasOtherOwners) setOwnerFilter(SELF_OWNER);
+    }, [stocks, ownerFilter, viewingOthers, viewingAll, hasOtherOwners]);
 
     // Filter and Separating Stocks
     const filteredStocks = useMemo(() => {
         return stocks.filter(stock =>
-            ownerOf(stock) === ownerFilter && (
+            (viewingAll || ownerOf(stock) === ownerFilter) && (
             (stock.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
             (stock.ticker || stock.symbol || '').toLowerCase().includes(searchTerm.toLowerCase()))
         );
-    }, [stocks, searchTerm, ownerFilter]);
+    }, [stocks, searchTerm, ownerFilter, viewingAll]);
 
     const activeStocks = useMemo(() => filteredStocks.filter(stock => !stock.isArchived && Number(stock.shares || 0) > 0), [filteredStocks]);
     const archivedStocks = useMemo(() => filteredStocks.filter(stock => stock.isArchived || Number(stock.shares || 0) === 0), [filteredStocks]);
@@ -503,7 +512,10 @@ const StockMarketDetails = () => {
         }
 
         const updatedMarket = { ...market, stocks: updatedStocks };
-        await updateItem('savings', updatedMarket);
+        const result = await updateItem('savings', updatedMarket);
+        // A holding saved under another owner drops out of the list on screen,
+        // which reads as "did not save". Follow it to its owner's view instead.
+        if (result?.success && !viewingAll) setOwnerFilter(ownerOf(stockData));
         setIsModalOpen(false);
         setEditingStock(null);
     };
@@ -822,9 +834,10 @@ const StockMarketDetails = () => {
             {hasOtherOwners && (
                 <div className="mb-6">
                     <div className="flex flex-wrap gap-3">
-                        {ownerSummary.map(g => {
+                        {[allOwnersSummary, ...ownerSummary].map(g => {
                             const pl = g.current - g.invested;
                             const active = ownerFilter === g.id;
+                            const isAll = g.id === ALL_OWNERS;
                             return (
                                 <button
                                     key={g.id}
@@ -832,9 +845,9 @@ const StockMarketDetails = () => {
                                     className={`text-left rounded-xl border px-4 py-3 min-w-[12rem] transition-colors ${active ? 'border-sky-400/60 bg-sky-500/10' : 'border-white/10 bg-white/[0.03] hover:border-white/25'}`}
                                 >
                                     <div className="flex items-center justify-between gap-2">
-                                        <span className="text-xs font-bold text-white">{ownerLabel(g.id, docuSetu?.familyMembers)}</span>
-                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${g.id === SELF_OWNER ? 'text-emerald-400' : 'text-slate-400'}`}>
-                                            {g.id === SELF_OWNER ? 'Portfolio' : 'Tracked only'}
+                                        <span className="text-xs font-bold text-white">{isAll ? 'All owners' : ownerLabel(g.id, docuSetu?.familyMembers)}</span>
+                                        <span className={`text-[10px] font-bold uppercase tracking-wider ${g.id === SELF_OWNER ? 'text-emerald-400' : isAll ? 'text-sky-300' : 'text-slate-400'}`}>
+                                            {g.id === SELF_OWNER ? 'Portfolio' : isAll ? 'Combined' : 'Tracked only'}
                                         </span>
                                     </div>
                                     <div className="mt-1 font-mono text-sm font-bold text-white">{formatCurrency(g.current)}</div>
@@ -846,6 +859,11 @@ const StockMarketDetails = () => {
                             );
                         })}
                     </div>
+                    {viewingAll && (
+                        <p className="mt-3 text-xs text-sky-300">
+                            Showing everyone's holdings together. The figures on this page include {formatCurrency(trackedOnlyValue)} of tracked-only holdings; your net worth and portfolio totals elsewhere still count only yours.
+                        </p>
+                    )}
                     {viewingOthers && (
                         <p className="mt-3 text-xs text-sky-300">
                             Showing {ownerLabel(ownerFilter, docuSetu?.familyMembers)}'s holdings. These are tracked with live prices but are not part of your portfolio value, net worth, gains or dividends.
@@ -1615,6 +1633,11 @@ const StockMarketDetails = () => {
                                                 >
                                                     {stock.name}
                                                 </h4>
+                                                {ownerFilter === ALL_OWNERS && !isOwnHolding(stock) && (
+                                                    <span className="ml-1.5 align-middle text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-sky-500/30 bg-sky-500/10 text-sky-300" title="Tracked only — not counted in your portfolio">
+                                                        {ownerLabel(ownerOf(stock), docuSetu?.familyMembers)}
+                                                    </span>
+                                                )}
                                             </div>
 
                                             {/* Values */}
@@ -1864,6 +1887,11 @@ const StockMarketDetails = () => {
                                                         >
                                                             {stock.name}
                                                         </span>
+                                                        {ownerFilter === ALL_OWNERS && !isOwnHolding(stock) && (
+                                                            <span className="ml-1.5 align-middle text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-sky-500/30 bg-sky-500/10 text-sky-300" title="Tracked only — not counted in your portfolio">
+                                                                {ownerLabel(ownerOf(stock), docuSetu?.familyMembers)}
+                                                            </span>
+                                                        )}
                                                         {stock.ticker && (
                                                             <StockHealthBadge symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`} />
                                                         )}
@@ -2219,14 +2247,14 @@ const StockMarketDetails = () => {
 
                             if (transactions.length > 0) {
                                 const totalBuyValue = transactions.reduce((sum, tx) => {
-                                    if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+                                    if (['buy', 'ipo', 'demerger', 'merger_in'].includes(tx.type)) {
                                         return sum + (Number(tx.quantity) * Number(tx.price));
                                     }
                                     return sum;
                                 }, 0);
 
                                 const totalSellValue = transactions.reduce((sum, tx) => {
-                                    if (['sell', 'buyback'].includes(tx.type)) {
+                                    if (['sell', 'buyback', 'merger_out'].includes(tx.type)) {
                                         return sum + (Number(tx.quantity) * Number(tx.price));
                                     }
                                     return sum;
@@ -2284,14 +2312,14 @@ const StockMarketDetails = () => {
 
                                                 if (hasTransactions) {
                                                     const totalBuyValue = transactions.reduce((sum, tx) => {
-                                                        if (['buy', 'ipo', 'demerger'].includes(tx.type)) {
+                                                        if (['buy', 'ipo', 'demerger', 'merger_in'].includes(tx.type)) {
                                                             return sum + (Number(tx.quantity) * Number(tx.price));
                                                         }
                                                         return sum;
                                                     }, 0);
 
                                                     const totalSellValue = transactions.reduce((sum, tx) => {
-                                                        if (['sell', 'buyback'].includes(tx.type)) {
+                                                        if (['sell', 'buyback', 'merger_out'].includes(tx.type)) {
                                                             return sum + (Number(tx.quantity) * Number(tx.price));
                                                         }
                                                         return sum;
@@ -2316,6 +2344,11 @@ const StockMarketDetails = () => {
                                                             >
                                                                 {stock.name}
                                                             </span>
+                                                            {ownerFilter === ALL_OWNERS && !isOwnHolding(stock) && (
+                                                                <span className="ml-1.5 align-middle text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border border-sky-500/30 bg-sky-500/10 text-sky-300" title="Tracked only — not counted in your portfolio">
+                                                                    {ownerLabel(ownerOf(stock), docuSetu?.familyMembers)}
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td style={styles.td('left', false, '#71717a')}><span style={{ fontFamily: 'monospace' }}>{stock.ticker || stock.symbol || '-'}</span></td>
                                                         <td style={styles.td('right', false, '#71717a')}>
@@ -2402,7 +2435,7 @@ const StockMarketDetails = () => {
                 initialData={editingStock}
                 customColumns={customColumns}
                 allStocks={stocks}
-                defaultOwner={ownerFilter}
+                defaultOwner={viewingAll ? SELF_OWNER : ownerFilter}
             />
 
             <ConfirmModal

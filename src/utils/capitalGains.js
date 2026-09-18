@@ -111,7 +111,7 @@ export const matchLots = (transactions = [], { name = '', id = null } = {}) => {
             if (d !== 0) return d;
             // On the same day an acquisition must land before a disposal, or an
             // IPO allotment sold on listing day has nothing to match against.
-            const rank = (t) => (ACQUISITIONS.includes(t.type) ? 0 : 1);
+            const rank = (t) => (ACQUISITIONS.includes(t.type) || t.type === 'merger_in' ? 0 : 1);
             return rank(a) - rank(b);
         });
 
@@ -131,6 +131,32 @@ export const matchLots = (transactions = [], { name = '', id = null } = {}) => {
                     lot.quantity *= factor;
                     lot.costPerShare /= factor;
                 });
+            }
+            return;
+        }
+
+        if (type === 'merger_in') {
+            // Not a transfer (s.47(vii)): shares received in a merger keep the
+            // cost and acquisition date of the shares given up (s.49(2),
+            // s.2(42A)). `lots` carries that history across.
+            const carried = Array.isArray(tx.lots) && tx.lots.length
+                ? tx.lots
+                : [{ date: tx.date, quantity: qtyOf(tx), costPerShare: priceOf(tx) }];
+            carried.forEach((l) => {
+                if (num(l.quantity) > 0) lots.push({ date: l.date || tx.date, quantity: num(l.quantity), costPerShare: num(l.costPerShare), source: 'merger', txId: tx.id });
+            });
+            lots.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+            return;
+        }
+
+        if (type === 'merger_out') {
+            // The shares leave without a disposal; their lots moved to merger_in.
+            let remaining = qtyOf(tx);
+            while (remaining > 0.0000001 && lots.length > 0) {
+                const take = Math.min(remaining, lots[0].quantity);
+                lots[0].quantity -= take;
+                remaining -= take;
+                if (lots[0].quantity <= 0.0000001) lots.shift();
             }
             return;
         }
