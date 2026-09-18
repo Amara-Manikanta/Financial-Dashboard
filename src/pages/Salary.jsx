@@ -3,6 +3,7 @@ import { useFinance } from '../context/FinanceContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Briefcase, ChevronDown, Copy, Plus, X as XIcon, EyeOff, Award, Wallet, ShieldCheck, Info, Calendar, Building2, CheckCircle2, AlertTriangle, Trash2, Edit, Check } from 'lucide-react';
 import { SalaryIcon, GratuityIcon } from '../utils/customIcons';
+import TextPromptModal from '../components/TextPromptModal';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -224,15 +225,23 @@ const Salary = () => {
         }
     };
 
-    const handleAddCustomField = async (categoryKey, annualCategory) => {
-        const inputName = window.prompt("Enter new field name (e.g. Internet Allowance):");
-        if (!inputName || !inputName.trim()) return;
-        
+    // Which list a new field is being added to, if any: { categoryKey, annualCategory }.
+    // Electron has no window.prompt, so the name is asked for in a dialog.
+    const [addingField, setAddingField] = useState(null);
+
+    const handleAddCustomField = (categoryKey, annualCategory) => {
+        setAddingField({ categoryKey, annualCategory });
+    };
+
+    const addCustomField = async (name) => {
+        const { categoryKey, annualCategory } = addingField;
+        setAddingField(null);
+
         try {
-            let key = inputName.replace(/[^a-zA-Z0-9 ]/g, '').split(' ').filter(Boolean).map((word, i) => i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
+            let key = name.replace(/[^a-zA-Z0-9 ]/g, '').split(' ').filter(Boolean).map((word, i) => i === 0 ? word.toLowerCase() : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()).join('');
             if(!key) key = 'customField' + Date.now();
 
-            const newField = { key, label: inputName.trim(), category: entryMode === 'Annual' ? (annualCategory || 'Custom') : 'Custom' };
+            const newField = { key, label: name, category: entryMode === 'Annual' ? (annualCategory || 'Custom') : 'Custom' };
             const newCustom = JSON.parse(JSON.stringify(customSalaryFields || { annual: [], monthlyEarnings: [], monthlyDeductions: [] }));
             
             if(!newCustom[categoryKey]) newCustom[categoryKey] = [];
@@ -1217,6 +1226,15 @@ const Salary = () => {
                     </div>
                 </div>
             </div>
+
+            <TextPromptModal
+                isOpen={addingField !== null}
+                title="New salary field"
+                label="Field name"
+                placeholder="e.g. Internet Allowance"
+                onCancel={() => setAddingField(null)}
+                onSubmit={addCustomField}
+            />
         </div>
     );
 };

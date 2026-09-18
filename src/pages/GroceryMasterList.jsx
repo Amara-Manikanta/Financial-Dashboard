@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useFinance } from '../context/FinanceContext';
 import { Plus, Trash2, Edit2, ShoppingBag, ArrowRight, Tag, Droplets, Package, MapPin, X, Search, Merge } from 'lucide-react';
 import { GroceryIcon } from '../utils/customIcons';
+import TextPromptModal from '../components/TextPromptModal';
 
 
 const GroceryMasterList = () => {
@@ -18,6 +19,9 @@ const GroceryMasterList = () => {
     const [mappingItem, setMappingItem] = useState(null); // Item name currently being mapped
     const [searchQuery, setSearchQuery] = useState('');
     const [mergeState, setMergeState] = useState({ active: false, oldItem: null, targetItem: '' });
+    // Which name is being edited: { kind: 'category' | 'item', cat, oldName, noun }.
+    // Electron has no window.prompt, so a rename needs a real dialog.
+    const [renaming, setRenaming] = useState(null);
     
     // Add new category
     const [newCategoryName, setNewCategoryName] = useState('');
@@ -45,15 +49,21 @@ const GroceryMasterList = () => {
         }
     };
 
-    const handleRenameCategory = (oldName) => {
-        const newName = window.prompt('Enter new category name:', oldName);
-        if (!newName || newName.trim() === '' || newName === oldName || groceryCategories[newName]) return;
+    const handleRenameCategory = (oldName) => setRenaming({ kind: 'category', oldName });
+
+    const renameCategory = (oldName, newName) => {
+        if (newName === oldName) return true;
+        if (groceryCategories[newName]) {
+            alert('A category with that name already exists.');
+            return false;
+        }
 
         const updated = { ...groceryCategories };
         updated[newName] = updated[oldName];
         delete updated[oldName];
         saveGroceryCategories(updated);
         if (selectedCategory === oldName) setSelectedCategory(newName);
+        return true;
     };
 
     const handleAddItem = (e) => {
@@ -87,30 +97,30 @@ const GroceryMasterList = () => {
         }
     };
 
-    const handleRenameItem = (cat, oldItem) => {
-        const newItem = window.prompt(`Enter new ${activeTab.slice(0, -1)} name:`, oldItem);
-        
-        if (!newItem || newItem.trim() === '' || newItem === oldItem) return;
+    const handleRenameItem = (cat, oldItem) => setRenaming({
+        kind: 'item', cat, oldName: oldItem, noun: activeTab.slice(0, -1),
+    });
+
+    const renameItem = (cat, oldItem, newItem) => {
+        if (newItem === oldItem) return true;
 
         const updated = activeTab === 'items' ? { ...groceryCategories } : activeTab === 'brands' ? { ...groceryBrands } : { ...groceryFlavours };
-        
+
         if (updated[cat] && updated[cat].includes(newItem)) {
             alert('Name already exists!');
-            return;
+            return false;
         }
 
-        updated[cat] = updated[cat].map(i => i === oldItem ? newItem.trim() : i).sort();
-        
+        updated[cat] = updated[cat].map(i => i === oldItem ? newItem : i).sort();
+
         if (activeTab === 'items') {
             saveGroceryCategories(updated);
         } else if (activeTab === 'brands') {
-            // Need a context function to save brands entirely, but for now we can just save it by adding and deleting.
-            // Wait, we can't easily save the whole object without a saveGroceryBrands function. 
-            // We'll call saveGroceryBrands which we'll add to context.
             saveGroceryBrands(updated);
         } else {
             saveGroceryFlavours(updated);
         }
+        return true;
     };
 
     const handleMoveItem = (oldCat, item, newCat) => {
@@ -463,6 +473,22 @@ const GroceryMasterList = () => {
                     </div>
                 </div>
             )}
+
+            <TextPromptModal
+                isOpen={renaming !== null}
+                title={renaming?.kind === 'category' ? 'Rename category' : `Rename ${renaming?.noun || 'item'}`}
+                label="New name"
+                initialValue={renaming?.oldName || ''}
+                confirmText="Rename"
+                onCancel={() => setRenaming(null)}
+                onSubmit={(name) => {
+                    const done = renaming.kind === 'category'
+                        ? renameCategory(renaming.oldName, name)
+                        : renameItem(renaming.cat, renaming.oldName, name);
+                    // A name already in use leaves the dialog open to be corrected.
+                    if (done) setRenaming(null);
+                }}
+            />
         </div>
     );
 };
