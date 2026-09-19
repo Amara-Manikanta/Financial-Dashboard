@@ -171,7 +171,7 @@ const GroceryMasterList = () => {
                     (monthData.transactions || []).forEach(tx => {
                         (tx.groceryItems || []).forEach(gi => {
                             const cat = gi.subcategory || 'General Groceries';
-                            if (cat === selectedCategory && gi.name && gi.name !== 'GST / Carry Bag') {
+                            if (cat === selectedCategory && gi.name && gi.name !== 'GST / Carry Bag' && gi.name !== 'Discount') {
                                 set.add(gi.name);
                             }
                         });

@@ -373,32 +373,42 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                         </div>
                     </div>
 
-                    {finalBillAmount && Number(finalBillAmount) > items.reduce((sum, i) => sum + (Number(i.price) || 0), 0) && (
-                        <button
-                            type="button"
-                            onClick={() => {
-                                const sumOfGroceries = items.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
-                                const diff = Number(finalBillAmount) - sumOfGroceries;
-                                onChange([
-                                    ...items,
-                                    {
-                                        id: Date.now().toString(),
-                                        subcategory: 'Others',
-                                        name: 'GST / Carry Bag',
-                                        quantity: '1',
-                                        customQuantity: '',
-                                        brand: '',
-                                        flavour: '',
-                                        price: diff.toFixed(2)
-                                    }
-                                ]);
-                                setFinalBillAmount(''); // reset
-                            }}
-                            className="w-full py-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 mt-2 shadow-[0_0_15px_rgba(99,102,241,0.1)]"
-                        >
-                            + Add ₹{(Number(finalBillAmount) - items.reduce((sum, i) => sum + (Number(i.price) || 0), 0)).toFixed(2)} as GST / Others
-                        </button>
-                    )}
+                    {finalBillAmount && Number(finalBillAmount) !== items.reduce((sum, i) => sum + (Number(i.price) || 0), 0) && (() => {
+                        const sumOfGroceries = items.reduce((sum, i) => sum + (Number(i.price) || 0), 0);
+                        const diff = Number(finalBillAmount) - sumOfGroceries;
+                        // A higher bill than the item sum is GST/bag charges added at
+                        // checkout; a lower one is a discount taken off it. Both are
+                        // recorded as a line item so the items still add up to what was
+                        // actually paid — GroceryAnalytics excludes both by name so they
+                        // never appear as spend on a real product.
+                        const isDiscount = diff < 0;
+                        return (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    onChange([
+                                        ...items,
+                                        {
+                                            id: Date.now().toString(),
+                                            subcategory: 'Others',
+                                            name: isDiscount ? 'Discount' : 'GST / Carry Bag',
+                                            quantity: '1',
+                                            customQuantity: '',
+                                            brand: '',
+                                            flavour: '',
+                                            price: diff.toFixed(2)
+                                        }
+                                    ]);
+                                    setFinalBillAmount(''); // reset
+                                }}
+                                className="w-full py-2.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 hover:bg-indigo-500/20 rounded-xl font-bold text-xs transition-colors flex items-center justify-center gap-2 mt-2 shadow-[0_0_15px_rgba(99,102,241,0.1)]"
+                            >
+                                {isDiscount
+                                    ? `- Add ₹${Math.abs(diff).toFixed(2)} as Discount`
+                                    : `+ Add ₹${diff.toFixed(2)} as GST / Others`}
+                            </button>
+                        );
+                    })()}
                 </div>
             )}
 

@@ -63,7 +63,7 @@ const GroceryAnalytics = () => {
 
                         if (tx.groceryItems && tx.groceryItems.length > 0) {
                             tx.groceryItems.forEach(gi => {
-                                if (gi.name === 'GST / Carry Bag') return;
+                                if (gi.name === 'GST / Carry Bag' || gi.name === 'Discount') return;
                                 
                                 items.push({
                                     ...gi,
