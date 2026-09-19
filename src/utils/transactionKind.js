@@ -230,6 +230,45 @@ export const flowBreakdown = (transactions = [], categoryKinds = {}) => {
     };
 };
 
+/**
+ * The two buckets the expense pages report.
+ *
+ * `spent`    money consumed — the only figure a budget is about.
+ * `invested` money moved into something still owned, plus money lent out and
+ *            expected back. Neither is consumption, but both left the account,
+ *            so they are shown beside it rather than hidden.
+ *
+ * Settlements and payroll deductions are in neither, and `excluded` says how
+ * much that was: a card bill's purchases were already counted one by one, and
+ * a payroll deduction never reached the bank. Counting either would inflate
+ * the month twice over.
+ *
+ * Credits are not netted off. A refund is money coming in, and `kindFor` does
+ * not classify income — the same rule Money Flow and Spending Analysis follow,
+ * so a figure here can be compared with one there.
+ */
+export const expenseBuckets = (transactions = [], categoryKinds = {}) => {
+    const b = flowBreakdown(transactions, categoryKinds);
+    const catsOf = (...kinds) => {
+        const names = new Set();
+        kinds.forEach((k) => {
+            const row = b.rows.find((r) => r.kind === k);
+            (row?.categories || []).forEach((c) => { if (c.amount) names.add(c.category); });
+        });
+        return names;
+    };
+    return {
+        spent: b.spend,
+        invested: money(b.transfer + b.lending),
+        excluded: money(b.settlement + b.payroll),
+        settlement: b.settlement,
+        payroll: b.payroll,
+        spentCategories: catsOf('spend'),
+        investedCategories: catsOf('transfer', 'lending'),
+        unreviewed: b.unreviewed,
+    };
+};
+
 /** Every transaction in the nested `expenses` tree, flattened, newest last. */
 export const allTransactions = (expenses = {}) => {
     const out = [];

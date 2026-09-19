@@ -4,6 +4,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Briefcase, ChevronDown, Copy, Plus, X as XIcon, EyeOff, Award, Wallet, ShieldCheck, Info, Calendar, Building2, CheckCircle2, AlertTriangle, Trash2, Edit, Check } from 'lucide-react';
 import { SalaryIcon, GratuityIcon } from '../utils/customIcons';
 import TextPromptModal from '../components/TextPromptModal';
+import { calculateGratuity, gratuityForYear } from '../utils/financeCalculators';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -356,97 +357,12 @@ const Salary = () => {
 
     // Calculate Tenure-Based Gratuity considering 5-Year Rule and Join/Exit Dates
     const gratuityStats = useMemo(() => {
-        let totalGratuityTillNow = 0;
-        let selectedYearGratuity = 0;
-        const tenureDetails = [];
-
-        // Check if user has configured employment tenures
-        if (employments && employments.length > 0) {
-            employments.forEach(emp => {
-                const start = emp.startDate ? new Date(emp.startDate) : null;
-                const end = emp.isCurrent || !emp.endDate ? new Date() : new Date(emp.endDate);
-                
-                let totalYears = 0;
-                let durationString = 'N/A';
-                let fullYears = 0;
-
-                if (start && !isNaN(start.getTime())) {
-                    const diffTime = Math.max(0, end.getTime() - start.getTime());
-                    totalYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-                    fullYears = Math.floor(totalYears);
-                    const totalMonths = Math.floor((diffTime / (1000 * 60 * 60 * 24 * 30.4375)) % 12);
-                    durationString = `${fullYears} Yrs, ${totalMonths} Mos`;
-                }
-
-                const isFiveYearEligible = totalYears >= 5.0;
-                let status = emp.status || 'active';
-
-                // Auto-flag as forfeited if left before 5 years unless manually overridden
-                if (!emp.isCurrent && !isFiveYearEligible && status === 'active') {
-                    status = 'forfeited';
-                }
-
-                let calculatedAmount = 0;
-
-                if (status === 'forfeited') {
-                    calculatedAmount = 0; // Forfeited due to leaving < 5 yrs
-                } else if (status === 'claimed') {
-                    calculatedAmount = 0; // Paid out to bank account, active balance resets to 0
-                } else {
-                    // Active or Eligible tenure:
-                    // Calculate using Last Drawn Basic formula if available
-                    if (Number(emp.lastDrawnBasic) > 0 && fullYears > 0) {
-                        // Formula: (15 * Last Drawn Basic * Years) / 26
-                        calculatedAmount = (15 * Number(emp.lastDrawnBasic) * fullYears) / 26;
-                    } else {
-                        // Sum Annual CTC gratuity entries for years spanned by this employment
-                        const startYr = start ? start.getFullYear() : 0;
-                        const endYr = end ? end.getFullYear() : 9999;
-                        
-                        salaryDetails.forEach(s => {
-                            if (s.month === 'Annual') {
-                                const yr = Number(s.year);
-                                if (yr >= startYr && yr <= endYr) {
-                                    calculatedAmount += (Number(s.gratuity) || 0);
-                                }
-                            }
-                        });
-                    }
-                }
-
-                totalGratuityTillNow += calculatedAmount;
-
-                tenureDetails.push({
-                    ...emp,
-                    totalYears,
-                    fullYears,
-                    durationString,
-                    isFiveYearEligible,
-                    computedStatus: status,
-                    calculatedAmount
-                });
-            });
-        } else {
-            // Fallback if no employment tenures are defined yet: Sum all Annual CTC gratuity entries
-            salaryDetails.forEach(s => {
-                if (s.month === 'Annual') {
-                    const amt = Number(s.gratuity) || 0;
-                    totalGratuityTillNow += amt;
-                    if (s.year === selectedYear) {
-                        selectedYearGratuity = amt;
-                    }
-                }
-            });
-        }
-
-        // Calculate selected year gratuity
-        salaryDetails.forEach(s => {
-            if (s.month === 'Annual' && s.year === selectedYear) {
-                selectedYearGratuity = Number(s.gratuity) || 0;
-            }
-        });
-
-        return { totalGratuityTillNow, selectedYearGratuity, tenureDetails };
+        const { total, tenureDetails } = calculateGratuity(employments, salaryDetails);
+        return {
+            totalGratuityTillNow: total,
+            selectedYearGratuity: gratuityForYear(salaryDetails, selectedYear),
+            tenureDetails,
+        };
     }, [employments, salaryDetails, selectedYear]);
 
     const annualTotalForSelectedYear = useMemo(() => {

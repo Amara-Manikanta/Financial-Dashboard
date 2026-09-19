@@ -16,10 +16,11 @@ import {
     Image as ImageIcon
 } from 'lucide-react';
 import { galleryItems } from '../utils/ornamentPhotos';
+import { calculateNetWorth } from '../utils/financeCalculators';
 
 const Dashboard = () => {
     const navigate = useNavigate();
-    const { savings, metals, assets, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem } = useFinance();
+    const { savings, metals, assets, loans, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem } = useFinance();
     const [isModalOpen, setIsModalOpen] = useState(false);
 
     // Must come after `metals` is destructured, not before it: a const is
@@ -39,7 +40,11 @@ const Dashboard = () => {
 
     // --- Calculations ---
     const stats = useMemo(() => {
-        const totalSavings = savings.reduce((sum, item) => sum + calculateItemCurrentValue(item), 0);
+        // Assets, liabilities and the net figure all come from one place, so
+        // this page and the Net Worth page cannot disagree about what is owed.
+        const { totalSavings, totalMetals, totalAssets, gross, debt, netWorth } = calculateNetWorth({
+            savings, metals, assets, loans, valueOf: calculateItemCurrentValue,
+        });
 
         const goldVal = metals.gold?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
         const goldGms = metals.gold?.reduce((sum, item) => sum + (item.weightGm || 0), 0) || 0;
@@ -49,13 +54,6 @@ const Dashboard = () => {
         const platinumGms = metals.platinum?.reduce((sum, item) => sum + (item.weightGm || 0), 0) || 0;
         const antiqueCoinsVal = metals.antique_coins?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
         const currenciesVal = metals.currencies?.reduce((sum, item) => sum + (item.currentValue || 0), 0) || 0;
-        const totalMetals = goldVal + silverVal + platinumVal + antiqueCoinsVal + currenciesVal;
-
-        const totalAssets = assets.reduce((total, cat) =>
-            total + cat.items.reduce((sum, item) => sum + (Number(item.currentValue) || Number(item.purchasePrice) || 0), 0), 0
-        );
-
-        const netWorth = totalSavings + totalMetals + totalAssets;
 
         // Specifics for sub-cards - using centralized calculation logic
         const fd = savings.filter(s => s.type === 'fixed_deposit').reduce((sum, s) => sum + calculateItemCurrentValue(s), 0);
@@ -77,7 +75,9 @@ const Dashboard = () => {
                                     (metals.currencies?.reduce((sum, item) => sum + (Number(item.purchasePrice) || Number(item.currentValue) || 0), 0) || 0);
 
         const totalInvested = totalInvestedSavings + totalInvestedAssets + totalInvestedMetals;
-        const growthIndexValue = totalInvested > 0 ? (((netWorth - totalInvested) / totalInvested) * 100) : 0;
+        // Measured on gross holdings: this compares what things are worth
+        // against what they cost, and a loan is not part of that comparison.
+        const growthIndexValue = totalInvested > 0 ? (((gross - totalInvested) / totalInvested) * 100) : 0;
         
         let assetHealth = "Stable";
         let healthColor = "text-blue-400";
@@ -97,6 +97,7 @@ const Dashboard = () => {
 
         return {
             netWorth,
+            debt,
             totalSavings,
             totalMetals,
             totalAssets,
@@ -175,6 +176,11 @@ const Dashboard = () => {
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#71717a', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                         <ShieldCheck size={14} className="text-emerald-400" /> Secure and Verified Assets
                     </div>
+                    {stats.debt > 0 && (
+                        <div style={{ color: '#71717a', fontSize: '11px', marginTop: '0.375rem' }}>
+                            net of {formatCurrency(stats.debt)} still owed
+                        </div>
+                    )}
                 </div>
 
                 <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>

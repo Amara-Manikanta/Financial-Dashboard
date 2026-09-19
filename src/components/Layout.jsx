@@ -190,6 +190,7 @@ const Layout = () => {
                                     { to: '/expenses', label: 'All Expenses', icon: ExpensesIcon },
                                     { to: '/all-transactions', label: 'All Transactions', icon: TransactionsIcon },
                                     { to: '/money-flow', label: 'Money Flow', icon: MoneyFlowIcon },
+                                    { to: '/analytics', label: 'Spending Analysis', icon: BarChart3 },
                                     { to: '/credit-cards', label: 'Cards', icon: CardsIcon },
                                     { to: '/credit-cards/intelligence', label: 'Card Intelligence', icon: Gauge },
                                     { to: '/category-budgets', label: 'Budget Limits', icon: FinancialGoalsIcon },

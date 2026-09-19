@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFinance, isProtectionOnlyPolicy } from '../context/FinanceContext';
 import { Plus, Target, TrendingUp, TrendingDown, Landmark, Shield, ScrollText, RefreshCcw, Trash2, Edit2, ArrowUpRight, Info, Award, Archive, ArchiveRestore } from 'lucide-react';
 import { SavingsIcon, NpsIcon, DepositIcon, PfIcon, GratuityIcon, StockMarketIcon } from '../utils/customIcons';
+import { calculateGratuity } from '../utils/financeCalculators';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import SavingsItemModal from '../components/SavingsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
@@ -124,58 +125,10 @@ const Savings = () => {
     const totalInvestedValue = activeSavings.reduce((sum, item) => sum + calculateItemInvestedValue(item), 0);
     
     // Calculate Total Gratuity Till Now from Salary & Company Tenures
-    const totalGratuityTillNow = useMemo(() => {
-        let total = 0;
-        if (employments && employments.length > 0) {
-            employments.forEach(emp => {
-                const start = emp.startDate ? new Date(emp.startDate) : null;
-                const end = emp.isCurrent || !emp.endDate ? new Date() : new Date(emp.endDate);
-                let totalYears = 0;
-                let fullYears = 0;
-
-                if (start && !isNaN(start.getTime())) {
-                    const diffTime = Math.max(0, end.getTime() - start.getTime());
-                    totalYears = diffTime / (1000 * 60 * 60 * 24 * 365.25);
-                    fullYears = Math.floor(totalYears);
-                }
-
-                const isFiveYearEligible = totalYears >= 5.0;
-                let status = emp.status || 'active';
-
-                if (!emp.isCurrent && !isFiveYearEligible && status === 'active') {
-                    status = 'forfeited';
-                }
-
-                if (status === 'forfeited' || status === 'claimed') {
-                    return;
-                }
-
-                let amt = 0;
-                if (Number(emp.lastDrawnBasic) > 0 && fullYears > 0) {
-                    amt = (15 * Number(emp.lastDrawnBasic) * fullYears) / 26;
-                } else {
-                    const startYr = start ? start.getFullYear() : 0;
-                    const endYr = end ? end.getFullYear() : 9999;
-                    (salaryDetails || []).forEach(s => {
-                        if (s.month === 'Annual') {
-                            const yr = Number(s.year);
-                            if (yr >= startYr && yr <= endYr) {
-                                amt += (Number(s.gratuity) || 0);
-                            }
-                        }
-                    });
-                }
-                total += amt;
-            });
-        } else {
-            (salaryDetails || []).forEach(s => {
-                if (s.month === 'Annual') {
-                    total += (Number(s.gratuity) || 0);
-                }
-            });
-        }
-        return total;
-    }, [employments, salaryDetails]);
+    const totalGratuityTillNow = useMemo(
+        () => calculateGratuity(employments, salaryDetails).total,
+        [employments, salaryDetails],
+    );
 
     const totalPortfolioValue = totalPortfolioValueFromItems + totalGratuityTillNow;
     const totalProfitLoss = totalPortfolioValueFromItems - totalInvestedValue;
