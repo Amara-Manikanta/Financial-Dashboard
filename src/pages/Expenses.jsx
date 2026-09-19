@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
 import { Calendar, ChevronDown, ChevronUp, BarChart3, Plus, X, Upload, Loader2 } from 'lucide-react';
 import { processBankStatement, mergeTransactionsIntoExpenses } from '../utils/importUtils';
-import { countsAsSpending } from '../utils/payrollDeductions';
+import { expenseBuckets, kindFor, isDebit, defaultKindForCategory } from '../utils/transactionKind';
 import { ExpensesIcon } from '../utils/customIcons';
 
 const Expenses = () => {
-    const { expenses, formatCurrency, salaryStats, addNewYear, categoryRules, updateCategoryRules, saveExpenses, mergedCategoryMap } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addNewYear, categoryRules, updateCategoryRules, saveExpenses, categoryKinds } = useFinance();
     const navigate = useNavigate();
     const [expandedYears, setExpandedYears] = useState(new Set());
     const [isAddYearModalOpen, setIsAddYearModalOpen] = useState(false);
@@ -55,19 +55,6 @@ const Expenses = () => {
 
     const expenseGroups = useMemo(() => {
         const groups = {};
-        const getMainCategory = (subCatName) => {
-            const lowerSub = (subCatName || '').toLowerCase();
-            for (const [main, subs] of Object.entries(mergedCategoryMap || {})) {
-                if (subs.some(s => s.toLowerCase() === lowerSub)) {
-                    return main;
-                }
-            }
-            const matchingKey = Object.keys(mergedCategoryMap || {}).find(k => k.toLowerCase() === lowerSub);
-            if (matchingKey) return matchingKey;
-            return 'Miscellaneous';
-        };
-
-        const SAVINGS_MAIN_CATEGORIES = ['Investments', 'Transfers', 'Loans'];
 
         if (Array.isArray(expenses)) {
             expenses.forEach(item => {
@@ -87,20 +74,15 @@ const Expenses = () => {
                         investedCount: 0
                     };
                 }
-                if (countsAsSpending(item)) {
-                    const cat = (item.category || '').toLowerCase();
-                    const isCreditCardBill = cat.includes('credit card bill') || cat.includes('credit card payment');
-                    const isCCSpend = item.paymentMode === 'credit_card' && !isCreditCardBill;
-                    
-                    if (!isCCSpend) {
-                        const mainCat = item.mainCategory || getMainCategory(item.category);
-                        if (SAVINGS_MAIN_CATEGORIES.includes(mainCat)) {
-                            groups[year][monthIndex].invested += item.amount;
-                            groups[year][monthIndex].investedCount += 1;
-                        } else {
-                            groups[year][monthIndex].total += item.amount;
-                            groups[year][monthIndex].count += 1;
-                        }
+                if (isDebit(item)) {
+                    const kind = kindFor(item, categoryKinds);
+                    const amount = Math.abs(Number(item.amount) || 0);
+                    if (kind === 'spend') {
+                        groups[year][monthIndex].total += amount;
+                        groups[year][monthIndex].count += 1;
+                    } else if (kind === 'transfer' || kind === 'lending') {
+                        groups[year][monthIndex].invested += amount;
+                        groups[year][monthIndex].investedCount += 1;
                     }
                 }
             });
@@ -121,48 +103,20 @@ const Expenses = () => {
                     const categories = data.categories || data;
 
                     if (data.transactions && data.transactions.length > 0) {
-                        const uniqueCats = new Set();
-                        const uniqueInvestedCats = new Set();
-                        
-                        data.transactions.forEach(t => {
-                            const cat = (t.category || 'others').toLowerCase();
-                            if (['salary received', 'income', 'salary'].includes(cat)) return;
-
-                            const amt = Number(t.amount) || 0;
-                            const effective = t.isCredited ? -amt : amt;
-
-                            if (countsAsSpending(t) && !t.isRewardPoints) {
-                                const mainCat = t.mainCategory || getMainCategory(t.category);
-                                const isCreditCardBill = cat.includes('credit card bill') || cat.includes('credit card payment');
-                                const isCCSpend = t.paymentMode === 'credit_card' && !isCreditCardBill;
-
-                                if (!isCCSpend) {
-                                    if (SAVINGS_MAIN_CATEGORIES.includes(mainCat)) {
-                                        invested += effective;
-                                        uniqueInvestedCats.add(cat);
-                                    } else {
-                                        total += effective;
-                                        uniqueCats.add(cat);
-                                    }
-                                }
-                            }
-                        });
-                        count = uniqueCats.size;
-                        investedCount = uniqueInvestedCats.size;
+                        const buckets = expenseBuckets(data.transactions, categoryKinds);
+                        total = buckets.spent;
+                        invested = buckets.invested;
+                        count = buckets.spentCategories.size;
+                        investedCount = buckets.investedCategories.size;
                     } else if (typeof categories === 'object' && categories !== null) {
                         Object.entries(categories).forEach(([cat, val]) => {
                             if (['salary received', 'income', 'salary'].includes(cat.toLowerCase())) return;
-
                             const value = Number(val) || 0;
-                            const mainCat = getMainCategory(cat);
-
-                            if (SAVINGS_MAIN_CATEGORIES.includes(mainCat)) {
-                                invested += value;
-                                investedCount++;
-                            } else {
-                                total += value;
-                                count++;
-                            }
+                            // Only per-category totals survive for these months,
+                            // so the category's own kind is all there is to go on.
+                            const kind = categoryKinds?.[cat.toLowerCase()] || defaultKindForCategory(cat);
+                            if (kind === 'spend') { total += value; count++; }
+                            else if (kind === 'transfer' || kind === 'lending') { invested += value; investedCount++; }
                         });
                     }
 
@@ -179,7 +133,7 @@ const Expenses = () => {
             });
         }
         return groups;
-    }, [expenses, mergedCategoryMap]);
+    }, [expenses, categoryKinds]);
 
     const years = useMemo(() => {
         const expenseYears = Object.keys(expenseGroups);

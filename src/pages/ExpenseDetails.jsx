@@ -6,6 +6,7 @@ import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, Tooltip, YAxis, AreaCh
 import TransactionModal from '../components/TransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
 import { countsAsSpending } from '../utils/payrollDeductions';
+import { expenseBuckets } from '../utils/transactionKind';
 
 const COLORS = ['#FF8C00', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B'];
 
@@ -322,7 +323,7 @@ const CATEGORY_ICONS = {
 const ExpenseDetails = () => {
     const { year, month } = useParams();
     const navigate = useNavigate();
-    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap, categoryBudgets, lents } = useFinance();
+    const { expenses, formatCurrency, salaryStats, addItem, deleteItem, updateItem, creditCards, mergedCategoryMap, categoryBudgets, lents, categoryKinds } = useFinance();
 
     const getCategoryBudget = (catName) => {
         if (!catName || !categoryBudgets) return 0;
@@ -530,27 +531,18 @@ const ExpenseDetails = () => {
                 type: 'monthly-main'
             })).sort((a, b) => b.amount - a.amount);
 
-        const SAVINGS_MAIN_CATEGORIES = ['Investments', 'Transfers', 'People Transfers', 'Loans'];
-
-        // Calculate totalNetExpenses using ONLY the deductible amounts of true expenses
-        const totalNetExpenses = items
-            .filter(item => !SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
-            .reduce((sum, item) => sum + item.deductibleAmount, 0);
-
-        // Calculate totalInvestments using ONLY the deductible amounts of savings/investments
-        const totalInvestments = items
-            .filter(item => SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
-            .reduce((sum, item) => sum + item.deductibleAmount, 0);
-
-        // Calculate totalGrossExpenses using ALL amounts of true expenses (deductible + non-deductible)
-        const totalGrossExpenses = items
-            .filter(item => !SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
-            .reduce((sum, item) => sum + item.amount, 0);
-
-        // Calculate totalGrossInvestments
-        const totalGrossInvestments = items
-            .filter(item => SAVINGS_MAIN_CATEGORIES.includes(item.mainCategory))
-            .reduce((sum, item) => sum + item.amount, 0);
+        // The same split the year list and Money Flow use, so a month cannot
+        // read one way here and another way there. Previously this page bucketed
+        // by main category and counted card purchases that the year list left
+        // out, which made the two disagree by up to ₹77,000 in a single month.
+        const buckets = expenseBuckets(activeTransactions, categoryKinds);
+        const totalNetExpenses = buckets.spent;
+        const totalInvestments = buckets.invested;
+        // The headline figure and the percentage under it now come from the
+        // same number. They did not before: the card showed a gross total while
+        // its percentage was computed from a net one.
+        const totalGrossExpenses = buckets.spent;
+        const totalGrossInvestments = buckets.invested;
 
         const balance = salary - totalNetExpenses - totalInvestments;
         const expensePercentage = salary > 0 ? Math.round((totalNetExpenses / salary) * 100) : 0;
@@ -776,8 +768,8 @@ const ExpenseDetails = () => {
             totalGrossInvestments,
             salary,
             balance,
-            expenseCount: items.filter(item => !['Investments', 'Transfers', 'Loans'].includes(item.mainCategory)).length,
-            investmentCount: items.filter(item => ['Investments', 'Transfers', 'Loans'].includes(item.mainCategory)).length,
+            expenseCount: buckets.spentCategories.size,
+            investmentCount: buckets.investedCategories.size,
             expensePercentage,
             investmentPercentage,
             balancePercentage,
@@ -789,7 +781,7 @@ const ExpenseDetails = () => {
             walletStats,
             mainItems
         };
-    }, [expenses, creditCards, year, month, salaryStats, mergedCategoryMap, lents]);
+    }, [expenses, creditCards, year, month, salaryStats, mergedCategoryMap, lents, categoryKinds]);
 
     React.useEffect(() => {
         if (highlightTxId && monthDetails?.rawTransactions) {
