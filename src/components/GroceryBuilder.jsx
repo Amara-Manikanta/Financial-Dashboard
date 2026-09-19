@@ -322,18 +322,19 @@ const GroceryBuilder = ({ items, onChange, expenses }) => {
                                 <div className="w-[100px]">
                                     <div className="relative">
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                                        {/* No min: a discount is a negative line, and min="0" made the
+                                            browser refuse to submit the whole expense. */}
                                         <input
                                             type="number"
                                             value={item.price}
                                             onChange={(e) => updateItem(item.id, 'price', e.target.value)}
-                                            className="w-full bg-white/5 border border-transparent rounded-lg pl-7 pr-3 py-2 text-xs font-bold text-emerald-400 focus:border-emerald-500/30 focus:outline-none placeholder:text-gray-600 transition-colors"
+                                            className={`w-full bg-white/5 border border-transparent rounded-lg pl-7 pr-3 py-2 text-xs font-bold focus:border-emerald-500/30 focus:outline-none placeholder:text-gray-600 transition-colors ${Number(item.price) < 0 ? 'text-amber-400' : 'text-emerald-400'}`}
                                             placeholder="0.00"
-                                            min="0"
                                             step="0.01"
                                         />
                                     </div>
                                 </div>
-                                
+
                                 <button
                                     type="button"
                                     onClick={() => removeItem(item.id)}
