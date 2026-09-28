@@ -113,8 +113,15 @@ const spawnJsonServer = () => {
     });
     return child;
 };
+// Registering a signal handler replaces the default one, so this must do the
+// exiting itself — without the explicit exit the process ignores SIGTERM and
+// the app can no longer be quit.
 let shuttingDown = false;
-['SIGINT', 'SIGTERM'].forEach((sig) => process.on(sig, () => { shuttingDown = true; }));
+['SIGINT', 'SIGTERM'].forEach((sig) => process.on(sig, () => {
+    shuttingDown = true;
+    try { jsonServerProcess?.kill(); } catch { /* already gone */ }
+    process.exit(0);
+}));
 let jsonServerProcess = spawnJsonServer();
 
 // Starting it is not the same as it listening. Say so plainly at boot, because
