@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X, Archive, ArchiveRestore, Calculator, BarChart3 } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X, Archive, ArchiveRestore, Calculator, BarChart3, Target } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import MutualFundTransactionModal from '../components/MutualFundTransactionModal';
 import BackButton from '../components/BackButton';
@@ -32,6 +32,7 @@ const MutualFundDetails = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [plannedAmount, setPlannedAmount] = useState('');
+    const [targetNav, setTargetNav] = useState('');
     const [refreshMessage, setRefreshMessage] = useState({ type: '', text: '' });
 
     const fund = savings.find(s => s.id.toString() === id);
@@ -163,6 +164,38 @@ const MutualFundDetails = () => {
             costPerUnit: currentNav,
         };
     }, [plannedAmount, currentNav, total_units_held, avgNav]);
+
+    /**
+     * What the position is worth if the NAV reaches a given figure.
+     *
+     * Measured against what the held units actually cost, so this is profit on
+     * the money at risk rather than a move in the NAV. When an amount has been
+     * entered above, it is counted in: more units at today's price changes both
+     * the cost and the break-even, and answering this on the old position would
+     * describe a holding the user is in the middle of leaving behind.
+     */
+    const targetProjection = useMemo(() => {
+        const target = Number(targetNav);
+        if (!Number.isFinite(target) || target <= 0) return null;
+
+        const units = navProjection ? navProjection.newUnits : total_units_held;
+        const cost = (avgNav * total_units_held) + (navProjection ? navProjection.amount : 0);
+        if (units <= 0) return null;
+
+        const value = units * target;
+        const profit = value - cost;
+        return {
+            target,
+            units,
+            cost,
+            value,
+            profit,
+            percent: cost > 0 ? (profit / cost) * 100 : 0,
+            // The NAV at which the position is square — the average, restated.
+            breakEven: cost / units,
+            includesPlanned: !!navProjection,
+        };
+    }, [targetNav, navProjection, total_units_held, avgNav]);
 
     /**
      * How the money already invested is spread across NAV levels.
@@ -620,6 +653,51 @@ const MutualFundDetails = () => {
                     ) : (
                         <p className="text-xs text-gray-600">Enter an amount to see the effect on your average.</p>
                     )}
+
+                    <div className="mt-5 pt-5 border-t border-white/10">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Target size={16} className="text-amber-400" />
+                            <h4 className="text-sm font-black tracking-tight m-0">If the NAV reaches…</h4>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-3">
+                            Break-even is {targetProjection ? targetProjection.breakEven.toFixed(4) : avgNav.toFixed(4)}
+                            {targetProjection?.includesPlanned ? ' with the amount above included.' : ' — your average cost.'}
+                        </p>
+
+                        <div className="relative mb-4">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₹</span>
+                            <input
+                                type="number"
+                                min="0"
+                                step="0.5"
+                                value={targetNav}
+                                onChange={(e) => setTargetNav(e.target.value)}
+                                placeholder={(currentNav * 1.1).toFixed(2)}
+                                className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-2.5 text-sm font-bold font-mono text-white focus:border-amber-500/50 focus:outline-none"
+                            />
+                        </div>
+
+                        {targetProjection ? (
+                            <div className={`rounded-xl p-3 border ${targetProjection.profit >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-rose-500/10 border-rose-500/20'}`}>
+                                <p className={`text-[10px] font-black uppercase tracking-widest ${targetProjection.profit >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                                    {targetProjection.profit >= 0 ? 'Profit' : 'Loss'} at {targetProjection.target.toFixed(4)}
+                                </p>
+                                <div className="flex items-baseline gap-2 flex-wrap">
+                                    <p className={`font-mono font-bold text-2xl ${targetProjection.profit >= 0 ? 'text-success' : 'text-danger'}`}>
+                                        {targetProjection.profit >= 0 ? '+' : '−'}{formatCurrency(Math.abs(targetProjection.profit))}
+                                    </p>
+                                    <span className={`font-mono text-xs font-bold ${targetProjection.profit >= 0 ? 'text-success' : 'text-danger'}`}>
+                                        {targetProjection.percent >= 0 ? '+' : ''}{targetProjection.percent.toFixed(2)}%
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    {targetProjection.units.toFixed(3)} units worth {formatCurrency(targetProjection.value)}, against {formatCurrency(targetProjection.cost)} put in.
+                                </p>
+                            </div>
+                        ) : (
+                            <p className="text-xs text-gray-600">Enter a NAV to see the profit or loss at that level.</p>
+                        )}
+                    </div>
                 </div>
 
                 {/* Where the money actually went in */}
