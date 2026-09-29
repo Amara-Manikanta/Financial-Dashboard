@@ -765,7 +765,11 @@ const handleStockFinancialsRequest = async (req, res) => {
         if (marginStatus === 'bad') reasons.push(`Operating margins are weak at ${(opMargin*100).toFixed(1)}%`);
         else if (marginStatus === 'good') reasons.push(`Strong operating margins (${(opMargin*100).toFixed(1)}%)`);
 
-        if (debtStatus === 'bad') reasons.push(`High debt-to-equity ratio (${(debtEq/100).toFixed(2)}x)`);
+        // debtRaw, not the old `debtEq`: that name went away when missing debt
+        // data stopped scoring as good, and this line kept it. Every company
+        // with D/E above 1.0 then threw here, so exactly the most leveraged
+        // holdings lost their whole fundamentals card.
+        if (debtStatus === 'bad') reasons.push(`High debt-to-equity ratio (${(debtRaw/100).toFixed(2)}x)`);
         
         if (valStatus === 'bad' && fpe > 0) reasons.push(`Valuation is stretched at ${fpe.toFixed(1)}x forward P/E`);
 
