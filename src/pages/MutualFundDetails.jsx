@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X, Archive, ArchiveRestore } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Settings, RefreshCw, X, Archive, ArchiveRestore, Calculator, BarChart3 } from 'lucide-react';
 import { formatDate } from '../utils/dateUtils';
 import MutualFundTransactionModal from '../components/MutualFundTransactionModal';
 import BackButton from '../components/BackButton';
@@ -30,6 +30,7 @@ const MutualFundDetails = () => {
     const [selectedYear, setSelectedYear] = useState('All');
     const [currentPage, setCurrentPage] = useState(1);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [plannedAmount, setPlannedAmount] = useState('');
     const [refreshMessage, setRefreshMessage] = useState({ type: '', text: '' });
 
     const fund = savings.find(s => s.id.toString() === id);
@@ -137,6 +138,80 @@ const MutualFundDetails = () => {
         total_realised_profit,
         total_profit
     } = fundCalcs;
+
+    /**
+     * What one more purchase would do to the average.
+     *
+     * Units are bought at today's NAV, so the new average is the old cost plus
+     * this amount, over the old units plus what it buys. Buying below the
+     * average pulls it down and buying above pushes it up — the point of the
+     * panel is to show by how much before the money moves, not after.
+     */
+    const navProjection = useMemo(() => {
+        const amount = Number(plannedAmount);
+        if (!Number.isFinite(amount) || amount <= 0 || currentNav <= 0) return null;
+        const unitsGained = amount / currentNav;
+        const newUnits = total_units_held + unitsGained;
+        const newAvgNav = newUnits > 0 ? ((avgNav * total_units_held) + amount) / newUnits : 0;
+        return {
+            amount,
+            unitsGained,
+            newUnits,
+            newAvgNav,
+            change: newAvgNav - avgNav,
+            costPerUnit: currentNav,
+        };
+    }, [plannedAmount, currentNav, total_units_held, avgNav]);
+
+    /**
+     * How the money already invested is spread across NAV levels.
+     *
+     * Answers "did I accumulate cheap or expensive", which a date-ordered list
+     * of purchases cannot: the same fund bought thirty times tells you nothing
+     * until the amounts are grouped by the price they were paid at. Buys only —
+     * a redemption returns money at a NAV rather than committing it.
+     */
+    const navDistribution = useMemo(() => {
+        const buys = (fund?.transactions || []).filter((t) => {
+            const type = t.type || (t.remarks && t.remarks.toLowerCase().includes('sip') ? 'sip' : 'buy');
+            return (type === 'buy' || type === 'sip') && Number(t.nav) > 0 && Number(t.amount) > 0;
+        });
+        if (buys.length < 2) return [];
+
+        const navs = buys.map((t) => Number(t.nav));
+        const min = Math.min(...navs);
+        const max = Math.max(...navs);
+        if (!(max > min)) return [];
+
+        // Ten bands, or one per purchase when there are fewer — enough shape to
+        // read, without slicing a handful of SIPs into mostly-empty columns.
+        const bands = Math.max(3, Math.min(10, buys.length));
+        const width = (max - min) / bands;
+        const buckets = Array.from({ length: bands }, (_, i) => ({
+            from: min + (i * width),
+            to: min + ((i + 1) * width),
+            amount: 0,
+            units: 0,
+            count: 0,
+        }));
+
+        buys.forEach((t) => {
+            const nav = Number(t.nav);
+            // The top band is closed so the highest purchase lands inside it.
+            const i = Math.min(bands - 1, Math.floor((nav - min) / width));
+            buckets[i].amount += Number(t.amount) || 0;
+            buckets[i].units += Number(t.units) || 0;
+            buckets[i].count += 1;
+        });
+
+        return buckets
+            .filter((b) => b.count > 0)
+            .map((b) => ({
+                ...b,
+                label: `${b.from.toFixed(1)}–${b.to.toFixed(1)}`,
+                belowAverage: ((b.from + b.to) / 2) < avgNav,
+            }));
+    }, [fund, avgNav]);
 
     const itemsPerPage = 8;
 
@@ -484,6 +559,106 @@ const MutualFundDetails = () => {
                         </div>
                         <p className="text-xs text-gray-600 mt-1">Click to edit manually</p>
                     </div>
+                </div>
+            </div>
+
+            {/* What another purchase would do to the average */}
+            <div className="mb-10 grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="mf-glass-panel">
+                    <div className="flex items-center gap-2 mb-1">
+                        <Calculator size={18} className="text-indigo-400" />
+                        <h3 className="text-base font-black tracking-tight m-0">If I invest more today</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-4">
+                        At today's NAV of {currentNav.toFixed(4)}. Nothing is saved — this only works out the effect.
+                    </p>
+
+                    <label className="text-[10px] font-black uppercase tracking-widest text-gray-500">Amount to invest</label>
+                    <div className="relative mt-1.5 mb-4">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-sm">₹</span>
+                        <input
+                            type="number"
+                            min="0"
+                            step="100"
+                            value={plannedAmount}
+                            onChange={(e) => setPlannedAmount(e.target.value)}
+                            placeholder="10000"
+                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-8 pr-3 py-2.5 text-sm font-bold font-mono text-white focus:border-indigo-500/50 focus:outline-none"
+                        />
+                    </div>
+
+                    {navProjection ? (
+                        <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Units you'd get</p>
+                                    <p className="font-mono font-bold text-xl">{navProjection.unitsGained.toFixed(3)}</p>
+                                    <p className="text-[10px] text-gray-600 mt-0.5">at ₹{navProjection.costPerUnit.toFixed(4)} each</p>
+                                </div>
+                                <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3">
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">Units after</p>
+                                    <p className="font-mono font-bold text-xl">{navProjection.newUnits.toFixed(3)}</p>
+                                    <p className="text-[10px] text-gray-600 mt-0.5">from {total_units_held.toFixed(3)}</p>
+                                </div>
+                            </div>
+                            <div className="rounded-xl bg-indigo-500/10 border border-indigo-500/20 p-3">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-indigo-300">New average NAV</p>
+                                <div className="flex items-baseline gap-2 flex-wrap">
+                                    <p className="font-mono font-bold text-2xl">{navProjection.newAvgNav.toFixed(4)}</p>
+                                    <span className={`font-mono text-xs font-bold ${navProjection.change <= 0 ? 'text-success' : 'text-danger'}`}>
+                                        {navProjection.change <= 0 ? '▼' : '▲'} {Math.abs(navProjection.change).toFixed(4)}
+                                    </span>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1">
+                                    {navProjection.change <= 0
+                                        ? `Today's NAV is below your average of ${avgNav.toFixed(4)}, so this pulls it down.`
+                                        : `Today's NAV is above your average of ${avgNav.toFixed(4)}, so this pushes it up.`}
+                                </p>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-gray-600">Enter an amount to see the effect on your average.</p>
+                    )}
+                </div>
+
+                {/* Where the money actually went in */}
+                <div className="mf-glass-panel">
+                    <div className="flex items-center gap-2 mb-1">
+                        <BarChart3 size={18} className="text-emerald-400" />
+                        <h3 className="text-base font-black tracking-tight m-0">Invested by NAV level</h3>
+                    </div>
+                    <p className="text-xs text-gray-500 mb-4">
+                        {navDistribution.length > 0
+                            ? `Green is bought below your ${avgNav.toFixed(2)} average, amber above it.`
+                            : 'Needs at least two purchases at different NAVs.'}
+                    </p>
+
+                    {navDistribution.length > 0 ? (
+                        <ResponsiveContainer width="100%" height={240}>
+                            <BarChart data={navDistribution} margin={{ top: 4, right: 4, left: -12, bottom: 4 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                                <XAxis dataKey="label" tick={{ fill: '#71717a', fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={52} />
+                                <YAxis tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
+                                <Tooltip
+                                    contentStyle={{ background: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', fontSize: '12px' }}
+                                    formatter={(value, _n, item) => [
+                                        `${formatCurrency(value)} · ${item.payload.units.toFixed(3)} units · ${item.payload.count} buy${item.payload.count > 1 ? 's' : ''}`,
+                                        'Invested',
+                                    ]}
+                                    labelFormatter={(l) => `NAV ${l}`}
+                                />
+                                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                                    {navDistribution.map((b, i) => (
+                                        <Cell key={i} fill={b.belowAverage ? '#34d399' : '#fbbf24'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    ) : (
+                        <div className="h-[240px] flex items-center justify-center text-xs text-gray-600">
+                            Not enough purchase history to chart.
+                        </div>
+                    )}
                 </div>
             </div>
 
