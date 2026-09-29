@@ -641,9 +641,11 @@ const MutualFundDetails = () => {
                                 <XAxis dataKey="label" tick={{ fill: '#71717a', fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={52} />
                                 <YAxis tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
                                 <Tooltip
-                                    // The default cursor paints the whole band full-height, which made
-                                    // the smallest purchase read as the tallest bar on the chart.
-                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    // No hover cursor at all. Recharts paints the whole band
+                                    // full-height, which made the smallest purchase read as the
+                                    // tallest bar; dimming it still left a grey slab over the data.
+                                    // The tooltip already names the band it is describing.
+                                    cursor={false}
                                     contentStyle={{ background: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', fontSize: '12px' }}
                                     separator=" "
                                     formatter={(value, _n, item) => [
@@ -712,7 +714,9 @@ const MutualFundDetails = () => {
                                     itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                                     formatter={(value) => [formatCurrency(value), 'Net Profit / Loss']}
                                     labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}
-                                    cursor={{ fill: 'rgba(255,255,255,0.03)' }}
+                                    // Same reason as the NAV chart above: the band is painted
+                                    // full-height over the plot and reads as a bar of its own.
+                                    cursor={false}
                                 />
                                 <ReferenceLine y={0} stroke="rgba(255,255,255,0.2)" />
                                 <Bar dataKey="totalPL" radius={[6, 6, 0, 0]} maxBarSize={45} name="Net Profit / Loss">
