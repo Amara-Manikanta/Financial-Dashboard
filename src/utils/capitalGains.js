@@ -74,6 +74,38 @@ export const isLongTerm = (boughtOn, soldOn) => {
     return s > anniversary;
 };
 
+const DAY_MS = 86400000;
+
+/**
+ * The first date a sale of this lot is long term, as `YYYY-MM-DD`.
+ *
+ * The day AFTER the anniversary, because isLongTerm asks for more than twelve
+ * months: a lot bought on 20 Oct 2025 and sold on 20 Oct 2026 is still short
+ * term. openLotPositions used to report the anniversary itself, so the page
+ * named a date on which a sale would be taxed at 20% instead of 12.5%.
+ */
+export const longTermFrom = (boughtOn) => {
+    const b = new Date(boughtOn);
+    if (Number.isNaN(b.getTime())) return null;
+    const anniversary = new Date(b);
+    anniversary.setFullYear(b.getFullYear() + 1);
+    return new Date(anniversary.getTime() + DAY_MS).toISOString().slice(0, 10);
+};
+
+/**
+ * A moment reduced to the calendar day it falls on, parsed the way the
+ * transaction dates are (`YYYY-MM-DD`, midnight UTC).
+ *
+ * A sale is dated, not timed. Compared as a timestamp, "now" on the
+ * anniversary afternoon is later than the anniversary's midnight, so a lot
+ * read as long term on a day when selling it is still short term.
+ */
+export const calendarDay = (moment = new Date()) => {
+    const d = moment instanceof Date ? moment : new Date(moment);
+    if (Number.isNaN(d.getTime())) return null;
+    return new Date(d.toLocaleDateString('en-CA'));
+};
+
 const rates = (saleDate) => (String(saleDate) >= RATE_CHANGE
     ? { short: 0.20, long: 0.125 }
     : { short: 0.15, long: 0.10 });
@@ -314,8 +346,33 @@ export const gainsLedger = (disposals = []) => {
         const openingShort = carriedShort.reduce((a, c) => a + c.amount, 0);
         const openingLong = carriedLong.reduce((a, c) => a + c.amount, 0);
 
+        // A loss can be set off in the eight years after the one it arose in
+        // (s.74(3)) and not in a ninth, so anything past that goes before this
+        // year's gains are measured against the pool. Lapsing it afterwards, as
+        // this used to, let every loss shelter one extra year of gains.
+        const cutoff = fyOrder(fy) - CARRY_FORWARD_YEARS;
+        const lapsedShort = carriedShort.filter((c) => fyOrder(c.fy) < cutoff);
+        const lapsedLong = carriedLong.filter((c) => fyOrder(c.fy) < cutoff);
+        carriedShort = carriedShort.filter((c) => fyOrder(c.fy) >= cutoff);
+        carriedLong = carriedLong.filter((c) => fyOrder(c.fy) >= cutoff);
+        const availableShort = carriedShort.reduce((a, c) => a + c.amount, 0);
+        const availableLong = carriedLong.reduce((a, c) => a + c.amount, 0);
+
         let netShort = s.short;
         let netLong = s.long;
+
+        // A short-term loss this year is set against this year's long-term
+        // gain before anything is carried forward (s.70(2)); only what is left
+        // over is carried. Carrying all of it forward instead overstated the tax
+        // of any year that had both. The reverse is not allowed: a long-term
+        // loss can only meet long-term gain, which summariseYear has already
+        // netted within the year.
+        let setOffShortLossAgainstLong = 0;
+        if (netShort < 0 && netLong > 0) {
+            setOffShortLossAgainstLong = Math.min(-netShort, netLong);
+            netShort = money(netShort + setOffShortLossAgainstLong);
+            netLong = money(netLong - setOffShortLossAgainstLong);
+        }
 
         // This year's own losses do not go into the carry pool until the year's
         // gains have absorbed what they can.
@@ -341,7 +398,7 @@ export const gainsLedger = (disposals = []) => {
             return { pool: next, used: money(amount - left) };
         };
 
-        const shortAgainstShort = consume(carriedShort, Math.min(openingShort, netShort));
+        const shortAgainstShort = consume(carriedShort, Math.min(availableShort, netShort));
         carriedShort = shortAgainstShort.pool;
         netShort = money(netShort - shortAgainstShort.used);
 
@@ -350,19 +407,12 @@ export const gainsLedger = (disposals = []) => {
         carriedShort = shortAgainstLong.pool;
         netLong = money(netLong - shortAgainstLong.used);
 
-        const longAgainstLong = consume(carriedLong, Math.min(openingLong, netLong));
+        const longAgainstLong = consume(carriedLong, Math.min(availableLong, netLong));
         carriedLong = longAgainstLong.pool;
         netLong = money(netLong - longAgainstLong.used);
 
         if (currentShortLoss > 0) carriedShort.push({ fy, amount: money(currentShortLoss) });
         if (currentLongLoss > 0) carriedLong.push({ fy, amount: money(currentLongLoss) });
-
-        // Anything older than eight years lapses unused.
-        const cutoff = fyOrder(fy) - CARRY_FORWARD_YEARS;
-        const lapsedShort = carriedShort.filter((c) => fyOrder(c.fy) < cutoff);
-        const lapsedLong = carriedLong.filter((c) => fyOrder(c.fy) < cutoff);
-        carriedShort = carriedShort.filter((c) => fyOrder(c.fy) >= cutoff);
-        carriedLong = carriedLong.filter((c) => fyOrder(c.fy) >= cutoff);
 
         const exemption = exemptionFor(fy);
         const exemptUsed = Math.min(netLong, exemption);
@@ -380,6 +430,7 @@ export const gainsLedger = (disposals = []) => {
             grossLong: s.long,
             openingCarriedShort: money(openingShort),
             openingCarriedLong: money(openingLong),
+            setOffCurrentShortLossAgainstLong: money(setOffShortLossAgainstLong),
             setOffShortAgainstShort: shortAgainstShort.used,
             setOffShortAgainstLong: shortAgainstLong.used,
             setOffLongAgainstLong: longAgainstLong.used,
@@ -429,15 +480,15 @@ export const gainsLedger = (disposals = []) => {
  */
 export const openLotPositions = (stocks = [], asOf = new Date()) => {
     const rows = [];
+    const today = calendarDay(asOf);
     (stocks || []).forEach((s) => {
         if (!s || s.isArchived) return;
         const price = num(s.currentPrice);
         const { openLots } = matchLots(s.transactions, { name: s.name || s.ticker, id: s.id });
         openLots.forEach((lot) => {
             if (lot.quantity <= 0) return;
-            const long = isLongTerm(lot.date, asOf);
-            const anniversary = new Date(lot.date);
-            anniversary.setFullYear(anniversary.getFullYear() + 1);
+            const long = isLongTerm(lot.date, today);
+            const from = longTermFrom(lot.date);
             rows.push({
                 holding: s.name || s.ticker,
                 holdingId: s.id,
@@ -449,10 +500,10 @@ export const openLotPositions = (stocks = [], asOf = new Date()) => {
                 value: money(lot.quantity * price),
                 gain: money(lot.quantity * (price - lot.costPerShare)),
                 term: long ? 'long' : 'short',
-                longTermFrom: anniversary.toISOString().slice(0, 10),
+                longTermFrom: from,
                 daysToLongTerm: long
                     ? 0
-                    : Math.ceil((anniversary - asOf) / 86400000),
+                    : Math.round((new Date(from) - today) / DAY_MS),
             });
         });
     });
