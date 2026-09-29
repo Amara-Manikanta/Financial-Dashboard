@@ -10,6 +10,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import { recomputeFundUnits } from '../utils/investmentSync';
 import FundCompositionModal from '../components/FundCompositionModal';
 import FundCompositionPanel from '../components/FundCompositionPanel';
+import FundUnitBreakdown from '../components/FundUnitBreakdown';
 
 const MutualFundDetails = () => {
     const { id } = useParams();
@@ -730,6 +731,14 @@ const MutualFundDetails = () => {
                 fundValue={fundCalcs.currentTotalValue}
                 formatCurrency={formatCurrency}
                 onEdit={() => setIsCompositionModalOpen(true)}
+            />
+
+            <FundUnitBreakdown
+                fund={fund}
+                units={total_units_held}
+                nav={currentNav}
+                fundValue={fundCalcs.currentTotalValue}
+                formatCurrency={formatCurrency}
             />
 
             <div className="mf-table-container">

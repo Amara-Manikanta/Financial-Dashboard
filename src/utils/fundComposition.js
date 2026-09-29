@@ -147,6 +147,35 @@ export const valuedComposition = (fund, fundValue) => {
     };
 };
 
+/**
+ * The same holdings grouped by sector, largest first.
+ *
+ * `perUnit` is what one unit of the fund puts into that sector: a unit is
+ * worth the NAV, so it carries the NAV split by the same weights. That is the
+ * figure a SIP is actually buying, and it does not change with how many units
+ * are already held — unlike `value`, which does.
+ */
+export const bySector = (fund, fundValue, nav = 0) => {
+    const comp = valuedComposition(fund, fundValue);
+    const totals = {};
+    comp.holdings.forEach((h) => {
+        const k = h.sector || 'Other';
+        if (!totals[k]) totals[k] = { sector: k, weight: 0, value: 0, count: 0 };
+        totals[k].weight = pct(totals[k].weight + h.weight);
+        totals[k].value += h.value;
+        totals[k].count += 1;
+    });
+    return Object.values(totals)
+        .map((t) => ({ ...t, perUnit: (num(nav) * t.weight) / 100 }))
+        .sort((a, b) => b.weight - a.weight);
+};
+
+/** Each holding with what one unit puts into it. */
+export const perUnitHoldings = (fund, fundValue, nav = 0) => (
+    valuedComposition(fund, fundValue).holdings
+        .map((h) => ({ ...h, perUnit: (num(nav) * h.weight) / 100 }))
+);
+
 /** Weight by asset class, so debt and equity are never summed into one figure. */
 export const byAssetClass = (fund) => {
     const { holdings } = readComposition(fund);
