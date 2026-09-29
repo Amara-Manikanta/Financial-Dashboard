@@ -261,7 +261,7 @@ const StockMarketDetails = () => {
             // old split had last left behind, unrelated to what a fresh add or
             // edit on the stock's own page had just computed — Wipro's avgCost
             // was stale by more than double.
-            const { shares: sharesCount, avgCost: avgCostPrice } = effectiveStockPosition(stock);
+            const { shares: sharesCount, avgCost: avgCostPrice, avgCostIsManual, replayAvgCost } = effectiveStockPosition(stock);
             const currentMktPrice = Number(stock.currentPrice || 0);
 
             // The same holding on a FIFO basis, which is what a broker statement
@@ -286,6 +286,8 @@ const StockMarketDetails = () => {
                 ticker: stock.ticker || stock.symbol || stock.name,
                 shares: sharesCount,
                 avgCost: avgCostPrice,
+                avgCostIsManual,
+                replayAvgCost,
                 fifoAvgCost,
                 investedValue,
                 currentValue,
@@ -1670,7 +1672,16 @@ const StockMarketDetails = () => {
                                                     and on the stock's own page: this bar is a fixed three-up row
                                                     already at its width limit, and a second number in the middle
                                                     cell wrapped into the two beside it at card widths. */}
-                                                <div>Avg: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span></div>
+                                                <div>Avg: <span style={{ fontWeight: '700', color: 'white', fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span>
+                                                    {/* A mark, not a second figure: the note above applies, and the
+                                                        calculated value beside it wrapped the row at card widths. */}
+                                                    {stock.avgCostIsManual && (
+                                                        <span
+                                                            title={`Entered by hand. The transaction history works out to ${formatCurrency(stock.replayAvgCost)}.`}
+                                                            style={{ color: '#818cf8', fontWeight: 700, marginLeft: '3px', cursor: 'help' }}
+                                                        >*</span>
+                                                    )}
+                                                </div>
                                                 {/* The traded price itself. The card showed what the holding is
                                                     worth and what it cost, but never the number those are derived
                                                     from — so there was no way to see the price without opening the
@@ -1959,7 +1970,14 @@ const StockMarketDetails = () => {
                                                 </td>
                                                 <td style={styles.td('right', false, 'var(--text-primary)', false, isDividendPending)}>
                                                     <span style={{ fontFamily: 'monospace' }}>{formatCurrency(stock.avgCost)}</span>
-                                                    {Math.abs(stock.fifoAvgCost - stock.avgCost) > 0.005 && (
+                                                    {stock.avgCostIsManual ? (
+                                                        <div
+                                                            title={`Entered by hand. The transaction history works out to ${formatCurrency(stock.replayAvgCost)}. Capital gains still use the actual trades, not this figure.`}
+                                                            style={{ fontFamily: 'monospace', fontSize: '10px', color: '#818cf8', marginTop: '2px', cursor: 'help' }}
+                                                        >
+                                                            manual · {formatCurrency(stock.replayAvgCost)} calc
+                                                        </div>
+                                                    ) : Math.abs(stock.fifoAvgCost - stock.avgCost) > 0.005 && (
                                                         <div
                                                             title="First in, first out: what the shares still held cost, after the older ones were sold off. This is the basis your broker statement shows and the one capital gains is assessed on."
                                                             style={{ fontFamily: 'monospace', fontSize: '10px', color: '#71717a', marginTop: '2px', cursor: 'help' }}

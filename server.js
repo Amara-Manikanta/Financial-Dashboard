@@ -82,15 +82,66 @@ console.log(`[SafetyGuard] Starting internal json-server on port ${INTERNAL_PORT
 // request over 100 KB with a 500. Every write here sends a whole collection —
 // expenses alone is ~1.8 MB — so saving an expense failed silently, the change
 // stayed in React state, looked saved, and vanished on the next reload.
-const JSON_SERVER_BIN = path.join(__dirname, 'node_modules', '.bin', 'json-server');
-if (!fs.existsSync(JSON_SERVER_BIN)) {
-    console.error(`[SafetyGuard] ✖ json-server not found at ${JSON_SERVER_BIN}. Run "npm install" first.`);
+//
+// Run through this process's own interpreter rather than the `.bin` shim.
+// That shim starts with `#!/usr/bin/env node`, so it needs `node` on PATH —
+// and a GUI app has almost no PATH. Started from the Dock or from launchd it
+// died instantly with "env: node: No such file or directory", which is close
+// to invisible: reads keep working from the SQLite mirror so the API answers
+// 200 and the app looks healthy, while every write has nowhere to go and fails
+// with "Failed to fetch". process.execPath is whatever is already running this
+// file (node, or Electron in node mode), so it needs no PATH at all.
+const JSON_SERVER_ENTRY = path.join(__dirname, 'node_modules', 'json-server', 'lib', 'bin.js');
+if (!fs.existsSync(JSON_SERVER_ENTRY)) {
+    console.error(`[SafetyGuard] ✖ json-server not found at ${JSON_SERVER_ENTRY}. Run "npm install" first.`);
     process.exit(1);
 }
-const spawnJsonServer = () => spawn(JSON_SERVER_BIN, ['--watch', DB_FILE, '--port', String(INTERNAL_PORT)], {
-    stdio: 'inherit'
-});
+const spawnJsonServer = () => {
+    const child = spawn(process.execPath, [JSON_SERVER_ENTRY, '--watch', DB_FILE, '--port', String(INTERNAL_PORT)], {
+        stdio: 'inherit',
+        // Electron's binary only behaves as node when told to.
+        env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+    });
+    child.on('error', (err) => {
+        console.error(`[SafetyGuard] ✖ could not start json-server: ${err.message}`);
+        console.error('[SafetyGuard] ✖ WRITES ARE DOWN. Reads still work, so the app will look fine until you save.');
+    });
+    child.on('exit', (code, signal) => {
+        if (!shuttingDown) {
+            console.error(`[SafetyGuard] ✖ json-server exited (code ${code}, signal ${signal}). WRITES ARE DOWN until it is back.`);
+        }
+    });
+    return child;
+};
+// Registering a signal handler replaces the default one, so this must do the
+// exiting itself — without the explicit exit the process ignores SIGTERM and
+// the app can no longer be quit.
+let shuttingDown = false;
+['SIGINT', 'SIGTERM'].forEach((sig) => process.on(sig, () => {
+    shuttingDown = true;
+    try { jsonServerProcess?.kill(); } catch { /* already gone */ }
+    process.exit(0);
+}));
 let jsonServerProcess = spawnJsonServer();
+
+// Starting it is not the same as it listening. Say so plainly at boot, because
+// the failure mode above is silent from the outside.
+const reportWriteHealth = async () => {
+    for (let attempt = 0; attempt < 60; attempt++) {
+        try {
+            const r = await fetch(`http://127.0.0.1:${INTERNAL_PORT}/appData`);
+            if (r.ok) {
+                console.log('[SafetyGuard] ✅ json-server is listening — writes are available.');
+                return;
+            }
+        } catch {
+            // Not up yet.
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    console.error(`[SafetyGuard] ✖ json-server never came up on port ${INTERNAL_PORT}. WRITES ARE DOWN.`);
+};
+reportWriteHealth();
 
 // json-server keeps the whole database in memory and writes all of it back on
 // every save. It only notices db.json changing underneath it through a file
@@ -1068,7 +1119,14 @@ const proxy = http.createServer((req, res) => {
             console.error(`[SafetyGuard] Headers Proxy error: ${e.message}`);
             if (!res.headersSent) {
                 if (e.code === 'ECONNREFUSED') {
-                    sendJson(res, 503, { error: 'Service Unavailable. Server is starting...' });
+                    // Said plainly, because the old wording ("Server is
+                    // starting...") also appeared when json-server had died
+                    // outright, and reads keep working from the SQLite mirror
+                    // so nothing else on screen looks wrong.
+                    sendJson(res, 503, {
+                        error: 'The database service is not accepting writes',
+                        reason: 'The database service is not accepting writes — it is still starting, or it has stopped. Nothing was saved. Keep this entry on screen and restart the app.',
+                    });
                 } else {
                     sendJson(res, 502, { error: 'Bad Gateway' });
                 }

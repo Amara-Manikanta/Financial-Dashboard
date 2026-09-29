@@ -19,6 +19,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
     const [marketCap, setMarketCap] = useState('');
     const [sector, setSector] = useState('');
     const [demergedFrom, setDemergedFrom] = useState('');
+    const [manualAvgCost, setManualAvgCost] = useState('');
     const [owner, setOwner] = useState(SELF_OWNER);
     const { docuSetu } = useFinance();
 
@@ -37,6 +38,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setCustomValues(initialData.customValues || {});
             setInvestedAmount(initialData.manualInvestedAmount !== undefined && initialData.manualInvestedAmount !== null ? initialData.manualInvestedAmount : '');
             setRealisedPL(initialData.realisedPL !== undefined && initialData.realisedPL !== null ? initialData.realisedPL : '');
+            setManualAvgCost(initialData.manualAvgCost !== undefined && initialData.manualAvgCost !== null ? initialData.manualAvgCost : '');
 
             setExpectsDividends(initialData.expectsDividends || false);
             setMarketCap(initialData.marketCap || '');
@@ -53,6 +55,7 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             setCustomValues({});
             setInvestedAmount('');
             setRealisedPL('');
+            setManualAvgCost('');
             setExpectsDividends(false);
             setMarketCap('');
             setSector('');
@@ -85,6 +88,9 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
             customValues,
             manualInvestedAmount: investedAmount !== '' ? parseFloat(investedAmount) : null,
             realisedPL: realisedPL !== '' ? parseFloat(realisedPL) : null,
+            // Overrides the replayed average wherever a cost is shown. Left null
+            // it stays derived; the derived value is never destroyed either way.
+            manualAvgCost: manualAvgCost !== '' ? Math.round(parseFloat(manualAvgCost) * 100) / 100 : null,
             dividends: initialData ? initialData.dividends : {},
             expectsDividends,
             marketCap: marketCap || null,
@@ -343,6 +349,21 @@ const StockTransactionModal = ({ isOpen, onClose, onSave, initialData = null, cu
                                     />
                                     <p className="text-[10px] text-zinc-500 mt-1 ml-1 flex items-center gap-1">
                                         <Info size={10} /> Required for 0 quantity stocks
+                                    </p>
+                                </div>
+                                <div>
+                                    <label className={labelStyle}>
+                                        <span className="text-indigo-400 font-bold text-xs">₹</span>
+                                        Average Cost (Manual)
+                                    </label>
+                                    <CurrencyInput
+                                        value={manualAvgCost}
+                                        onChange={(e) => setManualAvgCost(e.target.value)}
+                                        style={{ ...inputStyle, fontFamily: 'monospace' }}
+                                        placeholder="Leave empty to use history"
+                                    />
+                                    <p className="text-[10px] text-zinc-500 mt-1 ml-1 flex items-center gap-1">
+                                        <Info size={10} /> Overrides the calculated average. Capital gains still use actual trades.
                                     </p>
                                 </div>
                                 <div>

@@ -340,6 +340,46 @@ const ExpenseDetails = () => {
     const [statementPage, setStatementPage] = useState(1);
     const [deleteConfirm, setDeleteConfirm] = useState({ isOpen: false, id: null });
     const [selectedCategoryHighlight, setSelectedCategoryHighlight] = useState(null);
+
+    /**
+     * Picking a main category is a question about its parts.
+     *
+     * Selecting "Travel" used to dim every sub-category, including the very
+     * rows it is made of — the transaction list below filtered correctly while
+     * the cards above said nothing belonged to it. These keep the two halves of
+     * the breakdown in agreement: a main lights up its own sub-categories, and
+     * a sub lights up the main it sits under.
+     */
+    const mainOf = (item) => item?.mainCategory || 'Miscellaneous';
+
+    const subIsSelected = (item) => {
+        const sel = selectedCategoryHighlight;
+        if (!sel) return false;
+        return sel.type === 'sub' ? sel.name === item.category : mainOf(item) === sel.name;
+    };
+
+    /**
+     * Matching rows first, so a selection is visible rather than merely marked.
+     *
+     * Both breakdowns page at twelve. Highlighting a sub-category sitting on
+     * page three tells the reader nothing — the cards they are looking at all
+     * dim and the answer is somewhere they cannot see. Order is otherwise
+     * untouched, and both lists reset to page one when the selection changes.
+     */
+    const selectionFirst = (list, matches) => {
+        if (!selectedCategoryHighlight) return list;
+        const hit = list.filter(matches);
+        return hit.length ? [...hit, ...list.filter((i) => !matches(i))] : list;
+    };
+
+    const mainIsSelected = (item) => {
+        const sel = selectedCategoryHighlight;
+        if (!sel) return false;
+        if (sel.type === 'main') return sel.name === item.category;
+        // A sub is selected: light up the main it belongs to.
+        const parent = (monthDetails?.items || []).find((i) => i.category === sel.name);
+        return parent ? mainOf(parent) === item.category : false;
+    };
     const [selectedCreditCardHighlight, setSelectedCreditCardHighlight] = useState(null);
     const [searchQuery, setSearchQuery] = useState('');
     const ITEMS_PER_PAGE = 12;
@@ -861,6 +901,9 @@ const ExpenseDetails = () => {
     // Reset statement page when filter or search changes
     React.useEffect(() => {
         setStatementPage(1);
+        // Reordering only helps if the reader is looking at the first page.
+        setCurrentMainPage(1);
+        setCurrentSubPage(1);
     }, [selectedCategoryHighlight, selectedCreditCardHighlight, searchQuery]);
 
     const handleSaveTransaction = (transaction) => {
@@ -1189,7 +1232,7 @@ const ExpenseDetails = () => {
                         <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0' }}>Main Category Breakdown</h3>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                            {monthDetails.mainItems
+                            {selectionFirst(monthDetails.mainItems, mainIsSelected)
                                 .slice((currentMainPage - 1) * ITEMS_PER_PAGE, currentMainPage * ITEMS_PER_PAGE)
                                 .map((item) => (
                                     <TransactionItem
@@ -1203,8 +1246,8 @@ const ExpenseDetails = () => {
                                                 ? null 
                                                 : { type: 'main', name: item.category }
                                         )}
-                                        isHighlighted={selectedCategoryHighlight?.type === 'main' && selectedCategoryHighlight?.name === item.category}
-                                        isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'main' || selectedCategoryHighlight.name !== item.category)}
+                                        isHighlighted={mainIsSelected(item)}
+                                        isDimmed={!!selectedCategoryHighlight && !mainIsSelected(item)}
                                         categoryBudget={getCategoryBudget(item.category)}
                                     />
                                 ))
@@ -1235,7 +1278,7 @@ const ExpenseDetails = () => {
                         <h3 style={{ fontSize: '1.25rem', fontWeight: '900', color: 'white', margin: '0 0 1.5rem 0' }}>Sub Category Breakdown</h3>
 
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
-                            {monthDetails.items
+                            {selectionFirst(monthDetails.items, subIsSelected)
                                 .slice((currentSubPage - 1) * ITEMS_PER_PAGE, currentSubPage * ITEMS_PER_PAGE)
                                 .map((item) => (
                                     <TransactionItem
@@ -1249,8 +1292,8 @@ const ExpenseDetails = () => {
                                                 ? null 
                                                 : { type: 'sub', name: item.category }
                                         )}
-                                        isHighlighted={selectedCategoryHighlight?.type === 'sub' && selectedCategoryHighlight?.name === item.category}
-                                        isDimmed={selectedCategoryHighlight && (selectedCategoryHighlight.type !== 'sub' || selectedCategoryHighlight.name !== item.category)}
+                                        isHighlighted={subIsSelected(item)}
+                                        isDimmed={!!selectedCategoryHighlight && !subIsSelected(item)}
                                         categoryBudget={getCategoryBudget(item.category)}
                                     />
                                 ))

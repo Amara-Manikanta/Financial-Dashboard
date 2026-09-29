@@ -124,14 +124,31 @@ export const recomputeStockMetrics = (txList = []) => {
  */
 export const effectiveStockPosition = (stock) => {
     const transactions = stock?.transactions || [];
-    if (transactions.length === 0) {
-        return {
+    const replay = transactions.length === 0
+        ? {
             shares: Number(stock?.shares) || 0,
             avgCost: Number(stock?.avgCost ?? stock?.avgPrice) || 0,
-        };
+        }
+        : (() => {
+            const { shares, avgCost } = recomputeStockMetrics(transactions);
+            return { shares, avgCost };
+        })();
+
+    // `manualAvgCost` is a deliberate override and outranks the replay.
+    //
+    // Distinct from the derived `avgCost`, which every save recomputes and
+    // overwrites — a figure typed into that field would survive until the next
+    // edit and no longer. This one is never written by a replay, so it holds.
+    //
+    // It changes what the position is said to have cost, so it moves invested
+    // value and unrealised P/L with it. It does NOT touch capital gains: those
+    // match real lots from the transaction history (see capitalGains.js) and a
+    // typed-in average is not a lot. Tax stays on what actually happened.
+    const manual = Number(stock?.manualAvgCost);
+    if (Number.isFinite(manual) && manual > 0) {
+        return { ...replay, avgCost: manual, avgCostIsManual: true, replayAvgCost: replay.avgCost };
     }
-    const { shares, avgCost } = recomputeStockMetrics(transactions);
-    return { shares, avgCost };
+    return { ...replay, avgCostIsManual: false, replayAvgCost: replay.avgCost };
 };
 
 /**
