@@ -17,6 +17,7 @@ import Salary from './pages/Salary';
 import Savings from './pages/Savings';
 import Investments from './pages/Investments';
 import Watchlist from './pages/Watchlist';
+import StockAnalyst from './pages/StockAnalyst';
 import MoneyFlow from './pages/MoneyFlow';
 import OrnamentGallery from './pages/OrnamentGallery';
 import CapitalGains from './pages/CapitalGains';
@@ -152,6 +153,7 @@ function App() {
                                     <Route path="savings" element={<Savings />} />
                                     <Route path="investments" element={<Investments />} />
                                     <Route path="investments/watchlist" element={<Watchlist />} />
+                                    <Route path="investments/analyst" element={<StockAnalyst />} />
                                     <Route path="investments/capital-gains" element={<CapitalGains />} />
                                     <Route path="investments/returns" element={<Returns />} />
                                     <Route path="investments/ipos" element={<IpoTracker />} />

@@ -5,6 +5,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
+import * as analystLLM from './analystLLM.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
@@ -887,6 +888,72 @@ const handleStockProfileRequest = async (req, res) => {
     }
 };
 
+/**
+ * The Stock Analyst's optional local model (see analystLLM.js).
+ *
+ *   GET  /api/analyst/llm/status   is a model running, and which
+ *   POST /api/analyst/llm/brief    { facts }            -> ordered brief
+ *   POST /api/analyst/llm/ask      { question, facts }  -> answer
+ *
+ * Read-only: nothing here touches the database. The facts arrive already
+ * computed by the page, so this is a relay to the model, not a data path.
+ */
+const MAX_ANALYST_BODY_BYTES = 256 * 1024;
+
+const handleAnalystLLMRoute = (req, res) => {
+    const route = req.url.split('?')[0];
+    if (req.method === 'OPTIONS') {
+        res.writeHead(204, CORS_HEADERS);
+        res.end();
+        return;
+    }
+    if (route === '/api/analyst/llm/status' && req.method === 'GET') {
+        analystLLM.llmStatus().then(({ status, body }) => sendJson(res, status, body));
+        return;
+    }
+    if (req.method !== 'POST' || !['/api/analyst/llm/brief', '/api/analyst/llm/ask'].includes(route)) {
+        sendJson(res, 404, { error: `${req.method} ${route} is not an analyst route` });
+        return;
+    }
+
+    const chunks = [];
+    let received = 0;
+    let aborted = false;
+    req.on('data', (chunk) => {
+        if (aborted) return;
+        received += chunk.length;
+        if (received > MAX_ANALYST_BODY_BYTES) {
+            aborted = true;
+            sendJson(res, 413, { error: 'Request too large' });
+            req.destroy();
+            return;
+        }
+        chunks.push(chunk);
+    });
+    req.on('end', async () => {
+        if (aborted) return;
+        let body;
+        try {
+            body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+        } catch (err) {
+            sendJson(res, 400, { error: 'Malformed JSON body', reason: err.message });
+            return;
+        }
+        // `null` and `[]` are valid JSON too. Reading a field off them inside
+        // this async handler would be an unhandled rejection, which ends the
+        // whole server process rather than this one request.
+        const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+        try {
+            const { status, body: out } = route.endsWith('/brief')
+                ? await analystLLM.writeBrief(payload.facts)
+                : await analystLLM.answerQuestion(payload.question, payload.facts);
+            sendJson(res, status, out);
+        } catch (err) {
+            sendJson(res, 500, { error: `Analyst relay failed: ${err.message}` });
+        }
+    });
+};
+
 const proxy = http.createServer((req, res) => {
     // Image routes are handled here, before the json-server proxy, so uploads
     // are never mistaken for a database mutation.
@@ -907,6 +974,11 @@ const proxy = http.createServer((req, res) => {
     }
     if (req.url.startsWith('/api/stock-financials') && req.method === 'GET') {
         return handleStockFinancialsRequest(req, res);
+    }
+    // Before the json-server proxy below, which would take a POST here for a
+    // database write.
+    if (req.url.startsWith('/api/analyst/llm/')) {
+        return handleAnalystLLMRoute(req, res);
     }
 
     // 2. PROXY LOGIC: Forward to internal server
