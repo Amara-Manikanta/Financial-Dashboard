@@ -640,7 +640,11 @@ const MutualFundDetails = () => {
                                 <XAxis dataKey="label" tick={{ fill: '#71717a', fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={52} />
                                 <YAxis tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => `${Math.round(v / 1000)}k`} />
                                 <Tooltip
+                                    // The default cursor paints the whole band full-height, which made
+                                    // the smallest purchase read as the tallest bar on the chart.
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
                                     contentStyle={{ background: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', fontSize: '12px' }}
+                                    separator=" "
                                     formatter={(value, _n, item) => [
                                         `${formatCurrency(value)} · ${item.payload.units.toFixed(3)} units · ${item.payload.count} buy${item.payload.count > 1 ? 's' : ''}`,
                                         'Invested',
