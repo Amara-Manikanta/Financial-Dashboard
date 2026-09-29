@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useFinance } from '../context/FinanceContext';
-import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers, Archive, ArchiveRestore, Gift, Coins, Ticket, Eye, Gauge, Scale } from 'lucide-react';
+import { Plus, Target, TrendingUp, TrendingDown, Layout, RefreshCcw, Trash2, ArrowUpRight, Info, Award, ScrollText, Layers, Archive, ArchiveRestore, Gift, Coins, Ticket, Eye, Gauge, Scale, Sparkles } from 'lucide-react';
 import { StockMarketIcon } from '../utils/customIcons';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
@@ -137,6 +137,12 @@ const Investments = () => {
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <RefreshAllPricesButton />
+                    <button
+                        onClick={() => navigate('/investments/analyst')}
+                        className="px-5 py-2.5 rounded-[0.875rem] bg-amber-400/15 border border-amber-400/30 text-amber-400 text-xs font-bold flex items-center gap-2 transition-all hover:bg-amber-400/25"
+                    >
+                        <Sparkles size={16} /> Stock Analyst
+                    </button>
                     <button
                         onClick={() => navigate('/investments/watchlist')}
                         style={{

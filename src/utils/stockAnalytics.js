@@ -6,7 +6,9 @@
  * holding is next edited and can sit stale for months. The one replay lives in
  * recomputeStockMetrics; nothing in this file re-implements it.
  */
-import { recomputeStockMetrics, effectiveStockPosition } from './investmentSync';
+// With the extension, like costRecovery.js: Vite resolves either form, but
+// Node — which runs the analyst's unit tests — only resolves this one.
+import { recomputeStockMetrics, effectiveStockPosition } from './investmentSync.js';
 
 /** Sector and market cap are optional on a stock, and missing ones must be visible. */
 export const UNCLASSIFIED = 'Unclassified';

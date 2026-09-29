@@ -560,15 +560,96 @@ const n = document.querySelector('header nav');
 n.scrollWidth <= n.clientWidth;   // was 1014 vs 1008 before the fix
 ```
 
+That measurement depends on **Plus Jakarta Sans being installed**: nothing in
+the repo loads it as a web font, so a machine without it falls back to a wider
+sans-serif and the row overflows whatever the nav contains (1029 vs 975 in a
+container with no copy of the font). Compare against the base commit on the
+same machine before blaming a change.
+
 ---
 
-## 8. Restart checklist
+## 8. The Stock Analyst
+
+`/investments/analyst` reads the stock portfolio and says what is worth doing
+about it. `src/utils/stockAdvisor.js` computes every suggestion; the page draws
+them; an optional local model only rewords and orders them. Nothing in any of
+it writes.
+
+### It is the one place allowed to have an opinion — on three conditions
+
+The rest of the app is deliberately descriptive ("a position in a range",
+limits "entered, never suggested"). The analyst exists to turn facts into
+suggestions, so instead it holds itself to:
+
+1. **Your rules first.** Sector limits, price alerts and watchlist priority are
+   the user's; crossing one is the strongest signal it raises.
+2. **Outside rules are named.** The only market judgement is SEBI's 10%
+   single-company cap for diversified funds. Every finding carries a `rule`
+   saying what raised it, and every threshold lives in `RULES`.
+3. **Tax comes from the Capital Gains ledger.** A suggested sale is run through
+   `matchLots` and `gainsLedger` as if it had happened (`simulateSale`,
+   `taxImpact`), so FIFO lots, set-off, carried losses and the ₹1.25L exemption
+   apply exactly as on the Capital Gains page. **Never re-derive a tax rule in
+   the analyst** — fix the ledger, and both pages move together.
+
+Do not add a finding that predicts a price. "Down 30% and the scorecard fails"
+is a reason to re-read a thesis, not a forecast.
+
+### Owners and archived holdings
+
+The page passes `ownHoldings(...)`, archived holdings included. Archived ones
+are never suggested, but their sales are this year's disposals and the year's
+tax is wrong without them. Family and paper holdings stay out entirely, as on
+every portfolio page.
+
+### Findings that share one allowance must say so
+
+Trims and the exemption harvest both spend the same ₹1.25L. Each is computed
+independently, so the harvest names the trims that would use part of it rather
+than silently double-counting the allowance. Any new tax finding needs the same
+treatment.
+
+### The local model (LM Studio) never computes
+
+`analystLLM.js` relays to an OpenAI-compatible server on this machine —
+LM Studio by default, Ollama or llama.cpp work too:
+
+| Variable | Default |
+| --- | --- |
+| `LOCAL_LLM_URL` | `http://127.0.0.1:1234/v1` |
+| `LOCAL_LLM_MODEL` | first chat model the server lists |
+| `LOCAL_LLM_TIMEOUT_MS` | `180000` |
+
+A 3–4B model is enough because it is given nothing to work out: `llmFacts()`
+hands it findings with every figure already formatted, and it only orders and
+explains them. Keep it that way — a small model rewords "₹80,835" reliably and
+adds two such figures unreliably. The brief is requested as JSON whose `id` is
+an enum of real finding ids, and ids are filtered again on the way back for
+servers that ignore the schema. Prompts are sized for LM Studio's default
+4,096-token context.
+
+The facts sent contain stock holdings and the stock tax position only — never
+expenses, salary or balances. Keep it that way if you extend them.
+
+`insightsEngine.js` and `AIChatInterface.jsx` are an older, unmounted attempt
+with a model path hard-coded to one Mac. The analyst does not use them.
+
+### Testing it without touching real data
+
+`npm test` covers the engine, the ledger and the relay's parsing. For the page,
+the sandbox in §1 works as usual; Yahoo and the model can both be stubbed,
+since only `server.js` talks to them. Without LM Studio running the page still
+works — the brief panel says how to start one.
+
+---
+
+## 9. Restart checklist
 
 Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js`, `sqliteReads.js` | `npm run server` |
+| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |
@@ -577,16 +658,19 @@ React/CSS source changes hot-reload normally.
 
 ---
 
-## 9. Verifying your work
+## 10. Verifying your work
 
 - `npm run build` must pass.
+- `npm test` must pass. It runs Node's own test runner over `*.test.js`, so a
+  util under test must import its neighbours with the `.js` extension — Vite
+  resolves either form, Node only that one.
 - For UI changes, actually open the page. Several bugs here were invisible in
   the code and obvious on screen.
 - For data changes, check record counts before and after — never assume.
 - After any write path change, confirm the guard still blocks a bad write and
   still allows a legitimate one.
 
-## 10. Known gaps
+## 11. Known gaps
 
 - 19 of the original uploaded ornament photos were lost before any backup
   existed and are unrecoverable. Missing images render a labelled placeholder.

@@ -8,6 +8,7 @@
     "server": "SQLITE_READS=on SQLITE_WRITES=on node server.js",
     "server:json": "node server.js",
     "build": "vite build",
+    "test": "node --test \"src/**/*.test.js\" \"*.test.js\"",
     "server:shadow": "SQLITE_READS=shadow node server.js",
     "server:sandbox": "DB_FILE=/tmp/sandbox-db.json PROXY_PORT=4000 INTERNAL_PORT=4001 SQLITE_READS=on SQLITE_WRITES=on node server.js",
     "dev:sandbox": "VITE_API_URL=http://localhost:4000 vite --port 5174 --strictPort",

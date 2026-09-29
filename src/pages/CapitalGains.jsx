@@ -216,7 +216,7 @@ const CapitalGains = () => {
                             </thead>
                             <tbody>
                                 {ledger.years.map((y) => {
-                                    const setOff = y.setOffShortAgainstShort + y.setOffShortAgainstLong + y.setOffLongAgainstLong;
+                                    const setOff = y.setOffCurrentShortLossAgainstLong + y.setOffShortAgainstShort + y.setOffShortAgainstLong + y.setOffLongAgainstLong;
                                     return (
                                         <tr key={y.fy} className={`border-b border-white/[0.03] ${y.fy === currentFy ? 'bg-white/[0.02]' : ''}`}>
                                             <td className="py-3 text-[13px] text-white font-bold">

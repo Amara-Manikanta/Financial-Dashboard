@@ -130,6 +130,15 @@ export const stockCashflows = (stock, asOf = new Date()) => {
     const flows = [];
     (stock?.transactions || []).forEach((tx) => {
         const type = String(tx.type || '').toLowerCase();
+        // A payout sits in `price` with quantity 0, so cashOf reads it as 0.
+        // It is handled before the zero-cash return below: after it, as this
+        // used to be, every dividend entered through the form was dropped and a
+        // payer's return was measured as if it had never paid.
+        if (type === 'dividend') {
+            const payout = num(tx.amount) || num(tx.price);
+            if (payout) flows.push({ date: tx.date, amount: payout });
+            return;
+        }
         const cash = cashOf(tx);
         if (!cash) return;
         if (ACQUIRE.includes(type)) flows.push({ date: tx.date, amount: -cash });
@@ -138,10 +147,6 @@ export const stockCashflows = (stock, asOf = new Date()) => {
         // legs cancel; per holding, each side is measured on the cost that moved.
         else if (type === 'merger_out') flows.push({ date: tx.date, amount: cash });
         else if (type === 'merger_in') flows.push({ date: tx.date, amount: -cash });
-        else if (type === 'dividend') {
-            // A payout sits in `price` with quantity 0, so cashOf would read 0.
-            flows.push({ date: tx.date, amount: num(tx.amount) || num(tx.price) });
-        }
     });
 
     const held = num(stock?.shares);
