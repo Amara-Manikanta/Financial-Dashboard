@@ -646,7 +646,13 @@ const MutualFundDetails = () => {
                                     // tallest bar; dimming it still left a grey slab over the data.
                                     // The tooltip already names the band it is describing.
                                     cursor={false}
-                                    contentStyle={{ background: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', fontSize: '12px' }}
+                                    // Pinned to the top of the plot rather than floating by the
+                                    // pointer. Bars grow upward from the baseline, so a box that
+                                    // follows the mouse sits squarely over the tallest ones — the
+                                    // reader loses the column they are hovering to read.
+                                    position={{ y: 0 }}
+                                    allowEscapeViewBox={{ x: false, y: true }}
+                                    contentStyle={{ background: 'rgba(24,24,27,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '0.6rem', fontSize: '11px', padding: '6px 10px' }}
                                     separator=" "
                                     formatter={(value, _n, item) => [
                                         `${formatCurrency(value)} · ${item.payload.units.toFixed(3)} units · ${item.payload.count} buy${item.payload.count > 1 ? 's' : ''}`,
