@@ -4,7 +4,6 @@ import crypto from 'crypto';
 import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
-import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import * as analystLLM from './analystLLM.js';
 import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest } from './news.js';
 import { configureArchive, archiveDigest, readArchive, fileFor } from './newsArchive.js';
@@ -1050,15 +1049,6 @@ const proxy = http.createServer((req, res) => {
     }
 
     // 2. PROXY LOGIC: Forward to internal server
-    if (req.url === '/api/insights' && req.method === 'GET') {
-        return handleInsightsRequest(req, res, INTERNAL_PORT);
-    }
-    if (req.url === '/api/chat' && (req.method === 'POST' || req.method === 'OPTIONS')) {
-        return handleChatRequest(req, res, INTERNAL_PORT);
-    }
-    if (req.url === '/api/summarize' && (req.method === 'POST' || req.method === 'OPTIONS')) {
-        return handleSummarizeRequest(req, res);
-    }
 
     // Per-row transaction writes (phase 3). A change touches one row instead of
     // replacing a whole collection, which is what makes two tabs editing
