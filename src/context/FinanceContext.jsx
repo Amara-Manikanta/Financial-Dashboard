@@ -29,8 +29,12 @@ import { ownHoldings } from '../utils/holdingOwner';
 const FinanceContext = createContext();
 
 
-// Re-exported so the many components importing it from here keep working.
-export { API_URL } from '../utils/apiUrl';
+// Imported *and* re-exported. `export { X } from '...'` forwards the name
+// without binding it locally, and this file uses API_URL 87 times — the
+// re-export alone left every one of them undefined, so no data loaded at all.
+import { API_URL } from '../utils/apiUrl';
+
+export { API_URL };
 
 export const DEFAULT_GROCERY_CATEGORIES = {
     'Milk Products': ['Milk', 'Paneer', 'Curd', 'Cheese', 'Butter', 'Ghee'],
