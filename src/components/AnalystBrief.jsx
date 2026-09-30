@@ -44,7 +44,12 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse }) => {
             body: JSON.stringify(payload),
         });
         const body = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+        if (!r.ok) {
+            // Keep what the model sent back: a failed run is the one most worth reading.
+            const err = new Error(body.error || `HTTP ${r.status}`);
+            err.raw = body.raw;
+            throw err;
+        }
         return body;
     };
 
@@ -58,7 +63,7 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse }) => {
             onResponse?.({ kind: 'brief', ok: true, findingsSent: sent, ...reply });
         } catch (err) {
             setBriefError(err.message);
-            onResponse?.({ kind: 'brief', ok: false, findingsSent: sent, error: err.message, model: status.model });
+            onResponse?.({ kind: 'brief', ok: false, findingsSent: sent, error: err.message, model: status.model, raw: err.raw });
         } finally {
             setBriefBusy(false);
         }
@@ -77,7 +82,7 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse }) => {
             onResponse?.({ kind: 'ask', ok: true, question: q, findingsSent: facts?.findings?.length || 0, ...reply });
         } catch (err) {
             setAskError(err.message);
-            onResponse?.({ kind: 'ask', ok: false, question: q, error: err.message, model: status.model });
+            onResponse?.({ kind: 'ask', ok: false, question: q, error: err.message, model: status.model, raw: err.raw });
         } finally {
             setAskBusy(false);
         }

@@ -619,6 +619,13 @@ LM Studio by default, Ollama or llama.cpp work too:
 | `LOCAL_LLM_URL` | `http://127.0.0.1:1234/v1` |
 | `LOCAL_LLM_MODEL` | first chat model the server lists |
 | `LOCAL_LLM_TIMEOUT_MS` | `180000` |
+| `LOCAL_LLM_MAX_TOKENS` | `2000` |
+
+Reasoning ("thinking") models spend the reply budget before writing the answer.
+At 800 tokens a 4B one used all of it and returned an empty reply that was
+logged as a success. An empty reply is now a failure that says so, and every
+response carries `raw` — the model's content, its reasoning, the stop reason
+and token usage — for the AI responses tab. Prefer an instruct model.
 
 A 3–4B model is enough because it is given nothing to work out: `llmFacts()`
 hands it findings with every figure already formatted, and it only orders and
