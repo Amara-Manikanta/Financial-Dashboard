@@ -38,7 +38,7 @@ const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
  * version it expects, because a server started before `git pull` keeps running
  * the old code until restarted — and looks exactly like a bug that was fixed.
  */
-export const RELAY_VERSION = 7;
+export const RELAY_VERSION = 8;
 
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
@@ -72,6 +72,7 @@ export const cleanFacts = (facts) => {
         fundsSummary: clip(facts.fundsSummary, 300),
         funds: (Array.isArray(facts.funds) ? facts.funds : []).slice(0, MAX_HOLDINGS).map((h) => clip(h, 200)),
         dashboard: clip(facts.dashboard, 4000),
+        news: (Array.isArray(facts.news) ? facts.news : []).slice(0, 80).map((l) => clip(l, 300)),
         focus: (Array.isArray(facts.focus) ? facts.focus : []).slice(0, 20).map((l) => clip(l, 400)),
     };
 };
@@ -272,7 +273,10 @@ const KINDS = ['brief', 'ask', 'custom'];
 const kindOf = (kind) => (KINDS.includes(kind) ? kind : 'brief');
 
 /** The worked figures for a stock the question names (averaging, break-even, weight, sale). */
-const focusText = (facts) => (facts.focus.length ? ['', 'Detail for the stock you asked about:', ...facts.focus.map((l) => `- ${l}`)] : []);
+const focusText = (facts) => [
+    ...(facts.focus.length ? ['', 'Detail for the stock you asked about:', ...facts.focus.map((l) => `- ${l}`)] : []),
+    ...(facts.news.length ? ['', 'Recent news headlines (titles only, newest first; not verified, and the articles themselves were not read):', ...facts.news.map((l) => `- ${l}`)] : []),
+];
 
 /** Every stock and fund held, for a question written by the owner. */
 const customFacts = (facts) => [
@@ -407,6 +411,7 @@ const ASK_SYSTEM = [
     '- You may explain a general idea, such as what the long-term capital gains exemption is.',
     '- Do not tell the owner to buy or sell anything the findings do not already suggest, unless the facts include detail for the stock asked about: then weigh that detail (cost after buying more, weight against the limit, fundamentals, the sale alternative) and give a reasoned view, saying it is a judgement.',
     '- Never predict prices.',
+    '- If news headlines are included, say which ones bear on the holding and how (business, results, regulation, management, one-off). Headlines are not verified and the articles were not read: never treat one as more than what it says.',
     '- Answer in under 150 words, in plain text. No markdown tables.',
 ].join('\n');
 
@@ -417,6 +422,7 @@ const CUSTOM_SYSTEM = [
     '- Copy figures exactly as written. Do not add, subtract or estimate new ones.',
     '- Give your reasoning for each suggestion, and say plainly when something is a judgement rather than a fact.',
     '- Never predict prices.',
+    '- If news headlines are included, say which ones bear on the holding and how (business, results, regulation, management, one-off). Headlines are not verified and the articles were not read: never treat one as more than what it says.',
     '- Answer in plain text, under 300 words.',
 ].join('\n');
 

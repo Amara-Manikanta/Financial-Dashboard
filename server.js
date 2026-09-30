@@ -6,6 +6,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import * as analystLLM from './analystLLM.js';
+import { newsFor } from './news.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
@@ -909,6 +910,13 @@ const handleAnalystLLMRoute = (req, res) => {
         res.end();
         return;
     }
+    if (route === '/api/analyst/news' && req.method === 'GET') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        newsFor(params.get('symbol'), params.get('name'))
+            .then(({ status, body }) => sendJson(res, status, body))
+            .catch((err) => sendJson(res, 502, { error: err.message }));
+        return;
+    }
     if (route === '/api/analyst/llm/status' && req.method === 'GET') {
         analystLLM.llmStatus().then(({ status, body }) => sendJson(res, status, body));
         return;
@@ -983,7 +991,7 @@ const proxy = http.createServer((req, res) => {
     }
     // Before the json-server proxy below, which would take a POST here for a
     // database write.
-    if (req.url.startsWith('/api/analyst/llm/')) {
+    if (req.url.startsWith('/api/analyst/llm/') || req.url.startsWith('/api/analyst/news')) {
         return handleAnalystLLMRoute(req, res);
     }
 

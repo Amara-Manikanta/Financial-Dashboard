@@ -9,7 +9,8 @@ import BackButton from '../components/BackButton';
 import RefreshAllPricesButton from '../components/RefreshAllPricesButton';
 import AnalystBrief from '../components/AnalystBrief';
 import AnalystPrompt, { readPrompts, writePrompts } from '../components/AnalystPrompt';
-import AnalystCustom from '../components/AnalystCustom';
+import AnalystCustom, { presetCustom } from '../components/AnalystCustom';
+import AnalystNews from '../components/AnalystNews';
 import { fundFacts, dashboardFacts } from '../utils/portfolioFacts';
 import { spendingOverview } from '../utils/spendingAnalytics';
 import { allCardProfiles, cardTotals } from '../utils/creditCards';
@@ -67,6 +68,22 @@ const GROUPS = [
  * trip; an ETF or REIT with no scorecard is remembered as null and not asked
  * again until the next session.
  */
+/** Headlines per holding for this visit; the server caches them for 30 minutes too. */
+const newsCache = new Map();
+const loadNews = async (st) => {
+    const key = symbolFor(st);
+    if (newsCache.has(key)) return newsCache.get(key);
+    const pending = fetch(`${API_URL}/api/analyst/news?symbol=${encodeURIComponent(key || '')}&name=${encodeURIComponent(st.name || '')}`)
+        .then(async (r) => (r.ok ? r.json() : { items: [], error: r.status === 404 ? 'Restart npm run server to load news.' : `HTTP ${r.status}` }))
+        .catch(() => ({ items: [], error: 'Could not reach the API server.' }));
+    newsCache.set(key, pending);
+    const result = await pending;
+    if (result.error) newsCache.delete(key);
+    return result;
+};
+
+const day = (iso) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'undated');
+
 const fundamentalsCache = new Map();
 const cachedFundamentals = (symbols) => Object.fromEntries(
     symbols.filter((s) => fundamentalsCache.get(s)).map((s) => [s, fundamentalsCache.get(s)]),
@@ -397,6 +414,26 @@ const StockAnalyst = () => {
         .flatMap((st) => averagingCase(st, { portfolioValue: analysis.snapshot.value, fundamentals: fundamentals.data, asOf: analysis.asOf }) || []),
     [stocks, analysis, fundamentals.data]);
 
+    // The ten largest holdings, for the News tab and the "include news" option.
+    const topHoldings = useMemo(() => stocks
+        .filter((st) => !st.isArchived && Number(st.shares) > 0 && Number(st.currentPrice) > 0)
+        .sort((a, b) => b.shares * b.currentPrice - a.shares * a.currentPrice)
+        .slice(0, 10), [stocks]);
+
+    // Headlines as lines for the model: a named stock gets six, each top holding four.
+    const newsFor = useCallback(async (question, { top = false } = {}) => {
+        const named = holdingsNamedIn(question, stocks);
+        const list = [...named, ...(top ? topHoldings.filter((t) => !named.includes(t)) : [])];
+        const results = await Promise.all(list.map(loadNews));
+        return list.flatMap((st, i) => (results[i].items || []).slice(0, named.includes(st) ? 6 : 4)
+            .map((n) => `${st.name}: ${day(n.published)} — ${n.title} (${n.source})`));
+    }, [stocks, topHoldings]);
+
+    const analyseNews = () => {
+        presetCustom({ withNews: true, question: 'Go through the recent news for my holdings. Which stories matter for which holding, and why? Is anything worth acting on, given my position in each?' });
+        setView('custom');
+    };
+
     const titles = useMemo(() => Object.fromEntries(analysis.findings.map((f) => [f.id, f.title])), [analysis]);
 
     const dismiss = (id) => setDismissed((prev) => {
@@ -486,6 +523,7 @@ const StockAnalyst = () => {
                                     { id: 'findings', label: 'Findings', count: visible.length },
                                     { id: 'responses', label: 'AI responses', count: responses.length },
                                     { id: 'custom', label: 'Your prompt', count: '' },
+                                    { id: 'news', label: 'News', count: '' },
                                     { id: 'prompt', label: 'Prompt', count: prompts.brief || prompts.ask ? 'edited' : '' },
                                 ].map((t) => (
                                     <button
@@ -501,8 +539,10 @@ const StockAnalyst = () => {
                                 ))}
                             </div>
 
-                            {view === 'custom' ? (
-                                <AnalystCustom facts={customFacts} dashboard={dashboard} onResponse={recordResponse} focusFor={focusFor} />
+                            {view === 'news' ? (
+                                <AnalystNews holdings={topHoldings} loadNews={loadNews} onAnalyse={analyseNews} />
+                            ) : view === 'custom' ? (
+                                <AnalystCustom facts={customFacts} dashboard={dashboard} onResponse={recordResponse} focusFor={focusFor} newsFor={newsFor} />
                             ) : view === 'prompt' ? (
                                 <AnalystPrompt facts={facts} prompts={prompts} onChange={changePrompts} />
                             ) : view === 'responses' ? (
@@ -580,7 +620,7 @@ const StockAnalyst = () => {
                         </div>
 
                         <aside className="space-y-4 xl:sticky xl:top-20">
-                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} prompts={prompts} focusFor={focusFor} />
+                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} prompts={prompts} focusFor={focusFor} newsFor={newsFor} />
 
                             <details className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 group">
                                 <summary className="text-[12px] font-black text-white cursor-pointer list-none flex items-center justify-between">
