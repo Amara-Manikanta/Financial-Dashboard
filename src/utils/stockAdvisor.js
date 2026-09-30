@@ -1004,3 +1004,74 @@ export const llmFacts = (analysis, { maxFindings = 10, maxHoldings = 40, stocks 
         holdings,
     };
 };
+
+/* ------------------------------------------------------------------ *
+ * "Should I average?" — the arithmetic, done here so the model never is
+ * ------------------------------------------------------------------ */
+
+const GENERIC_WORDS = new Set(['the', 'and', 'ltd', 'limited', 'india', 'indian', 'company', 'corporation', 'bank', 'stock', 'share', 'shares']);
+
+/** Held stocks a question names, by ticker or the first word of the name. At most `max`. */
+export const holdingsNamedIn = (question, stocks, max = 2) => {
+    const words = new Set(String(question || '').toLowerCase().match(/[a-z0-9&]{3,}/g) || []);
+    return (stocks || [])
+        .filter((s) => s && !s.isArchived && num(s.shares) > 0)
+        .filter((s) => {
+            const ticker = String(s.ticker || '').toLowerCase().replace(/\.(ns|bo)$/, '');
+            const first = String(s.name || '').toLowerCase().split(/\s+/)[0];
+            return (ticker && words.has(ticker)) || (first.length >= 3 && !GENERIC_WORDS.has(first) && words.has(first));
+        })
+        .slice(0, max);
+};
+
+/**
+ * Everything a person weighs before averaging down (or up) on one holding,
+ * as ready-written lines: what buying more does to the average cost, the
+ * break-even and the weight; the 52-week range; the fundamentals score; and
+ * what selling instead would realise. No line predicts a price.
+ */
+export const averagingCase = (stock, { portfolioValue, fundamentals, asOf = new Date().toISOString() } = {}) => {
+    const p = stockSummary(stock);
+    const price = num(readQuote(stock).price) || num(stock.currentPrice);
+    if (!p.held || !(price > 0) || !(p.avgCost > 0)) return null;
+    const total = num(portfolioValue) || p.value;
+    const breakEven = (avg) => ((avg / price) - 1) * 100;
+    const name = `${p.name || stock.ticker} (${stock.ticker})`;
+
+    const lines = [
+        `${name}: ${p.shares} shares at an average cost of ${inr(p.avgCost)}; price now ${inr(price)}; ${signedInr(p.unrealised)} (${signedPct(p.unrealisedPct)}) vs cost; ${pct(total > 0 ? (p.value / total) * 100 : 0)} of the stock portfolio.`,
+        p.unrealised < 0
+            ? `It needs to rise ${pct(breakEven(p.avgCost))} to get back to cost.`
+            : 'It is above cost.',
+    ];
+
+    [0.25, 0.5, 1].forEach((f) => {
+        const add = Math.max(1, Math.round(p.shares * f));
+        const spend = add * price;
+        const avg = (p.invested + spend) / (p.shares + add);
+        const weight = ((p.value + spend) / (total + spend)) * 100;
+        lines.push(`If you buy ${add} more (${inr(spend)}): average cost becomes ${inr(avg)}`
+            + (avg > price ? `, needing a ${pct(breakEven(avg))} rise to break even` : '')
+            + `; weight becomes ${pct(weight)}${weight > RULES.maxPositionPct ? `, over the ${RULES.maxPositionPct}% single-company limit` : ''}.`);
+    });
+
+    const q = readQuote(stock);
+    if (q.rangePct !== null && q.rangePct !== undefined) {
+        lines.push(`52-week range ${inr(q.low)}–${inr(q.high)}; the price is ${pct(q.rangePct, 0)} of the way up it.`);
+    }
+
+    const f = fundamentals?.[symbolFor(stock)];
+    if (f?.signal) {
+        const checks = (f.healthScore?.checks || []).filter((c) => c.status !== 'good').map((c) => `${c.name}: ${c.detail}`);
+        lines.push(`Fundamentals check: “${f.signal.label}” (${f.healthScore?.total ?? 0}/${f.healthScore?.max ?? 5}).${checks.length ? ` Weak points: ${checks.join('; ')}.` : ''}`);
+    } else {
+        lines.push('Fundamentals: not loaded.');
+    }
+
+    if (p.unrealised < 0) {
+        const sale = simulateSale(stock, p.shares, price, calendarDay(asOf).toISOString().slice(0, 10));
+        lines.push(`Selling all instead would realise ${signedInr(sale.gain)}`
+            + ` (short-term ${signedInr(sale.shortGain)}, long-term ${signedInr(sale.longGain)}), which can be set off against other gains.`);
+    }
+    return lines;
+};

@@ -38,7 +38,7 @@ const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
  * version it expects, because a server started before `git pull` keeps running
  * the old code until restarted — and looks exactly like a bug that was fixed.
  */
-export const RELAY_VERSION = 4;
+export const RELAY_VERSION = 6;
 
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
@@ -69,6 +69,10 @@ export const cleanFacts = (facts) => {
             }))
             .filter((f) => f.id),
         holdings: (Array.isArray(facts.holdings) ? facts.holdings : []).slice(0, MAX_HOLDINGS).map((h) => clip(h, 200)),
+        fundsSummary: clip(facts.fundsSummary, 300),
+        funds: (Array.isArray(facts.funds) ? facts.funds : []).slice(0, MAX_HOLDINGS).map((h) => clip(h, 200)),
+        dashboard: clip(facts.dashboard, 4000),
+        focus: (Array.isArray(facts.focus) ? facts.focus : []).slice(0, 20).map((l) => clip(l, 400)),
     };
 };
 
@@ -261,8 +265,24 @@ const BRIEF_SYSTEM = [
 const MAX_SYSTEM_PROMPT = 6000;
 const systemFor = (kind, override) => {
     const custom = typeof override === 'string' ? override.trim().slice(0, MAX_SYSTEM_PROMPT) : '';
-    return custom || (kind === 'brief' ? BRIEF_SYSTEM : ASK_SYSTEM);
+    return custom || (kind === 'brief' ? BRIEF_SYSTEM : kind === 'custom' ? CUSTOM_SYSTEM : ASK_SYSTEM);
 };
+
+const KINDS = ['brief', 'ask', 'custom'];
+const kindOf = (kind) => (KINDS.includes(kind) ? kind : 'brief');
+
+/** The worked figures for a stock the question names (averaging, break-even, weight, sale). */
+const focusText = (facts) => (facts.focus.length ? ['', 'Detail for the stock you asked about:', ...facts.focus.map((l) => `- ${l}`)] : []);
+
+/** Every stock and fund held, for a question written by the owner. */
+const customFacts = (facts) => [
+    factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: MAX_HOLDINGS }),
+    '',
+    `Mutual funds: ${facts.fundsSummary || 'not included.'}`,
+    ...(facts.funds.length ? ['Funds, largest first:', ...facts.funds.map((f) => `- ${f}`)] : []),
+    ...(facts.dashboard ? ['', 'The rest of my finances:', facts.dashboard] : []),
+    ...focusText(facts),
+].join('\n');
 
 /**
  * Exactly what the model is sent. The page shows this on its Prompt tab, and
@@ -277,7 +297,9 @@ export const promptMessages = (kind, facts, question = '', systemOverride = '') 
         role: 'user',
         content: kind === 'brief'
             ? `${factsText(facts, { maxFindings: 10 })}\n\nWrite the brief as JSON with "summary" and "priorities".`
-            : `Facts:\n${factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: 30 })}\n\nQuestion: ${question || '(your question goes here)'}`,
+            : kind === 'custom'
+                ? `My portfolio, computed by my finance app:\n${customFacts(facts)}\n\n${question || '(your question goes here)'}`
+                : `Facts:\n${[factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: 30 }), ...focusText(facts)].join('\n')}\n\nQuestion: ${question || '(your question goes here)'}`,
     },
 ];
 
@@ -285,8 +307,8 @@ export const promptMessages = (kind, facts, question = '', systemOverride = '') 
 export const promptPreview = (kind, rawFacts, question, systemOverride) => {
     const facts = cleanFacts(rawFacts);
     if (!facts) return { status: 400, body: { error: 'facts with a findings list are required' } };
-    const k = kind === 'ask' ? 'ask' : 'brief';
-    const messages = promptMessages(k, facts, clip(question, 500), systemOverride);
+    const k = kindOf(kind);
+    const messages = promptMessages(k, facts, clip(question, MAX_QUESTION), systemOverride);
     return { status: 200, body: { kind: k, defaultSystem: systemFor(k, ''), messages } };
 };
 
@@ -383,13 +405,27 @@ const ASK_SYSTEM = [
     '- If the facts do not answer the question, say so plainly and say what is missing. Do not guess.',
     '- Do no arithmetic and estimate nothing. Copy any figure exactly as written.',
     '- You may explain a general idea, such as what the long-term capital gains exemption is.',
-    '- Do not tell the owner to buy or sell anything the findings do not already suggest.',
+    '- Do not tell the owner to buy or sell anything the findings do not already suggest, unless the facts include detail for the stock asked about: then weigh that detail (cost after buying more, weight against the limit, fundamentals, the sale alternative) and give a reasoned view, saying it is a judgement.',
+    '- Never predict prices.',
     '- Answer in under 150 words, in plain text. No markdown tables.',
 ].join('\n');
 
-/** One question, answered from the facts alone. */
-export const answerQuestion = async (question, rawFacts, systemOverride) => {
-    const q = clip(question, 500).trim();
+const CUSTOM_SYSTEM = [
+    'You are a careful adviser looking at an Indian investor\'s finances: their stocks and mutual funds, and sometimes the rest of their money too. Every figure in the message was already computed by their finance app.',
+    'Rules:',
+    '- Base everything on the holdings listed. If something you need is missing, say what.',
+    '- Copy figures exactly as written. Do not add, subtract or estimate new ones.',
+    '- Give your reasoning for each suggestion, and say plainly when something is a judgement rather than a fact.',
+    '- Never predict prices.',
+    '- Answer in plain text, under 300 words.',
+].join('\n');
+
+/** A question, or a whole prompt, written by the owner. */
+const MAX_QUESTION = 2000;
+
+/** One question, answered from the facts alone ('ask'), or with every holding ('custom'). */
+export const answerQuestion = async (question, rawFacts, systemOverride, kind = 'ask') => {
+    const q = clip(question, kind === 'custom' ? MAX_QUESTION : 500).trim();
     if (!q) return { status: 400, body: { error: 'A question is required' } };
     const facts = cleanFacts(rawFacts);
     if (!facts) return { status: 400, body: { error: 'facts with a findings list are required' } };
@@ -399,7 +435,7 @@ export const answerQuestion = async (question, rawFacts, systemOverride) => {
 
     // Sized for LM Studio's default 4,096-token context: the facts, the answer
     // and the template all have to fit in it.
-    const messages = promptMessages('ask', facts, q, systemOverride);
+    const messages = promptMessages(kind === 'custom' ? 'custom' : 'ask', facts, q, systemOverride);
     const started = Date.now();
     try {
         const reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS });

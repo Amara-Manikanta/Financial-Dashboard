@@ -652,8 +652,21 @@ an enum of real finding ids, and ids are filtered again on the way back for
 servers that ignore the schema. Prompts are sized for LM Studio's default
 4,096-token context.
 
-The facts sent contain stock holdings and the stock tax position only — never
-expenses, salary or balances. Keep it that way if you extend them.
+The brief and questions send stock holdings and the stock tax position only.
+The **Your prompt** tab is where the owner writes their own question: it adds
+mutual funds (`fundFacts`), and — only when its checkbox is ticked — a
+whole-dashboard summary (`dashboardFacts` in `utils/portfolioFacts.js`: net
+worth by asset class, loans, cards, median income and spending, income tax).
+That box is off by default and must stay opt-in; nothing else may send
+income, spending or debt. `dashboardFacts` drops the demo loans FinanceContext
+shows when none are saved — never let demo rows reach an analysis. Answers there
+are the model's opinion and the page labels them so.
+
+A question that names a holding (by ticker or first word of its name,
+`holdingsNamedIn`) also carries `averagingCase` for it: average cost and
+break-even after buying 25/50/100% more, the weight against the 10% cap, the
+52-week range, the fundamentals score and what selling instead would realise.
+That is what lets the model answer "should I average?" without doing sums.
 
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in

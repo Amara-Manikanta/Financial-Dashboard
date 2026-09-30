@@ -13,9 +13,9 @@ import { API_URL } from '../context/FinanceContext';
  * loses nothing: every finding and figure comes from the analyst itself.
  */
 /** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
-const EXPECTED_RELAY = 4;
+const EXPECTED_RELAY = 6;
 
-const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {} }) => {
+const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, focusFor }) => {
     const [status, setStatus] = useState({ state: 'checking' });
     const [brief, setBrief] = useState(null);
     const [briefBusy, setBriefBusy] = useState(false);
@@ -41,11 +41,18 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {} }
 
     /** POST to the relay; a refusal comes back as an error with the reason in it. */
     const post = async (path, payload) => {
-        const r = await fetch(`${API_URL}/api/analyst/llm/${path}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
+        let r;
+        try {
+            r = await fetch(`${API_URL}/api/analyst/llm/${path}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+        } catch {
+            // The browser's own wording ("Failed to fetch") hides that this is
+            // the API server, not the model: nothing answered at all.
+            throw new Error(`Could not reach the API server at ${API_URL}. Check that npm run server is running and look at its terminal for an error — the request never got as far as the model.`);
+        }
         const body = await r.json().catch(() => ({}));
         if (!r.ok) {
             // Keep what the model sent back: a failed run is the one most worth reading.
@@ -79,7 +86,7 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {} }
         setAskBusy(true);
         setAskError(null);
         try {
-            const reply = await post('ask', { question: q, facts, systemPrompt: prompts.ask || '' });
+            const reply = await post('ask', { question: q, facts: { ...facts, focus: focusFor?.(q) || [] }, systemPrompt: prompts.ask || '' });
             setAnswers((prev) => [{ q, ...reply }, ...prev].slice(0, 5));
             setQuestion('');
             onResponse?.({ kind: 'ask', ok: true, question: q, findingsSent: facts?.findings?.length || 0, ...reply });
