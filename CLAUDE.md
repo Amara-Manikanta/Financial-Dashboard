@@ -695,6 +695,15 @@ and a sandbox counts separately), skips NewsAPI once `NEWSAPI_DAILY_LIMIT`
 (default 100) is reached, and the News tab shows the count. Check and record
 happen in the same tick, so concurrent refreshes cannot overshoot.
 
+**The news archive (`newsArchive.js`)** keeps every headline fetched, one file
+per symbol in `db/news/` beside the database (gitignored, never in db.json),
+for a year, up to 400 per stock. Each is tagged with a theme by keyword rules
+(`themeOf`). `startNewsCollector` fetches all your own held stocks every
+`NEWS_COLLECT_HOURS` (default 6, `0` turns it off), reading db.json but never
+writing it, and leaves 40 NewsAPI requests for questions. A question naming a
+stock sends `archiveDigest`: counts by theme for 7/30/90 days, the latest
+stories and older ones by theme — counted here so the model never counts.
+
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in
 `localStorage` (`kubera.analyst.responses`, last 50), deliberately not in
@@ -718,7 +727,7 @@ Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js` | `npm run server` |
+| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |

@@ -10,6 +10,7 @@
  * not hammer either source. Nothing here is written to db.json.
  */
 import fs from 'fs';
+import { mergeIntoArchive, archiveStats } from './newsArchive.js';
 
 const NEWS_TTL_MS = 30 * 60 * 1000;
 const MAX_AGE_DAYS = 30;
@@ -139,24 +140,25 @@ const get = async (url, as, headers = {}) => {
 };
 
 /** Headlines for one stock. Each source may fail on its own; its error is reported, not thrown. */
-export const newsFor = async (symbol, name, { fresh = false } = {}) => {
+export const newsFor = async (symbol, name, { fresh = false, reserveNewsApi = 0 } = {}) => {
     const sym = String(symbol || '').trim().slice(0, 30);
     const company = String(name || '').replace(/\b(limited|ltd\.?)\b/gi, '').trim().slice(0, 80);
     if (!sym && !company) return { status: 400, body: { error: 'symbol or name is required' } };
 
     const key = `${sym}|${company}`.toLowerCase();
     const hit = cache.get(key);
-    if (!fresh && hit && Date.now() - hit.at < NEWS_TTL_MS) return { status: 200, body: { ...hit.body, cached: true, newsApi: newsApiUsage() } };
+    if (!fresh && hit && Date.now() - hit.at < NEWS_TTL_MS) return { status: 200, body: { ...hit.body, cached: true, newsApi: newsApiUsage(), archive: archiveStats(sym || company) } };
 
     // Read at call time, so a key added to .env.local only needs a server restart.
     const newsApiKey = String(process.env.NEWSAPI_KEY || '').trim();
     // Over the day's allowance NewsAPI is skipped, not called: the two free
     // sources still answer, and the reason is reported like any other failure.
     const budget = newsApiUsage();
-    const useNewsApi = !!(company && newsApiKey && budget.remaining > 0);
+    // reserveNewsApi: the background collector leaves this many for you.
+    const useNewsApi = !!(company && newsApiKey && budget.remaining > reserveNewsApi);
     const from = new Date(Date.now() - MAX_AGE_DAYS * 86400000).toISOString().slice(0, 10);
     const errors = [];
-    if (company && newsApiKey && !useNewsApi) {
+    if (company && newsApiKey && !useNewsApi && budget.remaining === 0) {
         errors.push(`NewsAPI: daily limit reached (${budget.used}/${budget.limit}); next request free ${budget.nextFreeAt}`);
     }
     const tried = (sym ? 1 : 0) + (company ? 1 : 0) + (useNewsApi ? 1 : 0);
@@ -177,9 +179,52 @@ export const newsFor = async (symbol, name, { fresh = false } = {}) => {
                 .catch((err) => { errors.push(`NewsAPI: ${err.message}`); return []; }))
             : [],
     ]);
-    const body = { symbol: sym, name: company, items: mergeNews(lists), errors, fetchedAt: new Date().toISOString(), newsApi: newsApiUsage() };
+    const items = mergeNews(lists);
+    // Everything fetched is kept, so coverage builds up beyond the sources' own window.
+    let archive = archiveStats(sym || company);
+    try { archive = mergeIntoArchive(sym || company, company, lists.flat()); archive = { count: archive.items.length, added: archive.added, since: archiveStats(sym || company).since }; } catch (err) { errors.push(`Archive: ${err.message}`); }
+    const body = { symbol: sym, name: company, items, errors, fetchedAt: new Date().toISOString(), newsApi: newsApiUsage(), archive };
     // Cached whenever at least one source answered — NewsAPI's free plan allows
     // 100 requests a day, so a failing source must not be retried on every view.
     if (errors.length < tried) cache.set(key, { at: Date.now(), body });
     return { status: 200, body };
+};
+
+/* ------------------------------------------------------------------ *
+ * Background collection, so the archive grows while nobody is looking
+ * ------------------------------------------------------------------ */
+
+/** Your own held stocks, read (never written) from the database file. */
+export const heldStocksIn = (db) => (db?.savings || [])
+    .filter((s) => s && s.type === 'stock_market' && !s.isArchived)
+    .flatMap((m) => m.stocks || [])
+    .filter((st) => st && !st.isArchived && Number(st.shares) > 0 && (!st.owner || st.owner === 'self') && (st.ticker || st.symbol))
+    .map((st) => {
+        const t = String(st.ticker || st.symbol).trim();
+        return { symbol: t.includes('.') ? t : `${t}.NS`, name: st.name || t };
+    });
+
+let collector = null;
+
+/**
+ * Every `hours`, fetch each held stock once, a few seconds apart. NewsAPI is
+ * used only while more than `reserve` requests remain, so questions you ask
+ * still get it. hours = 0 turns collection off.
+ */
+export const startNewsCollector = ({ dbFile, hours = 6, reserve = 40, spacingMs = 3000, log = console.log } = {}) => {
+    if (collector || !(hours > 0)) return;
+    const run = async () => {
+        let stocks = [];
+        try { stocks = heldStocksIn(JSON.parse(fs.readFileSync(dbFile, 'utf8'))); } catch (err) { log(`[news] collector could not read the database: ${err.message}`); return; }
+        let added = 0;
+        for (const st of stocks) {
+            const { body } = await newsFor(st.symbol, st.name, { fresh: true, reserveNewsApi: reserve });
+            added += body?.archive?.added || 0;
+            await new Promise((r) => setTimeout(r, spacingMs));
+        }
+        log(`[news] collected ${stocks.length} holdings, ${added} new headlines stored`);
+    };
+    collector = setInterval(run, hours * 3600000);
+    collector.unref?.();
+    setTimeout(run, 60000).unref?.();
 };

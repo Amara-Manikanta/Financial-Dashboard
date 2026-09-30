@@ -6,7 +6,8 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import * as analystLLM from './analystLLM.js';
-import { newsFor, configureNews, newsApiUsage } from './news.js';
+import { newsFor, configureNews, newsApiUsage, startNewsCollector } from './news.js';
+import { configureArchive, archiveDigest } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
@@ -26,6 +27,10 @@ const DB_FILE = process.env.DB_FILE
 
 // NewsAPI's request log sits beside the database, so a sandbox counts separately.
 configureNews({ usageFile: path.join(path.dirname(DB_FILE), '.newsapi-usage.json') });
+// Stored headlines live under db/ (gitignored), beside whichever database is in use.
+configureArchive({ archiveDir: path.join(path.dirname(DB_FILE), 'db', 'news') });
+const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
+startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
 
 // Collections that must always exist. Used to validate snapshots before they
 // are trusted, so we never keep a "backup" that is already missing data.
@@ -915,6 +920,12 @@ const handleAnalystLLMRoute = (req, res) => {
     if (req.method === 'OPTIONS') {
         res.writeHead(204, CORS_HEADERS);
         res.end();
+        return;
+    }
+    if (route === '/api/analyst/news/digest' && req.method === 'GET') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const symbol = params.get('symbol') || params.get('name');
+        sendJson(res, symbol ? 200 : 400, symbol ? archiveDigest(symbol, params.get('name') || symbol) : { error: 'symbol is required' });
         return;
     }
     if (route === '/api/analyst/news/usage' && req.method === 'GET') {

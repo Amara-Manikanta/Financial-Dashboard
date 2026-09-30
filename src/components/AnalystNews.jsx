@@ -38,7 +38,7 @@ const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
         <div className="space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-[11px] text-gray-500 max-w-xl leading-relaxed">
-                    Headlines from the last 30 days for your ten largest holdings. Titles only — open a story to read it.
+                    Latest headlines for your ten largest holdings. Everything fetched is also stored (a year per stock), and the server collects news for all your holdings every six hours, so a question about a stock sends the model months of coverage, grouped by theme.
                     The model sees the same titles, so treat its reading of them as a starting point, not a verdict.
                 </p>
                 <div className="flex gap-2">
@@ -76,7 +76,12 @@ const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
                     <section key={st.id} className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
                         <h3 className="text-[13px] font-black text-white flex items-center gap-2">
                             <Newspaper size={14} className="text-indigo-300" /> {st.name} <span className="text-[11px] text-gray-500 font-bold">{st.ticker}</span>
-                            {n?.fetchedAt && <span className="ml-auto text-[10.5px] text-gray-500 font-bold">updated {ago(n.fetchedAt)}</span>}
+                            {n?.fetchedAt && (
+                                <span className="ml-auto text-[10.5px] text-gray-500 font-bold">
+                                    {n.archive?.count > 0 && <span title="Headlines kept for this stock (up to a year), which the model sees as a digest when you ask about it">{n.archive.count} stored since {new Date(n.archive.since).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · </span>}
+                                    updated {ago(n.fetchedAt)}
+                                </span>
+                            )}
                             <button
                                 type="button"
                                 onClick={() => load(st, true)}

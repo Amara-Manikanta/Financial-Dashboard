@@ -82,6 +82,11 @@ const loadNews = async (st, { fresh = false } = {}) => {
     return result;
 };
 
+/** The stored coverage of one stock, prepared server-side for the model. */
+const loadDigest = (st) => fetch(`${API_URL}/api/analyst/news/digest?symbol=${encodeURIComponent(symbolFor(st) || '')}&name=${encodeURIComponent(st.name || '')}`)
+    .then((r) => (r.ok ? r.json() : { lines: [] }))
+    .catch(() => ({ lines: [] }));
+
 const day = (iso) => (iso ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'undated');
 
 const fundamentalsCache = new Map();
@@ -439,13 +444,16 @@ const StockAnalyst = () => {
     const newsFor = useCallback(async (question, { top = false } = {}) => {
         const named = namedForNews(question);
         const list = [...named, ...(top ? topHoldings.filter((t) => !named.includes(t)) : [])];
+        // Fetch first (which also stores anything new), then read the stock's
+        // stored history as a digest. Top holdings get four titles each: ten
+        // digests would crowd an 8K context.
         const results = await Promise.all(list.map(loadNews));
-        // Descriptions only for the stock asked about: ten holdings' worth would
-        // crowd an 8K context. Top holdings get titles.
+        const digests = await Promise.all(named.map(loadDigest));
         return list.flatMap((st, i) => {
-            const asked = named.includes(st);
-            return (results[i].items || []).slice(0, asked ? 6 : 4)
-                .map((n) => `${st.name}: ${day(n.published)} — ${n.title} (${n.source})${asked && n.summary ? `. ${n.summary.slice(0, 200)}` : ''}`);
+            const d = digests[named.indexOf(st)];
+            if (d?.lines?.length) return d.lines;
+            return (results[i].items || []).slice(0, named.includes(st) ? 6 : 4)
+                .map((n) => `${st.name}: ${day(n.published)} — ${n.title} (${n.source})${named.includes(st) && n.summary ? `. ${n.summary.slice(0, 200)}` : ''}`);
         });
     }, [namedForNews, topHoldings]);
 
