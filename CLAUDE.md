@@ -704,6 +704,21 @@ writing it, and leaves 40 NewsAPI requests for questions. A question naming a
 stock sends `archiveDigest`: counts by theme for 7/30/90 days, the latest
 stories and older ones by theme — counted here so the model never counts.
 
+Headlines from all three sources are **consolidated into stories**
+(`consolidate`): titles sharing at least two significant words and half of
+the shorter one, within three days, are one story listing every outlet
+(`coverage`). The company's own name is excluded from the comparison — it is
+in every title and would merge everything. Counts in the digest are stories,
+not headlines.
+
+For the three newest stories the digest route downloads the **article text**
+(`articleText`: `linkedom` + `@mozilla/readability`, the Reader View engine),
+stores it on the archived item and sends the first 1,500 characters. Each URL
+is tried once — failures (paywalls, script-only pages) are remembered as
+`textError` and not retried. Google News links are redirects a server cannot
+follow, so a story's direct link from another outlet is used instead. This is
+the Node equivalent of LangChain's NewsURLLoader, without a Python runtime.
+
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in
 `localStorage` (`kubera.analyst.responses`, last 50), deliberately not in

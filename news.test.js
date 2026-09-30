@@ -21,7 +21,8 @@ test('Yahoo and Google headlines parse, dedupe and sort newest first', () => {
         'Infosys Q2 results: profit rises 5% & margins hold',
         'Infosys wins $1.5 billion deal',
     ]);
-    assert.equal(merged[1].source, 'Reuters'); // the newer copy of the same story wins
+    assert.equal(merged[1].source, 'Reuters, Mint'); // one story, both outlets
+    assert.equal(merged[1].coverage, 2);
 });
 
 test('garbage in gives nothing out', () => {
@@ -64,4 +65,36 @@ test('NewsAPI budget: counted per rolling day, persisted, and stops at the limit
     assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).calls.length, 100); // the day-old entry is pruned on save
     const second = await newsFor('BBB.NS', 'Bbb Ltd', { fresh: true });
     assert.match(second.body.errors.join(), /NewsAPI: daily limit reached \(100\/100\)/);
+});
+
+test('differently worded headlines about one event become one story; unrelated ones do not', async () => {
+    const { consolidate } = await import('./newsArchive.js');
+    const t = (h) => new Date(NOW - h * 3600000).toISOString();
+    const stories = consolidate([
+        { title: 'Infosys raises FY27 revenue guidance to 3-4%', source: 'Reuters', published: t(2), url: 'https://r/1' },
+        { title: 'Infosys ups revenue guidance after large deal wins', source: 'Mint', published: t(5), url: 'https://news.google.com/x', summary: 'Outlook lifted.' },
+        { title: 'Infosys revenue guidance raised; shares jump', source: 'ET', published: t(8), url: 'https://et/1' },
+        { title: 'Infosys CFO resigns', source: 'BS', published: t(3), url: 'https://bs/1' },
+        { title: 'Infosys raises revenue guidance', source: 'Old', published: t(24 * 90), url: 'https://o/1' },
+    ], 'Infosys Limited');
+    assert.equal(stories.length, 3);
+    const guidance = stories.find((s) => s.coverage === 3);
+    assert.deepEqual(guidance.sources, ['Reuters', 'Mint', 'ET']);
+    assert.equal(guidance.summary, 'Outlook lifted.');
+    assert.equal(guidance.url, 'https://r/1'); // a direct link, never the Google redirect
+    assert.ok(stories.some((s) => s.title === 'Infosys CFO resigns'));
+});
+
+test('article text is pulled out of the page; a paywall stub is refused', async (t) => {
+    const { articleText } = await import('./news.js');
+    const body = 'Infosys raised its revenue growth guidance for the year to 3-4 percent on Thursday, citing large deal wins. '.repeat(5);
+    t.mock.method(globalThis, 'fetch', async (url) => new Response(String(url).includes('paywall')
+        ? '<html><body><nav>Menu</nav><p>Subscribe to read.</p></body></html>'
+        : `<html><head><title>x</title></head><body><nav>Home Markets</nav><article><h1>Guidance up</h1><p>${body}</p><p>Margins held at 21 percent.</p></article><footer>Subscribe</footer></body></html>`, { status: 200 }));
+    const text = await articleText('https://example.com/story');
+    assert.match(text, /^Guidance up\nInfosys raised/);
+    assert.match(text, /Margins held at 21 percent\.$/);
+    assert.doesNotMatch(text, /Home Markets|Subscribe/);
+    await assert.rejects(articleText('https://example.com/paywall'), /no readable article/);
+    await assert.rejects(articleText('https://news.google.com/rss/articles/abc'), /no direct link/);
 });

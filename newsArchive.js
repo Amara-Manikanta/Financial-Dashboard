@@ -33,6 +33,59 @@ const THEMES = [
     ['analyst ratings', /\b(target price|target|rating|upgrade[sd]?|downgrade[sd]?|brokerage|outperform|underperform|overweight|underweight|buy call|sell call)\b/i],
 ];
 
+const STOP = new Set('the a an and or of to in on for with at by from as is are was be its it this that after amid over into up down new shares share stock stocks says said ltd limited india indian inr rs crore cr per cent percent'.split(' '));
+const wordsOf = (title, exclude) => new Set(String(title || '').toLowerCase().split(/[^a-z0-9%]+/)
+    .filter((w) => w.length >= 3 && !STOP.has(w) && !exclude.has(w)));
+
+/**
+ * One entry per story. Outlets word the same event differently, so titles are
+ * compared by their significant words (the company's own name excluded — it
+ * is in every title) and grouped when at least two words and half of the
+ * shorter title are shared, within three days. The group keeps every outlet;
+ * how many covered it is itself a signal of how much it matters.
+ */
+export const consolidate = (items, companyName = '') => {
+    const exclude = new Set(String(companyName).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+    const groups = [];
+    [...(items || [])]
+        .sort((a, b) => (Date.parse(b.published || b.firstSeen) || 0) - (Date.parse(a.published || a.firstSeen) || 0))
+        .forEach((item) => {
+            const words = wordsOf(item.title, exclude);
+            const t = Date.parse(item.published || item.firstSeen) || 0;
+            const match = groups.find((g) => {
+                if (Math.abs(g.t - t) > 3 * DAY_MS) return false;
+                const shared = [...words].filter((w) => g.words.has(w)).length;
+                return shared >= 2 && shared / Math.max(1, Math.min(words.size, g.words.size)) >= 0.5;
+            });
+            if (match) {
+                match.members.push(item);
+                words.forEach((w) => match.words.add(w));
+                match.t = Math.min(match.t, t || match.t);
+            } else {
+                groups.push({ words, t, members: [item] });
+            }
+        });
+    return groups.map((g) => {
+        const m = g.members;
+        const sources = [...new Set(m.map((i) => i.source).filter(Boolean))];
+        const best = m.find((i) => i.summary) || m.reduce((a, b) => (String(b.title).length > String(a.title).length ? b : a));
+        const direct = m.find((i) => i.url && !/news\.google\.com/.test(i.url)) || m[0];
+        return {
+            title: best.title,
+            summary: (m.find((i) => i.summary) || {}).summary || '',
+            text: (m.find((i) => i.text) || {}).text || '',
+            source: sources.join(', '),
+            sources,
+            coverage: sources.length,
+            url: direct.url || '',
+            links: m.map((i) => ({ source: i.source, url: i.url })).filter((l) => l.url),
+            published: g.t ? new Date(g.t).toISOString() : null,
+            theme: best.theme || themeOf(best),
+            headlines: m.length,
+        };
+    });
+};
+
 export const themeOf = (item) => {
     const text = `${item.title || ''} ${item.summary || ''}`;
     const hit = THEMES.find(([, re]) => re.test(text));
@@ -104,37 +157,56 @@ const countThemes = (items) => {
 };
 
 /**
- * The stored coverage of one stock, prepared for a small model: counts by
- * theme over three windows (so it never has to count), the latest stories with
- * descriptions, and the older stories by theme so a pattern can be seen.
+ * The stored coverage of one stock, prepared for a small model. Headlines are
+ * first consolidated into stories, then: counts by theme over three windows
+ * (so the model never counts), the latest stories with every outlet that
+ * covered them and — for the newest few — the article text itself, and older
+ * stories by theme so a pattern can be seen.
  */
-export const archiveDigest = (symbol, label, { latest = 8, perThemeEarlier = 2, now = Date.now() } = {}) => {
+export const archiveDigest = (symbol, label, { latest = 8, withText = 3, textChars = 1500, perThemeEarlier = 2, now = Date.now() } = {}) => {
     const { items } = readArchive(symbol);
-    if (!items.length) return { count: 0, since: null, lines: [] };
-    const within = (days) => items.filter((i) => now - when(i) < days * DAY_MS);
+    if (!items.length) return { count: 0, stories: 0, since: null, lines: [] };
+    const stories = consolidate(items, label);
+    const age = (s) => now - (Date.parse(s.published) || 0);
     const window = (days) => {
-        const w = within(days);
-        return `last ${days} days: ${w.length}${w.length ? ` (${countThemes(w)})` : ''}`;
+        const w = stories.filter((s) => age(s) < days * DAY_MS);
+        return `last ${days} days: ${w.length} ${w.length === 1 ? 'story' : 'stories'}${w.length ? ` (${countThemes(w)})` : ''}`;
     };
+    const outlets = (s) => (s.coverage > 1 ? `${s.source} — ${s.coverage} outlets` : s.source);
     const oldest = items[items.length - 1];
-    const recent = items.slice(0, latest);
-    const earlier = items.filter((i) => now - when(i) >= 30 * DAY_MS);
     const earlierByTheme = {};
-    earlier.forEach((i) => {
-        const t = i.theme || themeOf(i);
-        if ((earlierByTheme[t] = earlierByTheme[t] || []).length < perThemeEarlier) earlierByTheme[t].push(i);
+    stories.filter((s) => age(s) >= 30 * DAY_MS).forEach((s) => {
+        if ((earlierByTheme[s.theme] = earlierByTheme[s.theme] || []).length < perThemeEarlier) earlierByTheme[s.theme].push(s);
     });
 
     const lines = [
-        `${label}: ${items.length} headlines stored since ${day(oldest)}. ${window(7)}; ${window(30)}; ${window(90)}.`,
-        `${label}, latest:`,
-        ...recent.map((i) => `  ${day(i)} [${i.theme || themeOf(i)}] ${i.title} (${i.source})${i.summary ? `. ${String(i.summary).slice(0, 200)}` : ''}`),
+        `${label}: ${items.length} headlines stored since ${day(oldest)}, which are ${stories.length} distinct stories. ${window(7)}; ${window(30)}; ${window(90)}.`,
+        `${label}, latest stories (outlets that covered each in brackets):`,
+        ...stories.slice(0, latest).flatMap((s, n) => [
+            `  ${day(s)} [${s.theme}] ${s.title} (${outlets(s)})${s.summary ? `. ${String(s.summary).slice(0, 200)}` : ''}`,
+            ...(n < withText && s.text ? [`    Article text (first part): ${String(s.text).slice(0, textChars).replace(/\n+/g, ' / ')}`] : []),
+        ]),
         ...(Object.keys(earlierByTheme).length
             ? [`${label}, earlier stories by theme (older than 30 days):`,
-                ...Object.entries(earlierByTheme).flatMap(([t, list]) => list.map((i) => `  ${day(i)} [${t}] ${i.title} (${i.source})`))]
+                ...Object.entries(earlierByTheme).flatMap(([t, list]) => list.map((s) => `  ${day(s)} [${t}] ${s.title} (${outlets(s)})`))]
             : []),
     ];
-    return { count: items.length, since: oldest.published || oldest.firstSeen, lines };
+    return { count: items.length, stories: stories.length, since: oldest.published || oldest.firstSeen, lines };
+};
+
+/** Save an article's extracted text (or that it could not be read) on every stored copy with that URL. */
+export const attachText = (symbol, url, text, error = '') => {
+    const file = fileFor(symbol);
+    if (!file || !url) return;
+    const saved = readArchive(symbol);
+    let changed = false;
+    saved.items.forEach((i) => {
+        if (i.url === url) { i.text = text || ''; i.textError = error || ''; i.textTried = true; changed = true; }
+    });
+    if (!changed) return;
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify({ name: saved.name, updatedAt: new Date().toISOString(), items: saved.items }));
+    fs.renameSync(tmp, file);
 };
 
 /** Counts for the News tab: how much is stored per stock. */

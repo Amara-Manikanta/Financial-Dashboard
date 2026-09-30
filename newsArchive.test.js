@@ -37,7 +37,7 @@ test('archive keeps each story once, fills a missing description, and prunes aft
 test('the digest counts by theme per window and lists older stories by theme', () => {
     const d = archiveDigest('INFY.NS', 'Infosys', { now: NOW });
     assert.equal(d.count, 2);
-    assert.match(d.lines[0], /2 headlines stored since 16 Aug 2026\. last 7 days: 1 \(results 1\); last 30 days: 1 \(results 1\); last 90 days: 2/);
+    assert.match(d.lines[0], /2 headlines stored since 16 Aug 2026, which are 2 distinct stories\. last 7 days: 1 story \(results 1\); last 30 days: 1 story \(results 1\); last 90 days: 2 stories/);
     assert.ok(d.lines.some((l) => /earlier stories by theme/.test(l)));
     assert.ok(d.lines.some((l) => /\[deals & orders\] Infosys bags/.test(l)));
 });

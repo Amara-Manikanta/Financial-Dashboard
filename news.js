@@ -10,7 +10,9 @@
  * not hammer either source. Nothing here is written to db.json.
  */
 import fs from 'fs';
-import { mergeIntoArchive, archiveStats } from './newsArchive.js';
+import { parseHTML } from 'linkedom';
+import { Readability } from '@mozilla/readability';
+import { mergeIntoArchive, archiveStats, consolidate, readArchive, attachText } from './newsArchive.js';
 
 const NEWS_TTL_MS = 30 * 60 * 1000;
 const MAX_AGE_DAYS = 30;
@@ -107,20 +109,11 @@ export const parseNewsApi = (json) => (Array.isArray(json?.articles) ? json.arti
         summary: a.description ? decode(a.description).replace(/<[^>]+>/g, '').slice(0, 300) : '',
     }));
 
-/** Newest first, recent only, one copy of each story. */
-export const mergeNews = (lists, now = Date.now()) => {
-    const seen = new Set();
+/** Newest first, recent only, one entry per story with every outlet that covered it. */
+export const mergeNews = (lists, now = Date.now(), companyName = '') => {
     const cutoff = now - MAX_AGE_DAYS * 86400000;
-    return lists.flat()
-        .filter((n) => !n.published || Date.parse(n.published) >= cutoff)
-        .sort((a, b) => (Date.parse(b.published || 0) || 0) - (Date.parse(a.published || 0) || 0))
-        .filter((n) => {
-            const key = normalise(n.title);
-            if (!key || seen.has(key)) return false;
-            seen.add(key);
-            return true;
-        })
-        .slice(0, MAX_ITEMS);
+    const recent = lists.flat().filter((n) => n && n.title && (!n.published || Date.parse(n.published) >= cutoff));
+    return consolidate(recent, companyName).slice(0, MAX_ITEMS);
 };
 
 const get = async (url, as, headers = {}) => {
@@ -179,7 +172,7 @@ export const newsFor = async (symbol, name, { fresh = false, reserveNewsApi = 0 
                 .catch((err) => { errors.push(`NewsAPI: ${err.message}`); return []; }))
             : [],
     ]);
-    const items = mergeNews(lists);
+    const items = mergeNews(lists, Date.now(), company);
     // Everything fetched is kept, so coverage builds up beyond the sources' own window.
     let archive = archiveStats(sym || company);
     try { archive = mergeIntoArchive(sym || company, company, lists.flat()); archive = { count: archive.items.length, added: archive.added, since: archiveStats(sym || company).since }; } catch (err) { errors.push(`Archive: ${err.message}`); }
@@ -227,4 +220,53 @@ export const startNewsCollector = ({ dbFile, hours = 6, reserve = 40, spacingMs 
     collector = setInterval(run, hours * 3600000);
     collector.unref?.();
     setTimeout(run, 60000).unref?.();
+};
+
+/* ------------------------------------------------------------------ *
+ * Full article text, for the newest stories about a stock
+ * ------------------------------------------------------------------ */
+
+const MAX_TEXT = 4000;
+
+/**
+ * Download one article and keep only its body, the way Firefox's Reader View
+ * does. Paywalled and script-rendered pages come back short or empty; that is
+ * reported, not treated as an article. Google News links are redirects that
+ * need a browser to follow, so they are skipped.
+ */
+export const articleText = async (url) => {
+    if (!/^https?:\/\//.test(url || '') || /news\.google\.com/.test(url)) throw new Error('no direct link');
+    const html = await get(url, 'text');
+    const { document } = parseHTML(html.slice(0, 2_000_000));
+    const article = new Readability(document).parse();
+    // Block ends become breaks, so a heading does not run into its first paragraph.
+    const text = decode(String(article?.content || '')
+        .replace(/<\/(p|h[1-6]|li|blockquote|div|tr)>|<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]+>/g, ' '))
+        .replace(/[ \t]+/g, ' ')
+        .replace(/\s*\n\s*/g, '\n')
+        .trim();
+    if (text.length < 300) throw new Error('page had no readable article (paywall or script-only)');
+    return text.slice(0, MAX_TEXT);
+};
+
+/**
+ * Fetch the text of the newest `count` stories that do not have it yet, once
+ * each: a failure is remembered on the item so it is not retried every question.
+ */
+export const fillArticleText = async (symbol, name, { count = 3 } = {}) => {
+    const stories = consolidate(readArchive(symbol).items, name).slice(0, count);
+    await Promise.all(stories.map(async (s) => {
+        if (s.text) return;
+        const stored = readArchive(symbol).items;
+        const candidates = s.links.filter((l) => !/news\.google\.com/.test(l.url) && !stored.find((i) => i.url === l.url)?.textTried);
+        for (const link of candidates) {
+            try {
+                attachText(symbol, link.url, await articleText(link.url));
+                return;
+            } catch (err) {
+                attachText(symbol, link.url, '', err.message);
+            }
+        }
+    }));
 };

@@ -106,7 +106,18 @@ const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
                                             {item.title} <ExternalLink size={10} className="mt-1 shrink-0 text-gray-600" />
                                         </a>
                                         {item.summary && <span className="block text-[11.5px] text-gray-400 mt-0.5 leading-snug">{item.summary}</span>}
-                                        <span className="block text-[10.5px] text-gray-500">{item.source} · {ago(item.published)}</span>
+                                        <span className="flex flex-wrap items-center gap-x-1.5 text-[10.5px] text-gray-500">
+                                            {item.coverage > 1 && (
+                                                <span className="px-1.5 rounded bg-indigo-500/15 text-indigo-300 font-bold" title="Outlets that reported this story — wider coverage usually means it matters more">
+                                                    {item.coverage} outlets
+                                                </span>
+                                            )}
+                                            {item.theme && item.theme !== 'other' && <span className="text-gray-400">{item.theme}</span>}
+                                            {(item.links?.length > 1 ? item.links : [{ source: item.source, url: item.url }]).map((l, k) => (
+                                                <a key={k} href={l.url} target="_blank" rel="noreferrer" className="hover:text-indigo-200">{l.source}</a>
+                                            ))}
+                                            <span>· {ago(item.published)}</span>
+                                        </span>
                                     </li>
                                 ))}
                             </ul>
