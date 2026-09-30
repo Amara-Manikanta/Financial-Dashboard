@@ -668,6 +668,17 @@ break-even after buying 25/50/100% more, the weight against the 10% cap, the
 52-week range, the fundamentals score and what selling instead would realise.
 That is what lets the model answer "should I average?" without doing sums.
 
+### News (`news.js`)
+
+`GET /api/analyst/news?symbol=&name=` returns up to 12 headlines from the last
+30 days, merged from Yahoo Finance search and Google News RSS (Indian edition),
+deduplicated, cached 30 minutes per stock. Titles only: article bodies are
+paywalled and scrapers break. A question naming a holding carries six of its
+headlines; the Your prompt tab can add four each for the ten largest holdings;
+the News tab lists them. The model is told headlines are unverified and unread.
+Each source can fail on its own and says so in `errors` — a blocked source
+must never look like "no news".
+
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in
 `localStorage` (`kubera.analyst.responses`, last 50), deliberately not in
@@ -691,7 +702,7 @@ Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js` | `npm run server` |
+| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |

@@ -31,9 +31,9 @@ export const promptSent = async (kind, facts, question, systemPrompt) => {
 };
 
 /** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
-const EXPECTED_RELAY = 7;
+const EXPECTED_RELAY = 8;
 
-const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, focusFor }) => {
+const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, focusFor, newsFor }) => {
     const [status, setStatus] = useState({ state: 'checking' });
     const [brief, setBrief] = useState(null);
     const [briefBusy, setBriefBusy] = useState(false);
@@ -104,7 +104,7 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, 
         if (!q || askBusy) return;
         setAskBusy(true);
         setAskError(null);
-        const asked = { ...facts, focus: focusFor?.(q) || [] };
+        const asked = { ...facts, focus: focusFor?.(q) || [], news: (await newsFor?.(q)) || [] };
         const prompt = promptSent('ask', asked, q, prompts.ask || '');
         try {
             const reply = await post('ask', { question: q, facts: asked, systemPrompt: prompts.ask || '' });

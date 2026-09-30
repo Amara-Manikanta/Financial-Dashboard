@@ -16,6 +16,11 @@ import { promptSent } from './AnalystBrief';
  */
 const CUSTOM_KEY = 'kubera.analyst.custom';
 
+/** Set some of the saved fields before the tab opens (the News tab uses this). */
+export const presetCustom = (patch) => {
+    try { localStorage.setItem(CUSTOM_KEY, JSON.stringify({ ...readSaved(), ...patch })); } catch { /* ignored */ }
+};
+
 const readSaved = () => {
     try {
         const p = JSON.parse(localStorage.getItem(CUSTOM_KEY) || '{}');
@@ -23,13 +28,14 @@ const readSaved = () => {
             system: typeof p.system === 'string' ? p.system : '',
             question: typeof p.question === 'string' ? p.question : '',
             withDashboard: p.withDashboard === true,
+            withNews: p.withNews === true,
         };
     } catch {
-        return { system: '', question: '', withDashboard: false };
+        return { system: '', question: '', withDashboard: false, withNews: false };
     }
 };
 
-const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
+const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor, newsFor }) => {
     const [saved, setSaved] = useState(readSaved);
     const [preview, setPreview] = useState(null);
     const [showFacts, setShowFacts] = useState(false);
@@ -43,12 +49,20 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
         return next;
     });
 
-    const sent = { ...facts, dashboard: saved.withDashboard ? dashboard : '', focus: focusFor?.(saved.question) || [] };
+    // What goes with the question. News is fetched (and cached) on demand.
+    const buildSent = async (question) => ({
+        ...facts,
+        dashboard: saved.withDashboard ? dashboard : '',
+        focus: focusFor?.(question) || [],
+        news: (await newsFor?.(question, { top: saved.withNews })) || [],
+    });
 
     useEffect(() => {
         let live = true;
         const timer = setTimeout(async () => {
             try {
+                const sent = await buildSent(saved.question);
+                if (!live) return;
                 const r = await fetch(`${API_URL}/api/analyst/llm/prompt`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -63,7 +77,7 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
         }, 300);
         return () => { live = false; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [facts, dashboard, saved, focusFor]);
+    }, [facts, dashboard, saved, focusFor, newsFor]);
 
     const system = saved.system || preview?.defaultSystem || '';
     const user = preview?.messages?.find((m) => m.role === 'user')?.content || '';
@@ -73,6 +87,7 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
         if (!q || busy) return;
         setBusy(true);
         setError(null);
+        const sent = await buildSent(q);
         const prompt = promptSent('custom', sent, q, saved.system);
         try {
             let r;
@@ -92,7 +107,7 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
                 throw err;
             }
             setAnswer({ q, ...body });
-            onResponse?.({ kind: 'custom', ok: true, question: q, withDashboard: saved.withDashboard, ...body, prompt: await prompt });
+            onResponse?.({ kind: 'custom', ok: true, question: q, withDashboard: saved.withDashboard, withNews: saved.withNews, ...body, prompt: await prompt });
         } catch (err) {
             setError(err.message);
             onResponse?.({ kind: 'custom', ok: false, question: q, withDashboard: saved.withDashboard, error: err.message, model, raw: err.raw, prompt: await prompt });
@@ -124,6 +139,18 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
                     <span>
                         Include the whole dashboard — net worth, savings, PPF/NPS/FDs, gold, loans, credit cards, monthly income and spending, and income tax.
                         <span className="block text-[11px] text-gray-500">Stays on this machine: it goes only to the model in LM Studio.</span>
+                    </span>
+                </label>
+                <label className="flex items-start gap-2 text-[12px] text-gray-300 cursor-pointer">
+                    <input
+                        type="checkbox"
+                        checked={saved.withNews}
+                        onChange={(e) => update({ withNews: e.target.checked })}
+                        className="mt-0.5 accent-indigo-500"
+                    />
+                    <span>
+                        Include recent news for my ten largest holdings.
+                        <span className="block text-[11px] text-gray-500">Headlines only, from Yahoo Finance and Google News. A stock named in your question always gets its news.</span>
                     </span>
                 </label>
                 <div className="flex items-center gap-3">
