@@ -64,8 +64,6 @@ import Taxes from './pages/Taxes';
 import FinancialGoals from './pages/FinancialGoals';
 import InsuranceAnalysis from './pages/InsuranceAnalysis';
 import DocuSetu from './docusetu/DocuSetuApp';
-import TaxPlanning from './pages/TaxPlanning';
-import LoanTracker from './pages/LoanTracker';
 
 class ErrorBoundary extends React.Component {
     constructor(props) {

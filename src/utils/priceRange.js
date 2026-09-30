@@ -70,7 +70,18 @@ export const ALERT_TYPES = ['below', 'above'];
  * nobody chose is a recommendation wearing a number.
  */
 export const triggeredAlerts = (holding = {}) => {
-    const price = num(holding.quote?.price) ?? num(holding.currentPrice);
+    // A price of zero means the quote failed, not that the stock is free.
+    //
+    // `num` only rejects non-numbers, so 0 passed the guard below and then
+    // satisfied every "below" alert ever set — a fetch that came back empty
+    // read as the holding crashing through the floor. Zero is also why the
+    // fallback is `??` on a positive value rather than on null: a zero quote
+    // used to mask a perfectly good stored price.
+    const priced = (v) => {
+        const n = num(v);
+        return n !== null && n > 0 ? n : null;
+    };
+    const price = priced(holding.quote?.price) ?? priced(holding.currentPrice);
     if (price === null) return [];
     return (holding.alerts || []).filter((a) => {
         const target = num(a?.price);
