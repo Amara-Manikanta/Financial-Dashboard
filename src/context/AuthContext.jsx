@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API_URL } from '../utils/apiUrl';
 
 const AuthContext = createContext();
 
@@ -18,9 +19,6 @@ const AuthContext = createContext();
 const DEFAULT_USERS = [];
 
 export function AuthProvider({ children }) {
-    const API_URL = typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000`
-        : 'http://localhost:3000';
     const [user, setUser] = useState(() => {
         const saved = localStorage.getItem('finance_user');
         return saved ? JSON.parse(saved) : { id: '1', username: 'admin', role: 'admin' };

@@ -29,14 +29,8 @@ import { ownHoldings } from '../utils/holdingOwner';
 const FinanceContext = createContext();
 
 
-// Defaults to the API beside the app. `VITE_API_URL` points the whole client at
-// a different instance, which is what makes it possible to exercise the real UI
-// — including saves — against an isolated copy of the database instead of the
-// live one. Without it, any end-to-end check writes to the real records.
-export const API_URL = import.meta.env?.VITE_API_URL
-    || (typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000`
-        : 'http://localhost:3000');
+// Re-exported so the many components importing it from here keep working.
+export { API_URL } from '../utils/apiUrl';
 
 export const DEFAULT_GROCERY_CATEGORIES = {
     'Milk Products': ['Milk', 'Paneer', 'Curd', 'Cheese', 'Butter', 'Ghee'],
