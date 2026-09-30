@@ -26,6 +26,12 @@
 const BASE_URL = String(process.env.LOCAL_LLM_URL || 'http://127.0.0.1:1234/v1').replace(/\/+$/, '');
 const MODEL = String(process.env.LOCAL_LLM_MODEL || '').trim();
 const TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS) || 180000;
+/**
+ * Reply budget. Reasoning ("thinking") models spend part of it before writing
+ * a word of the answer, and at 800 a 4B one used all of it and returned
+ * nothing. Raise it with the context length in LM Studio, not above it.
+ */
+const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
 
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
@@ -165,7 +171,42 @@ const chat = async ({ model, messages, maxTokens, schema }) => {
     }
     const choice = data?.choices?.[0];
     if (!choice) throw new LlmError('The model server returned no answer.', 502);
-    return { content: stripThinking(choice.message?.content), finish: choice.finish_reason || null };
+    const rawContent = String(choice.message?.content ?? '');
+    // LM Studio puts a reasoning model's thinking in its own field; others
+    // leave it inline in <think> tags. Either way it is kept for the log.
+    const inline = (rawContent.match(/<think>([\s\S]*?)(<\/think>|$)/) || [])[1] || '';
+    const reasoning = String(choice.message?.reasoning_content ?? choice.message?.reasoning ?? inline);
+    return {
+        content: stripThinking(rawContent),
+        finish: choice.finish_reason || null,
+        raw: {
+            finishReason: choice.finish_reason || null,
+            content: rawContent.slice(0, 4000),
+            reasoning: reasoning.slice(0, 4000),
+            reasoningChars: reasoning.length,
+            usage: data?.usage || null,
+        },
+    };
+};
+
+/**
+ * A reply with no answer in it is a failure, not an empty success. The usual
+ * cause is a reasoning model thinking until the budget ran out.
+ */
+const emptyReply = (reply) => {
+    const thought = reply.raw.reasoningChars > 0;
+    const cutOff = reply.finish === 'length';
+    const why = thought && cutOff
+        ? `The model spent its whole ${MAX_TOKENS}-token reply budget thinking and never wrote an answer.`
+        : cutOff ? `The reply was cut off at ${MAX_TOKENS} tokens before any answer.`
+            : 'The model returned an empty reply.';
+    return {
+        status: 502,
+        body: {
+            error: `${why} Use an instruct (non-thinking) model, turn thinking off for this model in LM Studio, or raise the context length and LOCAL_LLM_MAX_TOKENS.`,
+            raw: reply.raw,
+        },
+    };
 };
 
 /** A failure, worded for the person reading it. */
@@ -247,19 +288,20 @@ export const writeBrief = async (rawFacts) => {
     let reply;
     let constrained = true;
     try {
-        reply = await chat({ model: status.model, messages, maxTokens: 800, schema });
+        reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS, schema });
     } catch (err) {
         // A server without structured output rejects response_format outright;
         // the same request without it still works, filtered on the way back.
         if (!(err instanceof LlmError) || ![400, 404, 422, 501].includes(err.status)) return failure(err);
         constrained = false;
         try {
-            reply = await chat({ model: status.model, messages, maxTokens: 800 });
+            reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS });
         } catch (retryErr) {
             return failure(retryErr);
         }
     }
 
+    if (!reply.content) return emptyReply(reply);
     const parsed = parseBrief(reply.content, ids);
     return {
         status: 200,
@@ -272,6 +314,7 @@ export const writeBrief = async (rawFacts) => {
             truncated: reply.finish === 'length',
             model: status.model,
             ms: Date.now() - started,
+            raw: reply.raw,
         },
     };
 };
@@ -304,14 +347,15 @@ export const answerQuestion = async (question, rawFacts) => {
     ];
     const started = Date.now();
     try {
-        const reply = await chat({ model: status.model, messages, maxTokens: 500 });
+        const reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS });
+        if (!reply.content) return emptyReply(reply);
         return {
             status: 200,
-            body: { answer: reply.content || '(The model returned an empty answer.)', truncated: reply.finish === 'length', model: status.model, ms: Date.now() - started },
+            body: { answer: reply.content, truncated: reply.finish === 'length', model: status.model, ms: Date.now() - started, raw: reply.raw },
         };
     } catch (err) {
         return failure(err);
     }
 };
 
-export const LOCAL_LLM = { baseUrl: BASE_URL, model: MODEL || null, timeoutMs: TIMEOUT_MS };
+export const LOCAL_LLM = { baseUrl: BASE_URL, model: MODEL || null, timeoutMs: TIMEOUT_MS, maxTokens: MAX_TOKENS };
