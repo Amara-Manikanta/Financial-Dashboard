@@ -12,6 +12,24 @@ import { API_URL } from '../context/FinanceContext';
  * words, or answers a question from them. If no model is running, the page
  * loses nothing: every finding and figure comes from the analyst itself.
  */
+/**
+ * The exact messages a request sends, from the relay's own promptMessages(),
+ * so each logged response can show what the model was given. Null if the
+ * server cannot say; the request itself still goes ahead.
+ */
+export const promptSent = async (kind, facts, question, systemPrompt) => {
+    try {
+        const r = await fetch(`${API_URL}/api/analyst/llm/prompt`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ kind, facts, question, systemPrompt }),
+        });
+        return r.ok ? (await r.json()).messages || null : null;
+    } catch {
+        return null;
+    }
+};
+
 /** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
 const EXPECTED_RELAY = 6;
 
@@ -67,13 +85,14 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, 
         setBriefBusy(true);
         setBriefError(null);
         const sent = facts?.findings?.length || 0;
+        const prompt = promptSent('brief', facts, '', prompts.brief || '');
         try {
             const reply = await post('brief', { facts, systemPrompt: prompts.brief || '' });
             setBrief(reply);
-            onResponse?.({ kind: 'brief', ok: true, findingsSent: sent, ...reply });
+            onResponse?.({ kind: 'brief', ok: true, findingsSent: sent, ...reply, prompt: await prompt });
         } catch (err) {
             setBriefError(err.message);
-            onResponse?.({ kind: 'brief', ok: false, findingsSent: sent, error: err.message, model: status.model, raw: err.raw });
+            onResponse?.({ kind: 'brief', ok: false, findingsSent: sent, error: err.message, model: status.model, raw: err.raw, prompt: await prompt });
         } finally {
             setBriefBusy(false);
         }
@@ -85,14 +104,16 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, 
         if (!q || askBusy) return;
         setAskBusy(true);
         setAskError(null);
+        const asked = { ...facts, focus: focusFor?.(q) || [] };
+        const prompt = promptSent('ask', asked, q, prompts.ask || '');
         try {
-            const reply = await post('ask', { question: q, facts: { ...facts, focus: focusFor?.(q) || [] }, systemPrompt: prompts.ask || '' });
+            const reply = await post('ask', { question: q, facts: asked, systemPrompt: prompts.ask || '' });
             setAnswers((prev) => [{ q, ...reply }, ...prev].slice(0, 5));
             setQuestion('');
-            onResponse?.({ kind: 'ask', ok: true, question: q, findingsSent: facts?.findings?.length || 0, ...reply });
+            onResponse?.({ kind: 'ask', ok: true, question: q, findingsSent: facts?.findings?.length || 0, ...reply, prompt: await prompt });
         } catch (err) {
             setAskError(err.message);
-            onResponse?.({ kind: 'ask', ok: false, question: q, error: err.message, model: status.model, raw: err.raw });
+            onResponse?.({ kind: 'ask', ok: false, question: q, error: err.message, model: status.model, raw: err.raw, prompt: await prompt });
         } finally {
             setAskBusy(false);
         }

@@ -294,6 +294,11 @@ const StockAnalyst = () => {
         return next;
     }), []);
     const clearResponses = () => { writeResponses([]); setResponses([]); };
+    const deleteResponse = (id) => setResponses((prev) => {
+        const next = prev.filter((r) => r.id !== id);
+        writeResponses(next);
+        return next;
+    });
 
     const market = useMemo(
         () => (savings || []).find((s) => s.type === 'stock_market' && !s.isArchived),
@@ -485,6 +490,7 @@ const StockAnalyst = () => {
                                     titles={titles}
                                     onShowFinding={showFinding}
                                     onClear={clearResponses}
+                                    onDelete={deleteResponse}
                                 />
                             ) : (<>
                             <div className="flex flex-wrap items-center gap-2 mb-4">
