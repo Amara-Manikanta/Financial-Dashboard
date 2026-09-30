@@ -41,11 +41,18 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {} }
 
     /** POST to the relay; a refusal comes back as an error with the reason in it. */
     const post = async (path, payload) => {
-        const r = await fetch(`${API_URL}/api/analyst/llm/${path}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-        });
+        let r;
+        try {
+            r = await fetch(`${API_URL}/api/analyst/llm/${path}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            });
+        } catch {
+            // The browser's own wording ("Failed to fetch") hides that this is
+            // the API server, not the model: nothing answered at all.
+            throw new Error(`Could not reach the API server at ${API_URL}. Check that npm run server is running and look at its terminal for an error — the request never got as far as the model.`);
+        }
         const body = await r.json().catch(() => ({}));
         if (!r.ok) {
             // Keep what the model sent back: a failed run is the one most worth reading.
