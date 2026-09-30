@@ -78,7 +78,7 @@ const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
                             <Newspaper size={14} className="text-indigo-300" /> {st.name} <span className="text-[11px] text-gray-500 font-bold">{st.ticker}</span>
                             {n?.fetchedAt && (
                                 <span className="ml-auto text-[10.5px] text-gray-500 font-bold">
-                                    {n.archive?.count > 0 && <span title="Headlines kept for this stock (up to a year), which the model sees as a digest when you ask about it">{n.archive.count} stored since {new Date(n.archive.since).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · </span>}
+                                    {n.archive?.count > 0 && <span title="Stories kept for this stock (up to a year, in its CSV file). Open the stock's page to read the model's key points.">{n.archive.count} stories · {n.archive.analysed || 0} analysed · since {new Date(n.archive.since).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} · </span>}
                                     updated {ago(n.fetchedAt)}
                                 </span>
                             )}

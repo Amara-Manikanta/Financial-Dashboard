@@ -14,6 +14,7 @@ import { dividendProfile } from '../utils/dividendAnalytics';
 import { readQuote, triggeredAlerts } from '../utils/priceRange';
 import StockFinancialsCard from '../components/StockFinancialsCard';
 import CompanyProfile from '../components/CompanyProfile';
+import StockNewsCard from '../components/StockNewsCard';
 import { isOwnHolding, ownerOf, ownerLabel } from '../utils/holdingOwner';
 import { recordMerger, removeMerger, relinkMergers, isMergerLeg } from '../utils/stockMerger';
 
@@ -724,6 +725,10 @@ const StockDetails = () => {
                         name={stock.name}
                     />
                     <StockFinancialsCard
+                        symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
+                        name={stock.name}
+                    />
+                    <StockNewsCard
                         symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
                         name={stock.name}
                     />

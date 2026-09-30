@@ -695,29 +695,41 @@ and a sandbox counts separately), skips NewsAPI once `NEWSAPI_DAILY_LIMIT`
 (default 100) is reached, and the News tab shows the count. Check and record
 happen in the same tick, so concurrent refreshes cannot overshoot.
 
-**The news archive (`newsArchive.js`)** keeps every headline fetched, one file
-per symbol in `db/news/` beside the database (gitignored, never in db.json),
-for a year, up to 400 per stock. Each is tagged with a theme by keyword rules
-(`themeOf`). `startNewsCollector` fetches all your own held stocks every
-`NEWS_COLLECT_HOURS` (default 6, `0` turns it off), reading db.json but never
-writing it, and leaves 40 NewsAPI requests for questions. A question naming a
-stock sends `archiveDigest`: counts by theme for 7/30/90 days, the latest
-stories and older ones by theme — counted here so the model never counts.
+**The news archive (`newsArchive.js`)** is one **CSV file per stock** in
+`db/news/<SYMBOL>.csv` beside the database (gitignored, never in db.json) —
+openable in a spreadsheet, a file per stock. One row per **story**, not per
+headline: headlines from all three sources that share at least two
+significant words and half of the shorter title within three days are one
+story listing every outlet (`consolidate`; the company's own name is excluded
+from the comparison or everything would merge). Rows keep a year, 400 max.
 
-Headlines from all three sources are **consolidated into stories**
-(`consolidate`): titles sharing at least two significant words and half of
-the shorter one, within three days, are one story listing every outlet
-(`coverage`). The company's own name is excluded from the comparison — it is
-in every title and would merge everything. Counts in the digest are stories,
-not headlines.
+Columns: `id, date` (published), `first_seen` (collected), `company, theme,
+title, outlets, sources, impact, key_points, why_it_matters, analysed_by,
+analysed_at, analysis_basis, status, summary, links`. Cells starting with
+`= + - @` get a leading apostrophe on write (spreadsheet formula injection —
+headlines are text strangers wrote) and lose it on read.
 
-For the three newest stories the digest route downloads the **article text**
-(`articleText`: `linkedom` + `@mozilla/readability`, the Reader View engine),
-stores it on the archived item and sends the first 1,500 characters. Each URL
-is tried once — failures (paywalls, script-only pages) are remembered as
-`textError` and not retried. Google News links are redirects a server cannot
-follow, so a story's direct link from another outlet is used instead. This is
-the Node equivalent of LangChain's NewsURLLoader, without a Python runtime.
+**Articles are analysed, not stored.** `analyseLatest` downloads an article
+(`linkedom` + `@mozilla/readability`, the Reader View engine — the Node
+equivalent of LangChain's NewsURLLoader), has the local model return key
+points, an impact label and why it matters (`analyseArticle`, JSON schema,
+retry without it), stores those and drops the text. With no readable page the
+publisher's description is used (`analysis_basis: description`); with
+neither, `status` records why so it is not retried. A model failure is retried
+once per server run. Google News links are redirects a server cannot follow.
+Model calls run one at a time.
+
+`startNewsCollector` fetches all your own held stocks every
+`NEWS_COLLECT_HOURS` (default 6, `0` off), reading db.json but never writing
+it, leaves 40 NewsAPI requests for questions, and analyses up to three new
+stories per stock when LM Studio is running. A question naming a stock sends
+`archiveDigest`: today's date, each story's date with "N days ago" (and when
+it was collected, if later), counts by theme and impact for 7/30/90 days, the
+latest stories with their stored key points, and older ones by theme —
+everything counted and dated here so the model never works it out.
+
+Each stock's page has a **News & analysis** card (`StockNewsCard`): fetch
+latest, analyse up to five unread, download the CSV.
 
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in

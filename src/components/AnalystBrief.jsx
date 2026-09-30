@@ -31,7 +31,7 @@ export const promptSent = async (kind, facts, question, systemPrompt) => {
 };
 
 /** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
-const EXPECTED_RELAY = 8;
+const EXPECTED_RELAY = 9;
 
 const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, focusFor, newsFor, attachedFor }) => {
     const [status, setStatus] = useState({ state: 'checking' });

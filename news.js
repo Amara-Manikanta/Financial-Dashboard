@@ -12,7 +12,8 @@
 import fs from 'fs';
 import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
-import { mergeIntoArchive, archiveStats, consolidate, readArchive, attachText } from './newsArchive.js';
+import { mergeIntoArchive, archiveStats, consolidate, readArchive, attachAnalysis } from './newsArchive.js';
+import { analyseArticle } from './analystLLM.js';
 
 const NEWS_TTL_MS = 30 * 60 * 1000;
 const MAX_AGE_DAYS = 30;
@@ -175,7 +176,7 @@ export const newsFor = async (symbol, name, { fresh = false, reserveNewsApi = 0 
     const items = mergeNews(lists, Date.now(), company);
     // Everything fetched is kept, so coverage builds up beyond the sources' own window.
     let archive = archiveStats(sym || company);
-    try { archive = mergeIntoArchive(sym || company, company, lists.flat()); archive = { count: archive.items.length, added: archive.added, since: archiveStats(sym || company).since }; } catch (err) { errors.push(`Archive: ${err.message}`); }
+    try { const merged = mergeIntoArchive(sym || company, company, lists.flat()); archive = { ...archiveStats(sym || company), added: merged.added }; } catch (err) { errors.push(`Archive: ${err.message}`); }
     const body = { symbol: sym, name: company, items, errors, fetchedAt: new Date().toISOString(), newsApi: newsApiUsage(), archive };
     // Cached whenever at least one source answered — NewsAPI's free plan allows
     // 100 requests a day, so a failing source must not be retried on every view.
@@ -210,12 +211,16 @@ export const startNewsCollector = ({ dbFile, hours = 6, reserve = 40, spacingMs 
         let stocks = [];
         try { stocks = heldStocksIn(JSON.parse(fs.readFileSync(dbFile, 'utf8'))); } catch (err) { log(`[news] collector could not read the database: ${err.message}`); return; }
         let added = 0;
+        let analysed = 0;
         for (const st of stocks) {
             const { body } = await newsFor(st.symbol, st.name, { fresh: true, reserveNewsApi: reserve });
             added += body?.archive?.added || 0;
+            // New stories are read now, while nobody is waiting; skipped quietly if LM Studio is off.
+            const read = await analyseLatest(st.symbol, st.name, { count: 3 }).catch(() => null);
+            analysed += read?.analysed || 0;
             await new Promise((r) => setTimeout(r, spacingMs));
         }
-        log(`[news] collected ${stocks.length} holdings, ${added} new headlines stored`);
+        log(`[news] collected ${stocks.length} holdings: ${added} new stories stored, ${analysed} analysed`);
     };
     collector = setInterval(run, hours * 3600000);
     collector.unref?.();
@@ -251,22 +256,60 @@ export const articleText = async (url) => {
 };
 
 /**
- * Fetch the text of the newest `count` stories that do not have it yet, once
- * each: a failure is remembered on the item so it is not retried every question.
+ * Read the newest `count` stories that have no key points yet: download the
+ * article, have the local model take its key points, store those and drop
+ * the text. When no page can be read (paywall, script-only, only a Google
+ * redirect) the publisher's description is used if there is one; with
+ * neither, the reason is stored so the story is not retried every time.
+ * Stories run one at a time — a local model serves one request at once.
+ * Returns what happened, for the page to show.
  */
-export const fillArticleText = async (symbol, name, { count = 3 } = {}) => {
-    const stories = consolidate(readArchive(symbol).items, name).slice(0, count);
-    await Promise.all(stories.map(async (s) => {
-        if (s.text) return;
-        const stored = readArchive(symbol).items;
-        const candidates = s.links.filter((l) => !/news\.google\.com/.test(l.url) && !stored.find((i) => i.url === l.url)?.textTried);
-        for (const link of candidates) {
-            try {
-                attachText(symbol, link.url, await articleText(link.url));
-                return;
-            } catch (err) {
-                attachText(symbol, link.url, '', err.message);
+let analysing = Promise.resolve();
+const modelFailures = new Map();   // story id → failed attempts this run of the server
+export const analyseLatest = (symbol, name, { count = 3 } = {}) => {
+    const run = analysing.then(async () => {
+        const done = { analysed: 0, failed: 0, skipped: 0, modelUnavailable: false, errors: [] };
+        const todo = readArchive(symbol).items.filter((s) => !s.keyPoints.length && !s.status).slice(0, count);
+        for (const story of todo) {
+            let text = '';
+            let basis = 'article';
+            let readError = '';
+            for (const link of story.links.filter((l) => !/news\.google\.com/.test(l.url))) {
+                try { text = await articleText(link.url); break; } catch (err) { readError = err.message; }
             }
+            if (!text && story.summary) { text = story.summary; basis = 'description'; }
+            if (!text) {
+                attachAnalysis(symbol, story.id, { status: `not read: ${readError || 'no direct link'}` });
+                done.skipped += 1;
+                continue;
+            }
+            const result = await analyseArticle({
+                company: name, title: story.title, date: story.published || story.firstSeen,
+                sources: story.sources.join(', '), text, basis,
+            });
+            if (result.unavailable) { done.modelUnavailable = true; done.errors.push(result.error); break; }
+            if (!result.ok) {
+                done.failed += 1;
+                done.errors.push(result.error);
+                // One failure is retried next time; a second is recorded so it stops costing a model call.
+                const tries = (modelFailures.get(story.id) || 0) + 1;
+                modelFailures.set(story.id, tries);
+                if (tries >= 2) attachAnalysis(symbol, story.id, { status: `model could not read it: ${result.error}` });
+                continue;
+            }
+            attachAnalysis(symbol, story.id, {
+                keyPoints: result.analysis.keyPoints,
+                impact: result.analysis.impact,
+                why: result.analysis.why,
+                analysedBy: result.model,
+                analysedAt: new Date().toISOString(),
+                basis,
+                status: '',
+            });
+            done.analysed += 1;
         }
-    }));
+        return done;
+    });
+    analysing = run.catch(() => {});
+    return run;
 };

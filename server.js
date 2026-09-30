@@ -6,8 +6,8 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import * as analystLLM from './analystLLM.js';
-import { newsFor, configureNews, newsApiUsage, startNewsCollector, fillArticleText } from './news.js';
-import { configureArchive, archiveDigest } from './newsArchive.js';
+import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest } from './news.js';
+import { configureArchive, archiveDigest, readArchive, fileFor } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
@@ -927,10 +927,37 @@ const handleAnalystLLMRoute = (req, res) => {
         const symbol = params.get('symbol') || params.get('name');
         if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
         const name = params.get('name') || symbol;
-        // Article text for the newest stories is fetched once and stored, then the digest is built.
-        fillArticleText(symbol, name)
+        // The newest unread stories are read and analysed first (a minute at most),
+        // then the digest is built from what is stored.
+        Promise.race([analyseLatest(symbol, name), new Promise((r) => setTimeout(r, 60000))])
             .catch(() => {})
             .then(() => sendJson(res, 200, archiveDigest(symbol, name)));
+        return;
+    }
+    if (route === '/api/analyst/news/stored' && req.method === 'GET') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const symbol = params.get('symbol');
+        if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
+        sendJson(res, 200, { symbol, ...readArchive(symbol) });
+        return;
+    }
+    if (route === '/api/analyst/news/csv' && req.method === 'GET') {
+        // The stock's news file itself, for opening in a spreadsheet.
+        const symbol = new URL(req.url, 'http://localhost').searchParams.get('symbol');
+        const file = fileFor(symbol);
+        if (!file || !fs.existsSync(file)) { sendJson(res, 404, { error: 'No news stored for this stock yet' }); return; }
+        res.writeHead(200, { ...CORS_HEADERS, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${path.basename(file)}"` });
+        fs.createReadStream(file).pipe(res);
+        return;
+    }
+    if (route === '/api/analyst/news/analyse' && req.method === 'POST') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const symbol = params.get('symbol');
+        if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
+        const count = Math.min(10, Math.max(1, Number(params.get('count')) || 5));
+        analyseLatest(symbol, params.get('name') || symbol, { count })
+            .then((done) => sendJson(res, 200, { ...done, archive: readArchive(symbol) }))
+            .catch((err) => sendJson(res, 500, { error: err.message }));
         return;
     }
     if (route === '/api/analyst/news/usage' && req.method === 'GET') {

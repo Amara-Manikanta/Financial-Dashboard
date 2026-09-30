@@ -38,7 +38,7 @@ const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
  * version it expects, because a server started before `git pull` keeps running
  * the old code until restarted — and looks exactly like a bug that was fixed.
  */
-export const RELAY_VERSION = 8;
+export const RELAY_VERSION = 9;
 
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
@@ -166,9 +166,9 @@ class LlmError extends Error {
     }
 }
 
-const chat = async ({ model, messages, maxTokens, schema }) => {
+const chat = async ({ model, messages, maxTokens, schema, schemaName = 'analyst_brief' }) => {
     const body = { model, messages, temperature: 0.2, max_tokens: maxTokens, stream: false };
-    if (schema) body.response_format = { type: 'json_schema', json_schema: { name: 'analyst_brief', strict: true, schema } };
+    if (schema) body.response_format = { type: 'json_schema', json_schema: { name: schemaName, strict: true, schema } };
     const r = await fetchWithTimeout(`${BASE_URL}/chat/completions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -490,6 +490,75 @@ export const resend = async (kind, rawMessages) => {
         return { status: 200, body: { ...base, answer: reply.content } };
     } catch (err) {
         return failure(err);
+    }
+};
+
+/* ------------------------------------------------------------------ *
+ * Reading one news article into a few stored lines
+ * ------------------------------------------------------------------ */
+
+export const IMPACTS = ['positive', 'negative', 'mixed', 'neutral'];
+
+const ARTICLE_SCHEMA = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['key_points', 'impact', 'why_it_matters'],
+    properties: {
+        key_points: { type: 'array', minItems: 1, maxItems: 3, items: { type: 'string' } },
+        impact: { type: 'string', enum: IMPACTS },
+        why_it_matters: { type: 'string' },
+    },
+};
+
+const ARTICLE_SYSTEM = [
+    'You read one news article about an Indian listed company and record what an investor holding its shares needs to remember.',
+    'Reply as JSON with:',
+    '- "key_points": one to three short sentences, each a fact stated in the article (what happened, figures as written, who said it). No opinions.',
+    '- "impact": "positive", "negative", "mixed" or "neutral" for the business, judged only from the article.',
+    '- "why_it_matters": one sentence on why this matters for the business.',
+    'Rules: copy figures exactly; never predict the share price; if the article is not really about this company, say so in why_it_matters and use "neutral".',
+].join('\n');
+
+/** Parse the model's reading; anything malformed is null rather than half-stored. */
+export const parseArticleAnalysis = (text) => {
+    const start = String(text || '').indexOf('{');
+    const end = String(text || '').lastIndexOf('}');
+    if (start < 0 || end <= start) return null;
+    let obj;
+    try { obj = JSON.parse(text.slice(start, end + 1)); } catch { return null; }
+    const points = (Array.isArray(obj?.key_points) ? obj.key_points : [])
+        .map((p) => clip(p, 300).replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3);
+    if (!points.length) return null;
+    return {
+        keyPoints: points,
+        impact: IMPACTS.includes(obj.impact) ? obj.impact : 'neutral',
+        why: clip(obj.why_it_matters, 300).replace(/\s+/g, ' ').trim(),
+    };
+};
+
+/**
+ * One article (or, when the page could not be read, its description) turned
+ * into key points. Returns { ok, analysis, model } or { ok: false, error, unavailable }.
+ */
+export const analyseArticle = async ({ company, title, date, sources, text, basis = 'article' }) => {
+    const { body: status } = await llmStatus();
+    if (!status.available) return { ok: false, unavailable: true, error: status.reason };
+    const messages = [
+        { role: 'system', content: ARTICLE_SYSTEM },
+        { role: 'user', content: `Company: ${clip(company, 100)}\nHeadline: ${clip(title, 300)}\nDate: ${clip(date, 30)}\nReported by: ${clip(sources, 200)}\n${basis === 'article' ? 'Article text' : 'Only the publisher\'s description was available'}:\n${clip(text, 6000)}` },
+    ];
+    const attempt = async (schema) => {
+        const reply = await chat({ model: status.model, messages, maxTokens: 500, schema, schemaName: 'article_reading' });
+        return parseArticleAnalysis(reply.content);
+    };
+    try {
+        let analysis = null;
+        try { analysis = await attempt(ARTICLE_SCHEMA); } catch (err) { if (![400, 404, 422, 501].includes(err.status)) throw err; }
+        // Same fallback as the brief: a grammar that produced nothing usable gets one plain retry.
+        if (!analysis) analysis = await attempt(null);
+        return analysis ? { ok: true, analysis, model: status.model } : { ok: false, error: 'The model did not return key points.' };
+    } catch (err) {
+        return { ok: false, error: err.message };
     }
 };
 
