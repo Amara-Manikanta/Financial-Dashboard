@@ -8,6 +8,7 @@ import { useFinance, API_URL } from '../context/FinanceContext';
 import BackButton from '../components/BackButton';
 import RefreshAllPricesButton from '../components/RefreshAllPricesButton';
 import AnalystBrief from '../components/AnalystBrief';
+import AnalystResponses, { readResponses, writeResponses, MAX_RESPONSES } from '../components/AnalystResponses';
 import { ownHoldings } from '../utils/holdingOwner';
 import { analysePortfolio, llmFacts, symbolFor, RULES } from '../utils/stockAdvisor';
 
@@ -271,6 +272,16 @@ const StockAnalyst = () => {
     const [dismissed, setDismissed] = useState(readDismissed);
     const [showDismissed, setShowDismissed] = useState(false);
     const [highlighted, setHighlighted] = useState(null);
+    const [view, setView] = useState('findings');
+    const [responses, setResponses] = useState(readResponses);
+
+    const recordResponse = useCallback((entry) => setResponses((prev) => {
+        const next = [{ id: `r_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, at: new Date().toISOString(), ...entry }, ...prev]
+            .slice(0, MAX_RESPONSES);
+        writeResponses(next);
+        return next;
+    }), []);
+    const clearResponses = () => { writeResponses([]); setResponses([]); };
 
     const market = useMemo(
         () => (savings || []).find((s) => s.type === 'stock_market' && !s.isArchived),
@@ -328,6 +339,7 @@ const StockAnalyst = () => {
     });
 
     const showFinding = useCallback((id) => {
+        setView('findings');
         setGroup('all');
         setHighlighted(id);
         requestAnimationFrame(() => {
@@ -396,6 +408,32 @@ const StockAnalyst = () => {
 
                     <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
                         <div className="min-w-0">
+                            <div role="tablist" className="flex items-center gap-6 border-b border-white/[0.07] mb-5">
+                                {[
+                                    { id: 'findings', label: 'Findings', count: visible.length },
+                                    { id: 'responses', label: 'AI responses', count: responses.length },
+                                ].map((t) => (
+                                    <button
+                                        key={t.id}
+                                        type="button"
+                                        role="tab"
+                                        aria-selected={view === t.id}
+                                        onClick={() => setView(t.id)}
+                                        className={`-mb-px pb-2.5 text-[13px] font-black border-b-2 transition-colors ${view === t.id ? 'text-white border-orange-500' : 'text-gray-500 border-transparent hover:text-gray-300'}`}
+                                    >
+                                        {t.label} <span className="text-gray-500 font-bold ml-0.5">{t.count}</span>
+                                    </button>
+                                ))}
+                            </div>
+
+                            {view === 'responses' ? (
+                                <AnalystResponses
+                                    responses={responses}
+                                    titles={titles}
+                                    onShowFinding={showFinding}
+                                    onClear={clearResponses}
+                                />
+                            ) : (<>
                             <div className="flex flex-wrap items-center gap-2 mb-4">
                                 {GROUPS.map((g) => {
                                     const n = g.kinds ? visible.filter((f) => g.kinds.includes(f.kind)).length : visible.length;
@@ -457,10 +495,11 @@ const StockAnalyst = () => {
                                     ))}
                                 </div>
                             )}
+                            </>)}
                         </div>
 
                         <aside className="space-y-4 xl:sticky xl:top-20">
-                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} />
+                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} />
 
                             <details className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 group">
                                 <summary className="text-[12px] font-black text-white cursor-pointer list-none flex items-center justify-between">
