@@ -912,7 +912,7 @@ const handleAnalystLLMRoute = (req, res) => {
     }
     if (route === '/api/analyst/news' && req.method === 'GET') {
         const params = new URL(req.url, 'http://localhost').searchParams;
-        newsFor(params.get('symbol'), params.get('name'))
+        newsFor(params.get('symbol'), params.get('name'), { fresh: params.get('fresh') === '1' })
             .then(({ status, body }) => sendJson(res, status, body))
             .catch((err) => sendJson(res, 502, { error: err.message }));
         return;

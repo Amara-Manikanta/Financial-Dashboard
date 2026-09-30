@@ -80,14 +80,14 @@ const get = async (url, as) => {
 };
 
 /** Headlines for one stock. Each source may fail on its own; its error is reported, not thrown. */
-export const newsFor = async (symbol, name) => {
+export const newsFor = async (symbol, name, { fresh = false } = {}) => {
     const sym = String(symbol || '').trim().slice(0, 30);
     const company = String(name || '').replace(/\b(limited|ltd\.?)\b/gi, '').trim().slice(0, 80);
     if (!sym && !company) return { status: 400, body: { error: 'symbol or name is required' } };
 
     const key = `${sym}|${company}`.toLowerCase();
     const hit = cache.get(key);
-    if (hit && Date.now() - hit.at < NEWS_TTL_MS) return { status: 200, body: { ...hit.body, cached: true } };
+    if (!fresh && hit && Date.now() - hit.at < NEWS_TTL_MS) return { status: 200, body: { ...hit.body, cached: true } };
 
     const errors = [];
     const lists = await Promise.all([

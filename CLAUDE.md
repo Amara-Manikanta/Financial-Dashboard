@@ -679,6 +679,12 @@ the News tab lists them. The model is told headlines are unverified and unread.
 Each source can fail on its own and says so in `errors` — a blocked source
 must never look like "no news".
 
+`&fresh=1` skips the server cache; the News tab's **Refresh news** and
+per-stock refresh use it, and the client cache is replaced at the same time,
+so the next question uses the fresh headlines. Watchlist names count for news
+(not for averaging figures), and the Questions box says what a question will
+carry before it is sent.
+
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in
 `localStorage` (`kubera.analyst.responses`, last 50), deliberately not in

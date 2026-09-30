@@ -1011,13 +1011,16 @@ export const llmFacts = (analysis, { maxFindings = 10, maxHoldings = 40, stocks 
 
 const GENERIC_WORDS = new Set(['the', 'and', 'ltd', 'limited', 'india', 'indian', 'company', 'corporation', 'bank', 'stock', 'share', 'shares']);
 
-/** Held stocks a question names, by ticker or the first word of the name. At most `max`. */
-export const holdingsNamedIn = (question, stocks, max = 2) => {
+/**
+ * Stocks a question names, by ticker or the first word of the name. At most
+ * `max`. Held ones only unless `heldOnly` is false (the watchlist, for news).
+ */
+export const holdingsNamedIn = (question, stocks, max = 2, { heldOnly = true } = {}) => {
     const words = new Set(String(question || '').toLowerCase().match(/[a-z0-9&]{3,}/g) || []);
     return (stocks || [])
-        .filter((s) => s && !s.isArchived && num(s.shares) > 0)
+        .filter((s) => s && !s.isArchived && (!heldOnly || num(s.shares) > 0))
         .filter((s) => {
-            const ticker = String(s.ticker || '').toLowerCase().replace(/\.(ns|bo)$/, '');
+            const ticker = String(s.ticker || s.symbol || '').toLowerCase().replace(/\.(ns|bo)$/, '');
             const first = String(s.name || '').toLowerCase().split(/\s+/)[0];
             return (ticker && words.has(ticker)) || (first.length >= 3 && !GENERIC_WORDS.has(first) && words.has(first));
         })

@@ -33,7 +33,7 @@ export const promptSent = async (kind, facts, question, systemPrompt) => {
 /** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
 const EXPECTED_RELAY = 8;
 
-const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, focusFor, newsFor }) => {
+const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, focusFor, newsFor, attachedFor }) => {
     const [status, setStatus] = useState({ state: 'checking' });
     const [brief, setBrief] = useState(null);
     const [briefBusy, setBriefBusy] = useState(false);
@@ -243,6 +243,17 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, 
                                 {askBusy ? <RefreshCw size={14} className="animate-spin" /> : <Send size={14} />}
                             </button>
                         </div>
+                        {(() => {
+                            const a = attachedFor?.(question);
+                            if (!a || (!a.held.length && !a.news.length)) return null;
+                            return (
+                                <p className="text-[10.5px] text-indigo-300/80 mt-1.5 leading-relaxed">
+                                    Will also send{a.held.length ? ` averaging figures for ${a.held.join(' and ')}` : ''}
+                                    {a.held.length && a.news.length ? ', and' : ''}
+                                    {a.news.length ? ` the latest headlines for ${a.news.join(' and ')}` : ''}.
+                                </p>
+                            );
+                        })()}
                         {askError && <p className="text-[12px] text-rose-300 mt-2 leading-relaxed">{askError}</p>}
                         {answers.map((a, i) => (
                             <div key={`${i}-${a.q}`} className="mt-3 rounded-xl bg-black/20 border border-white/5 p-3">

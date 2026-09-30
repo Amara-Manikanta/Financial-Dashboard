@@ -70,10 +70,10 @@ const GROUPS = [
  */
 /** Headlines per holding for this visit; the server caches them for 30 minutes too. */
 const newsCache = new Map();
-const loadNews = async (st) => {
+const loadNews = async (st, { fresh = false } = {}) => {
     const key = symbolFor(st);
-    if (newsCache.has(key)) return newsCache.get(key);
-    const pending = fetch(`${API_URL}/api/analyst/news?symbol=${encodeURIComponent(key || '')}&name=${encodeURIComponent(st.name || '')}`)
+    if (!fresh && newsCache.has(key)) return newsCache.get(key);
+    const pending = fetch(`${API_URL}/api/analyst/news?symbol=${encodeURIComponent(key || '')}&name=${encodeURIComponent(st.name || '')}${fresh ? '&fresh=1' : ''}`)
         .then(async (r) => (r.ok ? r.json() : { items: [], error: r.status === 404 ? 'Restart npm run server to load news.' : `HTTP ${r.status}` }))
         .catch(() => ({ items: [], error: 'Could not reach the API server.' }));
     newsCache.set(key, pending);
@@ -421,13 +421,28 @@ const StockAnalyst = () => {
         .slice(0, 10), [stocks]);
 
     // Headlines as lines for the model: a named stock gets six, each top holding four.
+    // Watchlist names count too: news is worth reading before buying, not only after.
+    const namedForNews = useCallback((question) => {
+        const held = holdingsNamedIn(question, stocks);
+        const watched = holdingsNamedIn(question, watchlist || [], 2, { heldOnly: false })
+            .filter((w) => !held.some((h) => symbolFor(h) === symbolFor(w)));
+        return [...held, ...watched].slice(0, 3);
+    }, [stocks, watchlist]);
+
+    // What a question will carry, shown under the box before it is sent.
+    const attachedFor = useCallback((question) => {
+        const held = holdingsNamedIn(question, stocks).map((s) => s.name);
+        const news = namedForNews(question).map((s) => s.name);
+        return { held, news };
+    }, [stocks, namedForNews]);
+
     const newsFor = useCallback(async (question, { top = false } = {}) => {
-        const named = holdingsNamedIn(question, stocks);
+        const named = namedForNews(question);
         const list = [...named, ...(top ? topHoldings.filter((t) => !named.includes(t)) : [])];
         const results = await Promise.all(list.map(loadNews));
         return list.flatMap((st, i) => (results[i].items || []).slice(0, named.includes(st) ? 6 : 4)
             .map((n) => `${st.name}: ${day(n.published)} — ${n.title} (${n.source})`));
-    }, [stocks, topHoldings]);
+    }, [namedForNews, topHoldings]);
 
     const analyseNews = () => {
         presetCustom({ withNews: true, question: 'Go through the recent news for my holdings. Which stories matter for which holding, and why? Is anything worth acting on, given my position in each?' });
@@ -620,7 +635,7 @@ const StockAnalyst = () => {
                         </div>
 
                         <aside className="space-y-4 xl:sticky xl:top-20">
-                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} prompts={prompts} focusFor={focusFor} newsFor={newsFor} />
+                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} prompts={prompts} focusFor={focusFor} newsFor={newsFor} attachedFor={attachedFor} />
 
                             <details className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 group">
                                 <summary className="text-[12px] font-black text-white cursor-pointer list-none flex items-center justify-between">
