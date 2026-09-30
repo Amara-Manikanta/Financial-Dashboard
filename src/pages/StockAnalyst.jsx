@@ -294,6 +294,27 @@ const StockAnalyst = () => {
         return next;
     }), []);
     const clearResponses = () => { writeResponses([]); setResponses([]); };
+    // The logged prompt, word for word, to whatever model is loaded now.
+    const resendResponse = async (entry) => {
+        const keep = { kind: entry.kind, question: entry.question, withDashboard: entry.withDashboard, findingsSent: entry.findingsSent, prompt: entry.prompt };
+        try {
+            let r;
+            try {
+                r = await fetch(`${API_URL}/api/analyst/llm/resend`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ kind: entry.kind, messages: entry.prompt }),
+                });
+            } catch {
+                throw new Error(`Could not reach the API server at ${API_URL}. Check that npm run server is running.`);
+            }
+            const body = await r.json().catch(() => ({}));
+            if (!r.ok) throw Object.assign(new Error(r.status === 404 ? 'Restart npm run server to use Resend.' : body.error || `HTTP ${r.status}`), { raw: body.raw });
+            recordResponse({ ...keep, ok: true, ...body });
+        } catch (err) {
+            recordResponse({ ...keep, ok: false, resent: true, error: err.message, raw: err.raw });
+        }
+    };
     const deleteResponse = (id) => setResponses((prev) => {
         const next = prev.filter((r) => r.id !== id);
         writeResponses(next);
@@ -491,6 +512,7 @@ const StockAnalyst = () => {
                                     onShowFinding={showFinding}
                                     onClear={clearResponses}
                                     onDelete={deleteResponse}
+                                    onResend={resendResponse}
                                 />
                             ) : (<>
                             <div className="flex flex-wrap items-center gap-2 mb-4">

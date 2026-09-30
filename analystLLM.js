@@ -38,7 +38,7 @@ const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
  * version it expects, because a server started before `git pull` keeps running
  * the old code until restarted — and looks exactly like a bug that was fixed.
  */
-export const RELAY_VERSION = 6;
+export const RELAY_VERSION = 7;
 
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
@@ -444,6 +444,44 @@ export const answerQuestion = async (question, rawFacts, systemOverride, kind = 
             status: 200,
             body: { answer: reply.content, truncated: reply.finish === 'length', model: status.model, ms: Date.now() - started, raw: reply.raw },
         };
+    } catch (err) {
+        return failure(err);
+    }
+};
+
+/**
+ * Send a logged prompt again, word for word, to whichever model is loaded —
+ * for comparing runs or models on identical input. Only a system and a user
+ * message of bounded size are accepted. A brief's reply is parsed against the
+ * finding ids named in that prompt, so it can still name only real findings.
+ */
+export const resend = async (kind, rawMessages) => {
+    const messages = (Array.isArray(rawMessages) ? rawMessages : [])
+        .filter((m) => m && ['system', 'user'].includes(m.role) && typeof m.content === 'string')
+        .slice(0, 2)
+        .map((m) => ({ role: m.role, content: m.content.slice(0, 40000) }));
+    if (!messages.some((m) => m.role === 'user')) return { status: 400, body: { error: 'A logged prompt is required' } };
+
+    const { body: status } = await llmStatus();
+    if (!status.available) return { status: 503, body: { error: status.reason, baseUrl: BASE_URL } };
+
+    const started = Date.now();
+    try {
+        const reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS });
+        if (!reply.content) return emptyReply(reply);
+        const base = { truncated: reply.finish === 'length', model: status.model, ms: Date.now() - started, raw: reply.raw, resent: true };
+        if (kind === 'brief') {
+            const user = messages.find((m) => m.role === 'user').content;
+            const ids = [...user.matchAll(/^- id: (\S+)/gm)].map((m) => m[1]);
+            const brief = parseBrief(reply.content, ids);
+            return {
+                status: 200,
+                body: brief
+                    ? { ...base, ...brief, structured: true }
+                    : { ...base, summary: reply.content, priorities: [], structured: false },
+            };
+        }
+        return { status: 200, body: { ...base, answer: reply.content } };
     } catch (err) {
         return failure(err);
     }
