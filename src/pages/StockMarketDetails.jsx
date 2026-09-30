@@ -76,55 +76,6 @@ const StockTreemapContent = (props) => {
     );
 };
 
-const DividendTreemapContent = (props) => {
-    const { depth, x, y, width, height, index, name, ticker, value } = props;
-
-    // Only render leaf nodes
-    if (props.children) return null;
-    if (width < 1 || height < 1) return null;
-
-    const colors = [
-        'rgba(13, 148, 136, 0.4)',
-        'rgba(20, 184, 166, 0.3)',
-        'rgba(45, 212, 191, 0.2)',
-        'rgba(13, 148, 136, 0.2)'
-    ];
-    const fillColor = colors[index % colors.length];
-
-    const showText = width > 30 && height > 20;
-
-    return (
-        <g>
-            <rect
-                x={x}
-                y={y}
-                width={width}
-                height={height}
-                fill={fillColor}
-                stroke="rgba(255, 255, 255, 0.08)"
-                strokeWidth={1}
-                rx={4}
-                ry={4}
-                style={{ transition: 'all 0.3s ease' }}
-            />
-            {showText && (
-                <foreignObject x={x + 4} y={y + 4} width={Math.max(0, width - 8)} height={Math.max(0, height - 8)} style={{ pointerEvents: 'none' }}>
-                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                        <span style={{ color: '#ffffff', fontSize: '10px', fontWeight: '700', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {ticker || name}
-                        </span>
-                        {value !== undefined && height > 35 && (
-                            <span style={{ color: '#2dd4bf', fontSize: '9px', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                ₹{value.toLocaleString('en-IN')}
-                            </span>
-                        )}
-                    </div>
-                </foreignObject>
-            )}
-        </g>
-    );
-};
-
 // OFFICIAL_SECTORS used to be defined here. It moved to utils/sectors.js when
 // the watchlist started drawing the same chips — two copies of a colour table
 // is exactly how the two sector vocabularies drifted apart in the first place.
@@ -427,12 +378,6 @@ const StockMarketDetails = () => {
         return data;
     }, [filteredStocks]);
 
-    const dividendGraphData = useMemo(() => {
-        return Object.entries(activeDividendsData.yearly)
-            .map(([year, amount]) => ({ year, amount: Number(amount.toFixed(2)) }))
-            .sort((a, b) => a.year.localeCompare(b.year));
-    }, [activeDividendsData]);
-
     const stockTreemapData = useMemo(() => {
         return stockRows.map(stock => ({
             name: stock.name,
@@ -441,18 +386,6 @@ const StockMarketDetails = () => {
             percentage: stock.unrealisedPercent
         })).filter(item => item.value > 0);
     }, [stockRows]);
-
-    const dividendTreemapData = useMemo(() => {
-        return filteredStocks.map(stock => {
-            const stockDividends = stock.dividends || {};
-            const totalStockDividend = Object.values(stockDividends).reduce((sum, amount) => sum + Number(amount), 0);
-            return {
-                name: stock.name,
-                ticker: stock.ticker || stock.symbol || stock.name,
-                value: totalStockDividend
-            };
-        }).filter(item => item.value > 0);
-    }, [filteredStocks]);
 
     if (!market) {
         return (
@@ -2114,67 +2047,6 @@ const StockMarketDetails = () => {
                                 />
                             </div>
 
-                            {/* Dividend Performance Section */}
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                                {/* Dividend Overview Summary Card */}
-                                <div style={{
-                                    ...styles.glassCard('rgba(13, 148, 136, 0.06)', 'rgba(13, 148, 136, 0.15)', 'rgba(13, 148, 136, 0.15)'),
-                                    minHeight: '220px'
-                                }}>
-                                    <div>
-                                        <p style={{ fontSize: '10px', color: '#2dd4bf', textTransform: 'uppercase', fontWeight: '900', letterSpacing: '0.05em', marginBottom: '0.5rem', margin: 0 }}>Dividend Portfolio Earnings</p>
-                                        <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-                                            <h3 style={{ fontSize: '2.25rem', fontWeight: '900', color: '#2dd4bf', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(activeDividendsData.total)}</h3>
-                                            <span style={{ fontSize: '0.75rem', color: '#71717a' }}>lifetime</span>
-                                        </div>
-                                    </div>
-                                    <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                                        <p style={{ fontSize: '0.75rem', color: '#a1a1aa', lineHeight: 1.5, margin: 0 }}>
-                                            This metric aggregates all recorded dividend payments for stocks currently active in your portfolio. To add new dividends, add a transaction to the stock's page.
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {/* Dividends by Year Bar Chart */}
-                                <div style={{
-                                    ...styles.glassCard('rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)'),
-                                    height: '320px',
-                                    gridColumn: 'span 2'
-                                }}>
-                                    <p style={{ fontSize: '10px', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', marginBottom: '1.25rem', margin: 0 }}>Dividends History by Calendar Year</p>
-                                    <div style={{ width: '100%', height: '85%' }}>
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={dividendGraphData}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
-                                                <XAxis
-                                                    dataKey="year"
-                                                    tick={{ fill: '#71717a', fontSize: 11 }}
-                                                    axisLine={{ stroke: 'rgba(255,255,255,0.06)' }}
-                                                    tickLine={false}
-                                                />
-                                                <YAxis
-                                                    tick={{ fill: '#71717a', fontSize: 11 }}
-                                                    axisLine={false}
-                                                    tickLine={false}
-                                                    tickFormatter={(value) => `₹${value}`}
-                                                />
-                                                <Tooltip
-                                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
-                                                    itemStyle={{ color: '#fff' }}
-                                                    formatter={(value) => [`₹${value}`, 'Dividends']}
-                                                    cursor={{ fill: 'rgba(255,255,255,0.02)' }}
-                                                />
-                                                <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
-                                                    {dividendGraphData.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill="#0d9488" />
-                                                    ))}
-                                                </Bar>
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </div>
-                                </div>
-                            </div>
-
                             {/* Treemap Allocations (Side-by-side) */}
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '2rem' }}>
                                 {/* Stocks by Value Allocation */}
@@ -2193,37 +2065,6 @@ const StockMarketDetails = () => {
                                                     stroke="#121225"
                                                     fill="#4f46e5"
                                                     content={<StockTreemapContent />}
-                                                >
-                                                    <Tooltip
-                                                        formatter={(value, name, props) => [
-                                                            `₹${value.toLocaleString('en-IN')}`, 
-                                                            props.payload.ticker || props.payload.name
-                                                        ]}
-                                                        contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
-                                                        itemStyle={{ color: '#fff' }}
-                                                    />
-                                                </Treemap>
-                                            </ResponsiveContainer>
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Stocks by Total Dividends Allocation */}
-                                {dividendTreemapData.length > 0 && (
-                                    <div style={{
-                                        ...styles.glassCard('rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.06)'),
-                                        height: '420px'
-                                    }}>
-                                        <p style={{ fontSize: '10px', color: '#a1a1aa', textTransform: 'uppercase', fontWeight: '800', letterSpacing: '0.05em', marginBottom: '1.25rem', margin: 0 }}>Dividends Received Allocation</p>
-                                        <div style={{ width: '100%', height: '85%' }}>
-                                            <ResponsiveContainer width="100%" height="100%">
-                                                <Treemap
-                                                    data={dividendTreemapData}
-                                                    dataKey="value"
-                                                    aspectRatio={4 / 3}
-                                                    stroke="#121225"
-                                                    fill="#0d9488"
-                                                    content={<DividendTreemapContent />}
                                                 >
                                                     <Tooltip
                                                         formatter={(value, name, props) => [

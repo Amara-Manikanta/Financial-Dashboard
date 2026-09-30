@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Coins, TrendingUp, TrendingDown, AlertTriangle, PieChart as PieIcon, Info, Gift } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, PieChart as PieIcon, Info, Gift } from 'lucide-react';
 import {
-    portfolioTotals, dividendsByYear, topDividendPayers,
+    portfolioTotals,
     winnersAndLosers, concentration, unclassified, realisedOutliers
 } from '../utils/stockAnalytics';
 import { freePositions, nearlyFree, recoveryTotals, NEARLY_FREE_FROM } from '../utils/costRecovery';
@@ -42,8 +42,6 @@ const Row = ({ name, right, sub, tone }) => (
  */
 const StockAnalyticsPanels = ({ stocks = [], formatCurrency, onSelectStock }) => {
     const totals = useMemo(() => portfolioTotals(stocks), [stocks]);
-    const divYears = useMemo(() => dividendsByYear(stocks), [stocks]);
-    const payers = useMemo(() => topDividendPayers(stocks, 5), [stocks]);
     const { winners, losers } = useMemo(() => winnersAndLosers(stocks, 5), [stocks]);
     const conc = useMemo(() => concentration(stocks, 5), [stocks]);
     const gaps = useMemo(() => unclassified(stocks), [stocks]);
@@ -55,10 +53,6 @@ const StockAnalyticsPanels = ({ stocks = [], formatCurrency, onSelectStock }) =>
     const money = (n) => (formatCurrency ? formatCurrency(n) : `₹${Math.round(n).toLocaleString('en-IN')}`);
     const signed = (n) => `${n >= 0 ? '+' : ''}${money(n)}`;
     const tone = (n) => (n >= 0 ? '#34d399' : '#f87171');
-
-    const divGrowth = divYears.length >= 2
-        ? divYears[divYears.length - 1].amount - divYears[divYears.length - 2].amount
-        : 0;
 
     return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
@@ -109,45 +103,6 @@ const StockAnalyticsPanels = ({ stocks = [], formatCurrency, onSelectStock }) =>
                     </p>
                 )}
             </div>
-
-            {/* 2. Dividends */}
-            {divYears.length > 0 && (
-                <div style={panel}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                        <p style={{ ...label, display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                            <Coins size={13} style={{ color: '#fbbf24' }} /> Dividend income
-                        </p>
-                        <span style={{ fontSize: '0.72rem', color: divGrowth >= 0 ? '#34d399' : '#f87171', fontWeight: 700 }}>
-                            {divGrowth >= 0 ? '▲' : '▼'} {money(Math.abs(divGrowth))} vs last year
-                        </span>
-                    </div>
-
-                    <div style={{ height: 170, marginBottom: '1rem' }}>
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={divYears} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-                                <XAxis dataKey="year" stroke="#52525b" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
-                                <YAxis stroke="#52525b" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} width={55}
-                                    tickFormatter={(v) => `₹${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
-                                <Tooltip
-                                    cursor={{ fill: 'rgba(255,255,255,0.04)' }}
-                                    contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.75rem', fontSize: '0.8rem' }}
-                                    formatter={(v) => [money(v), 'Received']}
-                                />
-                                <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
-                                    {divYears.map((d, i) => (
-                                        <Cell key={d.year} fill={i === divYears.length - 1 ? '#fbbf24' : 'rgba(251,191,36,0.35)'} />
-                                    ))}
-                                </Bar>
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-
-                    <p style={{ ...label, marginBottom: '0.35rem' }}>Who pays it</p>
-                    {payers.map((s) => (
-                        <Row key={s.id} name={s.name} sub={s.ticker} right={money(s.dividends)} tone="#fbbf24" />
-                    ))}
-                </div>
-            )}
 
             {/* 3. Winners and losers */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>

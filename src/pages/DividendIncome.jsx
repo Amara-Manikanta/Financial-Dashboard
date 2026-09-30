@@ -4,7 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { Coins, AlertTriangle, Info, CalendarDays, Receipt } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import {
-    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell,
+    BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell, Treemap,
 } from 'recharts';
 import {
     incomeByYear, incomeByMonth, incomeSummary, dividendPayers, lapsedPayers,
@@ -12,6 +12,51 @@ import {
 } from '../utils/dividendAnalytics';
 import { dividendTaxSummary } from '../utils/dividendTax';
 import { ownHoldings } from '../utils/holdingOwner';
+
+/**
+ * One rectangle per payer, sized by what it has paid.
+ *
+ * Moved here from the stocks page, where it sat beside two other dividend
+ * views that this page already covered. A table ranks payers; this shows the
+ * shape of the income — whether it rests on one holding or is spread.
+ */
+const DividendTreemapContent = (props) => {
+    const { x, y, width, height, index, name, ticker, value } = props;
+    if (props.children) return null;
+    if (width < 1 || height < 1) return null;
+
+    const colors = [
+        'rgba(13, 148, 136, 0.4)',
+        'rgba(20, 184, 166, 0.3)',
+        'rgba(45, 212, 191, 0.2)',
+        'rgba(13, 148, 136, 0.2)',
+    ];
+    const showText = width > 30 && height > 20;
+
+    return (
+        <g>
+            <rect
+                x={x} y={y} width={width} height={height}
+                fill={colors[index % colors.length]}
+                stroke="rgba(255, 255, 255, 0.08)" strokeWidth={1} rx={4} ry={4}
+            />
+            {showText && (
+                <foreignObject x={x + 4} y={y + 4} width={Math.max(0, width - 8)} height={Math.max(0, height - 8)} style={{ pointerEvents: 'none' }}>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                        <span style={{ color: '#ffffff', fontSize: '10px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                            {ticker || name}
+                        </span>
+                        {value !== undefined && height > 35 && (
+                            <span style={{ color: '#2dd4bf', fontSize: '9px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                ₹{value.toLocaleString('en-IN')}
+                            </span>
+                        )}
+                    </div>
+                </foreignObject>
+            )}
+        </g>
+    );
+};
 
 const card = {
     backgroundColor: 'rgba(24, 24, 27, 0.4)',
@@ -56,6 +101,14 @@ const DividendIncome = () => {
     const summary = useMemo(() => incomeSummary(stocks), [stocks]);
     const years = useMemo(() => incomeByYear(stocks), [stocks]);
     const payers = useMemo(() => dividendPayers(stocks), [stocks]);
+    const treemapData = useMemo(() => stocks
+        .map((stock) => ({
+            name: stock.name,
+            ticker: stock.ticker || stock.symbol || stock.name,
+            value: Object.values(stock.dividends || {}).reduce((sum, a) => sum + Number(a || 0), 0),
+        }))
+        .filter((d) => d.value > 0)
+        .sort((a, b) => b.value - a.value), [stocks]);
     const lapsed = useMemo(() => lapsedPayers(stocks), [stocks]);
     const calendar = useMemo(() => dividendCalendar(stocks), [stocks]);
     const busiest = useMemo(() => busiestMonths(stocks), [stocks]);
@@ -378,6 +431,39 @@ const DividendIncome = () => {
                             <span style={{ color: '#fbbf24', fontFamily: 'monospace' }}>last paid {p.lastPaid}</span>
                         </div>
                     ))}
+                </div>
+            )}
+
+            {treemapData.length > 0 && (
+                <div style={{ ...card, marginBottom: '1.5rem' }}>
+                    <h3 style={{ fontSize: '1rem', fontWeight: 800, color: 'white', margin: '0 0 0.3rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Coins size={16} style={{ color: '#2dd4bf' }} /> Where the income comes from
+                    </h3>
+                    <p style={{ fontSize: '0.72rem', color: '#71717a', margin: '0 0 1rem' }}>
+                        Each block is a holding, sized by the dividends it has paid. The table below ranks
+                        them; this shows whether the income rests on one name or is spread across many.
+                    </p>
+                    <div style={{ width: '100%', height: '340px' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <Treemap
+                                data={treemapData}
+                                dataKey="value"
+                                aspectRatio={4 / 3}
+                                stroke="#121225"
+                                fill="#0d9488"
+                                content={<DividendTreemapContent />}
+                            >
+                                <Tooltip
+                                    formatter={(value, _n, props) => [
+                                        `₹${Number(value).toLocaleString('en-IN')}`,
+                                        props.payload.ticker || props.payload.name,
+                                    ]}
+                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
+                                    itemStyle={{ color: '#fff' }}
+                                />
+                            </Treemap>
+                        </ResponsiveContainer>
+                    </div>
                 </div>
             )}
 
