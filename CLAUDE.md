@@ -631,6 +631,11 @@ servers that ignore the schema. Prompts are sized for LM Studio's default
 The facts sent contain stock holdings and the stock tax position only — never
 expenses, salary or balances. Keep it that way if you extend them.
 
+Every reply and every failure is logged on the page's **AI responses** tab,
+raw JSON included, so runs and models can be compared. The log is kept in
+`localStorage` (`kubera.analyst.responses`, last 50), deliberately not in
+`db.json`: a model's wording is not a financial record.
+
 `insightsEngine.js` and `AIChatInterface.jsx` are an older, unmounted attempt
 with a model path hard-coded to one Mac. The analyst does not use them.
 

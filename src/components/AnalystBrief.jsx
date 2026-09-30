@@ -12,7 +12,7 @@ import { API_URL } from '../context/FinanceContext';
  * words, or answers a question from them. If no model is running, the page
  * loses nothing: every finding and figure comes from the analyst itself.
  */
-const AnalystBrief = ({ facts, titles, onShowFinding }) => {
+const AnalystBrief = ({ facts, titles, onShowFinding, onResponse }) => {
     const [status, setStatus] = useState({ state: 'checking' });
     const [brief, setBrief] = useState(null);
     const [briefBusy, setBriefBusy] = useState(false);
@@ -51,10 +51,14 @@ const AnalystBrief = ({ facts, titles, onShowFinding }) => {
     const writeBrief = async () => {
         setBriefBusy(true);
         setBriefError(null);
+        const sent = facts?.findings?.length || 0;
         try {
-            setBrief(await post('brief', { facts }));
+            const reply = await post('brief', { facts });
+            setBrief(reply);
+            onResponse?.({ kind: 'brief', ok: true, findingsSent: sent, ...reply });
         } catch (err) {
             setBriefError(err.message);
+            onResponse?.({ kind: 'brief', ok: false, findingsSent: sent, error: err.message, model: status.model });
         } finally {
             setBriefBusy(false);
         }
@@ -70,8 +74,10 @@ const AnalystBrief = ({ facts, titles, onShowFinding }) => {
             const reply = await post('ask', { question: q, facts });
             setAnswers((prev) => [{ q, ...reply }, ...prev].slice(0, 5));
             setQuestion('');
+            onResponse?.({ kind: 'ask', ok: true, question: q, findingsSent: facts?.findings?.length || 0, ...reply });
         } catch (err) {
             setAskError(err.message);
+            onResponse?.({ kind: 'ask', ok: false, question: q, error: err.message, model: status.model });
         } finally {
             setAskBusy(false);
         }
