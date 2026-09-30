@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Send, RotateCcw, ChevronDown, ChevronRight } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
+import { promptSent } from './AnalystBrief';
 
 /**
  * Your own prompt, sent with every stock and mutual fund you hold — and, if
@@ -72,6 +73,7 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
         if (!q || busy) return;
         setBusy(true);
         setError(null);
+        const prompt = promptSent('custom', sent, q, saved.system);
         try {
             let r;
             try {
@@ -90,10 +92,10 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
                 throw err;
             }
             setAnswer({ q, ...body });
-            onResponse?.({ kind: 'custom', ok: true, question: q, withDashboard: saved.withDashboard, ...body });
+            onResponse?.({ kind: 'custom', ok: true, question: q, withDashboard: saved.withDashboard, ...body, prompt: await prompt });
         } catch (err) {
             setError(err.message);
-            onResponse?.({ kind: 'custom', ok: false, question: q, withDashboard: saved.withDashboard, error: err.message, model, raw: err.raw });
+            onResponse?.({ kind: 'custom', ok: false, question: q, withDashboard: saved.withDashboard, error: err.message, model, raw: err.raw, prompt: await prompt });
         } finally {
             setBusy(false);
         }

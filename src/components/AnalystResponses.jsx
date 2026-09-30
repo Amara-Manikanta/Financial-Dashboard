@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Bot, MessageSquare, AlertTriangle, ChevronRight, Trash2 } from 'lucide-react';
+import { Bot, MessageSquare, AlertTriangle, ChevronRight, Trash2, RotateCw } from 'lucide-react';
 
 /**
  * Everything the local model has said on the Stock Analyst page, newest first.
@@ -34,14 +34,31 @@ const when = (iso) => new Date(iso).toLocaleString('en-IN', {
 });
 const seconds = (ms) => (Number.isFinite(ms) ? `${(ms / 1000).toFixed(ms < 10000 ? 1 : 0)}s` : null);
 
-const Entry = ({ entry: e, titles, onShowFinding }) => {
+/**
+ * Input size, so it can be checked against the model's context length. The
+ * server's own count when it reported one, otherwise about four characters a token.
+ */
+const tokensIn = (e) => {
+    const usage = e.raw?.usage || {};
+    const exact = Number(usage.prompt_tokens) || 0;
+    const out = Number(usage.completion_tokens) || 0;
+    if (exact) return { exact: true, text: `${exact.toLocaleString('en-IN')} tokens in${out ? ` · ${out.toLocaleString('en-IN')} out` : ''}` };
+    const chars = (e.prompt || []).reduce((n, m) => n + String(m.content || '').length, 0);
+    return chars ? { exact: false, text: `~${Math.round(chars / 4).toLocaleString('en-IN')} tokens in` } : null;
+};
+
+const Entry = ({ entry: e, titles, onShowFinding, onDelete, onResend }) => {
     const [raw, setRaw] = useState(false);
+    const [resending, setResending] = useState(false);
+    const resend = async () => { setResending(true); try { await onResend(e); } finally { setResending(false); } };
+    const [prompt, setPrompt] = useState(false);
     const Icon = e.kind === 'brief' ? Bot : MessageSquare;
     const flags = [
         e.ok && e.kind === 'brief' && !e.structured && 'not structured — shown as written',
         e.ok && e.kind === 'brief' && e.constrained === false && 'server ignored the JSON schema',
         e.discarded > 0 && `${e.discarded} invented finding${e.discarded === 1 ? '' : 's'} dropped`,
         e.truncated && 'cut off at its length limit',
+        e.resent && 'resent word for word',
     ].filter(Boolean);
 
     return (
@@ -52,6 +69,27 @@ const Entry = ({ entry: e, titles, onShowFinding }) => {
                 {e.model && <span className="normal-case tracking-normal font-bold text-gray-500">{e.model}</span>}
                 {seconds(e.ms) && <span className="normal-case tracking-normal font-bold text-gray-500">{seconds(e.ms)}</span>}
                 {e.findingsSent > 0 && <span className="normal-case tracking-normal font-bold text-gray-500">{e.findingsSent} findings sent</span>}
+                {tokensIn(e) && <span className="normal-case tracking-normal font-bold text-gray-500" title={tokensIn(e).exact ? 'Reported by the model server' : 'Estimated at 4 characters a token'}>{tokensIn(e).text}</span>}
+                {e.prompt && (
+                    <button
+                        type="button"
+                        onClick={resend}
+                        disabled={resending}
+                        title="Send exactly the same prompt again to the model now loaded"
+                        className="ml-auto flex items-center gap-1 px-2 py-1 rounded-md normal-case tracking-normal text-[11px] font-bold text-indigo-300 hover:text-white hover:bg-white/5 disabled:opacity-50"
+                    >
+                        <RotateCw size={12} className={resending ? 'animate-spin' : ''} /> {resending ? 'Sending…' : 'Resend'}
+                    </button>
+                )}
+                <button
+                    type="button"
+                    onClick={() => onDelete(e.id)}
+                    title="Delete this response"
+                    aria-label="Delete this response"
+                    className={`${e.prompt ? '' : 'ml-auto '}p-1 rounded-md text-gray-600 hover:text-rose-300 hover:bg-white/5`}
+                >
+                    <Trash2 size={13} />
+                </button>
             </div>
 
             {e.question && <p className="text-[13px] font-bold text-white mt-3">{e.question}</p>}
@@ -90,23 +128,36 @@ const Entry = ({ entry: e, titles, onShowFinding }) => {
 
             {flags.length > 0 && <p className="text-[10.5px] text-amber-300/80 mt-3">{flags.join(' · ')}</p>}
 
-            <button
-                type="button"
-                onClick={() => setRaw((v) => !v)}
-                className="mt-3 text-[11px] font-bold text-gray-500 hover:text-white"
-            >
-                {raw ? 'Hide raw response' : 'Show raw response'}
-            </button>
+            <div className="mt-3 flex gap-4">
+                {e.prompt && (
+                    <button type="button" onClick={() => setPrompt((v) => !v)} className="text-[11px] font-bold text-gray-500 hover:text-white">
+                        {prompt ? 'Hide prompt sent' : 'Show prompt sent'}
+                    </button>
+                )}
+                <button type="button" onClick={() => setRaw((v) => !v)} className="text-[11px] font-bold text-gray-500 hover:text-white">
+                    {raw ? 'Hide raw response' : 'Show raw response'}
+                </button>
+            </div>
+            {prompt && e.prompt && (
+                <div className="mt-2 space-y-2">
+                    {e.prompt.map((m, i) => (
+                        <div key={i}>
+                            <p className="text-[10px] font-black uppercase tracking-wider text-gray-500">{m.role === 'system' ? 'Instructions (system)' : 'Facts and question (user)'}</p>
+                            <pre className="mt-1 max-h-72 overflow-auto rounded-xl bg-black/40 border border-white/5 p-3 text-[11px] text-gray-400 whitespace-pre-wrap break-words">{m.content}</pre>
+                        </div>
+                    ))}
+                </div>
+            )}
             {raw && (
                 <pre className="mt-2 max-h-72 overflow-auto rounded-xl bg-black/40 border border-white/5 p-3 text-[11px] text-gray-400 whitespace-pre-wrap break-words">
-                    {JSON.stringify(e, null, 2)}
+                    {JSON.stringify({ ...e, prompt: undefined }, null, 2)}
                 </pre>
             )}
         </article>
     );
 };
 
-const AnalystResponses = ({ responses, titles, onShowFinding, onClear }) => {
+const AnalystResponses = ({ responses, titles, onShowFinding, onClear, onDelete, onResend }) => {
     if (responses.length === 0) {
         return (
             <div className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-10 text-center">
@@ -134,7 +185,7 @@ const AnalystResponses = ({ responses, titles, onShowFinding, onClear }) => {
                 </button>
             </div>
             <div className="space-y-3">
-                {responses.map((e) => <Entry key={e.id} entry={e} titles={titles} onShowFinding={onShowFinding} />)}
+                {responses.map((e) => <Entry key={e.id} entry={e} titles={titles} onShowFinding={onShowFinding} onDelete={onDelete} onResend={onResend} />)}
             </div>
         </div>
     );

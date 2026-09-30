@@ -913,7 +913,7 @@ const handleAnalystLLMRoute = (req, res) => {
         analystLLM.llmStatus().then(({ status, body }) => sendJson(res, status, body));
         return;
     }
-    if (req.method !== 'POST' || !['/api/analyst/llm/brief', '/api/analyst/llm/ask', '/api/analyst/llm/prompt'].includes(route)) {
+    if (req.method !== 'POST' || !['/api/analyst/llm/brief', '/api/analyst/llm/ask', '/api/analyst/llm/prompt', '/api/analyst/llm/resend'].includes(route)) {
         sendJson(res, 404, { error: `${req.method} ${route} is not an analyst route` });
         return;
     }
@@ -946,7 +946,9 @@ const handleAnalystLLMRoute = (req, res) => {
         // whole server process rather than this one request.
         const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
         try {
-            const { status, body: out } = route.endsWith('/prompt')
+            const { status, body: out } = route.endsWith('/resend')
+            ? await analystLLM.resend(payload.kind, payload.messages)
+            : route.endsWith('/prompt')
                 ? analystLLM.promptPreview(payload.kind, payload.facts, payload.question, payload.systemPrompt)
                 : route.endsWith('/brief')
                     ? await analystLLM.writeBrief(payload.facts, payload.systemPrompt)
