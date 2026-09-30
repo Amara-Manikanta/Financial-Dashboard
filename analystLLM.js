@@ -33,6 +33,13 @@ const TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS) || 180000;
  */
 const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
 
+/**
+ * Bumped whenever the relay's behaviour changes. The page compares it with the
+ * version it expects, because a server started before `git pull` keeps running
+ * the old code until restarted — and looks exactly like a bug that was fixed.
+ */
+export const RELAY_VERSION = 4;
+
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
 const MAX_TEXT = 1500;
@@ -231,7 +238,7 @@ export const llmStatus = async () => {
         // A configured model wins even when unlisted: LM Studio loads models
         // on demand by name.
         const model = MODEL || models[0];
-        return { status: 200, body: { available: true, baseUrl: BASE_URL, model, models: models.slice(0, 20) } };
+        return { status: 200, body: { available: true, baseUrl: BASE_URL, model, models: models.slice(0, 20), relayVersion: RELAY_VERSION } };
     } catch (err) {
         const why = err?.name === 'AbortError' ? 'no answer' : err?.message || String(err);
         return { status: 200, body: { available: false, baseUrl: BASE_URL, reason: `Nothing answered at ${BASE_URL} (${why}).` } };
@@ -250,7 +257,40 @@ const BRIEF_SYSTEM = [
 ].join('\n');
 
 /** An ordered, plain-words brief over the analyst's findings. */
-export const writeBrief = async (rawFacts) => {
+/** The instructions you can override from the page; facts are never editable. */
+const MAX_SYSTEM_PROMPT = 6000;
+const systemFor = (kind, override) => {
+    const custom = typeof override === 'string' ? override.trim().slice(0, MAX_SYSTEM_PROMPT) : '';
+    return custom || (kind === 'brief' ? BRIEF_SYSTEM : ASK_SYSTEM);
+};
+
+/**
+ * Exactly what the model is sent. The page shows this on its Prompt tab, and
+ * the relay builds its requests from the same function, so the preview cannot
+ * drift from what actually goes out. Only the instructions can be edited: the
+ * facts are always generated here, so the model is never handed figures it
+ * could have been told wrongly.
+ */
+export const promptMessages = (kind, facts, question = '', systemOverride = '') => [
+    { role: 'system', content: systemFor(kind, systemOverride) },
+    {
+        role: 'user',
+        content: kind === 'brief'
+            ? `${factsText(facts, { maxFindings: 10 })}\n\nWrite the brief as JSON with "summary" and "priorities".`
+            : `Facts:\n${factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: 30 })}\n\nQuestion: ${question || '(your question goes here)'}`,
+    },
+];
+
+/** The default instructions and the messages that would be sent, for the Prompt tab. */
+export const promptPreview = (kind, rawFacts, question, systemOverride) => {
+    const facts = cleanFacts(rawFacts);
+    if (!facts) return { status: 400, body: { error: 'facts with a findings list are required' } };
+    const k = kind === 'ask' ? 'ask' : 'brief';
+    const messages = promptMessages(k, facts, clip(question, 500), systemOverride);
+    return { status: 200, body: { kind: k, defaultSystem: systemFor(k, ''), messages } };
+};
+
+export const writeBrief = async (rawFacts, systemOverride) => {
     const facts = cleanFacts(rawFacts);
     if (!facts) return { status: 400, body: { error: 'facts with a findings list are required' } };
 
@@ -279,10 +319,7 @@ export const writeBrief = async (rawFacts) => {
         required: ['summary', 'priorities'],
         additionalProperties: false,
     };
-    const messages = [
-        { role: 'system', content: BRIEF_SYSTEM },
-        { role: 'user', content: `${factsText(facts, { maxFindings: 10 })}\n\nWrite the brief as JSON with "summary" and "priorities".` },
-    ];
+    const messages = promptMessages('brief', facts, '', systemOverride);
 
     const started = Date.now();
     let reply;
@@ -301,7 +338,27 @@ export const writeBrief = async (rawFacts) => {
         }
     }
 
-    if (!reply.content) return emptyReply(reply);
+    // Constrained decoding can itself be the failure: some models, under a JSON
+    // grammar, emit whitespace until the budget runs out (google/gemma-4-12b-qat
+    // ran 90s and returned nothing). If the constrained reply is empty or not a
+    // brief, ask once more without the grammar — the prompt still asks for
+    // JSON, and ids are still filtered on the way back.
+    let firstAttempt = null;
+    if (constrained && (!reply.content || !parseBrief(reply.content, ids))) {
+        firstAttempt = reply.raw;
+        try {
+            reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS });
+            constrained = false;
+        } catch (retryErr) {
+            return failure(retryErr);
+        }
+    }
+
+    if (!reply.content) {
+        const empty = emptyReply(reply);
+        if (firstAttempt) empty.body.firstAttempt = firstAttempt;
+        return empty;
+    }
     const parsed = parseBrief(reply.content, ids);
     return {
         status: 200,
@@ -315,6 +372,7 @@ export const writeBrief = async (rawFacts) => {
             model: status.model,
             ms: Date.now() - started,
             raw: reply.raw,
+            ...(firstAttempt ? { firstAttempt } : {}),
         },
     };
 };
@@ -330,7 +388,7 @@ const ASK_SYSTEM = [
 ].join('\n');
 
 /** One question, answered from the facts alone. */
-export const answerQuestion = async (question, rawFacts) => {
+export const answerQuestion = async (question, rawFacts, systemOverride) => {
     const q = clip(question, 500).trim();
     if (!q) return { status: 400, body: { error: 'A question is required' } };
     const facts = cleanFacts(rawFacts);
@@ -341,10 +399,7 @@ export const answerQuestion = async (question, rawFacts) => {
 
     // Sized for LM Studio's default 4,096-token context: the facts, the answer
     // and the template all have to fit in it.
-    const messages = [
-        { role: 'system', content: ASK_SYSTEM },
-        { role: 'user', content: `Facts:\n${factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: 30 })}\n\nQuestion: ${q}` },
-    ];
+    const messages = promptMessages('ask', facts, q, systemOverride);
     const started = Date.now();
     try {
         const reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS });

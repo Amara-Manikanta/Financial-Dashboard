@@ -8,6 +8,7 @@ import { useFinance, API_URL } from '../context/FinanceContext';
 import BackButton from '../components/BackButton';
 import RefreshAllPricesButton from '../components/RefreshAllPricesButton';
 import AnalystBrief from '../components/AnalystBrief';
+import AnalystPrompt, { readPrompts, writePrompts } from '../components/AnalystPrompt';
 import AnalystResponses, { readResponses, writeResponses, MAX_RESPONSES } from '../components/AnalystResponses';
 import { ownHoldings } from '../utils/holdingOwner';
 import { analysePortfolio, llmFacts, symbolFor, RULES } from '../utils/stockAdvisor';
@@ -274,6 +275,8 @@ const StockAnalyst = () => {
     const [highlighted, setHighlighted] = useState(null);
     const [view, setView] = useState('findings');
     const [responses, setResponses] = useState(readResponses);
+    const [prompts, setPrompts] = useState(readPrompts);
+    const changePrompts = (next) => { setPrompts(next); writePrompts(next); };
 
     const recordResponse = useCallback((entry) => setResponses((prev) => {
         const next = [{ id: `r_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`, at: new Date().toISOString(), ...entry }, ...prev]
@@ -412,6 +415,7 @@ const StockAnalyst = () => {
                                 {[
                                     { id: 'findings', label: 'Findings', count: visible.length },
                                     { id: 'responses', label: 'AI responses', count: responses.length },
+                                    { id: 'prompt', label: 'Prompt', count: prompts.brief || prompts.ask ? 'edited' : '' },
                                 ].map((t) => (
                                     <button
                                         key={t.id}
@@ -426,7 +430,9 @@ const StockAnalyst = () => {
                                 ))}
                             </div>
 
-                            {view === 'responses' ? (
+                            {view === 'prompt' ? (
+                                <AnalystPrompt facts={facts} prompts={prompts} onChange={changePrompts} />
+                            ) : view === 'responses' ? (
                                 <AnalystResponses
                                     responses={responses}
                                     titles={titles}
@@ -499,7 +505,7 @@ const StockAnalyst = () => {
                         </div>
 
                         <aside className="space-y-4 xl:sticky xl:top-20">
-                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} />
+                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} prompts={prompts} />
 
                             <details className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 group">
                                 <summary className="text-[12px] font-black text-white cursor-pointer list-none flex items-center justify-between">

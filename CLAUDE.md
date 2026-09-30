@@ -627,6 +627,23 @@ logged as a success. An empty reply is now a failure that says so, and every
 response carries `raw` — the model's content, its reasoning, the stop reason
 and token usage — for the AI responses tab. Prefer an instruct model.
 
+The JSON grammar can be the failure too: `google/gemma-4-12b-qat` ran 90s
+under it and returned nothing but whitespace. A constrained brief that comes
+back empty or unparseable is retried once without `response_format`; the first
+attempt is kept as `firstAttempt`.
+
+`RELAY_VERSION` in `analystLLM.js` must match `EXPECTED_RELAY` in
+`AnalystBrief.jsx`. The panel warns when the server is older, because a server
+started before `git pull` keeps running the old relay and looks exactly like
+the bug that was just fixed. Bump both when the relay's behaviour changes.
+
+The **Prompt** tab shows exactly what the model is sent, from the same
+`promptMessages()` the relay uses, so the preview cannot drift from the real
+request. Only the instructions (system message) are editable, saved in
+`localStorage` (`kubera.analyst.prompts`) and sent as `systemPrompt`. The
+facts stay generated and read-only — that is what keeps the model from being
+handed figures it could have been told wrongly.
+
 A 3–4B model is enough because it is given nothing to work out: `llmFacts()`
 hands it findings with every figure already formatted, and it only orders and
 explains them. Keep it that way — a small model rewords "₹80,835" reliably and
