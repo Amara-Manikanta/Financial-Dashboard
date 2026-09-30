@@ -91,3 +91,6 @@ verify_persistence.js
 
 # Local Claude Code config — machine-specific, not part of the app.
 .claude/
+
+# NewsAPI request log (timestamps only)
+.newsapi-usage.json

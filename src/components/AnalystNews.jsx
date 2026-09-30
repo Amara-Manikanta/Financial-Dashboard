@@ -17,6 +17,7 @@ const ago = (iso) => {
 
 const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
     const [news, setNews] = useState({});
+    const [usage, setUsage] = useState(null);
     const [busy, setBusy] = useState({});
 
     // fresh: skip both caches and ask the sources again.
@@ -24,6 +25,7 @@ const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
         setBusy((b) => ({ ...b, [st.id]: true }));
         const result = await loadNews(st, { fresh });
         setNews((prev) => ({ ...prev, [st.id]: result }));
+        if (result.newsApi) setUsage(result.newsApi);
         setBusy((b) => ({ ...b, [st.id]: false }));
     }, [loadNews]);
 
@@ -40,10 +42,21 @@ const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
                     The model sees the same titles, so treat its reading of them as a starting point, not a verdict.
                 </p>
                 <div className="flex gap-2">
+                {usage && (
+                    <span
+                        className={`self-center text-[11px] font-bold ${!usage.configured ? 'text-gray-500' : usage.remaining < 15 ? 'text-amber-300' : 'text-gray-400'}`}
+                        title={usage.configured ? 'NewsAPI free plan: 100 requests in any 24 hours. Each stock refreshed uses one; results are cached for 30 minutes.' : 'Add NEWSAPI_KEY=… to .env.local and restart npm run server'}
+                    >
+                        {usage.configured
+                            ? `NewsAPI ${usage.used}/${usage.limit} today${usage.nextFreeAt ? ' — limit reached' : ''}`
+                            : 'NewsAPI not set up'}
+                    </span>
+                )}
                 <button
                     type="button"
                     onClick={refreshAll}
                     disabled={anyBusy}
+                    title={`Fetches all ${holdings.length} again — uses up to ${holdings.length} NewsAPI requests`}
                     className="px-3 py-2 rounded-xl bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50 text-xs font-black flex items-center gap-2"
                 >
                     <RefreshCw size={13} className={anyBusy ? 'animate-spin' : ''} /> {anyBusy ? 'Refreshing…' : 'Refresh news'}
@@ -87,6 +100,7 @@ const AnalystNews = ({ holdings, loadNews, onAnalyse }) => {
                                         <a href={item.url} target="_blank" rel="noreferrer" className="text-gray-200 hover:text-indigo-200 inline-flex items-start gap-1">
                                             {item.title} <ExternalLink size={10} className="mt-1 shrink-0 text-gray-600" />
                                         </a>
+                                        {item.summary && <span className="block text-[11.5px] text-gray-400 mt-0.5 leading-snug">{item.summary}</span>}
                                         <span className="block text-[10.5px] text-gray-500">{item.source} · {ago(item.published)}</span>
                                     </li>
                                 ))}

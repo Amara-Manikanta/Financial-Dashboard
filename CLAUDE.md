@@ -685,6 +685,16 @@ so the next question uses the fresh headlines. Watchlist names count for news
 (not for averaging figures), and the Questions box says what a question will
 carry before it is sent.
 
+**NewsAPI** is a third source when `NEWSAPI_KEY` is set. It carries article
+descriptions, which are sent only for the stock a question names (ten
+holdings' worth would crowd an 8K context). The key lives in `.env.local`
+(gitignored; `server.js` loads it with `process.loadEnvFile`) — **never commit
+it**. The free plan allows 100 requests in 24 hours: `news.js` keeps a rolling
+log in `.newsapi-usage.json` beside the database (so restarts do not reset it
+and a sandbox counts separately), skips NewsAPI once `NEWSAPI_DAILY_LIMIT`
+(default 100) is reached, and the News tab shows the count. Check and record
+happen in the same tick, so concurrent refreshes cannot overshoot.
+
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in
 `localStorage` (`kubera.analyst.responses`, last 50), deliberately not in

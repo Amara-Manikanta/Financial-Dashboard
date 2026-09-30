@@ -28,3 +28,40 @@ test('garbage in gives nothing out', () => {
     assert.deepEqual(parseYahooNews(null), []);
     assert.deepEqual(parseGoogleNews('<html>blocked</html>'), []);
 });
+
+test('NewsAPI articles carry their description; removed ones are dropped', async () => {
+    const { parseNewsApi } = await import('./news.js');
+    const items = parseNewsApi({ status: 'ok', articles: [
+        { source: { name: 'Business Standard' }, title: 'Infosys raises FY guidance', description: 'Revenue growth now seen at <b>3-4%</b>.', url: 'https://bs/1', publishedAt: '2026-09-29T08:00:00Z' },
+        { source: { name: 'x' }, title: '[Removed]', url: 'https://removed.com' },
+    ] });
+    assert.equal(items.length, 1);
+    assert.equal(items[0].summary, 'Revenue growth now seen at 3-4%.');
+    assert.equal(items[0].source, 'Business Standard');
+});
+
+test('NewsAPI budget: counted per rolling day, persisted, and stops at the limit', async (t) => {
+    const fs = await import('fs');
+    const os = await import('os');
+    const path = await import('path');
+    const { configureNews, newsApiUsage, newsFor } = await import('./news.js');
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'news-')), 'usage.json');
+    const now = Date.now();
+    fs.writeFileSync(file, JSON.stringify({ calls: [now - 2 * 86400000, ...Array(99).fill(now - 3600000)] }));
+    process.env.NEWSAPI_KEY = 'test-key';
+    t.after(() => { delete process.env.NEWSAPI_KEY; });
+    configureNews({ usageFile: file });
+    assert.deepEqual({ used: newsApiUsage().used, remaining: newsApiUsage().remaining }, { used: 99, remaining: 1 });
+
+    const seen = [];
+    t.mock.method(globalThis, 'fetch', async (url) => {
+        seen.push(String(url));
+        return new Response(JSON.stringify({ articles: [], news: [] }), { status: 200 });
+    });
+    await newsFor('AAA.NS', 'Aaa Ltd');     // uses the last request
+    await newsFor('BBB.NS', 'Bbb Ltd');     // over the limit: NewsAPI skipped
+    assert.equal(seen.filter((u) => u.includes('newsapi.org')).length, 1);
+    assert.equal(JSON.parse(fs.readFileSync(file, 'utf8')).calls.length, 100); // the day-old entry is pruned on save
+    const second = await newsFor('BBB.NS', 'Bbb Ltd', { fresh: true });
+    assert.match(second.body.errors.join(), /NewsAPI: daily limit reached \(100\/100\)/);
+});

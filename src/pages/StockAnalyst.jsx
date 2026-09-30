@@ -440,8 +440,13 @@ const StockAnalyst = () => {
         const named = namedForNews(question);
         const list = [...named, ...(top ? topHoldings.filter((t) => !named.includes(t)) : [])];
         const results = await Promise.all(list.map(loadNews));
-        return list.flatMap((st, i) => (results[i].items || []).slice(0, named.includes(st) ? 6 : 4)
-            .map((n) => `${st.name}: ${day(n.published)} — ${n.title} (${n.source})`));
+        // Descriptions only for the stock asked about: ten holdings' worth would
+        // crowd an 8K context. Top holdings get titles.
+        return list.flatMap((st, i) => {
+            const asked = named.includes(st);
+            return (results[i].items || []).slice(0, asked ? 6 : 4)
+                .map((n) => `${st.name}: ${day(n.published)} — ${n.title} (${n.source})${asked && n.summary ? `. ${n.summary.slice(0, 200)}` : ''}`);
+        });
     }, [namedForNews, topHoldings]);
 
     const analyseNews = () => {

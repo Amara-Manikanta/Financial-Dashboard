@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import * as analystLLM from './analystLLM.js';
-import { newsFor } from './news.js';
+import { newsFor, configureNews, newsApiUsage } from './news.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
@@ -16,9 +16,16 @@ const BACKUP_DIR = path.join(__dirname, 'backups');
 // Overridable so an isolated instance can be pointed at a throwaway copy of the
 // database. The guard, the backups and json-server itself all read this one
 // value, so a test instance never touches the live file by accident.
+// Secrets that must never be committed (NEWSAPI_KEY) live in .env.local, which
+// .gitignore already covers. Values already set in the environment win.
+try { process.loadEnvFile(path.join(path.dirname(fileURLToPath(import.meta.url)), '.env.local')); } catch { /* no file: fine */ }
+
 const DB_FILE = process.env.DB_FILE
     ? path.resolve(process.env.DB_FILE)
     : path.join(__dirname, 'db.json');
+
+// NewsAPI's request log sits beside the database, so a sandbox counts separately.
+configureNews({ usageFile: path.join(path.dirname(DB_FILE), '.newsapi-usage.json') });
 
 // Collections that must always exist. Used to validate snapshots before they
 // are trusted, so we never keep a "backup" that is already missing data.
@@ -908,6 +915,10 @@ const handleAnalystLLMRoute = (req, res) => {
     if (req.method === 'OPTIONS') {
         res.writeHead(204, CORS_HEADERS);
         res.end();
+        return;
+    }
+    if (route === '/api/analyst/news/usage' && req.method === 'GET') {
+        sendJson(res, 200, newsApiUsage());
         return;
     }
     if (route === '/api/analyst/news' && req.method === 'GET') {
