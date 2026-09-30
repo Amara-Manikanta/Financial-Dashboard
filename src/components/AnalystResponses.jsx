@@ -47,7 +47,7 @@ const Entry = ({ entry: e, titles, onShowFinding }) => {
     return (
         <article className={`rounded-2xl border bg-white/[0.025] p-5 ${e.ok ? 'border-white/[0.07]' : 'border-rose-500/30'}`}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-black uppercase tracking-wider text-gray-400">
-                <span className="flex items-center gap-1.5 text-indigo-300"><Icon size={12} /> {e.kind === 'brief' ? 'Brief' : 'Answer'}</span>
+                <span className="flex items-center gap-1.5 text-indigo-300"><Icon size={12} /> {e.kind === 'brief' ? 'Brief' : e.kind === 'custom' ? `Your prompt${e.withDashboard ? ' · whole dashboard' : ''}` : 'Answer'}</span>
                 <span>{when(e.at)}</span>
                 {e.model && <span className="normal-case tracking-normal font-bold text-gray-500">{e.model}</span>}
                 {seconds(e.ms) && <span className="normal-case tracking-normal font-bold text-gray-500">{seconds(e.ms)}</span>}

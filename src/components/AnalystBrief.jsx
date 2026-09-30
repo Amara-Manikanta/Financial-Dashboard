@@ -13,7 +13,7 @@ import { API_URL } from '../context/FinanceContext';
  * loses nothing: every finding and figure comes from the analyst itself.
  */
 /** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
-const EXPECTED_RELAY = 4;
+const EXPECTED_RELAY = 5;
 
 const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {} }) => {
     const [status, setStatus] = useState({ state: 'checking' });

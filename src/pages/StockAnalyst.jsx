@@ -9,6 +9,12 @@ import BackButton from '../components/BackButton';
 import RefreshAllPricesButton from '../components/RefreshAllPricesButton';
 import AnalystBrief from '../components/AnalystBrief';
 import AnalystPrompt, { readPrompts, writePrompts } from '../components/AnalystPrompt';
+import AnalystCustom from '../components/AnalystCustom';
+import { fundFacts, dashboardFacts } from '../utils/portfolioFacts';
+import { spendingOverview } from '../utils/spendingAnalytics';
+import { allCardProfiles, cardTotals } from '../utils/creditCards';
+import { loanBalances } from '../utils/netWorthHistory';
+import { totalReceivable } from '../utils/lents';
 import AnalystResponses, { readResponses, writeResponses, MAX_RESPONSES } from '../components/AnalystResponses';
 import { ownHoldings } from '../utils/holdingOwner';
 import { analysePortfolio, llmFacts, symbolFor, RULES } from '../utils/stockAdvisor';
@@ -268,7 +274,10 @@ const ageText = (hours) => {
  * model on the right only rewords and orders it. Nothing on this page writes.
  */
 const StockAnalyst = () => {
-    const { savings, watchlist, isLoading } = useFinance();
+    const {
+        savings, watchlist, isLoading, calculateItemCurrentValue, calculateItemInvestedValue,
+        metals, assets, loans, creditCards, expenses, categoryKinds, lents, taxes,
+    } = useFinance();
     const [group, setGroup] = useState('all');
     const [dismissed, setDismissed] = useState(readDismissed);
     const [showDismissed, setShowDismissed] = useState(false);
@@ -327,6 +336,36 @@ const StockAnalyst = () => {
     }, [analysis, visible, group, showDismissed]);
 
     const facts = useMemo(() => llmFacts({ ...analysis, findings: visible }, { stocks }), [analysis, visible, stocks]);
+
+    // Your own prompt gets every holding, the mutual funds, and — only if you
+    // switch it on — the rest of the dashboard.
+    const customFacts = useMemo(() => {
+        const funds = fundFacts(ownHoldings((savings || []).filter((s) => s.type === 'mutual_fund')), {
+            valueOf: calculateItemCurrentValue, investedOf: calculateItemInvestedValue, stockValue: analysis.snapshot.value,
+        });
+        return { ...llmFacts({ ...analysis, findings: visible }, { stocks, maxHoldings: 60 }), funds: funds.lines, fundsSummary: funds.summary };
+    }, [analysis, visible, stocks, savings, calculateItemCurrentValue, calculateItemInvestedValue]);
+
+    const dashboard = useMemo(() => {
+        const isMarket = (s) => market && s.id === market.id;
+        let cards = null;
+        try { cards = cardTotals(allCardProfiles(creditCards || [], expenses || {})); } catch { /* left out */ }
+        return dashboardFacts({
+            savings: ownHoldings(savings),
+            // The stock line uses the analyst's own figures, which leave out family and paper holdings.
+            valueOf: (s) => (isMarket(s) ? analysis.snapshot.value : calculateItemCurrentValue(s)),
+            investedOf: (s) => (isMarket(s) ? analysis.snapshot.invested : calculateItemInvestedValue(s)),
+            metalsValue: [...(metals?.gold || []), ...(metals?.silver || [])].reduce((t, m) => t + (Number(m.currentValue) || 0), 0),
+            assetsValue: (assets || []).reduce((t, c) => t + (c.items || []).reduce((u, i) => u + (Number(i.currentValue) || 0), 0), 0),
+            loans: loans || [],
+            loanOutstanding: (l) => Object.values(loanBalances(l)).pop() || 0,
+            cards,
+            spending: spendingOverview(expenses || {}, categoryKinds || {}),
+            receivable: totalReceivable(lents || []),
+            taxes: taxes || [],
+        });
+    }, [savings, market, analysis, metals, assets, loans, creditCards, expenses, categoryKinds, lents, taxes, calculateItemCurrentValue, calculateItemInvestedValue]);
+
     const titles = useMemo(() => Object.fromEntries(analysis.findings.map((f) => [f.id, f.title])), [analysis]);
 
     const dismiss = (id) => setDismissed((prev) => {
@@ -415,6 +454,7 @@ const StockAnalyst = () => {
                                 {[
                                     { id: 'findings', label: 'Findings', count: visible.length },
                                     { id: 'responses', label: 'AI responses', count: responses.length },
+                                    { id: 'custom', label: 'Your prompt', count: '' },
                                     { id: 'prompt', label: 'Prompt', count: prompts.brief || prompts.ask ? 'edited' : '' },
                                 ].map((t) => (
                                     <button
@@ -430,7 +470,9 @@ const StockAnalyst = () => {
                                 ))}
                             </div>
 
-                            {view === 'prompt' ? (
+                            {view === 'custom' ? (
+                                <AnalystCustom facts={customFacts} dashboard={dashboard} onResponse={recordResponse} />
+                            ) : view === 'prompt' ? (
                                 <AnalystPrompt facts={facts} prompts={prompts} onChange={changePrompts} />
                             ) : view === 'responses' ? (
                                 <AnalystResponses

@@ -950,7 +950,7 @@ const handleAnalystLLMRoute = (req, res) => {
                 ? analystLLM.promptPreview(payload.kind, payload.facts, payload.question, payload.systemPrompt)
                 : route.endsWith('/brief')
                     ? await analystLLM.writeBrief(payload.facts, payload.systemPrompt)
-                    : await analystLLM.answerQuestion(payload.question, payload.facts, payload.systemPrompt);
+                    : await analystLLM.answerQuestion(payload.question, payload.facts, payload.systemPrompt, payload.kind);
             sendJson(res, status, out);
         } catch (err) {
             sendJson(res, 500, { error: `Analyst relay failed: ${err.message}` });
