@@ -38,7 +38,7 @@ const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
  * version it expects, because a server started before `git pull` keeps running
  * the old code until restarted — and looks exactly like a bug that was fixed.
  */
-export const RELAY_VERSION = 5;
+export const RELAY_VERSION = 6;
 
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
@@ -72,6 +72,7 @@ export const cleanFacts = (facts) => {
         fundsSummary: clip(facts.fundsSummary, 300),
         funds: (Array.isArray(facts.funds) ? facts.funds : []).slice(0, MAX_HOLDINGS).map((h) => clip(h, 200)),
         dashboard: clip(facts.dashboard, 4000),
+        focus: (Array.isArray(facts.focus) ? facts.focus : []).slice(0, 20).map((l) => clip(l, 400)),
     };
 };
 
@@ -270,6 +271,9 @@ const systemFor = (kind, override) => {
 const KINDS = ['brief', 'ask', 'custom'];
 const kindOf = (kind) => (KINDS.includes(kind) ? kind : 'brief');
 
+/** The worked figures for a stock the question names (averaging, break-even, weight, sale). */
+const focusText = (facts) => (facts.focus.length ? ['', 'Detail for the stock you asked about:', ...facts.focus.map((l) => `- ${l}`)] : []);
+
 /** Every stock and fund held, for a question written by the owner. */
 const customFacts = (facts) => [
     factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: MAX_HOLDINGS }),
@@ -277,6 +281,7 @@ const customFacts = (facts) => [
     `Mutual funds: ${facts.fundsSummary || 'not included.'}`,
     ...(facts.funds.length ? ['Funds, largest first:', ...facts.funds.map((f) => `- ${f}`)] : []),
     ...(facts.dashboard ? ['', 'The rest of my finances:', facts.dashboard] : []),
+    ...focusText(facts),
 ].join('\n');
 
 /**
@@ -294,7 +299,7 @@ export const promptMessages = (kind, facts, question = '', systemOverride = '') 
             ? `${factsText(facts, { maxFindings: 10 })}\n\nWrite the brief as JSON with "summary" and "priorities".`
             : kind === 'custom'
                 ? `My portfolio, computed by my finance app:\n${customFacts(facts)}\n\n${question || '(your question goes here)'}`
-                : `Facts:\n${factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: 30 })}\n\nQuestion: ${question || '(your question goes here)'}`,
+                : `Facts:\n${[factsText(facts, { withHoldings: true, maxFindings: 8, maxHoldings: 30 }), ...focusText(facts)].join('\n')}\n\nQuestion: ${question || '(your question goes here)'}`,
     },
 ];
 
@@ -400,7 +405,8 @@ const ASK_SYSTEM = [
     '- If the facts do not answer the question, say so plainly and say what is missing. Do not guess.',
     '- Do no arithmetic and estimate nothing. Copy any figure exactly as written.',
     '- You may explain a general idea, such as what the long-term capital gains exemption is.',
-    '- Do not tell the owner to buy or sell anything the findings do not already suggest.',
+    '- Do not tell the owner to buy or sell anything the findings do not already suggest, unless the facts include detail for the stock asked about: then weigh that detail (cost after buying more, weight against the limit, fundamentals, the sale alternative) and give a reasoned view, saying it is a judgement.',
+    '- Never predict prices.',
     '- Answer in under 150 words, in plain text. No markdown tables.',
 ].join('\n');
 

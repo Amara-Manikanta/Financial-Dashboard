@@ -662,6 +662,12 @@ income, spending or debt. `dashboardFacts` drops the demo loans FinanceContext
 shows when none are saved — never let demo rows reach an analysis. Answers there
 are the model's opinion and the page labels them so.
 
+A question that names a holding (by ticker or first word of its name,
+`holdingsNamedIn`) also carries `averagingCase` for it: average cost and
+break-even after buying 25/50/100% more, the weight against the 10% cap, the
+52-week range, the fundamentals score and what selling instead would realise.
+That is what lets the model answer "should I average?" without doing sums.
+
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in
 `localStorage` (`kubera.analyst.responses`, last 50), deliberately not in

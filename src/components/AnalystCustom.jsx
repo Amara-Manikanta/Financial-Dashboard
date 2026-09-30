@@ -28,7 +28,7 @@ const readSaved = () => {
     }
 };
 
-const AnalystCustom = ({ facts, dashboard, model, onResponse }) => {
+const AnalystCustom = ({ facts, dashboard, model, onResponse, focusFor }) => {
     const [saved, setSaved] = useState(readSaved);
     const [preview, setPreview] = useState(null);
     const [showFacts, setShowFacts] = useState(false);
@@ -42,7 +42,7 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse }) => {
         return next;
     });
 
-    const sent = { ...facts, dashboard: saved.withDashboard ? dashboard : '' };
+    const sent = { ...facts, dashboard: saved.withDashboard ? dashboard : '', focus: focusFor?.(saved.question) || [] };
 
     useEffect(() => {
         let live = true;
@@ -62,7 +62,7 @@ const AnalystCustom = ({ facts, dashboard, model, onResponse }) => {
         }, 300);
         return () => { live = false; clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [facts, dashboard, saved]);
+    }, [facts, dashboard, saved, focusFor]);
 
     const system = saved.system || preview?.defaultSystem || '';
     const user = preview?.messages?.find((m) => m.role === 'user')?.content || '';

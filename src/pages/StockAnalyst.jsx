@@ -17,7 +17,7 @@ import { loanBalances } from '../utils/netWorthHistory';
 import { totalReceivable } from '../utils/lents';
 import AnalystResponses, { readResponses, writeResponses, MAX_RESPONSES } from '../components/AnalystResponses';
 import { ownHoldings } from '../utils/holdingOwner';
-import { analysePortfolio, llmFacts, symbolFor, RULES } from '../utils/stockAdvisor';
+import { analysePortfolio, llmFacts, symbolFor, RULES, averagingCase, holdingsNamedIn } from '../utils/stockAdvisor';
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 
@@ -366,6 +366,11 @@ const StockAnalyst = () => {
         });
     }, [savings, market, analysis, metals, assets, loans, creditCards, expenses, categoryKinds, lents, taxes, calculateItemCurrentValue, calculateItemInvestedValue]);
 
+    // A question naming a holding gets its averaging figures worked out here.
+    const focusFor = useCallback((question) => holdingsNamedIn(question, stocks)
+        .flatMap((st) => averagingCase(st, { portfolioValue: analysis.snapshot.value, fundamentals: fundamentals.data, asOf: analysis.asOf }) || []),
+    [stocks, analysis, fundamentals.data]);
+
     const titles = useMemo(() => Object.fromEntries(analysis.findings.map((f) => [f.id, f.title])), [analysis]);
 
     const dismiss = (id) => setDismissed((prev) => {
@@ -471,7 +476,7 @@ const StockAnalyst = () => {
                             </div>
 
                             {view === 'custom' ? (
-                                <AnalystCustom facts={customFacts} dashboard={dashboard} onResponse={recordResponse} />
+                                <AnalystCustom facts={customFacts} dashboard={dashboard} onResponse={recordResponse} focusFor={focusFor} />
                             ) : view === 'prompt' ? (
                                 <AnalystPrompt facts={facts} prompts={prompts} onChange={changePrompts} />
                             ) : view === 'responses' ? (
@@ -547,7 +552,7 @@ const StockAnalyst = () => {
                         </div>
 
                         <aside className="space-y-4 xl:sticky xl:top-20">
-                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} prompts={prompts} />
+                            <AnalystBrief facts={facts} titles={titles} onShowFinding={showFinding} onResponse={recordResponse} prompts={prompts} focusFor={focusFor} />
 
                             <details className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-5 group">
                                 <summary className="text-[12px] font-black text-white cursor-pointer list-none flex items-center justify-between">

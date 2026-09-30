@@ -13,9 +13,9 @@ import { API_URL } from '../context/FinanceContext';
  * loses nothing: every finding and figure comes from the analyst itself.
  */
 /** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
-const EXPECTED_RELAY = 5;
+const EXPECTED_RELAY = 6;
 
-const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {} }) => {
+const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {}, focusFor }) => {
     const [status, setStatus] = useState({ state: 'checking' });
     const [brief, setBrief] = useState(null);
     const [briefBusy, setBriefBusy] = useState(false);
@@ -86,7 +86,7 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse, prompts = {} }
         setAskBusy(true);
         setAskError(null);
         try {
-            const reply = await post('ask', { question: q, facts, systemPrompt: prompts.ask || '' });
+            const reply = await post('ask', { question: q, facts: { ...facts, focus: focusFor?.(q) || [] }, systemPrompt: prompts.ask || '' });
             setAnswers((prev) => [{ q, ...reply }, ...prev].slice(0, 5));
             setQuestion('');
             onResponse?.({ kind: 'ask', ok: true, question: q, findingsSent: facts?.findings?.length || 0, ...reply });

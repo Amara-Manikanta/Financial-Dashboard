@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-    analysePortfolio, simulateSale, taxYear, llmFacts, indexMirror, symbolFor, RULES,
+    analysePortfolio, simulateSale, taxYear, llmFacts, indexMirror, symbolFor, RULES, averagingCase, holdingsNamedIn,
 } from './stockAdvisor.js';
 import { disposalsForStocks } from './capitalGains.js';
 
@@ -272,4 +272,22 @@ test('the facts for a local model are pre-formatted, bounded and carry every fin
     assert.match(facts.holdings[0], /^Big Co \(BIGCO\): 15\.0% of portfolio, ₹15,000/);
     assert.match(facts.portfolio, /₹1,00,000 across 18 holdings/);
     facts.findings.forEach((f, i) => assert.equal(f.id, a.findings[i].id));
+});
+
+test('averaging: new average, break-even, weight past the cap, and the sale alternative', () => {
+    const infy = stock('Infosys Limited', 80, [buy('2025-12-01', 10, 100)], { ticker: 'INFY' });
+    const lines = averagingCase(infy, { portfolioValue: 10000, asOf: AS_OF.toISOString() });
+    assert.match(lines[0], /10 shares at an average cost of ₹100; price now ₹80; −₹200 \(−20\.0%\)/);
+    assert.match(lines[1], /rise 25\.0% to get back to cost/);
+    // 10 more at ₹80: average ₹90, needs 12.5%; weight (800+800)/(10000+800) = 14.8%.
+    assert.match(lines[4], /buy 10 more \(₹800\): average cost becomes ₹90, needing a 12\.5% rise.*weight becomes 14\.8%, over the 10% single-company limit/);
+    assert.match(lines.at(-1), /Selling all instead would realise \+?−₹200 \(short-term \+?−₹200/);
+});
+
+test('a question names holdings by ticker or first word, not by generic words', () => {
+    const infy = stock('Infosys Limited', 80, [buy('2025-12-01', 10, 100)], { ticker: 'INFY' });
+    const hdfc = stock('HDFC Bank Limited', 80, [buy('2025-12-01', 10, 100)], { ticker: 'HDFCBANK' });
+    assert.deepEqual(holdingsNamedIn('is averaging infosys more good?', [infy, hdfc]).map((s) => s.ticker), ['INFY']);
+    assert.deepEqual(holdingsNamedIn('should I add to my bank stock', [infy, hdfc]), []);
+    assert.deepEqual(holdingsNamedIn('what about HDFC?', [infy, hdfc]).map((s) => s.ticker), ['HDFCBANK']);
 });
