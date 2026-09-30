@@ -894,6 +894,8 @@ const handleStockProfileRequest = async (req, res) => {
  *   GET  /api/analyst/llm/status   is a model running, and which
  *   POST /api/analyst/llm/brief    { facts }            -> ordered brief
  *   POST /api/analyst/llm/ask      { question, facts }  -> answer
+ *   POST /api/analyst/llm/prompt   { kind, facts }      -> exact messages that would be sent
+ *   (brief and ask also take `systemPrompt`, the instructions edited on the page)
  *
  * Read-only: nothing here touches the database. The facts arrive already
  * computed by the page, so this is a relay to the model, not a data path.
@@ -911,7 +913,7 @@ const handleAnalystLLMRoute = (req, res) => {
         analystLLM.llmStatus().then(({ status, body }) => sendJson(res, status, body));
         return;
     }
-    if (req.method !== 'POST' || !['/api/analyst/llm/brief', '/api/analyst/llm/ask'].includes(route)) {
+    if (req.method !== 'POST' || !['/api/analyst/llm/brief', '/api/analyst/llm/ask', '/api/analyst/llm/prompt'].includes(route)) {
         sendJson(res, 404, { error: `${req.method} ${route} is not an analyst route` });
         return;
     }
@@ -944,9 +946,11 @@ const handleAnalystLLMRoute = (req, res) => {
         // whole server process rather than this one request.
         const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
         try {
-            const { status, body: out } = route.endsWith('/brief')
-                ? await analystLLM.writeBrief(payload.facts)
-                : await analystLLM.answerQuestion(payload.question, payload.facts);
+            const { status, body: out } = route.endsWith('/prompt')
+                ? analystLLM.promptPreview(payload.kind, payload.facts, payload.question, payload.systemPrompt)
+                : route.endsWith('/brief')
+                    ? await analystLLM.writeBrief(payload.facts, payload.systemPrompt)
+                    : await analystLLM.answerQuestion(payload.question, payload.facts, payload.systemPrompt);
             sendJson(res, status, out);
         } catch (err) {
             sendJson(res, 500, { error: `Analyst relay failed: ${err.message}` });

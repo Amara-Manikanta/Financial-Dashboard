@@ -637,6 +637,13 @@ attempt is kept as `firstAttempt`.
 started before `git pull` keeps running the old relay and looks exactly like
 the bug that was just fixed. Bump both when the relay's behaviour changes.
 
+The **Prompt** tab shows exactly what the model is sent, from the same
+`promptMessages()` the relay uses, so the preview cannot drift from the real
+request. Only the instructions (system message) are editable, saved in
+`localStorage` (`kubera.analyst.prompts`) and sent as `systemPrompt`. The
+facts stay generated and read-only — that is what keeps the model from being
+handed figures it could have been told wrongly.
+
 A 3–4B model is enough because it is given nothing to work out: `llmFacts()`
 hands it findings with every figure already formatted, and it only orders and
 explains them. Keep it that way — a small model rewords "₹80,835" reliably and
