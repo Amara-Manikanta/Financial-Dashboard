@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { LineChart, Info, AlertTriangle, Target, Save } from 'lucide-react';
-import { compareToIndex } from '../utils/benchmark';
+import { compareToIndex, proceeds } from '../utils/benchmark';
 import { recomputeStockMetrics } from '../utils/investmentSync';
 import { sectorBreaches } from '../utils/sectorLimits';
 import { realisedOutliers } from '../utils/stockAnalytics';
@@ -58,18 +58,17 @@ const BenchmarkPanel = ({ stocks = [], sectorLimits = {}, onSaveLimits, formatCu
     }, [apiUrl]);
 
     const totals = useMemo(() => {
-        let value = 0, realised = 0, dividends = 0;
+        let value = 0, dividends = 0;
         (stocks || []).filter((s) => s && !s.isArchived).forEach((s) => {
             value += num(s.shares) * num(s.currentPrice);
             const m = recomputeStockMetrics(s.transactions || []);
-            realised += num(m.realised);
             dividends += Object.values(m.dividends || {}).reduce((a, b) => a + num(b), 0);
         });
-        return { value, realised, dividends };
+        return { value, saleProceeds: proceeds(stocks), dividends };
     }, [stocks]);
 
     const result = useMemo(() => (closes ? compareToIndex({
-        stocks, closes, portfolioValue: totals.value, realised: totals.realised, dividends: totals.dividends,
+        stocks, closes, portfolioValue: totals.value, saleProceeds: totals.saleProceeds, dividends: totals.dividends,
     }) : null), [stocks, closes, totals]);
 
     const outliers = useMemo(() => realisedOutliers(stocks), [stocks]);
@@ -120,7 +119,7 @@ const BenchmarkPanel = ({ stocks = [], sectorLimits = {}, onSaveLimits, formatCu
                                     {formatCurrency(result.portfolioTotal)}
                                 </p>
                                 <p style={{ margin: 0, fontSize: '0.66rem', color: '#71717a' }}>
-                                    {result.portfolioReturnPct >= 0 ? '+' : ''}{result.portfolioReturnPct.toFixed(1)}% · incl. realised and dividends
+                                    {result.portfolioReturnPct >= 0 ? '+' : ''}{result.portfolioReturnPct.toFixed(1)}% · incl. sale proceeds and dividends
                                 </p>
                             </div>
                             <div>

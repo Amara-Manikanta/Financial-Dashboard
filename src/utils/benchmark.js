@@ -32,6 +32,23 @@ export const deployments = (stocks = []) => (stocks || [])
     .sort((a, b) => a.date.localeCompare(b.date));
 
 /**
+ * Cash returned by sales — the gross amount, not the gain on it.
+ *
+ * `invested` counts every buy, including shares since sold, so the comparison
+ * only balances if the money those sales handed back is counted too. Booking
+ * the profit alone dropped the principal: ten shares bought at 100 and five
+ * sold at 150 left 1,000 on the deployed side and 250 on the returned side,
+ * reporting +5% on a position actually up 55%.
+ *
+ * A merger leg is excluded on purpose. No cash changes hands there — the cost
+ * moves to the acquirer, where its own buys already account for it.
+ */
+export const proceeds = (stocks = []) => (stocks || [])
+    .filter((s) => s && !s.isArchived)
+    .flatMap((s) => (s.transactions || []).filter((t) => t.type === 'sell' || t.type === 'buyback'))
+    .reduce((sum, t) => sum + (num(t.amount) || num(t.quantity ?? t.shares) * num(t.price)), 0);
+
+/**
  * The index close on or before a date.
  *
  * Markets close at weekends and holidays, so an exact-date lookup would drop
@@ -54,7 +71,7 @@ export const closeOnOrBefore = (closes, date, maxBackDays = 10) => {
  * the index history begins cannot be compared, and leaving it out of the
  * denominator while keeping it in the portfolio side would flatter the result.
  */
-export const compareToIndex = ({ stocks = [], closes = {}, portfolioValue = 0, realised = 0, dividends = 0 }) => {
+export const compareToIndex = ({ stocks = [], closes = {}, portfolioValue = 0, saleProceeds = 0, dividends = 0 }) => {
     const buys = deployments(stocks);
     if (buys.length === 0 || Object.keys(closes).length === 0) return null;
 
@@ -77,10 +94,11 @@ export const compareToIndex = ({ stocks = [], closes = {}, portfolioValue = 0, r
     });
 
     const indexValue = indexUnits * latestClose;
-    // What the portfolio is actually worth today, including money already taken
-    // out — a comparison that ignored realised gains and dividends would punish
-    // every position that was sold well.
-    const portfolioTotal = num(portfolioValue) + num(realised) + num(dividends);
+    // What every deployed rupee turned into: shares still held, cash handed back
+    // by sales, and dividends received. The index side buys units and never
+    // sells, so the portfolio side has to account for money that came back out
+    // — at its full amount, not merely the gain on it.
+    const portfolioTotal = num(portfolioValue) + num(saleProceeds) + num(dividends);
 
     return {
         comparableInvested: money(invested),

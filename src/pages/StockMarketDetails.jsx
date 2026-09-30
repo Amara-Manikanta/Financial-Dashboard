@@ -15,7 +15,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
 import BenchmarkPanel from '../components/BenchmarkPanel';
 import { StockHealthBadge } from '../components/StockFinancialsCard';
-import { ownerOf, ownerLabel, isOwnHolding, SELF_OWNER } from '../utils/holdingOwner';
+import { ownerOf, ownerLabel, isOwnHolding, ownHoldings, SELF_OWNER } from '../utils/holdingOwner';
 
 const ALL_OWNERS = 'all';
 
@@ -2094,14 +2094,19 @@ const StockMarketDetails = () => {
                             {/* Return, dividends, concentration and the gaps that
                                 distort them — all derived from the transaction
                                 history rather than the stored summary fields. */}
+                            {/* Yours only, as on Capital Gains, Returns, Dividend
+                                Income and every other portfolio page. A holding
+                                tracked for a family member is watched with live
+                                prices but is not your money, so it has no place
+                                in a concentration figure or a winners table. */}
                             <StockAnalyticsPanels
-                                stocks={stocks}
+                                stocks={ownHoldings(stocks)}
                                 formatCurrency={formatCurrency}
                             />
 
                             <div style={{ display: 'grid', gap: '1.5rem', marginTop: '1.5rem' }}>
                                 <BenchmarkPanel
-                                    stocks={stocks}
+                                    stocks={ownHoldings(stocks)}
                                     sectorLimits={market.sectorLimits || {}}
                                     onSaveLimits={(limits) => updateItem('savings', { ...market, sectorLimits: limits })}
                                     formatCurrency={formatCurrency}
