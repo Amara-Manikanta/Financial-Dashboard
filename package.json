@@ -23,9 +23,11 @@
     "package:dmg": "npm run build && electron-builder --mac"
   },
   "dependencies": {
+    "@mozilla/readability": "^0.6.0",
     "canvas-confetti": "^1.9.4",
     "date-fns": "^4.1.0",
     "json-server": "^1.0.0-beta.3",
+    "linkedom": "^0.18.13",
     "lucide-react": "^0.300.0",
     "node-llama-cpp": "^3.18.1",
     "pdfjs-dist": "^6.0.227",

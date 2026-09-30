@@ -6,7 +6,8 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { handleInsightsRequest, handleChatRequest, handleSummarizeRequest } from './insightsEngine.js';
 import * as analystLLM from './analystLLM.js';
-import { newsFor } from './news.js';
+import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest } from './news.js';
+import { configureArchive, archiveDigest, readArchive, fileFor } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
@@ -16,9 +17,20 @@ const BACKUP_DIR = path.join(__dirname, 'backups');
 // Overridable so an isolated instance can be pointed at a throwaway copy of the
 // database. The guard, the backups and json-server itself all read this one
 // value, so a test instance never touches the live file by accident.
+// Secrets that must never be committed (NEWSAPI_KEY) live in .env.local, which
+// .gitignore already covers. Values already set in the environment win.
+try { process.loadEnvFile(path.join(path.dirname(fileURLToPath(import.meta.url)), '.env.local')); } catch { /* no file: fine */ }
+
 const DB_FILE = process.env.DB_FILE
     ? path.resolve(process.env.DB_FILE)
     : path.join(__dirname, 'db.json');
+
+// NewsAPI's request log sits beside the database, so a sandbox counts separately.
+configureNews({ usageFile: path.join(path.dirname(DB_FILE), '.newsapi-usage.json') });
+// Stored headlines live under db/ (gitignored), beside whichever database is in use.
+configureArchive({ archiveDir: path.join(path.dirname(DB_FILE), 'db', 'news') });
+const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
+startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
 
 // Collections that must always exist. Used to validate snapshots before they
 // are trusted, so we never keep a "backup" that is already missing data.
@@ -910,9 +922,51 @@ const handleAnalystLLMRoute = (req, res) => {
         res.end();
         return;
     }
+    if (route === '/api/analyst/news/digest' && req.method === 'GET') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const symbol = params.get('symbol') || params.get('name');
+        if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
+        const name = params.get('name') || symbol;
+        // The newest unread stories are read and analysed first (a minute at most),
+        // then the digest is built from what is stored.
+        Promise.race([analyseLatest(symbol, name), new Promise((r) => setTimeout(r, 60000))])
+            .catch(() => {})
+            .then(() => sendJson(res, 200, archiveDigest(symbol, name)));
+        return;
+    }
+    if (route === '/api/analyst/news/stored' && req.method === 'GET') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const symbol = params.get('symbol');
+        if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
+        sendJson(res, 200, { symbol, ...readArchive(symbol) });
+        return;
+    }
+    if (route === '/api/analyst/news/csv' && req.method === 'GET') {
+        // The stock's news file itself, for opening in a spreadsheet.
+        const symbol = new URL(req.url, 'http://localhost').searchParams.get('symbol');
+        const file = fileFor(symbol);
+        if (!file || !fs.existsSync(file)) { sendJson(res, 404, { error: 'No news stored for this stock yet' }); return; }
+        res.writeHead(200, { ...CORS_HEADERS, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${path.basename(file)}"` });
+        fs.createReadStream(file).pipe(res);
+        return;
+    }
+    if (route === '/api/analyst/news/analyse' && req.method === 'POST') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const symbol = params.get('symbol');
+        if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
+        const count = Math.min(10, Math.max(1, Number(params.get('count')) || 5));
+        analyseLatest(symbol, params.get('name') || symbol, { count })
+            .then((done) => sendJson(res, 200, { ...done, archive: readArchive(symbol) }))
+            .catch((err) => sendJson(res, 500, { error: err.message }));
+        return;
+    }
+    if (route === '/api/analyst/news/usage' && req.method === 'GET') {
+        sendJson(res, 200, newsApiUsage());
+        return;
+    }
     if (route === '/api/analyst/news' && req.method === 'GET') {
         const params = new URL(req.url, 'http://localhost').searchParams;
-        newsFor(params.get('symbol'), params.get('name'))
+        newsFor(params.get('symbol'), params.get('name'), { fresh: params.get('fresh') === '1' })
             .then(({ status, body }) => sendJson(res, status, body))
             .catch((err) => sendJson(res, 502, { error: err.message }));
         return;

@@ -679,6 +679,58 @@ the News tab lists them. The model is told headlines are unverified and unread.
 Each source can fail on its own and says so in `errors` — a blocked source
 must never look like "no news".
 
+`&fresh=1` skips the server cache; the News tab's **Refresh news** and
+per-stock refresh use it, and the client cache is replaced at the same time,
+so the next question uses the fresh headlines. Watchlist names count for news
+(not for averaging figures), and the Questions box says what a question will
+carry before it is sent.
+
+**NewsAPI** is a third source when `NEWSAPI_KEY` is set. It carries article
+descriptions, which are sent only for the stock a question names (ten
+holdings' worth would crowd an 8K context). The key lives in `.env.local`
+(gitignored; `server.js` loads it with `process.loadEnvFile`) — **never commit
+it**. The free plan allows 100 requests in 24 hours: `news.js` keeps a rolling
+log in `.newsapi-usage.json` beside the database (so restarts do not reset it
+and a sandbox counts separately), skips NewsAPI once `NEWSAPI_DAILY_LIMIT`
+(default 100) is reached, and the News tab shows the count. Check and record
+happen in the same tick, so concurrent refreshes cannot overshoot.
+
+**The news archive (`newsArchive.js`)** is one **CSV file per stock** in
+`db/news/<SYMBOL>.csv` beside the database (gitignored, never in db.json) —
+openable in a spreadsheet, a file per stock. One row per **story**, not per
+headline: headlines from all three sources that share at least two
+significant words and half of the shorter title within three days are one
+story listing every outlet (`consolidate`; the company's own name is excluded
+from the comparison or everything would merge). Rows keep a year, 400 max.
+
+Columns: `id, date` (published), `first_seen` (collected), `company, theme,
+title, outlets, sources, impact, key_points, why_it_matters, analysed_by,
+analysed_at, analysis_basis, status, summary, links`. Cells starting with
+`= + - @` get a leading apostrophe on write (spreadsheet formula injection —
+headlines are text strangers wrote) and lose it on read.
+
+**Articles are analysed, not stored.** `analyseLatest` downloads an article
+(`linkedom` + `@mozilla/readability`, the Reader View engine — the Node
+equivalent of LangChain's NewsURLLoader), has the local model return key
+points, an impact label and why it matters (`analyseArticle`, JSON schema,
+retry without it), stores those and drops the text. With no readable page the
+publisher's description is used (`analysis_basis: description`); with
+neither, `status` records why so it is not retried. A model failure is retried
+once per server run. Google News links are redirects a server cannot follow.
+Model calls run one at a time.
+
+`startNewsCollector` fetches all your own held stocks every
+`NEWS_COLLECT_HOURS` (default 6, `0` off), reading db.json but never writing
+it, leaves 40 NewsAPI requests for questions, and analyses up to three new
+stories per stock when LM Studio is running. A question naming a stock sends
+`archiveDigest`: today's date, each story's date with "N days ago" (and when
+it was collected, if later), counts by theme and impact for 7/30/90 days, the
+latest stories with their stored key points, and older ones by theme —
+everything counted and dated here so the model never works it out.
+
+Each stock's page has a **News & analysis** card (`StockNewsCard`): fetch
+latest, analyse up to five unread, download the CSV.
+
 Every reply and every failure is logged on the page's **AI responses** tab,
 raw JSON included, so runs and models can be compared. The log is kept in
 `localStorage` (`kubera.analyst.responses`, last 50), deliberately not in
@@ -702,7 +754,7 @@ Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js` | `npm run server` |
+| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |
