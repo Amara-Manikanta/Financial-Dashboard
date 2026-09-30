@@ -326,6 +326,30 @@ const createWindow = () => {
     mainWindow.on('closed', () => { mainWindow = null; });
 };
 
+/**
+ * One instance at a time.
+ *
+ * Without this a second launch raced the first for the UI and API ports, lost,
+ * and rejected out of startStaticServer with an unhandled EADDRINUSE. Node
+ * exits 0 on an unhandled rejection, so launchd read a failed start as a
+ * deliberate quit and — correctly, given KeepAlive only relaunches on failure —
+ * left nothing running at all.
+ *
+ * Electron's own lock is the fix: the second launch is refused before it
+ * touches a port, and the window already open comes forward instead.
+ */
+if (!app.requestSingleInstanceLock()) {
+    console.log('[electron] another instance already owns this app — focusing it');
+    app.quit();
+} else {
+    app.on('second-instance', () => {
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}
+
 app.whenReady().then(async () => {
     // Locate the installation before anything tries to read from it. Asking is
     // better than a blank window: a moved or renamed project folder is the one
@@ -360,7 +384,20 @@ app.whenReady().then(async () => {
         return;
     }
 
-    await startStaticServer();
+    try {
+        await startStaticServer();
+    } catch (err) {
+        // Exit non-zero on purpose. Exiting 0 here is indistinguishable from
+        // being quit, and a supervisor that only relaunches on failure would
+        // leave the app down.
+        console.error(`[electron] could not serve the UI on ${UI_PORT}: ${err.message}`);
+        dialog.showErrorBox(
+            'Kubera could not start',
+            `The interface could not be served on port ${UI_PORT}.\n\n${err.message}\n\nIf another copy is running, quit it and try again.`,
+        );
+        app.exit(1);
+        return;
+    }
     createWindow();
 
     app.on('activate', () => {
