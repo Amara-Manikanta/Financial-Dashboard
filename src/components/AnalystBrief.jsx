@@ -12,6 +12,9 @@ import { API_URL } from '../context/FinanceContext';
  * words, or answers a question from them. If no model is running, the page
  * loses nothing: every finding and figure comes from the analyst itself.
  */
+/** The relay behaviour this page was written against (analystLLM.js RELAY_VERSION). */
+const EXPECTED_RELAY = 3;
+
 const AnalystBrief = ({ facts, titles, onShowFinding, onResponse }) => {
     const [status, setStatus] = useState({ state: 'checking' });
     const [brief, setBrief] = useState(null);
@@ -135,6 +138,11 @@ const AnalystBrief = ({ facts, titles, onShowFinding, onResponse }) => {
 
             {status.state === 'ready' && (
                 <div className="mt-4 space-y-4">
+                    {(status.relayVersion || 0) < EXPECTED_RELAY && (
+                        <p className="text-[11px] text-amber-300 leading-relaxed">
+                            The API server is running older code than this page. Restart <code>npm run server</code> so the latest fixes take effect.
+                        </p>
+                    )}
                     <div className="flex items-center gap-2 text-[11px] text-gray-400">
                         <Cpu size={12} className="text-emerald-400" />
                         <span className="truncate" title={status.baseUrl}>{status.model}</span>

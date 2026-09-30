@@ -33,6 +33,13 @@ const TIMEOUT_MS = Number(process.env.LOCAL_LLM_TIMEOUT_MS) || 180000;
  */
 const MAX_TOKENS = Number(process.env.LOCAL_LLM_MAX_TOKENS) || 2000;
 
+/**
+ * Bumped whenever the relay's behaviour changes. The page compares it with the
+ * version it expects, because a server started before `git pull` keeps running
+ * the old code until restarted — and looks exactly like a bug that was fixed.
+ */
+export const RELAY_VERSION = 3;
+
 const MAX_FINDINGS = 12;
 const MAX_HOLDINGS = 60;
 const MAX_TEXT = 1500;
@@ -231,7 +238,7 @@ export const llmStatus = async () => {
         // A configured model wins even when unlisted: LM Studio loads models
         // on demand by name.
         const model = MODEL || models[0];
-        return { status: 200, body: { available: true, baseUrl: BASE_URL, model, models: models.slice(0, 20) } };
+        return { status: 200, body: { available: true, baseUrl: BASE_URL, model, models: models.slice(0, 20), relayVersion: RELAY_VERSION } };
     } catch (err) {
         const why = err?.name === 'AbortError' ? 'no answer' : err?.message || String(err);
         return { status: 200, body: { available: false, baseUrl: BASE_URL, reason: `Nothing answered at ${BASE_URL} (${why}).` } };
@@ -301,7 +308,27 @@ export const writeBrief = async (rawFacts) => {
         }
     }
 
-    if (!reply.content) return emptyReply(reply);
+    // Constrained decoding can itself be the failure: some models, under a JSON
+    // grammar, emit whitespace until the budget runs out (google/gemma-4-12b-qat
+    // ran 90s and returned nothing). If the constrained reply is empty or not a
+    // brief, ask once more without the grammar — the prompt still asks for
+    // JSON, and ids are still filtered on the way back.
+    let firstAttempt = null;
+    if (constrained && (!reply.content || !parseBrief(reply.content, ids))) {
+        firstAttempt = reply.raw;
+        try {
+            reply = await chat({ model: status.model, messages, maxTokens: MAX_TOKENS });
+            constrained = false;
+        } catch (retryErr) {
+            return failure(retryErr);
+        }
+    }
+
+    if (!reply.content) {
+        const empty = emptyReply(reply);
+        if (firstAttempt) empty.body.firstAttempt = firstAttempt;
+        return empty;
+    }
     const parsed = parseBrief(reply.content, ids);
     return {
         status: 200,
@@ -315,6 +342,7 @@ export const writeBrief = async (rawFacts) => {
             model: status.model,
             ms: Date.now() - started,
             raw: reply.raw,
+            ...(firstAttempt ? { firstAttempt } : {}),
         },
     };
 };
