@@ -8,6 +8,7 @@ import { formatDate } from '../utils/dateUtils';
 import PFTransactionModal from '../components/PFTransactionModal';
 import BackButton from '../components/BackButton';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const PFDetails = () => {
     const { id } = useParams();
@@ -661,7 +662,7 @@ const PFDetails = () => {
                                         <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
                                         <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
                                         <Tooltip 
-                                            contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                                            {...tooltipTheme}
                                             itemStyle={{ fontWeight: 'bold' }}
                                             formatter={(value) => formatCurrency(value)}
                                             cursor={{fill: 'rgba(255,255,255,0.02)'}}
@@ -690,7 +691,7 @@ const PFDetails = () => {
                                         <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
                                         <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(1) + 'k' : val}`} />
                                         <Tooltip 
-                                            contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                                            {...tooltipTheme}
                                             itemStyle={{ color: '#fbbf24', fontWeight: 'bold' }}
                                             formatter={(value) => formatCurrency(value)}
                                             cursor={{fill: 'rgba(255,255,255,0.02)'}}
@@ -873,7 +874,7 @@ const PFDetails = () => {
                                 <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} />
                                 <YAxis stroke="rgba(255,255,255,0.4)" fontSize={10} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} />
                                 <Tooltip 
-                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', borderRadius: '12px' }}
+                                    {...tooltipTheme}
                                     itemStyle={{ fontWeight: 'bold' }}
                                     formatter={(value) => formatCurrency(value)}
                                     cursor={{ stroke: 'rgba(255,255,255,0.1)', strokeDasharray: '4 4' }}

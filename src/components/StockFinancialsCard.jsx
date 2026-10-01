@@ -3,6 +3,7 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, Cartes
 import { AlertTriangle, Shield, Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
 import { GLOSSARY, CHECK_HELP, debtRatio, isMissingDebtData } from '../utils/financialGlossary';
+import { tooltipTheme } from '../utils/chartTheme';
 
 // Client-side cache to avoid refetching across pages/components within the session
 const clientCache = new Map();
@@ -323,13 +324,7 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
                                 />
                                 <Tooltip
                                     cursor={{ fill: 'rgba(255, 255, 255, 0.05)', radius: 4 }}
-                                    contentStyle={{
-                                        backgroundColor: '#18181b',
-                                        border: '1px solid rgba(255,255,255,0.12)',
-                                        borderRadius: '0.6rem',
-                                        fontSize: '11px',
-                                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
-                                    }}
+                                    {...tooltipTheme}
                                     labelStyle={{ color: '#a1a1aa', fontWeight: 800, marginBottom: '0.2rem' }}
                                     // Recharts colours a tooltip row from its
                                     // Bar's `fill`, and these Bars carry none —

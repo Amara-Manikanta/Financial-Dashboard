@@ -10,6 +10,7 @@ import NPSTransactionModal from '../components/NPSTransactionModal';
 import BackButton from '../components/BackButton';
 import { schemeName, shortSchemeName } from '../utils/nps';
 import { PieChart as RePieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip, Legend } from 'recharts';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const getSchemeCalculations = (h) => {
     let units = 0;
@@ -408,7 +409,7 @@ const NPSDetails = () => {
                             </Pie>
                             <RechartsTooltip 
                                 formatter={(value) => formatCurrency(value)} 
-                                contentStyle={{ backgroundColor: '#11111d', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: '#fff' }} 
+                                {...tooltipTheme} 
                                 itemStyle={{ color: '#fff', fontSize: '11px', fontWeight: 'bold' }}
                             />
                             <Legend wrapperStyle={{ fontSize: '9px', fontWeight: 'bold', color: '#a1a1aa' }} />

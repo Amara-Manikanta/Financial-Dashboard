@@ -11,6 +11,7 @@ import { recomputeFundUnits } from '../utils/investmentSync';
 import FundCompositionModal from '../components/FundCompositionModal';
 import FundCompositionPanel from '../components/FundCompositionPanel';
 import FundUnitBreakdown from '../components/FundUnitBreakdown';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const MutualFundDetails = () => {
     const { id } = useParams();
@@ -730,7 +731,7 @@ const MutualFundDetails = () => {
                                     // reader loses the column they are hovering to read.
                                     position={{ y: 0 }}
                                     allowEscapeViewBox={{ x: false, y: true }}
-                                    contentStyle={{ background: 'rgba(24,24,27,0.97)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '0.6rem', fontSize: '11px', padding: '6px 10px' }}
+                                    {...tooltipTheme}
                                     separator=" "
                                     formatter={(value, _n, item) => [
                                         `${formatCurrency(value)} · ${item.payload.units.toFixed(3)} units · ${item.payload.count} buy${item.payload.count > 1 ? 's' : ''}`,
@@ -794,7 +795,7 @@ const MutualFundDetails = () => {
                                 <XAxis dataKey="year" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
                                 <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 || val <= -1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                    {...tooltipTheme}
                                     itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                                     formatter={(value) => [formatCurrency(value), 'Net Profit / Loss']}
                                     labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}

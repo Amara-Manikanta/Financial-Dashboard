@@ -16,6 +16,7 @@ import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
 import BenchmarkPanel from '../components/BenchmarkPanel';
 import { StockHealthBadge } from '../components/StockFinancialsCard';
 import { ownerOf, ownerLabel, isOwnHolding, ownHoldings, SELF_OWNER } from '../utils/holdingOwner';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const ALL_OWNERS = 'all';
 
@@ -2071,7 +2072,7 @@ const StockMarketDetails = () => {
                                                             `₹${value.toLocaleString('en-IN')}`, 
                                                             props.payload.ticker || props.payload.name
                                                         ]}
-                                                        contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
+                                                        {...tooltipTheme}
                                                         itemStyle={{ color: '#fff' }}
                                                     />
                                                 </Treemap>

@@ -8,6 +8,7 @@ import { formatDate } from '../utils/dateUtils';
 import RecurringDepositModal from '../components/RecurringDepositModal';
 import BackButton from '../components/BackButton';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Legend } from 'recharts';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const calculateProgress = (startDateStr, endDateStr) => {
     if (!startDateStr || !endDateStr) return 0;
@@ -264,7 +265,7 @@ const RecurringDepositDetails = () => {
                                 <XAxis dataKey="name" stroke="rgba(255,255,255,0.4)" fontSize={12} tickLine={false} axisLine={false} tick={{ fill: '#e4e4e7' }} />
                                 <YAxis stroke="rgba(255,255,255,0.4)" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(val) => `₹${val >= 1000 ? (val/1000).toFixed(0) + 'k' : val}`} tick={{ fill: '#a1a1aa' }} />
                                 <Tooltip
-                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}
+                                    {...tooltipTheme}
                                     itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                                     formatter={(value, name) => [formatCurrency(value), name === 'paid' ? 'Current Paid' : 'Maturity Target']}
                                     labelStyle={{ color: '#ffffff', fontWeight: 'bold', marginBottom: '4px' }}

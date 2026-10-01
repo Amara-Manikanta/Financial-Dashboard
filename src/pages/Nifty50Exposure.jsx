@@ -38,6 +38,7 @@ import {
   Pie
 } from 'recharts';
 import { ownHoldings } from '../utils/holdingOwner';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const Nifty50Exposure = () => {
   const navigate = useNavigate();
@@ -582,7 +583,7 @@ const Nifty50Exposure = () => {
                   <YAxis type="category" dataKey="shortName" stroke="#71717a" fontSize={10} tickLine={false} axisLine={false} interval={0} width={110} />
                   <RechartsTooltip 
                     formatter={(val, name) => [formatCurrency(val), name]} 
-                    contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', color: '#ffffff' }} 
+                    {...tooltipTheme} 
                     itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                     labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                   />
@@ -630,7 +631,7 @@ const Nifty50Exposure = () => {
                     </Pie>
                     <RechartsTooltip 
                       formatter={(val, name) => [formatCurrency(val), name]} 
-                      contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px', color: '#ffffff' }} 
+                      {...tooltipTheme} 
                       itemStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                       labelStyle={{ color: '#ffffff', fontWeight: 'bold' }}
                     />

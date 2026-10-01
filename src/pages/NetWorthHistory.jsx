@@ -6,6 +6,7 @@ import {
 import { LineChart as LineIcon, Info, CalendarRange } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import { netWorthSeries, contributionByYear } from '../utils/netWorthHistory';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 const compact = (n) => {
@@ -161,12 +162,7 @@ const NetWorthHistory = () => {
                                 width={60}
                             />
                             <Tooltip
-                                contentStyle={{
-                                    backgroundColor: 'rgba(24,24,27,0.96)',
-                                    border: '1px solid rgba(255,255,255,0.1)',
-                                    borderRadius: '0.75rem',
-                                    fontSize: '12px',
-                                }}
+                                {...tooltipTheme}
                                 formatter={(value, name) => [inr(value), name]}
                             />
                             <Legend wrapperStyle={{ fontSize: '11px' }} />

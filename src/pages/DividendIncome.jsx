@@ -12,6 +12,7 @@ import {
 } from '../utils/dividendAnalytics';
 import { dividendTaxSummary } from '../utils/dividendTax';
 import { ownHoldings } from '../utils/holdingOwner';
+import { tooltipTheme } from '../utils/chartTheme';
 
 /**
  * One rectangle per payer, sized by what it has paid.
@@ -296,7 +297,7 @@ const DividendIncome = () => {
                                 tickFormatter={(v) => `₹${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
                             <Tooltip
                                 formatter={(v) => formatCurrency(v)}
-                                contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px' }}
+                                {...tooltipTheme}
                                 cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                             <Bar dataKey="amount" radius={[5, 5, 0, 0]} barSize={44}>
                                 {years.map((y) => (
@@ -342,7 +343,7 @@ const DividendIncome = () => {
                                 tickFormatter={(v) => `₹${v >= 1000 ? `${(v / 1000).toFixed(1)}k` : v}`} />
                             <Tooltip
                                 formatter={(v, n, p) => [formatCurrency(v), `${p.payload.payments} payment${p.payload.payments === 1 ? '' : 's'}`]}
-                                contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.15)', borderRadius: '12px' }}
+                                {...tooltipTheme}
                                 cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
                             <Bar dataKey="amount" fill="#2dd4bf" radius={[4, 4, 0, 0]} barSize={26} />
                         </BarChart>
@@ -458,7 +459,7 @@ const DividendIncome = () => {
                                         `₹${Number(value).toLocaleString('en-IN')}`,
                                         props.payload.ticker || props.payload.name,
                                     ]}
-                                    contentStyle={{ backgroundColor: '#121225', borderColor: 'rgba(255,255,255,0.08)', color: '#fff', borderRadius: '12px' }}
+                                    {...tooltipTheme}
                                     itemStyle={{ color: '#fff' }}
                                 />
                             </Treemap>

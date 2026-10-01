@@ -7,6 +7,7 @@ import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import InvestmentsItemModal from '../components/InvestmentsItemModal';
 import ConfirmModal from '../components/ConfirmModal';
 import RefreshAllPricesButton from '../components/RefreshAllPricesButton';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const Investments = () => {
     const { savings, formatCurrency, calculateItemCurrentValue, calculateItemInvestedValue, addItem, updateItem, deleteItem } = useFinance();
@@ -441,7 +442,7 @@ const Investments = () => {
                                 </Pie>
                                 <Tooltip 
                                     formatter={(value) => formatCurrency(value)} 
-                                    contentStyle={{ backgroundColor: '#18181b', borderColor: 'rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }}
+                                    {...tooltipTheme}
                                     itemStyle={{ color: '#fff', fontWeight: 'bold' }}
                                 />
                             </PieChart>

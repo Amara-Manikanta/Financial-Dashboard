@@ -7,6 +7,7 @@ import TransactionModal from '../components/TransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
 import { countsAsSpending } from '../utils/payrollDeductions';
 import { expenseBuckets } from '../utils/transactionKind';
+import { tooltipTheme } from '../utils/chartTheme';
 
 const COLORS = ['#FF8C00', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B'];
 
@@ -1145,7 +1146,7 @@ const ExpenseDetails = () => {
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} domain={[0, 'auto']} />
                                         <Tooltip
                                             cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                                            contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: 'white' }}
+                                            {...tooltipTheme}
                                         />
                                         <Bar dataKey="amount" fill="#eab308" radius={[4, 4, 0, 0]} barSize={16} />
                                     </BarChart>
@@ -1154,7 +1155,7 @@ const ExpenseDetails = () => {
                                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                                         <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} dy={10} />
                                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => v >= 1000 ? `₹${v / 1000}k` : `₹${v}`} domain={[0, 'auto']} />
-                                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', color: 'white' }} />
+                                        <Tooltip {...tooltipTheme} />
                                         <Line type="monotone" dataKey="cumulative" stroke="#eab308" strokeWidth={3} dot={false} activeDot={{ r: 4, fill: '#eab308' }} />
                                     </LineChart>
                                 )}
