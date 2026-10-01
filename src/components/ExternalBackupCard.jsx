@@ -101,6 +101,15 @@ const ExternalBackupCard = () => {
                     </span>
                 )}
 
+                {ready && status.unfinished > 0 && (
+                    <div className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-400/90">
+                        <AlertTriangle size={12} />
+                        {status.unfinished} earlier {status.unfinished === 1 ? 'copy' : 'copies'} did not finish — likely
+                        the drive was unplugged. {status.unfinished === 1 ? 'It is' : 'They are'} not counted as a
+                        backup and will be cleared on the next run.
+                    </div>
+                )}
+
                 {ready && status.backups?.length > 0 && (
                     <div className="mt-2 text-[11px] text-gray-600 font-mono">
                         Kept: {status.backups.map((b) => b.name.replace('kubera-', '')).join(' · ')}

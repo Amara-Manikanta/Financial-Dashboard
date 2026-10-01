@@ -40,6 +40,12 @@ export const driveReady = () => {
     return vol ? fs.existsSync(vol) : fs.existsSync(path.dirname(ROOT));
 };
 
+/** Copies that died before the rename. Ours by name, never a real backup. */
+const unfinished = () => {
+    if (!fs.existsSync(ROOT)) return [];
+    return fs.readdirSync(ROOT).filter((n) => n.startsWith(PREFIX) && n.endsWith('.partial'));
+};
+
 const existing = () => {
     if (!fs.existsSync(ROOT)) return [];
     return fs.readdirSync(ROOT)
@@ -76,6 +82,7 @@ export const backupStatus = () => {
         lastAgeDays: last ? ageDays(last) : null,
         due: !last || (ageDays(last) ?? 999) >= MIN_AGE_DAYS,
         minAgeDays: MIN_AGE_DAYS,
+        unfinished: unfinished().length,
     };
 };
 
@@ -108,6 +115,15 @@ export const runExternalBackup = ({ dbFile, force = false } = {}) => {
     }
 
     fs.mkdirSync(ROOT, { recursive: true });
+
+    // Clear anything a previous attempt left behind. A copy interrupted by the
+    // drive being unplugged never reaches the rename, so its .partial sits
+    // there taking up space and is never pruned — the retention sweep only
+    // looks at finished copies. Only our own prefix, only inside our folder.
+    const sweptPartials = unfinished();
+    for (const stale of sweptPartials) {
+        fs.rmSync(path.join(ROOT, stale), { recursive: true, force: true });
+    }
 
     // The stamp resolves to the second, so two runs inside one second would
     // collide and rename onto a directory that already has files in it. Step
@@ -159,6 +175,7 @@ export const runExternalBackup = ({ dbFile, force = false } = {}) => {
         totalBytes: copied.reduce((s, c) => s + c.bytes, 0),
         kept: existing(),
         removed,
+        sweptPartials,
         previousAgeDays: age,
     };
 };
