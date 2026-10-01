@@ -6,6 +6,7 @@ import {
     Stethoscope, AlertTriangle, AlertCircle, Info, CheckCircle2, ChevronDown, ArrowRight,
 } from 'lucide-react';
 import { DataHealthIcon } from '../utils/customIcons';
+import ExternalBackupCard from '../components/ExternalBackupCard';
 
 
 const SEVERITY = {
@@ -164,6 +165,8 @@ const DataHealth = () => {
                     <p className="text-[11px] text-gray-500 mt-2">No problem detected</p>
                 </div>
             </div>
+
+            <ExternalBackupCard />
 
             <div className="space-y-3">
                 {checks.map((c) => (

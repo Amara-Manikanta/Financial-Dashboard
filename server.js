@@ -10,6 +10,7 @@ import { configureArchive, archiveDigest, readArchive, fileFor } from './newsArc
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
+import { runExternalBackup, backupStatus } from './externalBackup.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -1024,6 +1025,24 @@ const handleAnalystLLMRoute = (req, res) => {
 const proxy = http.createServer((req, res) => {
     // Image routes are handled here, before the json-server proxy, so uploads
     // are never mistaken for a database mutation.
+    // Status is a read; the copy itself is a POST, so a refresh can never
+    // trigger one by accident.
+    if (req.url === '/api/backup/external' && req.method === 'GET') {
+        return sendJson(res, 200, backupStatus());
+    }
+    if (req.url.startsWith('/api/backup/external') && req.method === 'POST') {
+        const force = /[?&]force=1/.test(req.url);
+        try {
+            const result = runExternalBackup({ dbFile: DB_FILE, force });
+            // A refusal is not an error: "the last one is 3 days old" is the
+            // policy working, and the UI needs to tell the two apart.
+            return sendJson(res, result.ok ? 200 : (result.skipped ? 409 : 503), result);
+        } catch (err) {
+            console.error(`[Backup] external backup failed: ${err.message}`);
+            return sendJson(res, 500, { ok: false, reason: err.message });
+        }
+    }
+
     if (req.url === '/api/upload' && req.method === 'POST') {
         return handleImageUpload(req, res);
     }
