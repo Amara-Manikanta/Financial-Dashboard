@@ -8,7 +8,7 @@ import {
     TrendingUp, TrendingDown, AlertTriangle, Info, Shuffle, Target, Zap, ArrowRight,
 } from 'lucide-react';
 import BackButton from '../components/BackButton';
-import { tooltipTheme } from '../utils/chartTheme';
+import { tooltipTheme, crosshairCursor } from '../utils/chartTheme';
 import {
     spendingOverview, categoryMovers, categoryTrends, spendingOutliers, concentration,
 } from '../utils/spendingAnalytics';
@@ -328,7 +328,7 @@ const Analytics = () => {
                             <XAxis dataKey="month" tick={{ fill: '#71717a', fontSize: 10 }} stroke="rgba(255,255,255,0.08)" minTickGap={20} />
                             <YAxis tickFormatter={compact} tick={{ fill: '#71717a', fontSize: 10 }} stroke="rgba(255,255,255,0.08)" width={58} />
                             <Tooltip
-                                {...tooltipTheme}
+                                {...tooltipTheme} cursor={crosshairCursor}
                                 formatter={(v, n) => [formatCurrency(v), n]}
                             />
                             <Legend wrapperStyle={{ fontSize: '11px' }} />

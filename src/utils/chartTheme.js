@@ -36,8 +36,25 @@ export const tooltipLabelStyle = {
     marginBottom: '4px',
 };
 
+/**
+ * No hover cursor by default.
+ *
+ * On a bar chart recharts paints the hovered band full-height across the plot,
+ * and on a dark panel that grey slab reads as a bar of its own — on one chart
+ * it made the smallest purchase look like the tallest column. The tooltip
+ * already names the row it describes, so the band was adding nothing.
+ *
+ * Harmless on pie and treemap, which have no cursor. A line or area chart is
+ * the exception: there the cursor is a crosshair rather than a slab, and it is
+ * what ties the pointer to a position on a continuous series — those pass
+ * `crosshairCursor` after the spread.
+ */
 export const tooltipTheme = {
     contentStyle: tooltipContentStyle,
     itemStyle: tooltipItemStyle,
     labelStyle: tooltipLabelStyle,
+    cursor: false,
 };
+
+/** For line and area charts: a thin vertical guide, not a filled band. */
+export const crosshairCursor = { stroke: 'rgba(255,255,255,0.25)', strokeWidth: 1 };

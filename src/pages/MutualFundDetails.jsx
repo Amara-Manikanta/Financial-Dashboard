@@ -707,11 +707,24 @@ const MutualFundDetails = () => {
                         <BarChart3 size={18} className="text-emerald-400" />
                         <h3 className="text-base font-black tracking-tight m-0">Invested by NAV level</h3>
                     </div>
-                    <p className="text-xs text-gray-500 mb-4">
-                        {navDistribution.length > 0
-                            ? `Green is bought below your ${avgNav.toFixed(2)} average, amber above it.`
-                            : 'Needs at least two purchases at different NAVs.'}
-                    </p>
+                    {navDistribution.length > 0 ? (
+                        /* A key, not just a sentence. The split was carried by colour
+                           alone, which says nothing to a reader who cannot separate
+                           green from amber — the words now carry it and the swatch
+                           reinforces it. */
+                        <div className="flex items-center gap-4 mb-4 flex-wrap text-xs text-gray-500">
+                            <span className="flex items-center gap-1.5">
+                                <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#34d399' }} />
+                                Bought below your {avgNav.toFixed(2)} average
+                            </span>
+                            <span className="flex items-center gap-1.5">
+                                <span className="inline-block w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: '#fbbf24' }} />
+                                Bought above it
+                            </span>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-gray-500 mb-4">Needs at least two purchases at different NAVs.</p>
+                    )}
 
                     {navDistribution.length > 0 ? (
                         <ResponsiveContainer width="100%" height={240}>

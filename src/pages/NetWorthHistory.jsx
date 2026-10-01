@@ -6,7 +6,7 @@ import {
 import { LineChart as LineIcon, Info, CalendarRange } from 'lucide-react';
 import BackButton from '../components/BackButton';
 import { netWorthSeries, contributionByYear } from '../utils/netWorthHistory';
-import { tooltipTheme } from '../utils/chartTheme';
+import { tooltipTheme, crosshairCursor } from '../utils/chartTheme';
 
 const inr = (n) => `₹${Math.round(Number(n) || 0).toLocaleString('en-IN')}`;
 const compact = (n) => {
@@ -162,7 +162,7 @@ const NetWorthHistory = () => {
                                 width={60}
                             />
                             <Tooltip
-                                {...tooltipTheme}
+                                {...tooltipTheme} cursor={crosshairCursor}
                                 formatter={(value, name) => [inr(value), name]}
                             />
                             <Legend wrapperStyle={{ fontSize: '11px' }} />
