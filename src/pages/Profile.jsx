@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { User, Shield, Lock, CheckCircle, AlertCircle } from 'lucide-react';
+import ExternalBackupCard from '../components/ExternalBackupCard';
 
 const Profile = () => {
     const { user, changePassword } = useAuth();
@@ -134,6 +135,8 @@ const Profile = () => {
                         </button>
                     </form>
                 </div>
+
+                <ExternalBackupCard />
             </div>
         </div>
     );
