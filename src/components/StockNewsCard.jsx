@@ -56,24 +56,52 @@ const NewsSentimentSummary = ({ stories }) => {
         const posRatio = positive.length / total;
         const negRatio = negative.length / total;
 
+        // Check for severe legal/fraud/investigation triggers
+        const hasSevereRisk = actionable.some((s) =>
+            /\b(fraud|probe|scam|penalty|sebi ban|cbi|ed probe|default|insolvency|nclt)\b/i.test(`${s.title} ${s.why || ''}`)
+        );
+
+        let stanceAction = 'HOLD';
+        let stanceLabel = 'Hold & Watch';
+        let stanceIcon = '🟡';
+        let stanceBadge = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+        let stanceRationale = 'Balanced tailwinds and headwinds with no overriding directional catalyst. Maintain current position and watch key levels.';
         let actionNeeded = false;
-        let actionLabel = 'No Action Needed';
-        let actionColor = 'text-emerald-300';
-        let actionBg = 'bg-emerald-500/10 border-emerald-500/20';
+        let actionColor = 'text-yellow-300';
+        let actionBg = 'bg-yellow-500/10 border-yellow-500/20';
         let ActionIcon = CheckCircle;
 
-        if (actionable.length > 0 || negRatio >= 0.4) {
+        if (hasSevereRisk || negRatio > 0.5) {
             actionNeeded = true;
-            actionLabel = negRatio > 0.5 ? 'Action Needed: High Caution' : 'Action Needed: Review Concerns';
+            stanceAction = 'SELL / EXIT';
+            stanceLabel = 'Review for Exit / Sell';
+            stanceIcon = '🔴';
+            stanceBadge = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
+            stanceRationale = hasSevereRisk
+                ? 'High-severity regulatory, governance, or legal risk detected. Review position closely for exit or capital protection.'
+                : 'Adverse news headwinds significantly dominate recent coverage. Review holding thesis and consider exiting to protect capital.';
             actionColor = 'text-rose-300';
             actionBg = 'bg-rose-500/10 border-rose-500/20';
             ActionIcon = AlertTriangle;
-        } else if (mixed.length > 0 && negative.length > 0) {
+        } else if (negRatio >= 0.35 || (negative.length >= 2 && posRatio < 0.5)) {
             actionNeeded = true;
-            actionLabel = 'Action Needed: Watch Key Catalysts';
+            stanceAction = 'TRIM';
+            stanceLabel = 'Consider Trimming';
+            stanceIcon = '🟠';
+            stanceBadge = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+            stanceRationale = 'Emerging margin pressure or sector headwinds indicate caution. Consider trimming profits or sizing down risk exposure.';
             actionColor = 'text-amber-300';
             actionBg = 'bg-amber-500/10 border-amber-500/20';
             ActionIcon = AlertTriangle;
+        } else if (posRatio >= 0.6 && negative.length <= 1) {
+            stanceAction = 'BUY';
+            stanceLabel = 'Buy on Dips / Accumulate';
+            stanceIcon = '🟢';
+            stanceBadge = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+            stanceRationale = 'Positive catalysts (strong earnings, contracts, growth initiatives) strongly outweigh concerns. Favorable backdrop for accumulating on dips.';
+            actionColor = 'text-emerald-300';
+            actionBg = 'bg-emerald-500/10 border-emerald-500/20';
+            ActionIcon = CheckCircle;
         }
 
         const positiveParagraph = formatToParagraph(posPoints, posWhys);
@@ -87,11 +115,7 @@ const NewsSentimentSummary = ({ stories }) => {
         if (negPoints.length > 0) {
             unifiedSummaryParts.push(`On the downside, notable concerns involve ${negPoints.slice(0, 3).map(cleanSentence).join(', ')}.`);
         }
-        if (actionNeeded) {
-            unifiedSummaryParts.push(`Given these developments, close monitoring is advised regarding ${actionable.slice(0, 2).map((s) => s.title).join(' and ')}.`);
-        } else {
-            unifiedSummaryParts.push('Overall sentiment remains supportive with no immediate risk triggers.');
-        }
+        unifiedSummaryParts.push(`Overall news stance is ${stanceLabel}: ${stanceRationale}`);
         const singleUnifiedParagraph = unifiedSummaryParts.join(' ');
 
         return {
@@ -102,10 +126,14 @@ const NewsSentimentSummary = ({ stories }) => {
             themes,
             actionable,
             actionNeeded,
-            actionLabel,
             actionColor,
             actionBg,
             ActionIcon,
+            stanceAction,
+            stanceLabel,
+            stanceIcon,
+            stanceBadge,
+            stanceRationale,
             singleUnifiedParagraph,
             positiveParagraph,
             negativeParagraph,
@@ -116,15 +144,15 @@ const NewsSentimentSummary = ({ stories }) => {
 
     return (
         <div className={`mt-4 rounded-xl border ${digest.actionBg} p-4 space-y-3.5`}>
-            {/* Header: Action Needed status */}
+            {/* Header: Action Stance status */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2.5">
                 <div className="flex items-center gap-2">
-                    <digest.ActionIcon size={16} className={digest.actionColor} />
+                    <span className="text-[14px]">{digest.stanceIcon}</span>
                     <span className={`text-[13px] font-black tracking-wide ${digest.actionColor}`}>
-                        {digest.actionLabel}
+                        {digest.stanceLabel}
                     </span>
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${digest.actionNeeded ? 'bg-rose-500/20 text-rose-300' : 'bg-emerald-500/20 text-emerald-300'}`}>
-                        {digest.actionNeeded ? 'Action Required' : 'Neutral / Positive'}
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${digest.stanceBadge}`}>
+                        {digest.stanceAction}
                     </span>
                 </div>
                 <span className="text-[10.5px] text-gray-500 font-bold">
@@ -140,6 +168,37 @@ const NewsSentimentSummary = ({ stories }) => {
                 <p className="text-[12.5px] text-gray-200 leading-relaxed font-normal">
                     {digest.singleUnifiedParagraph}
                 </p>
+            </div>
+
+            {/* Suggested Action Box */}
+            <div className="border-t border-white/5 pt-2.5 bg-black/15 rounded-lg p-3 -mx-1">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                    <div className="flex items-center gap-1.5">
+                        <digest.ActionIcon size={14} className={digest.actionColor} />
+                        <span className="text-[11px] font-black uppercase tracking-wider text-gray-200">
+                            Suggested Action: <span className={digest.actionColor}>{digest.stanceLabel}</span>
+                        </span>
+                    </div>
+                </div>
+                <p className="text-[12px] text-gray-300 leading-relaxed">
+                    {digest.stanceRationale}
+                </p>
+
+                {digest.actionable.length > 0 && (
+                    <div className="mt-2.5 pt-2 border-t border-white/5">
+                        <span className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
+                            Key Triggers to Monitor:
+                        </span>
+                        <ul className="list-disc pl-4 space-y-1 text-[11.5px] text-gray-300">
+                            {digest.actionable.slice(0, 3).map((s, i) => (
+                                <li key={i}>
+                                    <span className="font-bold text-gray-100">{s.title}</span>
+                                    {s.why && <span className="text-gray-400"> — {s.why}</span>}
+                                </li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
             </div>
 
             {/* Positive Paragraph */}
@@ -169,26 +228,6 @@ const NewsSentimentSummary = ({ stories }) => {
                     <p className="text-[12px] text-gray-300 leading-relaxed">
                         {digest.negativeParagraph}
                     </p>
-                </div>
-            )}
-
-            {/* Action Items list if action is needed */}
-            {digest.actionable.length > 0 && (
-                <div className="border-t border-white/5 pt-2.5 bg-black/10 rounded-lg p-2.5 -mx-1">
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                        <AlertTriangle size={12} className="text-amber-400" />
-                        <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider">
-                            Key Triggers to Review
-                        </span>
-                    </div>
-                    <ul className="list-disc pl-4 space-y-1 text-[11.5px] text-gray-300">
-                        {digest.actionable.slice(0, 3).map((s, i) => (
-                            <li key={i}>
-                                <span className="font-bold text-gray-100">{s.title}</span>
-                                {s.why && <span className="text-gray-400"> — {s.why}</span>}
-                            </li>
-                        ))}
-                    </ul>
                 </div>
             )}
         </div>
