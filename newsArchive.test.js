@@ -5,6 +5,7 @@ import os from 'os';
 import path from 'path';
 import {
     configureArchive, mergeIntoArchive, archiveDigest, readArchive, themeOf, toCsv, parseCsv, attachAnalysis, fileFor,
+    readAllArchives, consolidatedCsv, syncConsolidatedCsv,
 } from './newsArchive.js';
 import { heldStocksIn, analyseLatest } from './news.js';
 
@@ -100,3 +101,18 @@ test('the collector reads only your own held stocks', () => {
     ] }] };
     assert.deepEqual(heldStocksIn(db).map((s) => s.symbol), ['INFY.NS', 'ABC.BO']);
 });
+
+test('consolidated archive merges multiple stocks into a single sorted CSV', () => {
+    fresh();
+    mergeIntoArchive('INFY.NS', 'Infosys', [{ title: 'Infosys headline', source: 'Mint', published: daysAgo(5) }], NOW);
+    mergeIntoArchive('TCS.NS', 'TCS', [{ title: 'TCS headline', source: 'ET', published: daysAgo(2) }], NOW);
+    const all = readAllArchives();
+    assert.equal(all.length, 2);
+    assert.equal(all[0].symbol, 'TCS.NS'); // newer first
+    assert.equal(all[1].symbol, 'INFY.NS');
+    const csv = consolidatedCsv();
+    assert.match(csv, /^symbol,company,date,impact,theme,title/);
+    assert.match(csv, /TCS\.NS,TCS,/);
+    assert.match(csv, /INFY\.NS,Infosys,/);
+});
+

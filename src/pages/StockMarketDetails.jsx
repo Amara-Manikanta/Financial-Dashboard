@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance, API_URL } from '../context/FinanceContext';
-import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, PieChart as PieChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight, Layers } from 'lucide-react';
+import { ArrowLeft, TrendingUp, TrendingDown, Edit2, Trash2, Plus, Search, Settings, ChevronUp, ChevronDown, X, RefreshCw, BarChart as BarChartIcon, PieChart as PieChartIcon, Archive, LayoutGrid, Table, Info, AlertCircle, Award, ArrowUpRight, Layers, Download } from 'lucide-react';
 import { StockMarketIcon } from '../utils/customIcons';
 import { resolveMarketCap } from '../utils/nifty50Data';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, Treemap } from 'recharts';
@@ -1182,6 +1182,31 @@ const StockMarketDetails = () => {
                                     <Plus size={16} />
                                     <span>Add Stock</span>
                                 </button>
+
+                                {/* Export All News */}
+                                <a
+                                    href={`${API_URL}/api/analyst/news/all/csv`}
+                                    download="all_stocks_news.csv"
+                                    style={{
+                                        ...styles.actionButton('#2563eb', '#1d4ed8'),
+                                        textDecoration: 'none',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '6px',
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#1d4ed8';
+                                        e.currentTarget.style.transform = 'scale(1.02)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.backgroundColor = '#2563eb';
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                    title="Download consolidated CSV of all news and analysis across all portfolio holdings"
+                                >
+                                    <Download size={16} />
+                                    <span>Export All News</span>
+                                </a>
                                 {(refreshNote || market.pricesUpdatedAt) && (
                                     <span
                                         title={market.pricesUpdatedAt ? new Date(market.pricesUpdatedAt).toLocaleString() : undefined}

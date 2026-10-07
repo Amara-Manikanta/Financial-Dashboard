@@ -349,3 +349,84 @@ export const archiveStats = (symbol) => {
         since: oldest ? (oldest.published || oldest.firstSeen) : null,
     };
 };
+
+/* ------------------------------------------------------------------ *
+ * Consolidated all-stocks archive
+ * ------------------------------------------------------------------ */
+
+export const CONSOLIDATED_COLUMNS = [
+    'symbol', 'company', 'date', 'impact', 'theme', 'title',
+    'key_points', 'why_it_matters', 'outlets', 'sources',
+    'first_seen', 'analysis_basis', 'status', 'summary', 'links', 'id',
+];
+
+export const toConsolidatedCsv = (rows) => [
+    CONSOLIDATED_COLUMNS.join(','),
+    ...rows.map((r) => CONSOLIDATED_COLUMNS.map((c) => cell(r[c])).join(',')),
+].join('\r\n') + '\r\n';
+
+/** Read all news archives across all stocks and return a consolidated list of stories. */
+export const readAllArchives = () => {
+    if (!dir || !fs.existsSync(dir)) return [];
+    let files = [];
+    try {
+        files = fs.readdirSync(dir)
+            .filter((f) => f.endsWith('.csv') && !f.startsWith('all_') && !f.startsWith('.'));
+    } catch { return []; }
+
+    const allStories = [];
+    for (const filename of files) {
+        const symbol = filename.replace(/\.csv$/, '');
+        const filePath = path.join(dir, filename);
+        try {
+            const rows = parseCsv(fs.readFileSync(filePath, 'utf8'));
+            const company = rows[0]?.company || symbol;
+            for (const r of rows) {
+                allStories.push({
+                    symbol,
+                    company: r.company || company,
+                    date: r.date || '',
+                    impact: r.impact || '',
+                    theme: r.theme || 'other',
+                    title: r.title || '',
+                    key_points: r.key_points || '',
+                    why_it_matters: r.why_it_matters || '',
+                    outlets: r.outlets || '1',
+                    sources: r.sources || '',
+                    first_seen: r.first_seen || '',
+                    analysis_basis: r.analysis_basis || '',
+                    status: r.status || '',
+                    summary: r.summary || '',
+                    links: r.links || '',
+                    id: r.id || '',
+                    _time: Date.parse(r.date || r.first_seen) || 0,
+                });
+            }
+        } catch { /* skip unreadable files */ }
+    }
+
+    allStories.sort((a, b) => b._time - a._time);
+    return allStories;
+};
+
+/** Generate the full consolidated CSV string of all stocks' news. */
+export const consolidatedCsv = () => {
+    const stories = readAllArchives();
+    return toConsolidatedCsv(stories);
+};
+
+/** Write out the consolidated CSV to db/news/all_stocks_news.csv */
+export const syncConsolidatedCsv = () => {
+    if (!dir) return null;
+    const targetFile = path.join(dir, 'all_stocks_news.csv');
+    const content = consolidatedCsv();
+    const tmp = `${targetFile}.tmp`;
+    try {
+        fs.writeFileSync(tmp, content, 'utf8');
+        fs.renameSync(tmp, targetFile);
+        return targetFile;
+    } catch {
+        return null;
+    }
+};
+

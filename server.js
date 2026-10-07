@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import * as analystLLM from './analystLLM.js';
 import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest } from './news.js';
-import { configureArchive, archiveDigest, readArchive, fileFor } from './newsArchive.js';
+import { configureArchive, archiveDigest, readArchive, fileFor, consolidatedCsv, syncConsolidatedCsv } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
@@ -29,6 +29,7 @@ const DB_FILE = process.env.DB_FILE
 configureNews({ usageFile: path.join(path.dirname(DB_FILE), '.newsapi-usage.json') });
 // Stored headlines live under db/ (gitignored), beside whichever database is in use.
 configureArchive({ archiveDir: path.join(path.dirname(DB_FILE), 'db', 'news') });
+syncConsolidatedCsv();
 const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
 startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
 
@@ -948,6 +949,16 @@ const handleAnalystLLMRoute = (req, res) => {
         if (!file || !fs.existsSync(file)) { sendJson(res, 404, { error: 'No news stored for this stock yet' }); return; }
         res.writeHead(200, { ...CORS_HEADERS, 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="${path.basename(file)}"` });
         fs.createReadStream(file).pipe(res);
+        return;
+    }
+    if ((route === '/api/analyst/news/all/csv' || route === '/api/analyst/news/all.csv') && req.method === 'GET') {
+        const csv = consolidatedCsv();
+        res.writeHead(200, {
+            ...CORS_HEADERS,
+            'Content-Type': 'text/csv; charset=utf-8',
+            'Content-Disposition': 'attachment; filename="all_stocks_news.csv"',
+        });
+        res.end(csv);
         return;
     }
     if (route === '/api/analyst/news/analyse' && req.method === 'POST') {

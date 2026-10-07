@@ -442,10 +442,13 @@ const StockNewsCard = ({ symbol, name }) => {
                         <Sparkles size={12} className={busy === 'analyse' ? 'animate-pulse' : ''} /> {busy === 'analyse' ? 'Reading articles…' : `Analyse ${Math.min(5, unread) || ''} unread`}
                     </button>
                     {stories?.length > 0 && (
-                        <a href={`${API_URL}/api/analyst/news/csv?symbol=${encodeURIComponent(symbol)}`} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 text-[11px] font-black flex items-center gap-1.5">
+                        <a href={`${API_URL}/api/analyst/news/csv?symbol=${encodeURIComponent(symbol)}`} className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 text-[11px] font-black flex items-center gap-1.5" title={`Export ${symbol} news to CSV`}>
                             <Download size={12} /> CSV
                         </a>
                     )}
+                    <a href={`${API_URL}/api/analyst/news/all/csv`} download="all_stocks_news.csv" className="px-3 py-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25 text-[11px] font-black flex items-center gap-1.5" title="Export consolidated news for all portfolio stocks">
+                        <Download size={12} /> Export All
+                    </a>
                 </div>
             </div>
             {note && <p className="text-[11.5px] text-gray-400 mt-2">{note}</p>}
