@@ -28,7 +28,7 @@ const formatToParagraph = (points, whys) => {
 const NewsSentimentSummary = ({ stories, financials }) => {
     const digest = useMemo(() => {
         const analysed = (stories || []).filter((s) => s.keyPoints?.length > 0);
-        if (analysed.length === 0) return null;
+        if (analysed.length === 0 && !financials) return null;
 
         const positive = analysed.filter((s) => s.impact === 'positive');
         const negative = analysed.filter((s) => s.impact === 'negative');
@@ -53,13 +53,14 @@ const NewsSentimentSummary = ({ stories, financials }) => {
         const actionable = [...negative, ...mixed.filter((s) => s.why?.length > 20)];
 
         const total = analysed.length;
-        const posRatio = positive.length / total;
-        const negRatio = negative.length / total;
+        const posRatio = total > 0 ? positive.length / total : 0;
+        const negRatio = total > 0 ? negative.length / total : 0;
 
         // Business Health (from Yahoo Finance / fundamentals cache)
         const health = financials?.healthScore || null;
         const checks = health?.checks || [];
         const weakChecks = checks.filter((c) => c.status !== 'good').map((c) => `${c.name} (${c.detail})`);
+        const fundSignal = financials?.signal?.action || null;
 
         // Check for severe legal/fraud/investigation triggers
         const hasSevereRisk = actionable.some((s) =>
@@ -76,7 +77,8 @@ const NewsSentimentSummary = ({ stories, financials }) => {
         let actionBg = 'bg-yellow-500/10 border-yellow-500/20';
         let ActionIcon = CheckCircle;
 
-        if (hasSevereRisk || (health && health.total <= 1 && negRatio > 0.3) || negRatio > 0.5) {
+        // 1. Critical risk override: Severe fraud/probe OR catastrophic fundamentals with heavy negative news
+        if (hasSevereRisk || (health && health.total <= 1 && negRatio > 0.3) || negRatio >= 0.45 || fundSignal === 'sell') {
             actionNeeded = true;
             stanceAction = 'SELL / EXIT';
             stanceLabel = 'Review for Exit / Sell';
@@ -86,11 +88,28 @@ const NewsSentimentSummary = ({ stories, financials }) => {
                 ? 'High-severity regulatory, governance, or default risk detected. Review position closely for exit or capital protection.'
                 : (health && health.total <= 1
                     ? `Adverse news headwinds combined with critical business vulnerabilities (${weakChecks.slice(0, 2).join('; ') || 'poor fundamentals'}). High exit priority to preserve capital.`
-                    : 'Adverse news headwinds significantly dominate recent coverage. Review holding thesis and consider exiting to protect capital.');
+                    : (fundSignal === 'sell'
+                        ? 'Business fundamentals signal review for exit (deteriorating earnings / contracting margins). News flow supports capital protection.'
+                        : 'Adverse news headwinds significantly dominate recent coverage. Review holding thesis and consider exiting to protect capital.'));
             actionColor = 'text-rose-300';
             actionBg = 'bg-rose-500/10 border-rose-500/20';
             ActionIcon = AlertTriangle;
-        } else if (posRatio >= 0.55 && (!health || health.total >= 4) && negative.length <= 1) {
+
+        // 2. Fundamental Buy / Strong Buy alignment (e.g. Infosys)
+        } else if ((fundSignal === 'buy' || fundSignal === 'strong_buy') && negRatio < 0.35) {
+            stanceAction = fundSignal === 'strong_buy' ? 'STRONG BUY' : 'BUY';
+            stanceLabel = 'Buy on Dips / Accumulate';
+            stanceIcon = '🟢';
+            stanceBadge = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+            stanceRationale = health
+                ? `Business fundamentals indicate ${financials.signal?.label || 'Buy on Dips'} (${health.total}/${health.max} — ${health.label}). Recent news flow is supportive with no structural red flags — favorable setup for accumulating on dips.`
+                : 'Positive business fundamentals confirmed. News flow is supportive — favorable setup for accumulating on dips.';
+            actionColor = 'text-emerald-300';
+            actionBg = 'bg-emerald-500/10 border-emerald-500/20';
+            ActionIcon = CheckCircle;
+
+        // 3. News-driven Buy on Dips when fundamentals are strong or unrated
+        } else if (posRatio >= 0.50 && (!health || health.total >= 4) && negRatio < 0.25) {
             stanceAction = health ? 'STRONG BUY' : 'BUY';
             stanceLabel = 'Buy on Dips / Accumulate';
             stanceIcon = '🟢';
@@ -101,6 +120,8 @@ const NewsSentimentSummary = ({ stories, financials }) => {
             actionColor = 'text-emerald-300';
             actionBg = 'bg-emerald-500/10 border-emerald-500/20';
             ActionIcon = CheckCircle;
+
+        // 4. Value trap alert: Positive news buzz but fragile fundamentals
         } else if (posRatio >= 0.5 && health && health.total <= 2) {
             actionNeeded = true;
             stanceAction = 'VALUE TRAP RISK';
@@ -111,16 +132,22 @@ const NewsSentimentSummary = ({ stories, financials }) => {
             actionColor = 'text-amber-300';
             actionBg = 'bg-amber-500/10 border-amber-500/20';
             ActionIcon = AlertTriangle;
-        } else if (negRatio >= 0.35 || (negative.length >= 2 && posRatio < 0.5) || (health && checks.some((c) => c.name === 'Valuation' && c.status === 'bad'))) {
+
+        // 5. Trim: Fundamental trim signal OR high news headwinds (>= 35% negative)
+        } else if (fundSignal === 'trim' || negRatio >= 0.35 || (health && checks.some((c) => c.name === 'Valuation' && c.status === 'bad' && negRatio > 0.2))) {
             actionNeeded = true;
             stanceAction = 'TRIM';
             stanceLabel = 'Consider Trimming';
             stanceIcon = '🟠';
             stanceBadge = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-            stanceRationale = `Emerging margin pressure, sector headwinds, or stretched valuations (${weakChecks.slice(0, 2).join('; ') || 'valuation caution'}) indicate taking partial profits and reducing risk exposure.`;
+            stanceRationale = fundSignal === 'trim'
+                ? `Business fundamentals suggest trimming profits (${financials.signal?.reasons?.slice(0, 2).join('; ') || 'valuation or margin caution'}).`
+                : `Emerging margin pressure, sector headwinds, or stretched valuations (${weakChecks.slice(0, 2).join('; ') || 'valuation caution'}) indicate taking partial profits and reducing risk exposure.`;
             actionColor = 'text-amber-300';
             actionBg = 'bg-amber-500/10 border-amber-500/20';
             ActionIcon = AlertTriangle;
+
+        // 6. Default: Hold & Watch
         } else {
             stanceAction = 'HOLD';
             stanceLabel = 'Hold & Watch';
@@ -144,6 +171,9 @@ const NewsSentimentSummary = ({ stories, financials }) => {
         }
         if (negPoints.length > 0) {
             unifiedSummaryParts.push(`Key concerns highlighted in reports involve ${negPoints.slice(0, 3).map(cleanSentence).join(', ')}.`);
+        }
+        if (total === 0) {
+            unifiedSummaryParts.push('News coverage is currently being monitored (pending local model analysis).');
         }
         unifiedSummaryParts.push(`Overall news & business stance is ${stanceLabel}: ${stanceRationale}`);
         const singleUnifiedParagraph = unifiedSummaryParts.join(' ');
@@ -196,7 +226,9 @@ const NewsSentimentSummary = ({ stories, financials }) => {
                     )}
                 </div>
                 <span className="text-[10.5px] text-gray-500 font-bold">
-                    {digest.total} analysed {digest.total === 1 ? 'story' : 'stories'} ({digest.positiveCount} pos, {digest.negativeCount} neg)
+                    {digest.total > 0
+                        ? `${digest.total} analysed ${digest.total === 1 ? 'story' : 'stories'} (${digest.positiveCount} pos, ${digest.negativeCount} neg)`
+                        : 'Fundamentals active • Awaiting story analysis'}
                 </span>
             </div>
 
