@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Newspaper, RefreshCw, Sparkles, Download, ExternalLink, TrendingUp, TrendingDown, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Newspaper, RefreshCw, Sparkles, Download, ExternalLink, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
 
 /**
@@ -25,7 +25,7 @@ const formatToParagraph = (points, whys) => {
     return text;
 };
 
-const NewsSentimentSummary = ({ stories }) => {
+const NewsSentimentSummary = ({ stories, financials }) => {
     const digest = useMemo(() => {
         const analysed = (stories || []).filter((s) => s.keyPoints?.length > 0);
         if (analysed.length === 0) return null;
@@ -56,6 +56,11 @@ const NewsSentimentSummary = ({ stories }) => {
         const posRatio = positive.length / total;
         const negRatio = negative.length / total;
 
+        // Business Health (from Yahoo Finance / fundamentals cache)
+        const health = financials?.healthScore || null;
+        const checks = health?.checks || [];
+        const weakChecks = checks.filter((c) => c.status !== 'good').map((c) => `${c.name} (${c.detail})`);
+
         // Check for severe legal/fraud/investigation triggers
         const hasSevereRisk = actionable.some((s) =>
             /\b(fraud|probe|scam|penalty|sebi ban|cbi|ed probe|default|insolvency|nclt)\b/i.test(`${s.title} ${s.why || ''}`)
@@ -71,51 +76,76 @@ const NewsSentimentSummary = ({ stories }) => {
         let actionBg = 'bg-yellow-500/10 border-yellow-500/20';
         let ActionIcon = CheckCircle;
 
-        if (hasSevereRisk || negRatio > 0.5) {
+        if (hasSevereRisk || (health && health.total <= 1 && negRatio > 0.3) || negRatio > 0.5) {
             actionNeeded = true;
             stanceAction = 'SELL / EXIT';
             stanceLabel = 'Review for Exit / Sell';
             stanceIcon = '🔴';
             stanceBadge = 'bg-rose-500/20 text-rose-300 border-rose-500/30';
             stanceRationale = hasSevereRisk
-                ? 'High-severity regulatory, governance, or legal risk detected. Review position closely for exit or capital protection.'
-                : 'Adverse news headwinds significantly dominate recent coverage. Review holding thesis and consider exiting to protect capital.';
+                ? 'High-severity regulatory, governance, or default risk detected. Review position closely for exit or capital protection.'
+                : (health && health.total <= 1
+                    ? `Adverse news headwinds combined with critical business vulnerabilities (${weakChecks.slice(0, 2).join('; ') || 'poor fundamentals'}). High exit priority to preserve capital.`
+                    : 'Adverse news headwinds significantly dominate recent coverage. Review holding thesis and consider exiting to protect capital.');
             actionColor = 'text-rose-300';
             actionBg = 'bg-rose-500/10 border-rose-500/20';
             ActionIcon = AlertTriangle;
-        } else if (negRatio >= 0.35 || (negative.length >= 2 && posRatio < 0.5)) {
+        } else if (posRatio >= 0.55 && (!health || health.total >= 4) && negative.length <= 1) {
+            stanceAction = health ? 'STRONG BUY' : 'BUY';
+            stanceLabel = 'Buy on Dips / Accumulate';
+            stanceIcon = '🟢';
+            stanceBadge = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
+            stanceRationale = health
+                ? `Positive news catalysts (${positive.length} positive stories) are firmly backed by robust business health (${health.total}/${health.max} — ${health.label}). High-conviction setup for accumulating on dips.`
+                : 'Positive catalysts (strong earnings, contracts, growth initiatives) strongly outweigh concerns. Favorable backdrop for accumulating on dips.';
+            actionColor = 'text-emerald-300';
+            actionBg = 'bg-emerald-500/10 border-emerald-500/20';
+            ActionIcon = CheckCircle;
+        } else if (posRatio >= 0.5 && health && health.total <= 2) {
+            actionNeeded = true;
+            stanceAction = 'VALUE TRAP RISK';
+            stanceLabel = 'Caution: Fragile Fundamentals';
+            stanceIcon = '🟠';
+            stanceBadge = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
+            stanceRationale = `Positive headlines observed, but business health is fragile (${health.total}/${health.max}: ${weakChecks.join(', ') || 'high debt or contracting margins'}). High risk of a value trap — avoid aggressively chasing rallies.`;
+            actionColor = 'text-amber-300';
+            actionBg = 'bg-amber-500/10 border-amber-500/20';
+            ActionIcon = AlertTriangle;
+        } else if (negRatio >= 0.35 || (negative.length >= 2 && posRatio < 0.5) || (health && checks.some((c) => c.name === 'Valuation' && c.status === 'bad'))) {
             actionNeeded = true;
             stanceAction = 'TRIM';
             stanceLabel = 'Consider Trimming';
             stanceIcon = '🟠';
             stanceBadge = 'bg-amber-500/20 text-amber-300 border-amber-500/30';
-            stanceRationale = 'Emerging margin pressure or sector headwinds indicate caution. Consider trimming profits or sizing down risk exposure.';
+            stanceRationale = `Emerging margin pressure, sector headwinds, or stretched valuations (${weakChecks.slice(0, 2).join('; ') || 'valuation caution'}) indicate taking partial profits and reducing risk exposure.`;
             actionColor = 'text-amber-300';
             actionBg = 'bg-amber-500/10 border-amber-500/20';
             ActionIcon = AlertTriangle;
-        } else if (posRatio >= 0.6 && negative.length <= 1) {
-            stanceAction = 'BUY';
-            stanceLabel = 'Buy on Dips / Accumulate';
-            stanceIcon = '🟢';
-            stanceBadge = 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30';
-            stanceRationale = 'Positive catalysts (strong earnings, contracts, growth initiatives) strongly outweigh concerns. Favorable backdrop for accumulating on dips.';
-            actionColor = 'text-emerald-300';
-            actionBg = 'bg-emerald-500/10 border-emerald-500/20';
-            ActionIcon = CheckCircle;
+        } else {
+            stanceAction = 'HOLD';
+            stanceLabel = 'Hold & Watch';
+            stanceIcon = '🟡';
+            stanceBadge = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+            stanceRationale = health
+                ? `Business fundamentals are ${health.label.toLowerCase()} (${health.total}/${health.max}) paired with balanced news flow. Maintain current position and monitor upcoming quarterly performance.`
+                : 'Balanced tailwinds and headwinds with no overriding directional catalyst. Maintain current position and watch key levels.';
         }
 
         const positiveParagraph = formatToParagraph(posPoints, posWhys);
         const negativeParagraph = formatToParagraph(negPoints, negWhys);
 
-        // Build 1 single cohesive paragraph summarizing all points
+        // Build 1 single cohesive paragraph synthesizing both business health and news points
         const unifiedSummaryParts = [];
+        if (health) {
+            unifiedSummaryParts.push(`From a fundamental standpoint, the company exhibits ${health.label} (${health.total}/${health.max})${weakChecks.length ? `, though ${weakChecks.slice(0, 2).join(' and ')} warrant attention` : ' with clean balance sheet and profitability checks'}.`);
+        }
         if (posPoints.length > 0) {
-            unifiedSummaryParts.push(`Key positive catalysts include ${posPoints.slice(0, 3).map(cleanSentence).join(', ')}.`);
+            unifiedSummaryParts.push(`Recent news catalysts include ${posPoints.slice(0, 3).map(cleanSentence).join(', ')}.`);
         }
         if (negPoints.length > 0) {
-            unifiedSummaryParts.push(`On the downside, notable concerns involve ${negPoints.slice(0, 3).map(cleanSentence).join(', ')}.`);
+            unifiedSummaryParts.push(`Key concerns highlighted in reports involve ${negPoints.slice(0, 3).map(cleanSentence).join(', ')}.`);
         }
-        unifiedSummaryParts.push(`Overall news stance is ${stanceLabel}: ${stanceRationale}`);
+        unifiedSummaryParts.push(`Overall news & business stance is ${stanceLabel}: ${stanceRationale}`);
         const singleUnifiedParagraph = unifiedSummaryParts.join(' ');
 
         return {
@@ -134,19 +164,20 @@ const NewsSentimentSummary = ({ stories }) => {
             stanceIcon,
             stanceBadge,
             stanceRationale,
+            health,
             singleUnifiedParagraph,
             positiveParagraph,
             negativeParagraph,
         };
-    }, [stories]);
+    }, [stories, financials]);
 
     if (!digest) return null;
 
     return (
         <div className={`mt-4 rounded-xl border ${digest.actionBg} p-4 space-y-3.5`}>
-            {/* Header: Action Stance status */}
+            {/* Header: Action Stance status + Business Health badge */}
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/5 pb-2.5">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     <span className="text-[14px]">{digest.stanceIcon}</span>
                     <span className={`text-[13px] font-black tracking-wide ${digest.actionColor}`}>
                         {digest.stanceLabel}
@@ -154,23 +185,32 @@ const NewsSentimentSummary = ({ stories }) => {
                     <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${digest.stanceBadge}`}>
                         {digest.stanceAction}
                     </span>
+                    {digest.health && (
+                        <span
+                            title={digest.health.checks?.map((c) => `${c.name}: ${c.detail}`).join('\n')}
+                            className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[10.5px] font-bold border border-white/10 bg-white/5"
+                            style={{ color: digest.health.color || '#34d399' }}
+                        >
+                            <Shield size={11} /> {digest.health.total}/{digest.health.max} {digest.health.label}
+                        </span>
+                    )}
                 </div>
                 <span className="text-[10.5px] text-gray-500 font-bold">
-                    {digest.total} analysed {digest.total === 1 ? 'story' : 'stories'} ({digest.positiveCount} positive, {digest.negativeCount} negative)
+                    {digest.total} analysed {digest.total === 1 ? 'story' : 'stories'} ({digest.positiveCount} pos, {digest.negativeCount} neg)
                 </span>
             </div>
 
             {/* 1 Single Paragraph Summary of All Points */}
             <div>
                 <h4 className="text-[11px] font-black text-gray-300 uppercase tracking-wider mb-1 flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-indigo-400" /> Executive Summary (All Points)
+                    <Sparkles size={12} className="text-indigo-400" /> Executive Summary (News &amp; Business Health)
                 </h4>
                 <p className="text-[12.5px] text-gray-200 leading-relaxed font-normal">
                     {digest.singleUnifiedParagraph}
                 </p>
             </div>
 
-            {/* Suggested Action Box */}
+            {/* Suggested Action Box with Health metrics */}
             <div className="border-t border-white/5 pt-2.5 bg-black/15 rounded-lg p-3 -mx-1">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                     <div className="flex items-center gap-1.5">
@@ -184,10 +224,23 @@ const NewsSentimentSummary = ({ stories }) => {
                     {digest.stanceRationale}
                 </p>
 
+                {/* Fundamental Health Checks Mini-Chips */}
+                {digest.health?.checks && (
+                    <div className="flex flex-wrap gap-1.5 mt-2.5 pt-2 border-t border-white/5">
+                        {digest.health.checks.map((c, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-white/5 border border-white/5 text-gray-300 flex items-center gap-1 font-medium">
+                                <span className={`w-1.5 h-1.5 rounded-full ${c.status === 'good' ? 'bg-emerald-400' : c.status === 'caution' ? 'bg-amber-400' : 'bg-rose-400'}`} />
+                                <span className="text-gray-400">{c.name}:</span> {c.detail}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                {/* Key Triggers */}
                 {digest.actionable.length > 0 && (
                     <div className="mt-2.5 pt-2 border-t border-white/5">
                         <span className="text-[10.5px] font-bold text-gray-400 uppercase tracking-wider block mb-1">
-                            Key Triggers to Monitor:
+                            Key News Triggers to Monitor:
                         </span>
                         <ul className="list-disc pl-4 space-y-1 text-[11.5px] text-gray-300">
                             {digest.actionable.slice(0, 3).map((s, i) => (
@@ -256,10 +309,30 @@ const agoOf = (iso) => {
 
 const StockNewsCard = ({ symbol, name }) => {
     const [stories, setStories] = useState(null);
+    const [financials, setFinancials] = useState(null);
     const [busy, setBusy] = useState('');
     const [note, setNote] = useState('');
-    const [showAll, setShowAll] = useState(false);
+    const [page, setPage] = useState(1);
+    const pageSize = 5;
     const q = `symbol=${encodeURIComponent(symbol)}&name=${encodeURIComponent(name || '')}`;
+
+    // Reset pagination when symbol changes
+    useEffect(() => { setPage(1); }, [symbol]);
+
+    // Load business fundamentals & health score
+    useEffect(() => {
+        if (!symbol) return;
+        let cancelled = false;
+        fetch(`${API_URL}/api/stock-financials?symbol=${encodeURIComponent(symbol)}`)
+            .then((r) => r.json())
+            .then((data) => {
+                if (!cancelled && data && !data.error && data.healthScore) {
+                    setFinancials(data);
+                }
+            })
+            .catch(() => {});
+        return () => { cancelled = true; };
+    }, [symbol]);
 
     const load = useCallback(async () => {
         try {
@@ -306,7 +379,10 @@ const StockNewsCard = ({ symbol, name }) => {
     };
 
     const unread = (stories || []).filter((s) => !s.keyPoints?.length && !s.status).length;
-    const shown = showAll ? stories || [] : (stories || []).slice(0, 12);
+    const totalStories = stories?.length || 0;
+    const totalPages = Math.max(1, Math.ceil(totalStories / pageSize));
+    const safePage = Math.min(Math.max(1, page), totalPages);
+    const shown = (stories || []).slice((safePage - 1) * pageSize, safePage * pageSize);
 
     return (
         <section className="rounded-2xl border border-white/[0.07] bg-white/[0.025] p-5">
@@ -342,7 +418,7 @@ const StockNewsCard = ({ symbol, name }) => {
             </div>
             {note && <p className="text-[11.5px] text-gray-400 mt-2">{note}</p>}
 
-            <NewsSentimentSummary stories={stories} />
+            <NewsSentimentSummary stories={stories} financials={financials} />
 
             {stories === null && <p className="text-[12px] text-gray-500 mt-4">Loading…</p>}
             {stories?.length === 0 && !note && (
@@ -383,10 +459,33 @@ const StockNewsCard = ({ symbol, name }) => {
                     </li>
                 ))}
             </ul>
-            {stories?.length > 12 && (
-                <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-3 text-[11px] font-bold text-gray-400 hover:text-white">
-                    {showAll ? 'Show fewer' : `Show all ${stories.length}`}
-                </button>
+            {totalStories > pageSize && (
+                <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-[11px] text-gray-500 font-bold">
+                        Showing {((safePage - 1) * pageSize) + 1}–{Math.min(safePage * pageSize, totalStories)} of {totalStories} headlines
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                        <button
+                            type="button"
+                            onClick={() => setPage((p) => Math.max(1, p - 1))}
+                            disabled={safePage === 1}
+                            className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold flex items-center gap-1 transition-colors"
+                        >
+                            <ChevronLeft size={12} /> Prev
+                        </button>
+                        <span className="text-[11px] text-gray-400 font-bold px-1.5">
+                            Page {safePage} of {totalPages}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                            disabled={safePage === totalPages}
+                            className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold flex items-center gap-1 transition-colors"
+                        >
+                            Next <ChevronRight size={12} />
+                        </button>
+                    </div>
+                </div>
             )}
         </section>
     );
