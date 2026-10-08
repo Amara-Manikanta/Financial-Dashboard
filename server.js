@@ -5,7 +5,7 @@ import path from 'path';
 import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import * as analystLLM from './analystLLM.js';
-import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest } from './news.js';
+import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest, heldStocksIn } from './news.js';
 import { configureArchive, archiveDigest, readArchive, fileFor, consolidatedCsv, syncConsolidatedCsv } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
@@ -916,12 +916,143 @@ const handleStockProfileRequest = async (req, res) => {
  */
 const MAX_ANALYST_BODY_BYTES = 256 * 1024;
 
+const handleRefreshPortfolioNewsStream = async (req, res) => {
+    res.writeHead(200, {
+        ...CORS_HEADERS,
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+    });
+
+    let aborted = false;
+    req.on('close', () => { aborted = true; });
+
+    const sendEvent = (data) => {
+        if (aborted) return;
+        try { res.write(`data: ${JSON.stringify(data)}\n\n`); } catch {}
+    };
+
+    try {
+        sendEvent({ type: 'status', message: 'Checking local AI model status...' });
+
+        const { body: llmStatus } = await analystLLM.llmStatus();
+        const isModelOnline = !!llmStatus?.available;
+        const modelName = llmStatus?.model || '';
+
+        sendEvent({
+            type: 'model_status',
+            online: isModelOnline,
+            model: modelName,
+            reason: llmStatus?.reason || '',
+            message: isModelOnline
+                ? `Local model online (${modelName})`
+                : `Local model offline: ${llmStatus?.reason || 'server not responding'}. News headlines will be fetched without analysis.`,
+        });
+
+        let stocks = [];
+        try {
+            stocks = heldStocksIn(JSON.parse(fs.readFileSync(DB_FILE, 'utf8')));
+        } catch (err) {
+            sendEvent({ type: 'error', message: `Could not read database: ${err.message}` });
+            res.end();
+            return;
+        }
+
+        sendEvent({
+            type: 'start',
+            totalStocks: stocks.length,
+            message: `Collecting news for ${stocks.length} portfolio holdings...`,
+        });
+
+        let totalAdded = 0;
+        let totalAnalysed = 0;
+
+        for (let i = 0; i < stocks.length; i++) {
+            if (aborted) break;
+            const st = stocks[i];
+            const prefix = `[${i + 1}/${stocks.length}] ${st.symbol}`;
+
+            sendEvent({
+                type: 'stock_progress',
+                index: i + 1,
+                total: stocks.length,
+                symbol: st.symbol,
+                name: st.name,
+                step: 'fetching_news',
+                message: `${prefix}: fetching headlines...`,
+            });
+
+            let addedForStock = 0;
+            try {
+                const { body } = await newsFor(st.symbol, st.name, { fresh: true, reserveNewsApi: 20 });
+                addedForStock = body?.archive?.added || 0;
+                totalAdded += addedForStock;
+            } catch {}
+
+            let analysedForStock = 0;
+            if (isModelOnline && !aborted) {
+                sendEvent({
+                    type: 'stock_progress',
+                    index: i + 1,
+                    total: stocks.length,
+                    symbol: st.symbol,
+                    name: st.name,
+                    step: 'analysing',
+                    message: `${prefix}: analysing with ${modelName}...`,
+                });
+
+                try {
+                    const result = await analyseLatest(st.symbol, st.name, { count: 3 });
+                    analysedForStock = result?.analysed || 0;
+                    totalAnalysed += analysedForStock;
+                } catch {}
+            }
+
+            sendEvent({
+                type: 'stock_done',
+                index: i + 1,
+                total: stocks.length,
+                symbol: st.symbol,
+                name: st.name,
+                added: addedForStock,
+                analysed: analysedForStock,
+                message: isModelOnline
+                    ? `${prefix}: ${addedForStock} new headlines, ${analysedForStock} analysed`
+                    : `${prefix}: ${addedForStock} new headlines`,
+            });
+
+            await new Promise((r) => setTimeout(r, 200));
+        }
+
+        try { syncConsolidatedCsv(); } catch {}
+
+        sendEvent({
+            type: 'complete',
+            totalStocks: stocks.length,
+            totalAdded,
+            totalAnalysed,
+            modelOnline: isModelOnline,
+            model: modelName,
+            message: `Completed: ${totalAdded} new headlines across ${stocks.length} stocks${isModelOnline ? `, ${totalAnalysed} analysed by ${modelName}` : ' (model offline)'}`,
+        });
+    } catch (err) {
+        sendEvent({ type: 'error', message: err.message });
+    } finally {
+        if (!aborted) {
+            try { res.end(); } catch {}
+        }
+    }
+};
+
 const handleAnalystLLMRoute = (req, res) => {
     const route = req.url.split('?')[0];
     if (req.method === 'OPTIONS') {
         res.writeHead(204, CORS_HEADERS);
         res.end();
         return;
+    }
+    if (route === '/api/analyst/news/refresh-portfolio' && req.method === 'GET') {
+        return handleRefreshPortfolioNewsStream(req, res);
     }
     if (route === '/api/analyst/news/digest' && req.method === 'GET') {
         const params = new URL(req.url, 'http://localhost').searchParams;

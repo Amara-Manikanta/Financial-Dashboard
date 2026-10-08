@@ -379,6 +379,12 @@ const StockNewsCard = ({ symbol, name }) => {
 
     useEffect(() => { load(); }, [load]);
 
+    useEffect(() => {
+        const onNewsUpdated = () => { load(); };
+        window.addEventListener('stock-news-updated', onNewsUpdated);
+        return () => window.removeEventListener('stock-news-updated', onNewsUpdated);
+    }, [load]);
+
     const fetchLatest = async () => {
         setBusy('fetch');
         setNote('');

@@ -138,6 +138,66 @@ const StockMarketDetails = () => {
     const [isDeleteColumnModalOpen, setIsDeleteColumnModalOpen] = useState(false);
     const [columnToDelete, setColumnToDelete] = useState(null);
     const [activeTab, setActiveTab] = useState('holdings'); // 'holdings' | 'analytics' | 'archive'
+
+    const handleRefreshAllPricesAndNews = async () => {
+        if (isRefreshingPrices) return;
+        setIsRefreshingPrices(true);
+        setRefreshNote('Updating prices (holdings & watchlist)…');
+
+        let priceMsg = '';
+        try {
+            const r = await refreshAllPrices();
+            const missed = r.stocks?.notUpdated?.length || 0;
+            priceMsg = r.success
+                ? `${r.message}${missed ? ` · no quote for ${missed}` : ''}`
+                : (r.message || 'Prices refreshed');
+            setRefreshNote(`${priceMsg} · Checking local AI model…`);
+        } catch (err) {
+            priceMsg = 'Price refresh error';
+            setRefreshNote(`${priceMsg} · Checking local AI model…`);
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/api/analyst/news/refresh-portfolio`);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const chunks = buffer.split('\n\n');
+                buffer = chunks.pop();
+
+                for (const chunk of chunks) {
+                    if (chunk.startsWith('data: ')) {
+                        try {
+                            const event = JSON.parse(chunk.slice(6));
+                            if (event.type === 'model_status') {
+                                setRefreshNote(`${priceMsg} · ${event.message}`);
+                            } else if (event.type === 'stock_progress' || event.type === 'stock_done') {
+                                setRefreshNote(`${priceMsg} · ${event.message}`);
+                            } else if (event.type === 'complete') {
+                                setRefreshNote(`${priceMsg} · ${event.totalAdded} headlines · ${event.totalAnalysed} analysed${event.modelOnline ? ` (${event.model})` : ' (model offline)'}`);
+                            } else if (event.type === 'error') {
+                                setRefreshNote(`${priceMsg} · News error: ${event.message}`);
+                            }
+                        } catch {}
+                    }
+                }
+            }
+
+            // Notify all stock views that news has been refreshed and analysed
+            window.dispatchEvent(new CustomEvent('stock-news-updated'));
+        } catch (err) {
+            setRefreshNote(`${priceMsg} · (News: ${err.message})`);
+        } finally {
+            setIsRefreshingPrices(false);
+        }
+    };
     const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
     const [showPendingOnly, setShowPendingOnly] = useState(false);
     const [capFilter, setCapFilter] = useState('All'); // 'All' | 'Large Cap' | 'Mid Cap' | 'Small Cap' | 'Unclassified'
@@ -1143,24 +1203,16 @@ const StockMarketDetails = () => {
                                     itself against freshly priced positions. */}
                                 <button
                                     disabled={isRefreshingPrices}
-                                    onClick={async () => {
-                                        setIsRefreshingPrices(true);
-                                        setRefreshNote(null);
-                                        const r = await refreshAllPrices();
-                                        setIsRefreshingPrices(false);
-                                        const missed = r.stocks?.notUpdated?.length || 0;
-                                        setRefreshNote(r.success
-                                            ? `${r.message}${missed ? ` · no quote for ${missed}` : ''}`
-                                            : (r.message || 'Refresh failed'));
-                                    }}
+                                    onClick={handleRefreshAllPricesAndNews}
                                     style={{
                                         ...styles.actionButton('#0d9488', '#0f766e'),
                                         opacity: isRefreshingPrices ? 0.6 : 1,
                                         cursor: isRefreshingPrices ? 'wait' : 'pointer',
                                     }}
+                                    title="Refresh real-time prices, fetch latest headlines, and analyse unread news with local AI model"
                                 >
                                     <RefreshCw size={16} className={isRefreshingPrices ? 'animate-spin' : ''} />
-                                    <span>{isRefreshingPrices ? 'Fetching…' : 'Refresh all prices'}</span>
+                                    <span>{isRefreshingPrices ? 'Refreshing…' : 'Refresh prices & news'}</span>
                                 </button>
 
                                 {/* Add Stock */}
