@@ -42,8 +42,19 @@ const CONFIG = {
     claim: {
         title: 'Claim',
         labelField: 'Claim',
-        placeholder: 'e.g. Hospitalisation - Apollo',
-        kinds: ['Death', 'Hospitalisation', 'Accident', 'Own Damage', 'Theft', 'Other'],
+        placeholder: 'e.g. Hospitalisation - Apollo, Dental - Clove',
+        kinds: [
+            'Hospitalisation',
+            'OPD / Consultation',
+            'Medicines & Pharmacy',
+            'Dental & Spectacles',
+            'Health Checkup & Diagnostics',
+            'Accident',
+            'Death',
+            'Own Damage',
+            'Theft',
+            'Other'
+        ],
         statuses: ['Filed', 'Under Review', 'Approved', 'Settled', 'Rejected'],
         settledLabel: 'Settled On',
         settledStatus: 'Settled'
