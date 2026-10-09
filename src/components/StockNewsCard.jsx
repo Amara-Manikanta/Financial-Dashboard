@@ -1,6 +1,35 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Newspaper, RefreshCw, Sparkles, Download, ExternalLink, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Shield, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Newspaper, RefreshCw, Sparkles, Download, ExternalLink, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Shield, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
+
+const formatDateTime = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+};
+
+const formatTimeAgo = (iso) => {
+    if (!iso) return '';
+    const t = Date.parse(iso);
+    if (!t) return '';
+    const diffMs = Date.now() - t;
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'yesterday';
+    return `${days}d ago`;
+};
 
 /**
  * Aggregates all analysed stories into a sentiment digest: overall signal,
@@ -29,6 +58,12 @@ const NewsSentimentSummary = ({ stories, financials }) => {
     const digest = useMemo(() => {
         const analysed = (stories || []).filter((s) => s.keyPoints?.length > 0);
         if (analysed.length === 0 && !financials) return null;
+
+        const latestAnalysedStory = analysed
+            .filter((s) => s.analysedAt)
+            .sort((a, b) => Date.parse(b.analysedAt) - Date.parse(a.analysedAt))[0];
+        const lastAnalysedAt = latestAnalysedStory?.analysedAt || financials?.cachedAt || null;
+        const lastAnalysedBy = latestAnalysedStory?.analysedBy || null;
 
         const positive = analysed.filter((s) => s.impact === 'positive');
         const negative = analysed.filter((s) => s.impact === 'negative');
@@ -198,6 +233,8 @@ const NewsSentimentSummary = ({ stories, financials }) => {
             singleUnifiedParagraph,
             positiveParagraph,
             negativeParagraph,
+            lastAnalysedAt,
+            lastAnalysedBy,
         };
     }, [stories, financials]);
 
@@ -225,11 +262,26 @@ const NewsSentimentSummary = ({ stories, financials }) => {
                         </span>
                     )}
                 </div>
-                <span className="text-[10.5px] text-gray-500 font-bold">
-                    {digest.total > 0
-                        ? `${digest.total} analysed ${digest.total === 1 ? 'story' : 'stories'} (${digest.positiveCount} pos, ${digest.negativeCount} neg)`
-                        : 'Fundamentals active • Awaiting story analysis'}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                    {digest.lastAnalysedAt && (
+                        <span
+                            title={`Analysis timestamp: ${formatDateTime(digest.lastAnalysedAt)}${digest.lastAnalysedBy ? ` · Model: ${digest.lastAnalysedBy}` : ''}`}
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-white/5 border border-white/10 text-gray-300"
+                        >
+                            <Clock size={10} className="text-indigo-400" />
+                            <span>Analysed {formatTimeAgo(digest.lastAnalysedAt)}</span>
+                            <span className="text-gray-500 font-normal">({formatDateTime(digest.lastAnalysedAt)})</span>
+                            {digest.lastAnalysedBy && (
+                                <span className="text-indigo-300 font-mono text-[9.5px]">· {digest.lastAnalysedBy}</span>
+                            )}
+                        </span>
+                    )}
+                    <span className="text-[10.5px] text-gray-500 font-bold">
+                        {digest.total > 0
+                            ? `${digest.total} analysed ${digest.total === 1 ? 'story' : 'stories'} (${digest.positiveCount} pos, ${digest.negativeCount} neg)`
+                            : 'Fundamentals active • Awaiting story analysis'}
+                    </span>
+                </div>
             </div>
 
             {/* 1 Single Paragraph Summary of All Points */}
@@ -417,6 +469,9 @@ const StockNewsCard = ({ symbol, name }) => {
     };
 
     const unread = (stories || []).filter((s) => !s.keyPoints?.length && !s.status).length;
+    const latestAnalysedStory = (stories || [])
+        .filter((s) => s.keyPoints?.length > 0 && s.analysedAt)
+        .sort((a, b) => Date.parse(b.analysedAt) - Date.parse(a.analysedAt))[0];
     const totalStories = stories?.length || 0;
     const totalPages = Math.max(1, Math.ceil(totalStories / pageSize));
     const safePage = Math.min(Math.max(1, page), totalPages);
@@ -429,9 +484,17 @@ const StockNewsCard = ({ symbol, name }) => {
                     <Newspaper size={16} className="text-indigo-300" /> News &amp; analysis
                 </h3>
                 {stories && (
-                    <span className="text-[11px] text-gray-500 font-bold">
-                        {stories.length} stories · {stories.filter((s) => s.keyPoints?.length).length} analysed
-                        {stories.length > 0 && ` · since ${dateOf(stories[stories.length - 1].published || stories[stories.length - 1].firstSeen)}`}
+                    <span className="text-[11px] text-gray-500 font-bold flex flex-wrap items-center gap-1.5">
+                        <span>{stories.length} stories · {stories.filter((s) => s.keyPoints?.length).length} analysed</span>
+                        {latestAnalysedStory && (
+                            <span
+                                title={`Most recent analysis: ${formatDateTime(latestAnalysedStory.analysedAt)}${latestAnalysedStory.analysedBy ? ` (${latestAnalysedStory.analysedBy})` : ''}`}
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-[10px] font-medium"
+                            >
+                                <Clock size={10} /> Last analysed {formatTimeAgo(latestAnalysedStory.analysedAt)}
+                            </span>
+                        )}
+                        {stories.length > 0 && <span>· since {dateOf(stories[stories.length - 1].published || stories[stories.length - 1].firstSeen)}</span>}
                     </span>
                 )}
                 <div className="ml-auto flex flex-wrap gap-2">
@@ -485,8 +548,17 @@ const StockNewsCard = ({ symbol, name }) => {
                                     {s.keyPoints.map((p, i) => <li key={i}>{p}</li>)}
                                 </ul>
                                 {s.why && <p className="text-[11.5px] text-gray-400 mt-1"><span className="text-gray-500 font-bold">Why it matters:</span> {s.why}</p>}
-                                <p className="text-[10px] text-gray-600 mt-1">
-                                    Read by {s.analysedBy || 'the local model'} on {dateOf(s.analysedAt)} from the {s.basis === 'description' ? 'publisher’s description (the article could not be opened)' : 'article'} — the model’s reading, not a verified summary.
+                                <p className="text-[10px] text-gray-500 mt-1.5 flex flex-wrap items-center gap-1.5">
+                                    <Clock size={10} className="text-indigo-400 shrink-0" />
+                                    <span>Analysed {s.analysedAt ? `${formatTimeAgo(s.analysedAt)} (${formatDateTime(s.analysedAt)})` : 'recently'}</span>
+                                    {s.analysedBy && (
+                                        <span className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 text-indigo-300 font-mono text-[9.5px]">
+                                            {s.analysedBy}
+                                        </span>
+                                    )}
+                                    <span className="text-gray-600">
+                                        · from {s.basis === 'description' ? 'publisher’s description' : 'full article'}
+                                    </span>
                                 </p>
                             </div>
                         ) : s.status ? (

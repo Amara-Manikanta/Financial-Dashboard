@@ -1,9 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
-import { AlertTriangle, Shield, Activity, ChevronDown, ChevronUp } from 'lucide-react';
+import { AlertTriangle, Shield, Activity, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
 import { GLOSSARY, CHECK_HELP, debtRatio, isMissingDebtData } from '../utils/financialGlossary';
 import { tooltipTheme } from '../utils/chartTheme';
+
+const formatDateTime = (iso) => {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    return d.toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+    });
+};
+
+const formatTimeAgo = (iso) => {
+    if (!iso) return '';
+    const t = Date.parse(iso);
+    if (!t) return '';
+    const diffMs = Date.now() - t;
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days === 1) return 'yesterday';
+    return `${days}d ago`;
+};
 
 // Client-side cache to avoid refetching across pages/components within the session
 const clientCache = new Map();
@@ -176,6 +205,11 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
                             {healthScore.total}/{healthScore.max}
                         </span>
                     )}
+                    {data.cachedAt && (
+                        <span style={{ fontSize: '0.62rem', color: '#71717a' }} title={`Evaluated: ${formatDateTime(data.cachedAt)}`}>
+                            {formatTimeAgo(data.cachedAt)}
+                        </span>
+                    )}
                 </div>
                 <ChevronDown size={13} style={{ color: '#71717a' }} />
             </div>
@@ -229,8 +263,18 @@ const StockFinancialsCard = ({ symbol, name, compact = false }) => {
                         <p style={{ margin: 0, fontSize: '0.82rem', fontWeight: 900, color: 'white' }}>
                             Business Health
                         </p>
-                        <p style={{ margin: '0.1rem 0 0', fontSize: '0.65rem', color: '#71717a' }}>
-                            Last 4 quarters · auto-refreshed every 12h
+                        <p style={{ margin: '0.15rem 0 0', fontSize: '0.65rem', color: '#71717a', display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                            <span>Last 4 quarters</span>
+                            {data.cachedAt && (
+                                <>
+                                    <span>·</span>
+                                    <span style={{ color: '#a1a1aa', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                        <Clock size={10} style={{ color: '#818cf8' }} />
+                                        Evaluated {formatTimeAgo(data.cachedAt)} ({formatDateTime(data.cachedAt)})
+                                    </span>
+                                </>
+                            )}
+                            <span>· auto-refreshed every 12h</span>
                         </p>
                     </div>
                 </div>
