@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { User, Shield, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import ExternalBackupCard from '../components/ExternalBackupCard';
 import ClaudeNewsCard from '../components/ClaudeNewsCard';
+import IphoneConnectionCard from '../components/IphoneConnectionCard';
 
 const Profile = () => {
     const { user, changePassword } = useAuth();
@@ -140,6 +141,8 @@ const Profile = () => {
                 <ExternalBackupCard />
 
                 <ClaudeNewsCard />
+
+                <IphoneConnectionCard />
             </div>
         </div>
     );

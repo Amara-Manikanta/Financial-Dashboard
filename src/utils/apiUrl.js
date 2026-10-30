@@ -12,7 +12,10 @@
  * so a sandbox run read the throwaway database but signed in against the live
  * server, which is exactly the split the sandbox exists to prevent.
  */
-export const API_URL = import.meta.env?.VITE_API_URL
+// The iPhone gateway serves this page and forwards the API under /_api, so the
+// phone's cookie rides along on same-origin requests (see lanAccess.js).
+export const API_URL = (typeof window !== 'undefined' && window.__KUBERA_API__)
+    || import.meta.env?.VITE_API_URL
     || (typeof window !== 'undefined'
         ? `${window.location.protocol}//${window.location.hostname || 'localhost'}:3000`
         : 'http://localhost:3000');

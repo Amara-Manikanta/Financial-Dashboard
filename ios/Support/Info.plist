@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Kubera connects to your Mac on your home Wi-Fi to show your finances. Nothing leaves your network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_kubera._tcp</string>
+	</array>
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsLocalNetworking</key>
+		<true/>
+	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of a bill, receipt or item to attach to a record.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo or document to attach to a record.</string>
+	<key>UIUserInterfaceStyle</key>
+	<string>Dark</string>
+</dict>
+</plist>

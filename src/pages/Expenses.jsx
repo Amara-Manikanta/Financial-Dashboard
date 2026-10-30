@@ -343,16 +343,16 @@ const Expenses = () => {
                                     <h3 style={{ fontSize: '2rem', fontWeight: '900', color: 'white', letterSpacing: '-0.025em', margin: 0 }}>{year}</h3>
                                 </div>
 
-                                <div style={{ display: 'flex', gap: '2rem' }}>
-                                    <div>
+                                <div className="max-md:flex-col max-md:w-full max-md:gap-2 max-md:mt-3" style={{ display: 'flex', gap: '2rem' }}>
+                                    <div className="max-md:flex max-md:items-baseline max-md:justify-between">
                                         <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Income</p>
                                         <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#10b981', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(yearlySalary)}</p>
                                     </div>
-                                    <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.05)', paddingLeft: '2rem' }}>
+                                    <div className="max-md:flex max-md:items-baseline max-md:justify-between max-md:!border-l-0 max-md:!pl-0" style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.05)', paddingLeft: '2rem' }}>
                                         <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Expenses</p>
                                         <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#ef4444', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(yearlyTotalExpenses)}</p>
                                     </div>
-                                    <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.05)', paddingLeft: '2rem' }}>
+                                    <div className="max-md:flex max-md:items-baseline max-md:justify-between max-md:!border-l-0 max-md:!pl-0" style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.05)', paddingLeft: '2rem' }}>
                                         <p style={{ fontSize: '8px', color: '#71717a', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 0.125rem 0' }}>Invested</p>
                                         <p style={{ fontSize: '1.25rem', fontWeight: '950', color: '#c084fc', fontFamily: 'monospace', margin: 0 }}>{formatCurrency(yearlyTotalInvested)}</p>
                                     </div>

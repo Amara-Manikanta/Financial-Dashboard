@@ -7,6 +7,8 @@ import { useFinance } from '../context/FinanceContext';
 import { useAuth } from '../context/AuthContext';
 import ConfirmModal from './ConfirmModal';
 import AlertNotifier from './AlertNotifier';
+import MobileNav from './MobileNav';
+import { NAV_GROUPS, NAV_LOANS } from './navSections';
 
 /**
  * The three holdings the Investments page owns — mutual funds, the stock market
@@ -107,8 +109,8 @@ const Layout = () => {
         <div className="min-h-screen flex flex-col bg-transparent">
             {/* Top Navigation Bar */}
             <header
+                className="h-16 max-md:h-[calc(56px+env(safe-area-inset-top))] max-md:pt-[env(safe-area-inset-top)]"
                 style={{
-                    height: '64px',
                     backgroundColor: 'rgba(0, 0, 0, 0.4)',
                     backdropFilter: 'blur(12px)',
                     WebkitBackdropFilter: 'blur(12px)',
@@ -159,76 +161,26 @@ const Layout = () => {
                     {/* gap-2 rather than gap-3 at xl: grouping Assets added a
                         chevron, which pushed the row 6px past the bar at exactly
                         1280px. The nav must never need to scroll. */}
-                    <nav className="flex-1 min-w-0 flex items-center justify-start overflow-visible">
+                    <nav className="max-md:hidden flex-1 min-w-0 flex items-center justify-start overflow-visible">
                         <div className="mx-auto flex items-center justify-center gap-1 xl:gap-1.5 2xl:gap-2">
                             <NavItem to="/" icon={LayoutDashboard} label="Dashboard" />
-                            <NavDropdown
-                                label="Income"
-                                icon={Briefcase}
-                                items={[
-                                    { to: '/salary', label: 'Salary', icon: SalaryIcon },
-                                    { to: '/taxes', label: 'Taxes', icon: TaxIcon }
-                                ]}
-                            />
+                            <NavDropdown label={NAV_GROUPS[0].label} icon={NAV_GROUPS[0].icon} items={NAV_GROUPS[0].items} />
+                            <NavDropdown label={NAV_GROUPS[1].label} icon={NAV_GROUPS[1].icon} items={NAV_GROUPS[1].items} />
+                            <NavDropdown label={NAV_GROUPS[2].label} icon={NAV_GROUPS[2].icon} items={NAV_GROUPS[2].items} />
 
-                            <NavDropdown 
-                                label="Planning" 
-                                icon={Compass} 
-                                items={[
-                                    { to: '/goals', label: 'Financial Goals', icon: FinancialGoalsIcon },
-                                    { to: '/insurance-analysis', label: 'Insurance Gap Analysis', icon: ShieldCheck },
-                                    { to: '/docusetu', label: 'DocuSetu — Documents & Claims', icon: FolderCheck },
-                                    { to: '/cashflow', label: 'Cashflow Forecast', icon: CalendarClock },
-                                    { to: '/net-worth', label: 'Net Worth Over Time', icon: BarChart3 }
-                                ]} 
-                            />
-                            
-                            <NavDropdown 
-                                label="Expenses" 
-                                icon={ExpensesIcon} 
-                                items={[
-                                    { to: '/expenses', label: 'All Expenses', icon: ExpensesIcon },
-                                    { to: '/all-transactions', label: 'All Transactions', icon: TransactionsIcon },
-                                    { to: '/money-flow', label: 'Money Flow', icon: MoneyFlowIcon },
-                                    { to: '/analytics', label: 'Spending Analysis', icon: BarChart3 },
-                                    { to: '/credit-cards', label: 'Cards', icon: CardsIcon },
-                                    { to: '/credit-cards/intelligence', label: 'Card Intelligence', icon: Gauge },
-                                    { to: '/category-budgets', label: 'Budget Limits', icon: FinancialGoalsIcon },
-                                    { to: '/recurring', label: 'Recurring & Subscriptions', icon: Repeat },
-                                    { to: '/fuel', label: 'Fuel Analytics', icon: FuelIcon },
-                                    { to: '/grocery-analytics', label: 'Grocery Analytics', icon: GroceryIcon },
-                                    { to: '/grocery-master-list', label: 'Grocery Builder', icon: GroceryIcon },
-                                    { to: '/data-health', label: 'Data Health', icon: DataHealthIcon }
-                                ]}
-                            />
-                            
                             <NavItem to="/savings" icon={SavingsIcon} label="Savings" />
                             <NavItem to="/investments" icon={StockMarketIcon} label="Investments" />
-                            <NavDropdown
-                                label="Gold & Silver"
-                                icon={Coins}
-                                items={[
-                                    { to: '/metals', label: 'All Metals', icon: Coins },
-                                    { to: '/metals/gallery', label: 'Ornament Gallery', icon: ImageIcon }
-                                ]}
-                            />
+                            <NavDropdown label={NAV_GROUPS[3].label} icon={NAV_GROUPS[3].icon} items={NAV_GROUPS[3].items} />
                             {/* Grouped rather than added alongside: another top-level
                                 item pushes the ones after it off-screen. */}
-                            <NavDropdown
-                                label="Assets"
-                                icon={Car}
-                                items={[
-                                    { to: '/assets', label: 'All Assets', icon: Car },
-                                    { to: '/warranties', label: 'Warranties & Receipts', icon: ShieldCheck }
-                                ]}
-                            />
-                            <NavItem to="/lents-loans" icon={ArrowUpRight} label="Loans & Lents" />
+                            <NavDropdown label={NAV_GROUPS[4].label} icon={NAV_GROUPS[4].icon} items={NAV_GROUPS[4].items} />
+                            <NavItem to={NAV_LOANS.to} icon={NAV_LOANS.icon} label={NAV_LOANS.label} />
                         </div>
                     </nav>
 
                     {/* Right Side - Actions/Profile */}
                     <div className="shrink-0 flex justify-end items-center gap-4">
-                        <div className="flex items-center gap-3 pr-4 border-r border-white/10">
+                        <div className="flex items-center gap-3 pr-4 border-r border-white/10 max-md:pr-0 max-md:border-r-0">
                             <NavLink to="/profile" className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
                                 <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center border border-white/10">
                                     <UserIcon size={16} />
@@ -241,7 +193,7 @@ const Layout = () => {
                         </div>
                         <button
                             onClick={() => setIsLogoutModalOpen(true)}
-                            className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                            className="max-md:hidden p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-all"
                             title="Logout"
                         >
                             <LogOut size={18} />
@@ -252,11 +204,8 @@ const Layout = () => {
 
             {/* Main Content */}
             <main
+                className="pt-20 pb-8 px-6 max-md:pt-[calc(68px+env(safe-area-inset-top))] max-md:pb-[calc(110px+env(safe-area-inset-bottom))] max-md:px-4"
                 style={{
-                    paddingTop: '80px',
-                    paddingBottom: '2rem',
-                    paddingLeft: '1.5rem',
-                    paddingRight: '1.5rem',
                     width: '100%',
                     maxWidth: '1400px',
                     margin: '0 auto'
@@ -264,6 +213,8 @@ const Layout = () => {
             >
                 <Outlet />
             </main>
+
+            <MobileNav />
 
             {/* Renders nothing — it watches for due dates and raises them as
                 native notifications. Mounted here so it runs once for the whole

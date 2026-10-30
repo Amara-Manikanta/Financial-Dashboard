@@ -11,6 +11,7 @@ import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
 import { runExternalBackup, backupStatus } from './externalBackup.js';
+import { createLanAccess, isLoopback } from './lanAccess.js';
 import { configureClaudeNews, claudeReady, claudeStatus, setClaudeEnabled, setApiKey, readBrief, refreshBrief, runClaudeDaily, startClaudeDaily } from './claudeNews.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -72,6 +73,15 @@ Object.values(UPLOAD_FOLDERS).forEach((dir) => {
 // database for testing, without disturbing the live server or the real db.json.
 const INTERNAL_PORT = Number(process.env.INTERNAL_PORT) || 3001;
 const PROXY_PORT = Number(process.env.PROXY_PORT) || 3000;
+// The iPhone gateway: the only way in from another device. Its pairing state
+// sits beside the database, so a sandbox pairs separately from the real one.
+const LAN_PORT = Number(process.env.LAN_PORT) || 5181;
+const lan = createLanAccess({
+    stateFile: path.join(path.dirname(DB_FILE), '.kubera-lan.json'),
+    distDir: path.join(__dirname, 'dist'),
+    apiPort: PROXY_PORT,
+    port: LAN_PORT,
+});
 
 // Ensure backup dir exists
 if (!fs.existsSync(BACKUP_DIR)) {
@@ -120,8 +130,10 @@ if (!fs.existsSync(JSON_SERVER_ENTRY)) {
     console.error(`[SafetyGuard] ✖ json-server not found at ${JSON_SERVER_ENTRY}. Run "npm install" first.`);
     process.exit(1);
 }
+// Wraps the entry above so it binds loopback only (see jsonServerLocal.mjs).
+const JSON_SERVER_LAUNCHER = path.join(__dirname, 'jsonServerLocal.mjs');
 const spawnJsonServer = () => {
-    const child = spawn(process.execPath, [JSON_SERVER_ENTRY, '--watch', DB_FILE, '--port', String(INTERNAL_PORT)], {
+    const child = spawn(process.execPath, [JSON_SERVER_LAUNCHER, '--watch', DB_FILE, '--host', '127.0.0.1', '--port', String(INTERNAL_PORT)], {
         stdio: 'inherit',
         // Electron's binary only behaves as node when told to.
         env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
@@ -142,6 +154,7 @@ const spawnJsonServer = () => {
 // the app can no longer be quit.
 let shuttingDown = false;
 ['SIGINT', 'SIGTERM'].forEach((sig) => process.on(sig, () => {
+    lan.stop();
     shuttingDown = true;
     try { jsonServerProcess?.kill(); } catch { /* already gone */ }
     process.exit(0);
@@ -1229,6 +1242,34 @@ const handleAnalystLLMRoute = (req, res) => {
 };
 
 const proxy = http.createServer((req, res) => {
+    // This server holds the whole database with no login, so it answers this
+    // Mac and nothing else. Other devices come through the paired gateway
+    // (lanAccess.js), which forwards over loopback with x-kubera-lan set.
+    if (!isLoopback(req.socket.remoteAddress)) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'This server only answers the Mac it runs on. Pair your iPhone from the Profile page.' }));
+        return;
+    }
+    if (req.url.startsWith('/api/lan/')) {
+        // The pairing controls belong to the Mac. A request that came through the
+        // gateway is a phone, and must never be able to mint codes or unpair others.
+        if (req.headers['x-kubera-lan']) return sendJson(res, 403, { error: 'Pairing is managed on the Mac only.' });
+        const route = req.url.split('?')[0];
+        if (route === '/api/lan/status' && req.method === 'GET') return sendJson(res, 200, lan.status());
+        if (route === '/api/lan/enabled' && req.method === 'POST') {
+            const on = /[?&]on=1/.test(req.url);
+            return lan.setEnabled(on).then(() => sendJson(res, 200, lan.status()));
+        }
+        if (route === '/api/lan/pair' && req.method === 'POST') {
+            if (!lan.status().listening) return sendJson(res, 409, { error: 'Switch iPhone connection on first.' });
+            return sendJson(res, 200, { ...lan.startPairing(), ...lan.status() });
+        }
+        if (route.startsWith('/api/lan/devices/') && req.method === 'DELETE') {
+            lan.unpair(decodeURIComponent(route.slice('/api/lan/devices/'.length)));
+            return sendJson(res, 200, lan.status());
+        }
+        return sendJson(res, 404, { error: 'Unknown route' });
+    }
     // Image routes are handled here, before the json-server proxy, so uploads
     // are never mistaken for a database mutation.
     // Status is a read; the copy itself is a POST, so a refresh can never
@@ -1593,6 +1634,7 @@ const proxy = http.createServer((req, res) => {
 });
 
 proxy.listen(PROXY_PORT, () => {
+    lan.init().catch((err) => console.error('[lan]', err.message));
     console.log(`[SafetyGuard] 🛡️  Protection Active on port ${PROXY_PORT}`);
     console.log(`[SafetyGuard] Requests are backed up and forwarded to internal server.`);
     // Off unless SQLITE_READS says otherwise, so the default path is untouched.
@@ -1609,6 +1651,7 @@ proxy.listen(PROXY_PORT, () => {
 // Handle cleanup
 process.on('SIGINT', () => {
     console.log('\n[SafetyGuard] Shutting down...');
+    lan.stop();
     jsonServerProcess.kill();
     process.exit();
 });

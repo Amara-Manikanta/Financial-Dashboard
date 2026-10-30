@@ -278,3 +278,49 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
+
+/*
+ * Phone: the layout already gives <main> a 16px margin, but ~50 older pages
+ * also pad their own root with an inline `padding: 2rem`, so cards ended up
+ * 48px in from each edge and clipped their right-hand columns. Inline styles
+ * outrank any class, hence !important; only the page root (a direct child of
+ * <main>) is touched, and only sideways.
+ */
+@media (max-width: 767px) {
+  main > * {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+  /* Grids declared with a column minimum of 340px or more cannot fit a 358px
+     column; one column is what auto-fit would give anyway, minus the overflow. */
+  main [style*="grid-template-columns"][style*="minmax(34"],
+  main [style*="grid-template-columns"][style*="minmax(35"],
+  main [style*="grid-template-columns"][style*="minmax(36"],
+  main [style*="grid-template-columns"][style*="minmax(37"],
+  main [style*="grid-template-columns"][style*="minmax(38"],
+  main [style*="grid-template-columns"][style*="minmax(39"],
+  main [style*="grid-template-columns"][style*="minmax(4"],
+  main [style*="grid-template-columns"][style*="minmax(5"],
+  main [style*="grid-template-columns"][style*="minmax(6"],
+  main [style*="grid-template-columns"][style*="minmax(7"],
+  main [style*="grid-template-columns"][style*="minmax(8"],
+  main [style*="grid-template-columns"][style*="minmax(9"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  /* Fixed two-column page layouts (form beside list) stack instead. */
+  main [style*="grid-template-columns: 1fr 1.5fr"],
+  main [style*="grid-template-columns: 1.5fr 1fr"],
+  main [style*="grid-template-columns: 1fr 2fr"],
+  main [style*="grid-template-columns: 2fr 1fr"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  /* A grid track will not shrink below its widest content unless its items are
+     allowed to, which is how one wide row stretched a whole card to 850px. */
+  main [style*="display: grid"] > * {
+    min-width: 0;
+  }
+  /* Nothing in a page may widen the screen; wide tables scroll inside their own box. */
+  html, body {
+    overflow-x: clip;
+  }
+}

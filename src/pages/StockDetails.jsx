@@ -768,7 +768,8 @@ const StockDetails = () => {
                     </span>
                 </div>
 
-                <table style={styles.table}>
+                <div className="overflow-x-auto">
+                <table style={{ ...styles.table, minWidth: 640 }}>
                     <thead>
                         <tr>
                             <th style={styles.th('left')}>Date</th>
@@ -919,6 +920,7 @@ const StockDetails = () => {
                         )}
                     </tbody>
                 </table>
+                </div>
 
                 {/* Pagination Controls */}
                 {filteredTransactions.length > itemsPerPage && (

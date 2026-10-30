@@ -123,7 +123,7 @@ const Dashboard = () => {
     }, [savings, metals, assets, calculateItemCurrentValue, calculateItemInvestedValue]);
 
     return (
-        <div style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
+        <div className="p-8 max-md:px-0 max-md:py-2 max-md:gap-6" style={{ maxWidth: '1600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '2.5rem' }}>
             {/* Header Section */}
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1.5rem' }}>
                 <div>
@@ -153,14 +153,13 @@ const Dashboard = () => {
             </div>
 
             {/* Net Worth Hero */}
-            <div style={{
+            <div className="p-10 max-md:p-5 max-md:gap-5" style={{
                 position: 'relative',
                 overflow: 'hidden',
                 backgroundColor: 'rgba(16, 185, 129, 0.03)',
                 backdropFilter: 'blur(10px)',
                 border: '1px solid rgba(16, 185, 129, 0.1)',
                 borderRadius: '2rem',
-                padding: '2.5rem',
                 boxShadow: '0 10px 25px -5px rgba(16, 185, 129, 0.05)',
                 display: 'flex',
                 flexWrap: 'wrap',
@@ -170,7 +169,7 @@ const Dashboard = () => {
             }}>
                 <div>
                     <span style={{ fontSize: '9px', fontWeight: '900', color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Total Combined Net Worth</span>
-                    <h3 style={{ fontSize: '3rem', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.5rem 0' }}>
+                    <h3 style={{ fontSize: 'clamp(1.5rem, 8vw, 3rem)', fontWeight: '950', color: 'white', fontFamily: 'monospace', margin: '0.5rem 0' }}>
                         {formatCurrency(stats.netWorth)}
                     </h3>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', color: '#71717a', fontSize: '11px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -183,14 +182,14 @@ const Dashboard = () => {
                     )}
                 </div>
 
-                <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem 1.5rem', borderRadius: '1rem', minWidth: '150px' }}>
+                <div className="max-md:w-full max-md:gap-3" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem 1.5rem', borderRadius: '1rem', minWidth: '140px', flex: '1 1 140px' }}>
                         <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Growth Index</span>
                         <p style={{ fontSize: '1.5rem', fontWeight: '950', fontFamily: 'monospace', margin: '0.25rem 0 0 0', color: stats.growthColor.includes('emerald') ? '#34d399' : stats.growthColor.includes('rose') ? '#f87171' : '#a1a1aa' }}>
                             {stats.growthIndex}
                         </p>
                     </div>
-                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem 1.5rem', borderRadius: '1rem', minWidth: '150px' }}>
+                    <div style={{ backgroundColor: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', padding: '1rem 1.5rem', borderRadius: '1rem', minWidth: '140px', flex: '1 1 140px' }}>
                         <span style={{ fontSize: '8px', fontWeight: '900', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Asset Health</span>
                         <p style={{ fontSize: '1.5rem', fontWeight: '950', fontFamily: 'monospace', margin: '0.25rem 0 0 0', color: stats.healthColor.includes('emerald') ? '#34d399' : stats.healthColor.includes('rose') ? '#f87171' : '#a1a1aa' }}>
                             {stats.assetHealth}

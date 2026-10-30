@@ -95,3 +95,9 @@ verify_persistence.js
 # NewsAPI request log (timestamps only)
 .newsapi-usage.json
 .claude-news.json
+
+# iOS
+ios/build/
+ios/**/xcuserdata/
+ios/**/*.xcuserstate
+.kubera-lan.json
