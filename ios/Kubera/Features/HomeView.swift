@@ -35,6 +35,11 @@ struct HomeView: View {
             }
             .navigationTitle("Kubera")
             .navigationBarTitleDisplayMode(.large)
+            .navigationDestination(for: NativeScreen.self) { screen in
+                switch screen {
+                case .savings: SavingsView(store: store)
+                }
+            }
         }
     }
 
@@ -70,6 +75,7 @@ struct HomeView: View {
         var icon: String? = nil
         var tone: Tone = .neutral
         var opens: AppTab? = nil
+        var screen: NativeScreen? = nil
         var id: String { title }
     }
 
@@ -77,7 +83,7 @@ struct HomeView: View {
         VStack(alignment: .leading, spacing: 8) {
             KSectionHeader(title: "What it's made of")
             lines([
-                Line(title: "Savings & investments", value: worth.totalSavings, icon: "banknote"),
+                Line(title: "Savings & investments", value: worth.totalSavings, icon: "banknote", screen: .savings),
                 Line(title: "Gold, silver & coins", value: worth.totalMetals, icon: "circle.hexagongrid"),
                 Line(title: "Assets", value: worth.totalAssets, icon: "car"),
             ] + (worth.debt > 0 ? [Line(title: "Loans owed", value: -worth.debt, icon: "arrow.up.right.circle", tone: .negative)] : []))
@@ -116,6 +122,8 @@ struct HomeView: View {
         KList(items: items) { line in
             if let tab = line.opens {
                 Button { select(tab) } label: { row(line, chevron: true) }.buttonStyle(.plain)
+            } else if let screen = line.screen {
+                NavigationLink(value: screen) { row(line, chevron: true) }.buttonStyle(.plain)
             } else {
                 row(line, chevron: false)
             }

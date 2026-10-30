@@ -8,10 +8,11 @@ import Foundation
 enum AppTab: Hashable { case home, expenses, invest, more }
 
 struct AppPage: Identifiable {
+    enum Native { case tab(AppTab), screen(NativeScreen) }
     let title: String
     let path: String
     let icon: String
-    var native: AppTab? = nil
+    var native: Native? = nil
     var id: String { path }
 }
 
@@ -24,10 +25,10 @@ struct PageGroup: Identifiable {
 enum Pages {
     static let groups: [PageGroup] = [
         PageGroup(title: "Overview", pages: [
-            AppPage(title: "Dashboard & net worth", path: "/", icon: "house", native: .home),
-            AppPage(title: "Savings", path: "/savings", icon: "banknote"),
+            AppPage(title: "Dashboard & net worth", path: "/", icon: "house", native: .tab(.home)),
+            AppPage(title: "Savings", path: "/savings", icon: "banknote", native: .screen(.savings)),
             AppPage(title: "Investments (all accounts)", path: "/investments", icon: "chart.line.uptrend.xyaxis"),
-            AppPage(title: "Stocks", path: "/savings/stock-market/3", icon: "chart.bar.xaxis", native: .invest),
+            AppPage(title: "Stocks", path: "/savings/stock-market/3", icon: "chart.bar.xaxis", native: .tab(.invest)),
             AppPage(title: "Loans & Lents", path: "/lents-loans", icon: "arrow.up.right.circle"),
         ]),
         PageGroup(title: "Investing", pages: [
@@ -52,7 +53,7 @@ enum Pages {
             AppPage(title: "Net Worth Over Time", path: "/net-worth", icon: "chart.xyaxis.line"),
         ]),
         PageGroup(title: "Spending", pages: [
-            AppPage(title: "All Expenses", path: "/expenses", icon: "creditcard", native: .expenses),
+            AppPage(title: "All Expenses", path: "/expenses", icon: "creditcard", native: .tab(.expenses)),
             AppPage(title: "All Transactions", path: "/all-transactions", icon: "list.bullet.rectangle"),
             AppPage(title: "Money Flow", path: "/money-flow", icon: "arrow.left.arrow.right"),
             AppPage(title: "Spending Analysis", path: "/analytics", icon: "chart.pie"),

@@ -24,6 +24,7 @@ private struct PairedRoot: View {
 
     @StateObject private var store: FinanceStore
     @State private var tab: AppTab = .home
+    @State private var webPage: AppPage?
 
     init(mac: MacEndpoint, token: String, forget: @escaping () -> Void) {
         self.mac = mac
@@ -40,10 +41,14 @@ private struct PairedRoot: View {
                 .tabItem { Label("Expenses", systemImage: "creditcard.fill") }.tag(AppTab.expenses)
             InvestView(store: store)
                 .tabItem { Label("Invest", systemImage: "chart.line.uptrend.xyaxis") }.tag(AppTab.invest)
-            MoreView(mac: mac, token: token, select: { tab = $0 }, disconnect: forget)
+            MoreView(store: store, mac: mac, select: { tab = $0 }, disconnect: forget)
                 .tabItem { Label("More", systemImage: "ellipsis") }.tag(AppTab.more)
         }
         .tint(Theme.accent)
+        .environment(\.openWebPage, { webPage = $0 })
+        .fullScreenCover(item: $webPage) { page in
+            WebPageView(mac: mac, token: token, page: page, onUnauthorized: forget)
+        }
         .task { await store.load() }
     }
 }

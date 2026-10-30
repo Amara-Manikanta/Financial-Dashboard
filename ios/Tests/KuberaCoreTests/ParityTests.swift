@@ -93,3 +93,21 @@ extension ParityTests {
         print("parity: net worth \(s.netWorth) matches, growth \(s.growthIndex), health \(s.assetHealth)")
     }
 }
+
+extension ParityTests {
+    func testSavingsPageMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let asOf = try XCTUnwrap(f.date(from: golden["asOf"].text))
+        let s = SavingsPage.summary(savings: db["savings"], salaryDetails: db["salaryDetails"], employments: db["appData"]["employments"], asOf: asOf)
+        let web = golden["savings"]
+        XCTAssertEqual(s.active.map(\.id), web["active"].array.map(\.text), "active accounts, in order")
+        XCTAssertEqual(s.archived.map(\.id), web["archived"].array.map(\.text), "archived accounts")
+        XCTAssertEqual(s.gratuity, web["gratuity"].double, accuracy: 0.005)
+        XCTAssertEqual(s.valueFromItems, web["valueFromItems"].double, accuracy: 0.005)
+        XCTAssertEqual(s.totalValue, web["totalValue"].double, accuracy: 0.005)
+        XCTAssertEqual(s.invested, web["invested"].double, accuracy: 0.005)
+        XCTAssertEqual(s.profitLoss, web["profitLoss"].double, accuracy: 0.005)
+        print("parity: savings \(s.totalValue) across \(s.active.count) accounts (+\(s.archived.count) archived), gratuity \(s.gratuity)")
+    }
+}

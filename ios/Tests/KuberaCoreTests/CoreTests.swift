@@ -181,3 +181,38 @@ final class ValuationTests: XCTestCase {
         XCTAssertEqual(NetWorth.toFixed1(13.44), "13.4")
     }
 }
+
+final class SavingsTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+    private let now = JSDate.parse("2026-06-01")!
+
+    func testGratuityFromAnnualCTCWhenNoTenuresAreRecorded() {
+        let rows = json("[{\"month\":\"Annual\",\"year\":2025,\"gratuity\":1000},{\"month\":\"Annual\",\"year\":2026,\"gratuity\":500},{\"month\":\"June\",\"year\":2026,\"gratuity\":99}]")
+        XCTAssertEqual(SavingsPage.gratuity(employments: json("[]"), salaryDetails: rows, now: now), 1500)
+    }
+
+    func testGratuityNeedsFiveYearsAndUsesTheStatutoryFormula() {
+        let current = json("[{\"startDate\":\"2018-01-01\",\"isCurrent\":true,\"lastDrawnBasic\":52000}]")
+        // 8 completed years: 15 × 52000 × 8 / 26 = 240000
+        XCTAssertEqual(SavingsPage.gratuity(employments: current, salaryDetails: json("[]"), now: now), 240000)
+        let short = json("[{\"startDate\":\"2022-01-01\",\"endDate\":\"2024-01-01\",\"lastDrawnBasic\":52000}]")
+        XCTAssertEqual(SavingsPage.gratuity(employments: short, salaryDetails: json("[]"), now: now), 0)   // left before five years: forfeited
+    }
+
+    func testOnlyMoneyReturningAccountsAreSavings() {
+        XCTAssertFalse(SavingsPage.isSavings(json("{\"type\":\"mutual_fund\"}")))
+        XCTAssertFalse(SavingsPage.isSavings(json("{\"type\":\"Policy\",\"isProtectionOnly\":true}")))
+        XCTAssertFalse(SavingsPage.isSavings(json("{\"type\":\"Policy\",\"policyDetails\":{\"category\":\"health\"}}")))
+        XCTAssertTrue(SavingsPage.isSavings(json("{\"type\":\"policy\",\"isProtectionOnly\":false}")))
+        XCTAssertTrue(SavingsPage.isSavings(json("{\"type\":\"fixed_deposit\"}")))
+    }
+
+    func testAccountTitleAndLabelFollowTheWebPage() {
+        let s = SavingsPage.summary(savings: json("[{\"id\":\"1\",\"type\":\"savings_account\"},{\"id\":\"2\",\"type\":\"liquid\",\"title\":\"Emergency Fund\",\"amount\":1000}]"),
+                                    salaryDetails: json("[]"), employments: json("[]"), asOf: now)
+        XCTAssertEqual(s.active[0].title, "savings account")
+        XCTAssertEqual(s.active[1].title, "Emergency Fund")
+        XCTAssertEqual(s.active[1].webPath, "/savings/emergency-fund/2")
+        XCTAssertEqual(s.valueFromItems, 1000)
+    }
+}

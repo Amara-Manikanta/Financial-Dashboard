@@ -14,7 +14,7 @@ import { effectiveStockPosition } from '../../../src/utils/investmentSync.js';
 import { ownHoldings } from '../../../src/utils/holdingOwner.js';
 import { totalAccruedValue, totalPrincipal } from '../../../src/utils/fdAccrual.js';
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
-import { calculateNetWorth } from '../../../src/utils/financeCalculators.js';
+import { calculateNetWorth, calculateGratuity } from '../../../src/utils/financeCalculators.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
 const RealDate = Date;
@@ -60,7 +60,7 @@ for (const [year, byIndex] of Object.entries(groups)) {
 
 // FinanceContext.jsx: how each account type is valued, and how metals get a value.
 const policySource = slice('src/context/FinanceContext.jsx', 'export const isProtectionOnlyPolicy', 'export const METAL_CATEGORIES');
-const policyContributed = new Function(`const isProtectionOnlyPolicy${policySource}\nreturn policyContributed;`.replace(/export const/g, 'const'))();
+const { policyContributed, isProtectionOnlyPolicy } = new Function(`const isProtectionOnlyPolicy${policySource}\nreturn { policyContributed, isProtectionOnlyPolicy };`.replace(/export const/g, 'const'))();
 const valuationSource = slice('src/context/FinanceContext.jsx', 'const calculateItemCurrentValue = (item) => {', 'const updateItem = async (type, item) => {');
 const { calculateItemCurrentValue, calculateItemInvestedValue } = new Function(
     'ownHoldings', 'totalAccruedValue', 'totalPrincipal', 'readSgbHolding', 'policyContributed', 'effectiveStockPosition',
@@ -79,6 +79,21 @@ const dashboard = new Function('savings', 'metals', 'assets', 'loans', 'calculat
 );
 const items = db.savings.map((i) => ({ id: String(i.id), type: i.type, current: Number(calculateItemCurrentValue(i)) || 0, invested: Number(calculateItemInvestedValue(i)) || 0 }));
 
+// Savings.jsx: which accounts count, and the totals at the top of the page.
+const savingsBody = slice('src/pages/Savings.jsx', 'const savingsOnly = savings.filter(item =>', 'const isTotalProfit = totalProfitLoss >= 0;');
+const savingsPage = new Function('savings', 'calculateItemCurrentValue', 'calculateItemInvestedValue', 'isProtectionOnlyPolicy', 'calculateGratuity', 'employments', 'salaryDetails', 'useMemo',
+    `const savingsOnly = savings.filter(item =>${savingsBody}\nreturn { activeSavings, archivedSavings, totalGratuityTillNow, totalPortfolioValue, totalPortfolioValueFromItems, totalInvestedValue, totalProfitLoss };`,
+)(db.savings, calculateItemCurrentValue, calculateItemInvestedValue, isProtectionOnlyPolicy, calculateGratuity, db.appData?.employments || [], db.salaryDetails, (fn) => fn());
+const savingsGolden = {
+    active: savingsPage.activeSavings.map((i) => String(i.id)),
+    archived: savingsPage.archivedSavings.map((i) => String(i.id)),
+    gratuity: savingsPage.totalGratuityTillNow,
+    totalValue: savingsPage.totalPortfolioValue,
+    valueFromItems: savingsPage.totalPortfolioValueFromItems,
+    invested: savingsPage.totalInvestedValue,
+    profitLoss: savingsPage.totalProfitLoss,
+};
+
 const account = db.savings.find((s) => s.type === 'stock_market');
 const active = ownHoldings(account.stocks).filter((s) => !s.isArchived && Number(s.shares || 0) > 0);
 const holdings = active.map((s) => {
@@ -88,7 +103,7 @@ const holdings = active.map((s) => {
 
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
-    dashboard, items,
+    dashboard, items, savings: savingsGolden,
     months,
     stocks: {
         count: holdings.length,

@@ -1,16 +1,17 @@
 import SwiftUI
 
 struct MoreView: View {
+    @ObservedObject var store: FinanceStore
     let mac: MacEndpoint
-    let token: String
     let select: (AppTab) -> Void
     let disconnect: () -> Void
 
-    @State private var webPage: AppPage?
+    @Environment(\.openWebPage) private var openWebPage
+    @State private var path = NavigationPath()
     @State private var confirmDisconnect = false
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             KScreen {
                 ForEach(Pages.groups) { group in
                     KSectionHeader(title: group.title)
@@ -37,8 +38,10 @@ struct MoreView: View {
                     .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
             }
             .navigationTitle("More")
-            .fullScreenCover(item: $webPage) { page in
-                WebPageView(mac: mac, token: token, page: page, onUnauthorized: disconnect)
+            .navigationDestination(for: NativeScreen.self) { screen in
+                switch screen {
+                case .savings: SavingsView(store: store)
+                }
             }
             .confirmationDialog("Disconnect this iPhone from \(mac.name)?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
                 Button("Disconnect", role: .destructive, action: disconnect)
@@ -47,7 +50,11 @@ struct MoreView: View {
     }
 
     private func open(_ page: AppPage) {
-        if let tab = page.native { select(tab) } else { webPage = page }
+        switch page.native {
+        case let .tab(tab)?: select(tab)
+        case let .screen(screen)?: path.append(screen)
+        case nil: openWebPage(page)
+        }
     }
 }
 
