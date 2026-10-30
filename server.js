@@ -11,6 +11,7 @@ import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
 import { runExternalBackup, backupStatus } from './externalBackup.js';
+import { configureClaudeNews, claudeReady, claudeStatus, setClaudeEnabled, readBrief, refreshBrief, runClaudeDaily, startClaudeDaily } from './claudeNews.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -32,6 +33,12 @@ configureArchive({ archiveDir: path.join(path.dirname(DB_FILE), 'db', 'news') })
 syncConsolidatedCsv();
 const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
 startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
+// Claude's switch and spend log sit beside the database too; briefs beside the news files.
+configureClaudeNews({
+    stateFile: path.join(path.dirname(DB_FILE), '.claude-news.json'),
+    briefDir: path.join(path.dirname(DB_FILE), 'db', 'news', 'briefs'),
+});
+startClaudeDaily({ dbFile: DB_FILE, analyse: analyseLatest, held: heldStocksIn });
 
 // Collections that must always exist. Used to validate snapshots before they
 // are trusted, so we never keep a "backup" that is already missing data.
@@ -1051,6 +1058,49 @@ const handleAnalystLLMRoute = (req, res) => {
         res.end();
         return;
     }
+    if (route.startsWith('/api/analyst/claude/')) {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        const symbol = params.get('symbol');
+        const name = params.get('name') || symbol;
+        if (route === '/api/analyst/claude/status' && req.method === 'GET') {
+            sendJson(res, 200, claudeStatus());
+            return;
+        }
+        if (route === '/api/analyst/claude/enabled' && req.method === 'POST') {
+            sendJson(res, 200, setClaudeEnabled(params.get('on') === '1'));
+            return;
+        }
+        if (route === '/api/analyst/claude/brief' && req.method === 'GET') {
+            if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
+            sendJson(res, 200, { symbol, brief: readBrief(symbol), status: claudeStatus() });
+            return;
+        }
+        if (route === '/api/analyst/claude/brief' && req.method === 'POST') {
+            // One stock now: read its unread stories from the last 30 days, then
+            // update the brief (or rebuild it with ?rebuild=1).
+            if (!symbol) { sendJson(res, 400, { error: 'symbol is required' }); return; }
+            // Checked first: switched off, this must not fall through to the local model's reading.
+            const ready = claudeReady();
+            if (!ready.ok) { sendJson(res, 503, { ok: false, error: ready.reason, status: claudeStatus() }); return; }
+            const count = Math.min(60, Math.max(0, Number(params.get('count') ?? 30)));
+            (count ? analyseLatest(symbol, name, { count, maxAgeDays: 30 }) : Promise.resolve({ analysed: 0 }))
+                .then(async (read) => {
+                    const result = await refreshBrief(symbol, name, { rebuild: params.get('rebuild') === '1' });
+                    const status = result.ok ? 200 : result.unavailable ? 503 : 502;
+                    sendJson(res, status, { ...result, read, status: claudeStatus() });
+                })
+                .catch((err) => sendJson(res, 500, { ok: false, error: err.message }));
+            return;
+        }
+        if (route === '/api/analyst/claude/run-daily' && req.method === 'POST') {
+            runClaudeDaily({ dbFile: DB_FILE, analyse: analyseLatest, held: heldStocksIn })
+                .catch((err) => console.error('[claude-news] daily run failed:', err.message));
+            sendJson(res, 202, claudeStatus());
+            return;
+        }
+        sendJson(res, 404, { error: 'Unknown Claude route' });
+        return;
+    }
     if (route === '/api/analyst/news/refresh-portfolio' && req.method === 'GET') {
         return handleRefreshPortfolioNewsStream(req, res);
     }
@@ -1205,7 +1255,7 @@ const proxy = http.createServer((req, res) => {
     }
     // Before the json-server proxy below, which would take a POST here for a
     // database write.
-    if (req.url.startsWith('/api/analyst/llm/') || req.url.startsWith('/api/analyst/news')) {
+    if (req.url.startsWith('/api/analyst/llm/') || req.url.startsWith('/api/analyst/news') || req.url.startsWith('/api/analyst/claude/')) {
         return handleAnalystLLMRoute(req, res);
     }
 

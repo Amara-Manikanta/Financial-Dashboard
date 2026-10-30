@@ -94,3 +94,4 @@ verify_persistence.js
 
 # NewsAPI request log (timestamps only)
 .newsapi-usage.json
+.claude-news.json

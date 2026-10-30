@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Newspaper, RefreshCw, Sparkles, Download, ExternalLink, TrendingUp, TrendingDown, AlertTriangle, CheckCircle, Shield, ChevronLeft, ChevronRight, Clock } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
+import ClaudeBriefPanel from './ClaudeBriefPanel';
 
 const formatDateTime = (iso) => {
     if (!iso) return '';
@@ -459,7 +460,7 @@ const StockNewsCard = ({ symbol, name }) => {
             const body = await r.json();
             if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
             setNote(body.modelUnavailable
-                ? `No local model is running (${body.errors[0] || 'start LM Studio'}).`
+                ? (body.reader === 'claude' ? `Claude unavailable: ${body.errors[0]}` : `No local model is running (${body.errors[0] || 'start LM Studio'}).`)
                 : `${body.analysed} analysed${body.skipped ? `, ${body.skipped} could not be read` : ''}${body.failed ? `, ${body.failed} failed` : ''}.`);
             setStories(body.archive?.items || []);
         } catch (err) {
@@ -505,7 +506,7 @@ const StockNewsCard = ({ symbol, name }) => {
                         type="button"
                         onClick={analyse}
                         disabled={!!busy || unread === 0}
-                        title="The local model reads up to five unread articles and stores their key points (about 20 seconds each)"
+                        title="Claude (when switched on) or the local model reads up to five unread articles and stores their key points"
                         className="px-3 py-1.5 rounded-lg bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white text-[11px] font-black flex items-center gap-1.5"
                     >
                         <Sparkles size={12} className={busy === 'analyse' ? 'animate-pulse' : ''} /> {busy === 'analyse' ? 'Reading articles…' : `Analyse ${Math.min(5, unread) || ''} unread`}
@@ -523,6 +524,8 @@ const StockNewsCard = ({ symbol, name }) => {
             {note && <p className="text-[11.5px] text-gray-400 mt-2">{note}</p>}
 
             <NewsSentimentSummary stories={stories} financials={financials} />
+
+            <ClaudeBriefPanel symbol={symbol} name={name} stories={stories} onStoriesChanged={load} />
 
             {stories === null && <p className="text-[12px] text-gray-500 mt-4">Loading…</p>}
             {stories?.length === 0 && !note && (

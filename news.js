@@ -14,6 +14,7 @@ import { parseHTML } from 'linkedom';
 import { Readability } from '@mozilla/readability';
 import { mergeIntoArchive, archiveStats, consolidate, readArchive, attachAnalysis } from './newsArchive.js';
 import { analyseArticle } from './analystLLM.js';
+import { claudeReady, readStoryWithClaude } from './claudeNews.js';
 
 const NEWS_TTL_MS = 30 * 60 * 1000;
 const MAX_AGE_DAYS = 30;
@@ -266,10 +267,16 @@ export const articleText = async (url) => {
  */
 let analysing = Promise.resolve();
 const modelFailures = new Map();   // story id → failed attempts this run of the server
-export const analyseLatest = (symbol, name, { count = 3 } = {}) => {
+export const analyseLatest = (symbol, name, { count = 3, maxAgeDays = 0 } = {}) => {
     const run = analysing.then(async () => {
-        const done = { analysed: 0, failed: 0, skipped: 0, modelUnavailable: false, errors: [] };
-        const todo = readArchive(symbol).items.filter((s) => !s.keyPoints.length && !s.status).slice(0, count);
+        // Claude reads when it is switched on and under today's limit; otherwise the local model.
+        const useClaude = claudeReady().ok;
+        const done = { analysed: 0, failed: 0, skipped: 0, modelUnavailable: false, errors: [], reader: useClaude ? 'claude' : 'local' };
+        const oldest = maxAgeDays ? Date.now() - maxAgeDays * DAY_MS : 0;
+        const todo = readArchive(symbol).items
+            .filter((s) => !s.keyPoints.length && !s.status)
+            .filter((s) => !oldest || (Date.parse(s.published || s.firstSeen) || 0) >= oldest)
+            .slice(0, count);
         for (const story of todo) {
             let text = '';
             let basis = 'article';
@@ -283,10 +290,11 @@ export const analyseLatest = (symbol, name, { count = 3 } = {}) => {
                 done.skipped += 1;
                 continue;
             }
-            const result = await analyseArticle({
-                company: name, title: story.title, date: story.published || story.firstSeen,
+            const input = {
+                symbol, company: name, title: story.title, date: story.published || story.firstSeen,
                 sources: story.sources.join(', '), text, basis,
-            });
+            };
+            const result = useClaude ? await readStoryWithClaude(input) : await analyseArticle(input);
             if (result.unavailable) { done.modelUnavailable = true; done.errors.push(result.error); break; }
             if (!result.ok) {
                 done.failed += 1;

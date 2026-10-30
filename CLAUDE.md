@@ -739,6 +739,44 @@ raw JSON included, so runs and models can be compared. The log is kept in
 `insightsEngine.js` and `AIChatInterface.jsx` are an older, unmounted attempt
 with a model path hard-coded to one Mac. The analyst does not use them.
 
+### Claude reads the news (`claudeNews.js`, off by default)
+
+An alternative to the local model for reading stories, plus a **running brief**
+per stock. Needs `ANTHROPIC_API_KEY` in `.env.local` (never commit it) **and**
+the "Claude reading" switch on the stock page's News & analysis card. Without
+both, nothing calls the API and `analyseLatest` uses LM Studio as before.
+
+- **Model:** `claude-haiku-5-5` at effort `low`, structured output
+  (`output_config.format`). Override with `CLAUDE_NEWS_MODEL`.
+- **Story reading** fills the same CSV columns as the local model
+  (`analysed_by` says which). Same contract as `analyseArticle`, so `news.js`
+  just picks one.
+- **The brief** (`db/news/briefs/<SYMBOL>.json`, never db.json) has at most 8
+  items, each open/resolved, each citing story ids. Dates come from the cited
+  stories, never from the model. Daily it is **updated** from the previous
+  brief plus stories that arrived since; once a week it is **rebuilt** from the
+  stored readings alone, ignoring the previous brief, so drift cannot compound.
+- **Figures are checked.** A number Claude writes that is not in its source is
+  flagged — `[unverified figure …]` on a key point, `unverified` on a brief
+  item. A brief item is checked only against **the stories it cites**, never
+  against the previous brief's text: otherwise one invented figure would be
+  laundered by every update. There is a test for it.
+- **What is sent:** company names, headlines, article text, stored key points.
+  Never quantities, values, cost or tax. No buy/sell verdict — the page's own
+  figures sit beside the brief, not inside it.
+- **Spend** is logged per call from `response.usage` in `.claude-news.json`
+  beside the database (gitignored; a sandbox counts separately) and capped per
+  IST day by `CLAUDE_NEWS_DAILY_INR` (default 150; `USD_INR` default 90).
+  The check happens before each call, so the last call can overshoot slightly.
+- **Daily run** after 7 am IST: each held stock gets up to 30 unread stories
+  from the last 30 days read, then its brief updated. Stops at the cap.
+- `POST /api/analyst/claude/brief` refuses (503) when Claude is off — it must
+  never fall through to the local reader and mark stories unreadable.
+
+To test without a key or spend, point the SDK at a stub:
+`ANTHROPIC_API_KEY=stub ANTHROPIC_BASE_URL=http://127.0.0.1:4999` on the
+sandbox server, with a tiny HTTP server answering `/v1/messages`.
+
 ### Testing it without touching real data
 
 `npm test` covers the engine, the ledger and the relay's parsing. For the page,
@@ -754,7 +792,7 @@ Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js` | `npm run server` |
+| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js`, `claudeNews.js` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |
