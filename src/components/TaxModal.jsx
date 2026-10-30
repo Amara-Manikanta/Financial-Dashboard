@@ -54,6 +54,8 @@ const TaxModal = ({ isOpen, onClose, onSave, taxRecord = null }) => {
         totalTaxInterestFeePayable: '',
         taxesPaid: '',
         taxPayableRefundable: '',
+        refundReceived: '',
+        refundReceivedDate: '',
         accretedIncome: '',
         addlTaxPayable115TD: '',
         interestPayable115TE: '',
@@ -120,6 +122,8 @@ const TaxModal = ({ isOpen, onClose, onSave, taxRecord = null }) => {
                 totalTaxInterestFeePayable: '',
                 taxesPaid: '',
                 taxPayableRefundable: '',
+                refundReceived: '',
+                refundReceivedDate: '',
                 accretedIncome: '',
                 addlTaxPayable115TD: '',
                 interestPayable115TE: '',
@@ -321,6 +325,10 @@ const TaxModal = ({ isOpen, onClose, onSave, taxRecord = null }) => {
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
                             <InputField label="7. Taxes Paid (₹)" type="number" value={formData.taxesPaid} onChange={e => setFormData({...formData, taxesPaid: e.target.value})} />
                             <InputField label="8. (+ Payable / - Refundable) (₹)" type="number" value={formData.taxPayableRefundable} onChange={e => setFormData({...formData, taxPayableRefundable: e.target.value})} />
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+                            <InputField label="Refund Received (₹)" type="number" placeholder="Credited to your bank so far" value={formData.refundReceived ?? ''} onChange={e => setFormData({...formData, refundReceived: e.target.value})} />
+                            <InputField label="Refund Received On" type="date" value={formData.refundReceivedDate ?? ''} onChange={e => setFormData({...formData, refundReceivedDate: e.target.value})} />
                         </div>
 
                         <h3 style={{ fontSize: '1rem', color: '#f87171', marginBottom: '1rem', marginTop: '2rem', fontWeight: 'bold', borderBottom: '1px solid rgba(248, 113, 113, 0.2)', paddingBottom: '0.5rem' }}>Accreted Income & Tax Detail</h3>

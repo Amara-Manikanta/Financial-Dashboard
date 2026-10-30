@@ -68,11 +68,13 @@ const Taxes = () => {
     // Aggregate Metrics
     const totalTaxPaid = sortedTaxes.reduce((sum, tax) => sum + Number(tax.taxesPaid || 0), 0);
     
-    // Refunds are negative numbers in taxPayableRefundable
-    const totalRefundReceived = sortedTaxes.reduce((sum, tax) => {
-        const val = Number(tax.taxPayableRefundable || 0);
-        return val < 0 ? sum + Math.abs(val) : sum;
-    }, 0);
+    // The return says what is owed back (a negative taxPayableRefundable); what has
+    // actually reached the bank is recorded separately in refundReceived.
+    const refundDue = (tax) => Math.max(0, -Number(tax.taxPayableRefundable || 0));
+    const refundGot = (tax) => Math.max(0, Number(tax.refundReceived || 0));
+    const totalRefundDue = sortedTaxes.reduce((sum, tax) => sum + refundDue(tax), 0);
+    const totalRefundReceived = sortedTaxes.reduce((sum, tax) => sum + refundGot(tax), 0);
+    const totalRefundAwaited = sortedTaxes.reduce((sum, tax) => sum + Math.max(0, refundDue(tax) - refundGot(tax)), 0);
 
     return (
         <div style={{ padding: '2rem', maxWidth: '1200px', margin: '0 auto' }}>
@@ -187,6 +189,9 @@ const Taxes = () => {
                         <div>
                             <p style={{ color: '#a1a1aa', fontSize: '0.875rem', marginBottom: '0.25rem' }}>Total Refund Received (All Years)</p>
                             <h2 style={{ color: 'white', fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>{formatCurrency(totalRefundReceived)}</h2>
+                            <p style={{ color: '#71717a', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+                                {formatCurrency(totalRefundDue)} due on returns{totalRefundAwaited > 0 ? ` · ${formatCurrency(totalRefundAwaited)} still awaited` : ' · nothing awaited'}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -281,11 +286,25 @@ const Taxes = () => {
                                                     padding: '1rem', borderRadius: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
                                                 }}>
                                                     <span style={{ color: isRefund ? '#34d399' : '#f87171', fontWeight: 'bold', fontSize: '0.875rem' }}>
-                                                        {isRefund ? 'Refund Due/Received' : 'Tax Payable'}
+                                                        {isRefund ? 'Refund Due' : 'Tax Payable'}
                                                     </span>
                                                     <span style={{ color: isRefund ? '#34d399' : '#f87171', fontWeight: 'bold', fontSize: '1.25rem' }}>
                                                         {formatCurrency(Math.abs(Number(tax.taxPayableRefundable || 0)))}
                                                     </span>
+                                                </div>
+                                            )}
+                                            {isRefund && (
+                                                <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', fontSize: '0.875rem' }}>
+                                                    <span style={{ color: '#a1a1aa' }}>
+                                                        Received{tax.refundReceivedDate ? ` on ${tax.refundReceivedDate}` : ''}:{' '}
+                                                        <strong style={{ color: refundGot(tax) ? '#34d399' : '#71717a' }}>{refundGot(tax) ? formatCurrency(refundGot(tax)) : 'not yet recorded'}</strong>
+                                                    </span>
+                                                    {refundDue(tax) - refundGot(tax) > 0 && (
+                                                        <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{formatCurrency(refundDue(tax) - refundGot(tax))} awaited</span>
+                                                    )}
+                                                    {refundGot(tax) > refundDue(tax) && (
+                                                        <span style={{ color: '#fbbf24', fontWeight: 'bold' }}>{formatCurrency(refundGot(tax) - refundDue(tax))} more than the return shows (interest?)</span>
+                                                    )}
                                                 </div>
                                             )}
                                         </>
