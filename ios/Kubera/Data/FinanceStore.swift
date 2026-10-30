@@ -13,6 +13,8 @@ final class FinanceStore: ObservableObject {
     @Published private(set) var netWorth = NetWorthSummary()
     @Published private(set) var savings = SavingsPage.Summary()
     @Published private(set) var investments = InvestmentsPage.Summary()
+    @Published private(set) var people = LoansPage.People()
+    @Published private(set) var loans = LoansPage.Loans()
     @Published private(set) var isLoading = false
     @Published private(set) var loadedAt: Date?
     @Published var errorMessage: String?
@@ -37,10 +39,11 @@ final class FinanceStore: ObservableObject {
             async let appData = api.get("appData")
             async let metals = api.get("metals")
             async let assets = api.get("assets")
-            async let loans = api.get("loans")
-            let (e, s, d, a, m, as_, l) = try await (expenses, savingsData, salary, appData, metals, assets, loans)
+            async let loansData = api.get("loans")
+            async let lentsData = api.get("lents")
+            let (e, s, d, a, m, as_, l, lents) = try await (expenses, savingsData, salary, appData, metals, assets, loansData, lentsData)
 
-            let computed = await Task.detached(priority: .userInitiated) { () -> ([YearSummary], Stocks.Portfolio, NetWorthSummary, SavingsPage.Summary, InvestmentsPage.Summary) in
+            let computed = await Task.detached(priority: .userInitiated) { () -> ([YearSummary], Stocks.Portfolio, NetWorthSummary, SavingsPage.Summary, InvestmentsPage.Summary, LoansPage.People, LoansPage.Loans) in
                 let kinds = TransactionKind.categoryKinds(from: a)
                 let years = ExpenseLedger.years(expenses: e, categoryKinds: kinds, salaryDetails: d)
                 let account = s.array.first { $0["type"].text == "stock_market" } ?? .null
@@ -50,13 +53,15 @@ final class FinanceStore: ObservableObject {
                 let rates = NetWorth.MetalRates(manualGold: manual["gold"].double, manualSilver: manual["silver"].double)
                 let worth = NetWorth.summary(savings: s, metals: m, assets: as_, loans: l, rates: rates)
                 let savingsSummary = SavingsPage.summary(savings: s, salaryDetails: d, employments: a["employments"])
-                return (years, Stocks.portfolio(account: account), worth, savingsSummary, InvestmentsPage.summary(savings: s))
+                return (years, Stocks.portfolio(account: account), worth, savingsSummary, InvestmentsPage.summary(savings: s), LoansPage.people(lents: lents), LoansPage.loans(l))
             }.value
             years = computed.0
             portfolio = computed.1
             netWorth = computed.2
             savings = computed.3
             investments = computed.4
+            people = computed.5
+            loans = computed.6
             loadedAt = Date()
         } catch APIError.unauthorized {
             onUnauthorized()

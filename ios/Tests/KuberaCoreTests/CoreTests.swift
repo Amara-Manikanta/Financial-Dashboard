@@ -216,3 +216,41 @@ final class SavingsTests: XCTestCase {
         XCTAssertEqual(s.valueFromItems, 1000)
     }
 }
+
+final class LoansTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+
+    func testPeerDebtMovesWithAdditionsAndRepayments() {
+        let debt = json("{\"amount\":10000,\"transactions\":[{\"type\":\"additional\",\"amount\":5000},{\"type\":\"repayment\",\"amount\":3000},{\"type\":\"note\",\"amount\":999}]}")
+        XCTAssertEqual(LoansPage.outstanding(debt), 12000)
+    }
+
+    func testEmiMatchesTheStandardFormula() {
+        // ₹30 lakh at 8.5% for 20 years is the calculator's own starting point: ₹26,035.
+        let r = EMI.calculate(principal: 3_000_000, annualRatePercent: 8.5, years: 20)
+        XCTAssertEqual(r.emi, 26035)
+        XCTAssertEqual(r.totalPayment, 26035 * 240)
+        XCTAssertEqual(r.schedule.count, 24)
+        XCTAssertEqual(r.schedule[0].interest, (3_000_000 * 0.085 / 12).rounded())
+        XCTAssertEqual(r.schedule[0].principal + r.schedule[0].interest, 26035)
+    }
+
+    func testZeroInterestSplitsEvenly() {
+        XCTAssertEqual(EMI.calculate(principal: 120_000, annualRatePercent: 0, years: 1).emi, 10_000)
+        XCTAssertEqual(EMI.calculate(principal: 0, annualRatePercent: 9, years: 5).emi, 0)
+    }
+
+    func testLoanProgressAndDueThisMonth() {
+        let now = JSDate.parse("2026-10-15")!
+        let list = json("""
+        [{"id":"1","name":"Phone","type":"gadget","principalAmount":30000,"emiAmount":5000,"tenureMonths":6,
+          "payments":[{"date":"2026-08-05","amount":5000},{"date":"2026-09-05","amount":5000}]}]
+        """)
+        let loan = LoansPage.loans(list, now: now).loans[0]
+        XCTAssertEqual(loan.estimatedTotalCost, 30000)
+        XCTAssertEqual(loan.pendingBalance, 20000)
+        XCTAssertEqual(loan.progressPercent, 33)                 // 2 of 6 instalments
+        XCTAssertTrue(loan.dueThisMonth)                         // nothing paid in October yet
+        XCTAssertEqual(loan.badge.label, "Electronic Gadget EMI")
+    }
+}

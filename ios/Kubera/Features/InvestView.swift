@@ -44,6 +44,7 @@ struct InvestView: View {
                 switch screen {
                 case .savings: SavingsView(store: store)
                 case .stocks: StocksView(store: store)
+                case .loans: LoansView(store: store)
                 }
             }
         }

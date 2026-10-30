@@ -4,6 +4,7 @@ import SwiftUI
 enum NativeScreen: Hashable {
     case savings
     case stocks
+    case loans
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively

@@ -39,6 +39,7 @@ struct HomeView: View {
                 switch screen {
                 case .savings: SavingsView(store: store)
                 case .stocks: StocksView(store: store)
+                case .loans: LoansView(store: store)
                 }
             }
         }
@@ -87,7 +88,7 @@ struct HomeView: View {
                 Line(title: "Savings & investments", value: worth.totalSavings, icon: "banknote", screen: .savings),
                 Line(title: "Gold, silver & coins", value: worth.totalMetals, icon: "circle.hexagongrid"),
                 Line(title: "Assets", value: worth.totalAssets, icon: "car"),
-            ] + (worth.debt > 0 ? [Line(title: "Loans owed", value: -worth.debt, icon: "arrow.up.right.circle", tone: .negative)] : []))
+            ] + (worth.debt > 0 ? [Line(title: "Loans owed", value: -worth.debt, icon: "arrow.up.right.circle", tone: .negative, screen: .loans)] : []))
         }
     }
 

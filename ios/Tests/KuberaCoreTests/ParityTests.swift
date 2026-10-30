@@ -129,3 +129,42 @@ extension ParityTests {
         print("parity: investments \(s.value) across \(s.active.count) accounts (+\(s.archived.count) archived), \(s.allocation.count) slices")
     }
 }
+
+extension ParityTests {
+    func testLoansAndLentsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let asOf = try XCTUnwrap(f.date(from: golden["asOf"].text))
+        let web = golden["loans"]
+
+        let people = LoansPage.people(lents: db["lents"])
+        XCTAssertEqual(people.totalLent, web["peer"]["totalLent"].double, accuracy: 0.005)
+        XCTAssertEqual(people.totalBorrowed, web["peer"]["totalBorrowed"].double, accuracy: 0.005)
+        for expected in web["peer"]["items"].array {
+            let id = expected["id"].text
+            guard let debt = people.debts.first(where: { $0.id == id }) else { XCTFail("missing lent \(id)"); continue }
+            XCTAssertEqual(debt.outstanding, expected["outstanding"].double, accuracy: 0.005, "outstanding \(id)")
+            XCTAssertEqual(debt.outstanding, expected["pending"].double, accuracy: 0.005, "the card's own pending amount \(id)")
+        }
+
+        let loans = LoansPage.loans(db["loans"], now: asOf)
+        XCTAssertEqual(loans.totalPrincipal, web["totals"]["totalPrincipal"].double, accuracy: 0.005)
+        XCTAssertEqual(loans.totalMonthlyEmi, web["totals"]["totalMonthlyEmi"].double, accuracy: 0.005)
+        XCTAssertEqual(loans.totalFeesAndGst, web["totals"]["totalFeesGstPaid"].double, accuracy: 0.005)
+        XCTAssertEqual(loans.loans.count, web["cards"].array.count)
+        for expected in web["cards"].array {
+            let id = expected["id"].text
+            guard let loan = loans.loans.first(where: { $0.id == id }) else { XCTFail("missing loan \(id)"); continue }
+            XCTAssertEqual(loan.totalPaid, expected["totalPaid"].double, accuracy: 0.005, "paid \(id)")
+            XCTAssertEqual(loan.estimatedTotalCost, expected["estimatedTotalCost"].double, accuracy: 0.005, "total cost \(id)")
+            XCTAssertEqual(loan.pendingBalance, expected["pendingBalance"].double, accuracy: 0.005, "pending \(id)")
+            XCTAssertEqual(loan.paidCount, Int(expected["paidCount"].double), "payments \(id)")
+            XCTAssertEqual(loan.progressPercent, expected["progressPercent"].double, accuracy: 0.005, "progress \(id)")
+            XCTAssertEqual(loan.processingFee, expected["pFee"].double, accuracy: 0.005, "fee \(id)")
+            XCTAssertEqual(loan.gst, expected["gstAmt"].double, accuracy: 0.005, "gst \(id)")
+            XCTAssertEqual(loan.paidThisMonth, expected["isCurrentMonthPaid"].isTrue, "paid this month \(id)")
+            XCTAssertEqual(loan.dueThisMonth, expected["isCurrentMonthPending"].isTrue, "due this month \(id)")
+        }
+        print("parity: \(people.debts.count) peer debts (lent \(people.totalLent), borrowed \(people.totalBorrowed)) and \(loans.loans.count) loans match")
+    }
+}

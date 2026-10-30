@@ -15,6 +15,7 @@ import { ownHoldings } from '../../../src/utils/holdingOwner.js';
 import { totalAccruedValue, totalPrincipal } from '../../../src/utils/fdAccrual.js';
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
 import { calculateNetWorth, calculateGratuity } from '../../../src/utils/financeCalculators.js';
+import { lentOutstanding } from '../../../src/utils/lents.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
 const RealDate = Date;
@@ -108,6 +109,21 @@ const investmentsGolden = {
     allocation: invPage.pieData,
 };
 
+// LentsAndLoans.jsx: peer totals, loan totals and the figures on each loan card.
+const peerBody = slice('src/pages/LentsAndLoans.jsx', 'const totalLent = lents.filter', 'const filteredLents');
+const peer = new Function('lents', 'lentOutstanding', `const totalLent = lents.filter${peerBody}\nreturn { totalLent, totalBorrowed };`)(db.lents, lentOutstanding);
+const debtBody = slice('src/pages/LentsAndLoans.jsx', "const isLent = item.type === 'lent';", 'const pendingAmount = amount + totalTransactions;');
+const pendingOf = new Function('item', `const isLent = item.type === 'lent';${debtBody}\nconst pendingAmount = amount + totalTransactions;\nreturn pendingAmount;`);
+const loanTotalsBody = slice('src/pages/LentsAndLoans.jsx', 'const activeLoanList = loans || [];', 'const getLoanTypeBadge');
+const loanTotals = new Function('loans', `const activeLoanList = loans || [];${loanTotalsBody}\nreturn { totalPrincipal, totalMonthlyEmi, totalFeesGstPaid };`)(db.loans);
+const cardBody = slice('src/pages/LentsAndLoans.jsx', 'const payments = loan.payments || [];', 'const isCurrentMonthPending = !isCurrentMonthPaid && (pendingBalance > 0);');
+const cardOf = new Function('loan', 'getLoanTypeBadge', 'expandedHistory', `const payments = loan.payments || [];${cardBody}\nconst isCurrentMonthPending = !isCurrentMonthPaid && (pendingBalance > 0);\nreturn { totalPaid, estimatedTotalCost, pendingBalance, paidCount, progressPercent, pFee, gstAmt, isCurrentMonthPaid, isCurrentMonthPending };`);
+const loansGolden = {
+    peer: { ...peer, items: db.lents.map((l) => ({ id: String(l.id), pending: pendingOf(l), outstanding: lentOutstanding(l) })) },
+    totals: loanTotals,
+    cards: db.loans.map((l) => ({ id: String(l.id), ...cardOf(l, () => ({}), {}) })),
+};
+
 const account = db.savings.find((s) => s.type === 'stock_market');
 const active = ownHoldings(account.stocks).filter((s) => !s.isArchived && Number(s.shares || 0) > 0);
 const holdings = active.map((s) => {
@@ -117,7 +133,7 @@ const holdings = active.map((s) => {
 
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
-    dashboard, items, savings: savingsGolden, investments: investmentsGolden,
+    dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden,
     months,
     stocks: {
         count: holdings.length,

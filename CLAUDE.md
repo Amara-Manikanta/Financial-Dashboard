@@ -942,8 +942,9 @@ Pages are rebuilt in the order of the More list (`Features/Pages.swift`):
 | Investments (all accounts) | yes | accounts, totals, allocation slices in order |
 | Stocks | yes | every holding's value and cost |
 | Expenses (year, month, transactions) | yes | every month: spent, invested, income |
-| Loans & Lents | **next** | |
-| everything after it in the More list | web fallback | |
+| Loans & Lents (people, loans, EMI calculator) | yes | peer totals, per-debt balance, every loan's paid / pending / progress / due this month |
+| Stock Analyst, Watchlist, IPOs, Returns, Capital Gains, … | **next, in More-list order** | |
+| everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the
 real database. Fixed-deposit interest depends on today's date, so the golden

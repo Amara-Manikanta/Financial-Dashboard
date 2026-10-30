@@ -42,6 +42,7 @@ struct MoreView: View {
                 switch screen {
                 case .savings: SavingsView(store: store)
                 case .stocks: StocksView(store: store)
+                case .loans: LoansView(store: store)
                 }
             }
             .confirmationDialog("Disconnect this iPhone from \(mac.name)?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
