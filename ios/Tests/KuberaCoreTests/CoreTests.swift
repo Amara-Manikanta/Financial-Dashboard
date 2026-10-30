@@ -329,3 +329,80 @@ final class CapitalGainsTests: XCTestCase {
         XCTAssertEqual(CapitalGainsPage.assetClass(of: "SBI Small Cap Fund"), "equity")
     }
 }
+
+final class WatchlistTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+
+    func testQuoteReadsRangeAndDayChange() {
+        let q = PriceRange.readQuote(json("{\"quote\":{\"price\":110,\"previousClose\":100,\"fiftyTwoWeekLow\":100,\"fiftyTwoWeekHigh\":200}}"))
+        XCTAssertEqual(q.rangePct, 10); XCTAssertTrue(q.nearLow); XCTAssertFalse(q.nearHigh)
+        XCTAssertEqual(q.dayChange, 10); XCTAssertEqual(q.dayChangePct, 10)
+        XCTAssertEqual(q.aboveLowPct, 10)
+        XCTAssertEqual(q.belowHighPct, 45)
+    }
+
+    func testMissingBoundsGiveNoRangeRatherThanAConfidentZero() {
+        let q = PriceRange.readQuote(json("{\"currentPrice\":50,\"quote\":{\"fiftyTwoWeekLow\":40}}"))
+        XCTAssertNil(q.rangePct); XCTAssertFalse(q.hasRange); XCTAssertEqual(q.price, 50)
+    }
+
+    func testAZeroPriceIsAFailedQuoteNotACrash() {
+        let h = json("{\"currentPrice\":120,\"quote\":{\"price\":0},\"alerts\":[{\"type\":\"below\",\"price\":100},{\"type\":\"above\",\"price\":110}]}")
+        // Zero falls back to the stored price rather than satisfying every "below" alert.
+        XCTAssertEqual(PriceRange.triggeredAlerts(h).map(\.type), ["above"])
+        XCTAssertTrue(PriceRange.triggeredAlerts(json("{\"currentPrice\":0,\"alerts\":[{\"type\":\"below\",\"price\":100}]}")).isEmpty)
+    }
+
+    func testNumericStringsAreNotPrices() {
+        XCTAssertNil(PriceRange.readQuote(json("{\"currentPrice\":\"100\"}")).price)
+    }
+
+    func testRiskAndPriorityAreStoredNeverGuessed() {
+        XCTAssertEqual(WatchlistRisk.risk(of: json("{\"risk\":\" High \"}")), "high")
+        XCTAssertEqual(WatchlistRisk.risk(of: json("{}")), "unrated")
+        XCTAssertEqual(WatchlistRisk.risk(of: json("{\"risk\":\"extreme\"}")), "unrated")
+        XCTAssertEqual(WatchlistRisk.priority(of: json("{\"priority\":\"ready\"}")), "ready")
+        XCTAssertEqual(WatchlistRisk.priority(of: json("{}")), "unset")
+    }
+
+    func testSectorsFoldOntoOneVocabulary() {
+        XCTAssertEqual(Sectors.normalise("Financial Services"), "Financials")
+        XCTAssertEqual(Sectors.normalise("financials"), "Financials")
+        XCTAssertEqual(Sectors.normalise(" Oil & Gas "), "Energy")
+        XCTAssertEqual(Sectors.normalise("Something new"), "Other")
+        XCTAssertEqual(Sectors.sectorFor("", benchmark: "Automobile"), "Consumer Discretionary")
+    }
+
+    func testMarketCapPrefersTheRecordThenTheBenchmarkLists() {
+        XCTAssertEqual(Benchmark.marketCap(of: json("{\"marketCap\":\"Small Cap\",\"name\":\"Infosys Limited\"}")), "Small Cap")
+        XCTAssertEqual(Benchmark.marketCap(of: json("{\"name\":\"Infosys Ltd.\"}")), "Large Cap")
+        XCTAssertEqual(Benchmark.marketCap(of: json("{\"name\":\"Some Unlisted Co\"}")), "Unclassified")
+    }
+}
+
+final class IpoTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+
+    func testBlockedCapitalAndListingGainUseThePricePaid() {
+        let app = IpoPage.application(json("{\"id\":\"1\",\"status\":\"allotted\",\"lots\":2,\"sharesPerLot\":50,\"cutOffPrice\":100,\"sharesAllotted\":50,\"listingPrice\":130,\"appliedDate\":\"2026-01-01\",\"refundDate\":\"2026-01-06\"}"))
+        XCTAssertEqual(app.amountBlocked, 10000)           // ASBA blocks the whole application
+        XCTAssertEqual(app.investedAtAllotment, 5000)
+        XCTAssertEqual(app.refunded, 5000)
+        XCTAssertEqual(app.listingGain, 1500)              // 50 × (130 − 100)
+        XCTAssertEqual(app.daysBlocked, 5)
+    }
+
+    func testAPendingApplicationIsNotAFailure() {
+        let raw = json("[{\"id\":\"1\",\"status\":\"allotted\",\"lots\":1,\"sharesPerLot\":10,\"cutOffPrice\":10,\"sharesAllotted\":10,\"appliedDate\":\"2026-02-01\"},{\"id\":\"2\",\"status\":\"not-allotted\",\"lots\":1,\"sharesPerLot\":10,\"cutOffPrice\":10,\"appliedDate\":\"2026-01-01\"},{\"id\":\"3\",\"status\":\"applied\",\"lots\":1,\"sharesPerLot\":10,\"cutOffPrice\":10,\"appliedDate\":\"2026-03-01\"}]")
+        let s = IpoPage.summary(applications: raw, stocks: [])
+        XCTAssertEqual(s.allotmentRate, 50)                // 1 of 2 decided; the pending one is not counted against it
+        XCTAssertEqual(s.pendingCount, 1)
+        XCTAssertEqual(s.capitalBlockedNow, 100)
+        XCTAssertEqual(s.applications.map(\.id), ["3", "1", "2"])   // newest first
+    }
+
+    func testAnAllotmentNoApplicationPointsAtIsReported() {
+        let stocks = json("[{\"id\":\"s1\",\"name\":\"Alpha\",\"transactions\":[{\"type\":\"ipo\"}]},{\"id\":\"s2\",\"name\":\"Beta\",\"transactions\":[{\"type\":\"buy\"}]}]").array
+        XCTAssertEqual(IpoPage.summary(applications: json("[]"), stocks: stocks).unlinkedAllotments.map(\.name), ["Alpha"])
+    }
+}

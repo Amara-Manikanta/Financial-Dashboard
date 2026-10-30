@@ -245,3 +245,94 @@ extension ParityTests {
         print("parity: capital gains — \(page.disposals.count) disposals, \(page.ledger.years.count) years, tax \(page.ledger.totalTax), \(page.unrealised.lots.count) open lots, \(page.funds.count) fund disposals match")
     }
 }
+
+extension ParityTests {
+    private func asOfDate(_ golden: JSONValue) throws -> Date {
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return try XCTUnwrap(f.date(from: golden["asOf"].text))
+    }
+
+    func testBenchmarkTablesAreTheJavaScriptOnes() throws {
+        let web = try load("KUBERA_GOLDEN")["benchmark"]
+        func same(_ mine: [BenchmarkStock], _ theirs: [JSONValue], _ label: String) {
+            XCTAssertEqual(mine.count, theirs.count, "\(label) count (run ios/Tests/generate-benchmark.mjs if the JS changed)")
+            for (m, t) in zip(mine, theirs) {
+                XCTAssertEqual(m.symbol, t["symbol"].text, label); XCTAssertEqual(m.name, t["name"].text, label)
+                XCTAssertEqual(m.sector, t["sector"].text, label); XCTAssertEqual(m.cap, t["cap"].isNull ? nil : t["cap"].text, label)
+                XCTAssertEqual(m.weight, t["weight"].jsNumber.flatMap { t["weight"].isNull ? nil : $0 }, label)
+                XCTAssertEqual(m.aliases, t["aliases"].array.map(\.text), label)
+            }
+        }
+        same(BenchmarkData.nifty50, web["nifty50"].array, "Nifty 50")
+        same(BenchmarkData.niftyNext50, web["next50"].array, "Next 50")
+        same(BenchmarkData.sbiSmallCap, web["sbi"].array, "SBI Small Cap")
+        XCTAssertEqual(BenchmarkData.hdfcFlexiCapWeights.map(\.symbol), web["hdfc"].array.map { $0["symbol"].text })
+        XCTAssertEqual(BenchmarkData.hdfcFlexiCapWeights.map(\.weight), web["hdfc"].array.map { $0["weight"].double })
+    }
+
+    func testSectorsAndMarketCapsResolveAsOnTheWeb() throws {
+        let golden = try load("KUBERA_GOLDEN")
+        for pair in golden["sectors"].array {
+            XCTAssertEqual(Sectors.normalise(pair["in"].text), pair["out"].text, "sector \"\(pair["in"].text)\"")
+        }
+        let db = try load("KUBERA_DB")
+        let items = db["watchlist"].array + db["savings"].array.flatMap { $0["stocks"].array }
+        XCTAssertEqual(items.count, golden["caps"].array.count)
+        for (item, expected) in zip(items, golden["caps"].array) {
+            XCTAssertEqual(Benchmark.marketCap(of: item), expected["cap"].text, "market cap of \(expected["name"].text)")
+        }
+    }
+
+    func testWatchlistMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["watchlist"]
+        let page = WatchlistPage.summary(db["watchlist"])
+        XCTAssertEqual(page.rows.count, web["rows"].array.count)
+        for (mine, theirs) in zip(page.rows, web["rows"].array) {
+            let tag = mine.name
+            XCTAssertEqual(mine.id, theirs["id"].text, tag)
+            XCTAssertEqual(mine.sector, theirs["sectorKey"].text, tag); XCTAssertEqual(mine.risk, theirs["riskKey"].text, tag)
+            XCTAssertEqual(mine.cap, theirs["capKey"].text, tag); XCTAssertEqual(mine.priority, theirs["priorityKey"].text, tag)
+            XCTAssertEqual(mine.quote.price, theirs["price"].isNull ? nil : theirs["price"].double, tag)
+            XCTAssertEqual(mine.quote.rangePct ?? -1, theirs["rangePct"].isNull ? -1 : theirs["rangePct"].double, accuracy: 1e-9, "\(tag) range")
+            XCTAssertEqual(mine.quote.dayChange ?? -999, theirs["dayChange"].isNull ? -999 : theirs["dayChange"].double, accuracy: 0.005, "\(tag) day change")
+            XCTAssertEqual(mine.quote.dayChangePct ?? -999, theirs["dayChangePct"].isNull ? -999 : theirs["dayChangePct"].double, accuracy: 1e-9, "\(tag) day %")
+            XCTAssertEqual(mine.quote.nearLow, theirs["nearLow"].isTrue, tag); XCTAssertEqual(mine.quote.nearHigh, theirs["nearHigh"].isTrue, tag)
+            XCTAssertEqual(mine.fired.count, Int(theirs["fired"].double), "\(tag) alerts")
+        }
+        for sort in WatchlistPage.Sort.allCases {
+            let key = ["Priority": "priority", "Nearest 52w low": "range", "Name": "name"][sort.rawValue]!
+            XCTAssertEqual(WatchlistPage.sorted(page.rows, by: sort).map(\.id), web["order"][key].array.map(\.text), "order by \(key)")
+        }
+        for level in WatchlistRisk.riskLevels + ["unrated"] { XCTAssertEqual(page.riskCounts[level], Int(web["riskCounts"][level].double), "risk \(level)") }
+        for level in WatchlistRisk.priorityLevels + ["unset"] { XCTAssertEqual(page.priorityCounts[level], Int(web["priorityCounts"][level].double), "priority \(level)") }
+        XCTAssertEqual(page.nearLow, web["nearLow"].array.count); XCTAssertEqual(page.nearHigh, web["nearHigh"].array.count)
+        XCTAssertEqual(page.firedCount, Int(web["firedCount"].double))
+        print("parity: watchlist — \(page.rows.count) entries, three sort orders, counts and edges match")
+    }
+
+    func testIpoApplicationsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["ipos"]
+        let market = db["savings"].array.first { $0["type"].text == "stock_market" && !$0["isArchived"].truthy } ?? .null
+        let s = IpoPage.summary(applications: db["ipoApplications"], stocks: market["stocks"].array)
+        let ws = web["summary"]
+        XCTAssertEqual(s.total, Int(ws["total"].double)); XCTAssertEqual(s.decidedCount, Int(ws["decidedCount"].double))
+        XCTAssertEqual(s.allottedCount, Int(ws["allottedCount"].double)); XCTAssertEqual(s.pendingCount, Int(ws["pendingCount"].double))
+        XCTAssertEqual(s.allotmentRate ?? -1, ws["allotmentRate"].isNull ? -1 : ws["allotmentRate"].double, accuracy: 1e-9)
+        for (mine, theirs) in [(s.capitalBlockedNow, "capitalBlockedNow"), (s.totalApplied, "totalApplied"), (s.totalInvested, "totalInvested"),
+                               (s.totalRefunded, "totalRefunded"), (s.listingGain, "listingGain")] { XCTAssertEqual(mine, ws[theirs].double, accuracy: 0.005, theirs) }
+        XCTAssertEqual(s.listingGainCount, Int(ws["listingGainCount"].double)); XCTAssertEqual(s.missingListingPrice, Int(ws["missingListingPrice"].double))
+        XCTAssertEqual(s.unlinkedAllotments.map(\.id), ws["unlinkedAllotments"].array.map { $0["id"].text })
+        XCTAssertEqual(s.applications.count, web["applications"].array.count)
+        for (mine, theirs) in zip(s.applications, web["applications"].array) {
+            let tag = mine.company
+            XCTAssertEqual(mine.id, theirs["id"].text, tag); XCTAssertEqual(mine.status, theirs["status"].text, tag)
+            XCTAssertEqual(mine.amountBlocked, theirs["amountBlocked"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.investedAtAllotment, theirs["investedAtAllotment"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.refunded, theirs["refunded"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.listingGain, theirs["listingGain"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.daysBlocked.map(Double.init) ?? -1, theirs["daysBlocked"].isNull ? -1 : theirs["daysBlocked"].double, tag)
+            XCTAssertEqual(mine.hasListing, theirs["hasListing"].isTrue, tag)
+        }
+        print("parity: IPOs — \(s.total) applications, allotment rate \(s.allotmentRate.map { String(format: "%.0f%%", $0) } ?? "—"), blocked now \(s.capitalBlockedNow) match")
+    }
+}

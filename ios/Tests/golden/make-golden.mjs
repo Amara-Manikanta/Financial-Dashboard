@@ -17,6 +17,11 @@ import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
 import { calculateNetWorth, calculateGratuity } from '../../../src/utils/financeCalculators.js';
 import { lentOutstanding } from '../../../src/utils/lents.js';
 import { disposalsForStocks, gainsLedger, unrealisedSummary, matchLots, fyFor } from '../../../src/utils/capitalGains.js';
+import { readQuote, triggeredAlerts, atRangeEdges } from '../../../src/utils/priceRange.js';
+import { normaliseSector } from '../../../src/utils/sectors.js';
+import { riskOf, priorityOf, byPriority, riskCounts, priorityCounts } from '../../../src/utils/watchlistRisk.js';
+import { resolveMarketCap, NIFTY_50_STOCKS, NIFTY_NEXT_50_STOCKS, SBI_SMALL_CAP_WEIGHTS, HDFC_FLEXI_CAP_WEIGHTS } from '../../../src/utils/nifty50Data.js';
+import { rankedApplications, ipoSummary } from '../../../src/utils/ipoApplications.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
 const RealDate = Date;
@@ -152,9 +157,43 @@ const capitalGainsGolden = {
     funds: cgFunds,
 };
 
+// Watchlist.jsx: how each entry becomes a row, and the three orders it can be sorted into.
+const rowsBody = slice('src/pages/Watchlist.jsx', 'const allRows = useMemo(() => (watchlist || []).map((w) => ({', '})), [watchlist]);');
+const watchRows = new Function('watchlist', 'readQuote', 'triggeredAlerts', 'normaliseSector', 'riskOf', 'resolveMarketCap', 'priorityOf',
+    `return (watchlist || []).map((w) => ({${rowsBody}}));`)(db.watchlist, readQuote, triggeredAlerts, normaliseSector, riskOf, resolveMarketCap, priorityOf);
+const sortBody = slice('src/pages/Watchlist.jsx', 'const sorted = useMemo(() => {', '}, [allRows, sortBy]);');
+const sortRows = new Function('allRows', 'sortBy', 'byPriority', sortBody);
+const edges = atRangeEdges(db.watchlist);
+const watchlistGolden = {
+    rows: watchRows.map((r) => ({
+        id: String(r.id), name: r.name, sectorKey: r.sectorKey, riskKey: r.riskKey, capKey: r.capKey, priorityKey: r.priorityKey,
+        price: r.q.price, rangePct: r.q.rangePct, dayChange: r.q.dayChange, dayChangePct: r.q.dayChangePct,
+        nearLow: r.q.nearLow, nearHigh: r.q.nearHigh, fired: r.fired.length,
+    })),
+    order: Object.fromEntries(['priority', 'range', 'name'].map((k) => [k, sortRows(watchRows, k, byPriority).map((r) => String(r.id))])),
+    riskCounts: riskCounts(watchRows), priorityCounts: priorityCounts(watchRows),
+    nearLow: edges.nearLow.map((r) => String(r.id)), nearHigh: edges.nearHigh.map((r) => String(r.id)),
+    firedCount: watchRows.reduce((n, r) => n + r.fired.length, 0),
+};
+
+// Every sector string in the data, and every stock's market cap, as the web resolves them.
+const sectorStrings = [...new Set([...db.watchlist.map((w) => w.sector), ...db.savings.flatMap((x) => (x.stocks || []).map((t) => t.sector)),
+    ...[...NIFTY_50_STOCKS, ...NIFTY_NEXT_50_STOCKS, ...Object.values(SBI_SMALL_CAP_WEIGHTS)].map((t) => t.sector), 'IT', ' fmcg ', 'Oil and Gas', 'Nonsense', '', undefined])];
+const sectorsGolden = sectorStrings.map((v) => ({ in: v === undefined ? null : v, out: normaliseSector(v) }));
+const capsGolden = [...db.watchlist, ...db.savings.flatMap((x) => x.stocks || [])].map((t) => ({ id: String(t.id), name: t.name || '', symbol: t.symbol || '', cap: resolveMarketCap(t) }));
+const benchmarkGolden = {
+    nifty50: NIFTY_50_STOCKS, next50: NIFTY_NEXT_50_STOCKS, sbi: Object.values(SBI_SMALL_CAP_WEIGHTS),
+    hdfc: Object.entries(HDFC_FLEXI_CAP_WEIGHTS).map(([symbol, weight]) => ({ symbol, weight })),
+};
+
+// IpoTracker.jsx: the page's own two calls, on the open stock account.
+const ipoMarket = db.savings.find((x) => x.type === 'stock_market' && !x.isArchived);
+const ipoGolden = { applications: rankedApplications(db.ipoApplications), summary: ipoSummary(db.ipoApplications, ipoMarket?.stocks || []) };
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden,
     months,
     stocks: {
         count: holdings.length,

@@ -908,6 +908,8 @@ financial screen, so:
 ```bash
 ios/Tests/run-parity.sh          # runs the WEB code on a copy of db.json, then checks Swift against it
 cd ios && swift test             # the always-on unit tests (made-up data only)
+ios/Tests/sandbox.sh start       # isolated server + iPhone gateway on a COPY of the data, prints a pairing code (stop: sandbox.sh stop)
+node ios/Tests/generate-benchmark.mjs   # regenerate Core/BenchmarkData.swift if nifty50Data.js changes
 ```
 
 `make-golden.mjs` cuts the Expenses grouping and the salary maths **out of the
@@ -949,7 +951,9 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Expenses (year, month, transactions) | yes | every month: spent, invested, income |
 | Loans & Lents (people, loans, EMI calculator) | yes | peer totals, per-debt balance, every loan's paid / pending / progress / due this month |
 | Capital Gains (tax by year, losses carried, open lots, every sale, fund sales) | yes | all 136 disposals, every ledger figure for 6 years, 127 open lots, fund classes |
-| Stock Analyst, Watchlist, IPOs, Returns (XIRR), Free Holdings, Dividend Income, Nifty 50 | **next** | |
+| Watchlist (sorting, filters, ranges, alerts) | yes | 25 entries, all three sort orders, risk/priority/sector/cap, alert counts |
+| IPO Applications | yes | every application and the summary |
+| Returns (XIRR), Free Holdings, Dividend Income, Nifty 50, Stock Analyst | **next** | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the
