@@ -956,7 +956,8 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Returns (XIRR) | yes | all 71 holdings in rank order, the portfolio rate, all four sort orders (XIRR within the solver's own tolerance) |
 | Dividend Income (tax withheld, yield, consistency, by year and month, calendar) | yes | 30 payers, 96 company-by-year tax rows, the calendar, every income figure |
 | Free Holdings (cost recovery) | yes | 37 ranked positions, free / nearly free / cashless, totals |
-| Nifty 50 overlap, Stock Analyst | **next** | |
+| Nifty 50 & fund overlap | yes | 105 companies, 12 sectors, ₹3,23,171.14 looked through; all 10 basis × fund views and 5 filter/sort combinations compared |
+| Stock Analyst | **next** | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the

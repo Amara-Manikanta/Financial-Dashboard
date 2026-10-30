@@ -480,4 +480,53 @@ extension ParityTests {
         XCTAssertEqual(t.freeCount, Int(wt["freeCount"].double))
         print("parity: free holdings — \(page.all.count) ranked, \(page.free.count) free, \(page.almost.count) nearly, \(page.cashless.count) cashless; at risk \(t.stillAtRisk)")
     }
+
+    func testNiftyOverlapMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")
+        let asOf = try frozenNow(web)
+        let views: [(String, NiftyOverlap.Fund?)] = [("all", nil), ("nippon_nifty50", .nippon), ("icici_next50", .icici), ("hdfc_flexicap", .hdfc), ("sbi_smallcap", .sbi)]
+        var checked = 0
+        for (mode, basis) in [("current", NiftyOverlap.Basis.current), ("invested", .invested)] {
+            for (name, fund) in views {
+                let key = "\(mode)/\(name)", w = web["overlap"][key]
+                let p = NiftyOverlap.page(savings: db["savings"], basis: basis, view: fund, asOf: asOf)
+                XCTAssertEqual(p.stockValue, w["totalStockValue"].double, accuracy: 0.005, "\(key) stocks")
+                XCTAssertEqual(p.equityFundValue, w["totalEquityMfValue"].double, accuracy: 0.005, "\(key) funds")
+                XCTAssertEqual(p.portfolioValue, w["totalPortfolioValue"].double, accuracy: 0.005, "\(key) portfolio")
+                XCTAssertEqual(p.fundValues[.nippon] ?? 0, w["nipponVal"].double, accuracy: 0.005, key)
+                XCTAssertEqual(p.fundValues[.icici] ?? 0, w["iciciNext50Val"].double, accuracy: 0.005, key)
+                XCTAssertEqual(p.fundValues[.hdfc] ?? 0, w["hdfcFlexiVal"].double, accuracy: 0.005, key)
+                XCTAssertEqual(p.fundValues[.sbi] ?? 0, w["sbiSmallCapVal"].double, accuracy: 0.005, key)
+                let rows = w["consolidatedExposures"].array
+                XCTAssertEqual(p.exposures.map { $0.symbol }, rows.map { $0["symbol"].text }, "\(key): which companies, in order")
+                for (m, t) in zip(p.exposures, rows) {
+                    let tag = "\(key) \(m.symbol)"
+                    XCTAssertEqual(m.name, t["name"].text, tag); XCTAssertEqual(m.sector, t["sector"].text, tag); XCTAssertEqual(m.cap, t["cap"].text, tag)
+                    XCTAssertEqual(m.directVal, t["directVal"].double, accuracy: 0.005, tag); XCTAssertEqual(m.directShares, t["directShares"].double, accuracy: 1e-9, tag)
+                    XCTAssertEqual(m.value(in: .nippon), t["nipponVal"].double, accuracy: 0.005, tag); XCTAssertEqual(m.value(in: .icici), t["iciciNext50Val"].double, accuracy: 0.005, tag)
+                    XCTAssertEqual(m.value(in: .hdfc), t["hdfcFlexiVal"].double, accuracy: 0.005, tag); XCTAssertEqual(m.value(in: .sbi), t["sbiSmallCapVal"].double, accuracy: 0.005, tag)
+                    XCTAssertEqual(m.total, t["totalVal"].double, accuracy: 0.005, tag); XCTAssertEqual(m.totalPct, t["totalPctOfPortfolio"].double, accuracy: 1e-6, tag)
+                    XCTAssertEqual(m.status.rawValue, t["status"].text, tag)
+                    checked += 1
+                }
+                for (m, t) in zip(p.caps, w["marketCapDistribution"].array) { XCTAssertEqual(m.value, t["value"].double, accuracy: 0.005, "\(key) cap"); XCTAssertEqual(m.pct, t["pct"].double, accuracy: 1e-6, "\(key) cap") }
+                let secs = w["sectorAnalytics"].array
+                XCTAssertEqual(p.sectors.map { $0.sector }, secs.map { $0["sector"].text }, "\(key): sectors in order")
+                for (m, t) in zip(p.sectors, secs) {
+                    XCTAssertEqual(m.total, t["totalVal"].double, accuracy: 0.005, "\(key) \(m.sector)"); XCTAssertEqual(m.count, Int(t["count"].double), "\(key) \(m.sector)")
+                    XCTAssertEqual(m.direct, t["directVal"].double, accuracy: 0.005, "\(key) \(m.sector)"); XCTAssertEqual(m.indirect, t["indirectVal"].double, accuracy: 0.005, "\(key) \(m.sector)")
+                }
+                XCTAssertEqual(p.sectorNames, w["allSectors"].array.map { $0.text }, "\(key) sector list")
+            }
+        }
+        let all = NiftyOverlap.page(savings: db["savings"], asOf: asOf)
+        let sorts: [String: NiftyOverlap.Sort] = ["total_val": .total, "direct_val": .direct, "indirect_val": .indirect, "name": .name]
+        let holds: [String: NiftyOverlap.Holding] = ["all": .all, "direct": .direct, "indirect": .indirect]
+        for f in web["overlapFilters"].array {
+            let mine = NiftyOverlap.filtered(all.exposures, search: f["search"].text, cap: f["cap"].text, holding: holds[f["holding"].text]!, sector: f["sector"].text,
+                                             sort: sorts[f["sort"].text]!, descending: f["order"].text == "desc").map { $0.symbol }
+            XCTAssertEqual(mine, f["ids"].array.map { $0.text }, "filter \(f["search"].text)/\(f["cap"].text)/\(f["holding"].text)/\(f["sort"].text)/\(f["order"].text)")
+        }
+        print("parity: nifty overlap — \(all.exposures.count) companies, \(all.sectors.count) sectors, portfolio \(all.portfolioValue); \(checked) rows compared over 10 views")
+    }
 }

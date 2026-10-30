@@ -25,6 +25,9 @@ import { rankedApplications, ipoSummary } from '../../../src/utils/ipoApplicatio
 import { rankedReturns, portfolioReturn } from '../../../src/utils/xirr.js';
 import { incomeByYear, incomeByMonth, incomeSummary, dividendPayers, lapsedPayers, dividendCalendar, busiestMonths } from '../../../src/utils/dividendAnalytics.js';
 import { dividendTaxSummary } from '../../../src/utils/dividendTax.js';
+import { readComposition } from '../../../src/utils/fundComposition.js';
+import { sectorFor, capFor } from '../../../src/utils/sectors.js';
+import { ALL_BENCHMARK_STOCKS } from '../../../src/utils/nifty50Data.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -225,10 +228,39 @@ const freeGolden = {
     cashless: cashlessHoldings(dvStocks), totals: recoveryTotals(dvStocks),
 };
 
+
+// Nifty50Exposure.jsx: the overlap maths, cut from the page and run for every basis and fund focus.
+const overlapBody = slice('src/pages/Nifty50Exposure.jsx', 'const activeSavings = useMemo', '// Top Stock & Metrics', false);
+const runOverlap = new Function(
+    'useMemo', 'savings', 'calculateItemCurrentValue', 'calculateItemInvestedValue', 'valuationMode', 'selectedFundView',
+    'searchTerm', 'filterCap', 'filterHolding', 'selectedSector', 'sortBy', 'sortOrder',
+    'ownHoldings', 'effectiveStockPosition', 'ALL_BENCHMARK_STOCKS', 'readComposition', 'sectorFor', 'capFor',
+    `const activeSavings = useMemo${overlapBody}\nreturn { totalStockValue, totalEquityMfValue, totalPortfolioValue, nipponVal, iciciNext50Val, hdfcFlexiVal, sbiSmallCapVal, consolidatedExposures, marketCapDistribution, sectorAnalytics, allSectors, filteredStocks };`,
+);
+const overlapGolden = {};
+for (const mode of ['current', 'invested']) {
+    for (const view of ['all', 'nippon_nifty50', 'icici_next50', 'hdfc_flexicap', 'sbi_smallcap']) {
+        overlapGolden[`${mode}/${view}`] = runOverlap((f) => f(), db.savings, calculateItemCurrentValue, calculateItemInvestedValue, mode, view,
+            '', 'all', 'all', 'all', 'total_val', 'desc', ownHoldings, effectiveStockPosition, ALL_BENCHMARK_STOCKS, readComposition, sectorFor, capFor);
+    }
+}
+const overlapFilters = [
+    { search: 'bank', cap: 'all', holding: 'all', sector: 'all', sort: 'total_val', order: 'desc' },
+    { search: '', cap: 'Small Cap', holding: 'all', sector: 'all', sort: 'name', order: 'asc' },
+    { search: '', cap: 'all', holding: 'direct', sector: 'all', sort: 'direct_val', order: 'desc' },
+    { search: '', cap: 'all', holding: 'indirect', sector: 'Financials', sort: 'indirect_val', order: 'asc' },
+    { search: '', cap: 'all', holding: 'all', sector: 'all', sort: 'name', order: 'desc' },
+].map((f) => ({
+    ...f,
+    ids: runOverlap((fn) => fn(), db.savings, calculateItemCurrentValue, calculateItemInvestedValue, 'current', 'all',
+        f.search, f.cap, f.holding, f.sector, f.sort, f.order, ownHoldings, effectiveStockPosition, ALL_BENCHMARK_STOCKS, readComposition, sectorFor, capFor)
+        .filteredStocks.map((r) => r.symbol),
+}));
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

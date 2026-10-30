@@ -39,7 +39,7 @@ enum Pages {
             AppPage(title: "Capital Gains", path: "/investments/capital-gains", icon: "scalemass", native: .screen(.capitalGains)),
             AppPage(title: "Free Holdings", path: "/investments/free-holdings", icon: "gift", native: .screen(.freeHoldings)),
             AppPage(title: "Dividend Income", path: "/investments/dividend-income", icon: "indianrupeesign.circle", native: .screen(.dividends)),
-            AppPage(title: "Nifty 50 & fund overlap", path: "/investments/nifty50-exposure", icon: "square.stack.3d.up"),
+            AppPage(title: "Nifty 50 & fund overlap", path: "/investments/nifty50-exposure", icon: "square.stack.3d.up", native: .screen(.overlap)),
         ]),
         PageGroup(title: "Income", pages: [
             AppPage(title: "Salary", path: "/salary", icon: "briefcase"),
