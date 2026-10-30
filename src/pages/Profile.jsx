@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { User, Shield, Lock, CheckCircle, AlertCircle } from 'lucide-react';
 import ExternalBackupCard from '../components/ExternalBackupCard';
+import ClaudeNewsCard from '../components/ClaudeNewsCard';
 
 const Profile = () => {
     const { user, changePassword } = useAuth();
@@ -137,6 +138,8 @@ const Profile = () => {
                 </div>
 
                 <ExternalBackupCard />
+
+                <ClaudeNewsCard />
             </div>
         </div>
     );

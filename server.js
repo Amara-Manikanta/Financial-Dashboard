@@ -11,7 +11,7 @@ import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
 import * as sqliteWrites from './sqliteWrites.js';
 import { runExternalBackup, backupStatus } from './externalBackup.js';
-import { configureClaudeNews, claudeReady, claudeStatus, setClaudeEnabled, readBrief, refreshBrief, runClaudeDaily, startClaudeDaily } from './claudeNews.js';
+import { configureClaudeNews, claudeReady, claudeStatus, setClaudeEnabled, setApiKey, readBrief, refreshBrief, runClaudeDaily, startClaudeDaily } from './claudeNews.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKUP_DIR = path.join(__dirname, 'backups');
@@ -37,6 +37,8 @@ startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
 configureClaudeNews({
     stateFile: path.join(path.dirname(DB_FILE), '.claude-news.json'),
     briefDir: path.join(path.dirname(DB_FILE), 'db', 'news', 'briefs'),
+    // Where the key is saved. A sandbox must not rewrite the real .env.local.
+    envFile: process.env.ENV_FILE || (process.env.DB_FILE ? path.join(path.dirname(DB_FILE), '.env.local') : path.join(__dirname, '.env.local')),
 });
 startClaudeDaily({ dbFile: DB_FILE, analyse: analyseLatest, held: heldStocksIn });
 
@@ -1064,6 +1066,18 @@ const handleAnalystLLMRoute = (req, res) => {
         const name = params.get('name') || symbol;
         if (route === '/api/analyst/claude/status' && req.method === 'GET') {
             sendJson(res, 200, claudeStatus());
+            return;
+        }
+        if (route === '/api/analyst/claude/key' && (req.method === 'POST' || req.method === 'DELETE')) {
+            let raw = '';
+            req.on('data', (c) => { raw += c; if (raw.length > 2000) req.destroy(); });
+            req.on('end', () => {
+                let key = '';
+                if (req.method === 'POST') { try { key = JSON.parse(raw || '{}').key; } catch { key = ''; } }
+                if (req.method === 'POST' && !String(key || '').trim()) { sendJson(res, 400, { error: 'Paste a key first' }); return; }
+                const done = setApiKey(req.method === 'DELETE' ? '' : key);
+                sendJson(res, done.ok ? 200 : 400, done.ok ? claudeStatus() : { error: done.error });
+            });
             return;
         }
         if (route === '/api/analyst/claude/enabled' && req.method === 'POST') {

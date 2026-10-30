@@ -6,7 +6,7 @@ import path from 'path';
 import { configureArchive, mergeIntoArchive, attachAnalysis, readArchive } from './newsArchive.js';
 import {
     configureClaudeNews, setClaudeClient, setClaudeEnabled, claudeReady, claudeStatus,
-    readStoryWithClaude, refreshBrief, readBrief, unverifiedFigures,
+    readStoryWithClaude, refreshBrief, readBrief, unverifiedFigures, setApiKey,
 } from './claudeNews.js';
 
 const NOW = Date.parse('2026-10-29T06:00:00Z');
@@ -174,4 +174,23 @@ test('an invented figure stays flagged when an update carries it forward', async
     const next = await refreshBrief('ACME', 'Acme Ltd', { now: NOW + 3 * 3600000 });
     assert.equal(next.brief.mode, 'update');
     assert.deepEqual(next.brief.items[0].unverified, ['4242']);
+});
+
+test('the key is saved to the env file without disturbing other lines, and never reported back whole', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-key-'));
+    const envFile = path.join(dir, '.env.local');
+    fs.writeFileSync(envFile, 'NEWSAPI_KEY=abc\nANTHROPIC_API_KEY=old\n');
+    configureClaudeNews({ stateFile: path.join(dir, 's.json'), envFile });
+    const key = 'sk-ant-api03-ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789wxyz';
+    assert.equal(setApiKey('not a key').ok, false);
+    assert.equal(setApiKey(key).ok, true);
+    assert.equal(fs.readFileSync(envFile, 'utf8'), `NEWSAPI_KEY=abc\nANTHROPIC_API_KEY=${key}\n`);
+    assert.equal(fs.statSync(envFile).mode & 0o077, 0);
+    assert.equal(claudeStatus().keyHint, '…wxyz');
+    assert.ok(!JSON.stringify(claudeStatus()).includes(key));
+    setClaudeEnabled(true);
+    assert.equal(setApiKey('').ok, true);
+    assert.equal(fs.readFileSync(envFile, 'utf8'), 'NEWSAPI_KEY=abc\n');
+    assert.equal(claudeStatus().configured, false);
+    assert.equal(claudeStatus().enabled, false);
 });

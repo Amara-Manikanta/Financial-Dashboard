@@ -768,6 +768,12 @@ both, nothing calls the API and `analyseLatest` uses LM Studio as before.
   beside the database (gitignored; a sandbox counts separately) and capped per
   IST day by `CLAUDE_NEWS_DAILY_INR` (default 150; `USD_INR` default 90).
   The check happens before each call, so the last call can overshoot slightly.
+- **Key and switch live on the Profile page** (`ClaudeNewsCard`), with today's
+  spend, the last daily run and a "Run daily reading now" button. The key is
+  posted once to `/api/analyst/claude/key`, written to `.env.local` (mode 600)
+  and applied without a restart; only its last four characters ever come back.
+  A sandbox (`DB_FILE` set) writes the key beside its own database instead, so
+  testing it never rewrites the real `.env.local`.
 - **Daily run** after 7 am IST: each held stock gets up to 30 unread stories
   from the last 30 days read, then its brief updated. Stops at the cap.
 - `POST /api/analyst/claude/brief` refuses (503) when Claude is off — it must

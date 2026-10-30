@@ -40,6 +40,7 @@ const ARTICLE_CHARS = 12000;
 const IMPACTS = ['positive', 'negative', 'mixed', 'neutral'];
 
 let stateFile = null;
+let envFile = null;
 let briefDir = null;
 let state = { enabled: false, spend: [], lastDailyRun: null };
 let client = null;
@@ -49,8 +50,9 @@ const saveState = () => {
     try { fs.writeFileSync(stateFile, JSON.stringify(state, null, 2)); } catch { /* still held in memory */ }
 };
 
-export const configureClaudeNews = ({ stateFile: file, briefDir: dir } = {}) => {
+export const configureClaudeNews = ({ stateFile: file, briefDir: dir, envFile: env } = {}) => {
     stateFile = file || null;
+    envFile = env || null;
     briefDir = dir || null;
     try {
         const saved = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
@@ -63,6 +65,37 @@ export const configureClaudeNews = ({ stateFile: file, briefDir: dir } = {}) => 
         // First run here: off, nothing spent. Never inherit another database's log.
         state = { enabled: false, spend: [], lastDailyRun: null };
     }
+};
+
+const keyInFile = () => {
+    try { return /^ANTHROPIC_API_KEY=./m.test(fs.readFileSync(envFile, 'utf8')); } catch { return false; }
+};
+
+/**
+ * Save (or, with an empty key, remove) the API key in .env.local and apply it
+ * at once. The key is never returned or logged; the page only gets the last
+ * four characters.
+ */
+export const setApiKey = (raw) => {
+    const key = String(raw || '').trim();
+    if (key && !/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key)) return { ok: false, error: 'That does not look like an Anthropic key (it starts with sk-ant-).' };
+    if (!envFile) return { ok: false, error: 'No key file is configured on this server' };
+    let lines = [];
+    try { lines = fs.readFileSync(envFile, 'utf8').split('\n'); } catch { /* new file */ }
+    lines = lines.filter((l) => !/^\s*ANTHROPIC_API_KEY=/.test(l));
+    while (lines.length && lines[lines.length - 1] === '') lines.pop();
+    if (key) lines.push(`ANTHROPIC_API_KEY=${key}`);
+    try {
+        const tmp = `${envFile}.tmp`;
+        fs.writeFileSync(tmp, `${lines.join('\n')}${lines.length ? '\n' : ''}`, { mode: 0o600 });
+        fs.renameSync(tmp, envFile);
+    } catch (err) {
+        return { ok: false, error: `Could not save the key: ${err.message}` };
+    }
+    if (key) process.env.ANTHROPIC_API_KEY = key; else delete process.env.ANTHROPIC_API_KEY;
+    client = null;
+    if (!key) { state.enabled = false; saveState(); }
+    return { ok: true };
 };
 
 const keyConfigured = () => !!String(process.env.ANTHROPIC_API_KEY || '').trim();
@@ -87,6 +120,8 @@ export const claudeStatus = () => {
     const month = state.spend.filter((s) => now - s.t < 30 * DAY_MS);
     return {
         configured: keyConfigured(),
+        keyHint: keyConfigured() ? `…${String(process.env.ANTHROPIC_API_KEY).trim().slice(-4)}` : null,
+        keyStored: keyInFile(),
         enabled: state.enabled,
         model: CLAUDE_MODEL,
         spentTodayInr: round2(spentToday(now)),
