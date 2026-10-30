@@ -336,3 +336,51 @@ extension ParityTests {
         print("parity: IPOs — \(s.total) applications, allotment rate \(s.allotmentRate.map { String(format: "%.0f%%", $0) } ?? "—"), blocked now \(s.capitalBlockedNow) match")
     }
 }
+
+extension ParityTests {
+    func testReturnsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let asOf = try XCTUnwrap(f.date(from: golden["asOf"].text))
+        let web = golden["returns"]
+        let page = ReturnsPage.page(savings: db["savings"], asOf: asOf)
+
+        // XIRR is an iterative solve, so allow the solver's own tolerance (and libm's last digit), relatively.
+        func close(_ a: Double?, _ b: JSONValue, _ tag: String) {
+            if b.isNull { XCTAssertNil(a, tag); return }
+            guard let a else { XCTFail("\(tag): swift has no value, web has \(b.double)"); return }
+            XCTAssertEqual(a, b.double, accuracy: max(1e-4, abs(b.double) * 1e-6), tag)
+        }
+
+        XCTAssertEqual(page.rows.count, web["rows"].array.count)
+        for (mine, theirs) in zip(page.rows, web["rows"].array) {
+            let tag = mine.name
+            XCTAssertEqual("\(mine.kind):\(mine.id)", "\(theirs["kind"].text):\(theirs["id"].text)", "rank order at \(tag)")
+            XCTAssertEqual(mine.invested, theirs["invested"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.returned, theirs["returned"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.closing, theirs["closing"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.profit, theirs["profit"].double, accuracy: 0.005, tag)
+            close(mine.simplePct, theirs["simplePct"], "\(tag) simple")
+            close(mine.xirrPct, theirs["xirrPct"], "\(tag) xirr")
+            XCTAssertEqual(mine.days, Int(theirs["days"].double), "\(tag) days")
+            XCTAssertEqual(mine.firstFlow, theirs["firstFlow"].isNull ? nil : theirs["firstFlow"].text, tag)
+            XCTAssertEqual(mine.lastFlow, theirs["lastFlow"].isNull ? nil : theirs["lastFlow"].text, tag)
+            XCTAssertEqual(mine.tooShortToAnnualise, theirs["tooShortToAnnualise"].isTrue, tag)
+            XCTAssertEqual(mine.archived, theirs["archived"].isTrue, tag)
+        }
+
+        let p = web["portfolio"]
+        close(page.portfolio.xirrPct, p["xirrPct"], "portfolio xirr")
+        close(page.portfolio.simplePct, p["simplePct"], "portfolio simple")
+        XCTAssertEqual(page.portfolio.invested, p["invested"].double, accuracy: 0.005)
+        XCTAssertEqual(page.portfolio.returned, p["returned"].double, accuracy: 0.005)
+        XCTAssertEqual(page.portfolio.closing, p["closing"].double, accuracy: 0.005)
+        XCTAssertEqual(page.portfolio.firstFlow, p["firstFlow"].text)
+
+        for sort in ReturnsPage.Sort.allCases {
+            let key = ["Annualised": "xirr", "Total": "simple", "Money in": "invested", "Profit": "profit"][sort.rawValue]!
+            XCTAssertEqual(ReturnsPage.sorted(page.rows, by: sort).map { "\($0.kind):\($0.id)" }, web["order"][key].array.map(\.text), "order by \(key)")
+        }
+        print("parity: returns — \(page.rows.count) holdings, portfolio XIRR \(page.portfolio.xirrPct.map { String(format: "%.2f%%", $0) } ?? "—"), all four orders match")
+    }
+}

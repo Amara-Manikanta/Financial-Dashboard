@@ -8,19 +8,23 @@ import Foundation
 /// tested, nothing here can change a record.
 @MainActor
 final class FinanceStore: ObservableObject {
-    @Published private(set) var years: [YearSummary] = []
-    @Published private(set) var portfolio = Stocks.Portfolio(holdings: [])
-    @Published private(set) var netWorth = NetWorthSummary()
-    @Published private(set) var savings = SavingsPage.Summary()
-    @Published private(set) var investments = InvestmentsPage.Summary()
-    @Published private(set) var people = LoansPage.People()
-    @Published private(set) var loans = LoansPage.Loans()
-    @Published private(set) var capitalGains = CapitalGainsPage.Page()
-    @Published private(set) var watchlist = WatchlistPage.Summary()
-    @Published private(set) var ipos = IpoPage.Summary()
+    @Published private(set) var data = Derived()
     @Published private(set) var isLoading = false
     @Published private(set) var loadedAt: Date?
     @Published var errorMessage: String?
+
+    // The screens read these; each is one field of `data`.
+    var years: [YearSummary] { data.years }
+    var portfolio: Stocks.Portfolio { data.portfolio }
+    var netWorth: NetWorthSummary { data.netWorth }
+    var savings: SavingsPage.Summary { data.savings }
+    var investments: InvestmentsPage.Summary { data.investments }
+    var people: LoansPage.People { data.people }
+    var loans: LoansPage.Loans { data.loans }
+    var capitalGains: CapitalGainsPage.Page { data.capitalGains }
+    var watchlist: WatchlistPage.Summary { data.watchlist }
+    var ipos: IpoPage.Summary { data.ipos }
+    var returns: ReturnsPage.Page { data.returns }
 
     private let api: API
     private let onUnauthorized: () -> Void
@@ -36,41 +40,9 @@ final class FinanceStore: ObservableObject {
         errorMessage = nil
         defer { isLoading = false }
         do {
-            async let expenses = api.get("expenses")
-            async let savingsData = api.get("savings")
-            async let salary = api.get("salaryDetails")
-            async let appData = api.get("appData")
-            async let metals = api.get("metals")
-            async let assets = api.get("assets")
-            async let loansData = api.get("loans")
-            async let lentsData = api.get("lents")
-            async let watchData = api.get("watchlist")
-            async let ipoData = api.get("ipoApplications")
-            let (e, s, d, a, m, as_, l, lents, watch, ipo) = try await (expenses, savingsData, salary, appData, metals, assets, loansData, lentsData, watchData, ipoData)
-
-            let computed = await Task.detached(priority: .userInitiated) { () -> ([YearSummary], Stocks.Portfolio, NetWorthSummary, SavingsPage.Summary, InvestmentsPage.Summary, LoansPage.People, LoansPage.Loans, CapitalGainsPage.Page, WatchlistPage.Summary, IpoPage.Summary) in
-                let kinds = TransactionKind.categoryKinds(from: a)
-                let years = ExpenseLedger.years(expenses: e, categoryKinds: kinds, salaryDetails: d)
-                let account = s.array.first { $0["type"].text == "stock_market" } ?? .null
-                // A rate typed in by hand wins; without one the web app uses a live feed
-                // this phone does not fetch, so a value that depends on it can differ.
-                let manual = a["manualMetalRates"]
-                let rates = NetWorth.MetalRates(manualGold: manual["gold"].double, manualSilver: manual["silver"].double)
-                let worth = NetWorth.summary(savings: s, metals: m, assets: as_, loans: l, rates: rates)
-                let savingsSummary = SavingsPage.summary(savings: s, salaryDetails: d, employments: a["employments"])
-                return (years, Stocks.portfolio(account: account), worth, savingsSummary, InvestmentsPage.summary(savings: s), LoansPage.people(lents: lents), LoansPage.loans(l), CapitalGainsPage.page(savings: s), WatchlistPage.summary(watch),
-                        IpoPage.summary(applications: ipo, stocks: (s.array.first { $0["type"].text == "stock_market" && !$0["isArchived"].truthy } ?? .null)["stocks"].array))
-            }.value
-            years = computed.0
-            portfolio = computed.1
-            netWorth = computed.2
-            savings = computed.3
-            investments = computed.4
-            people = computed.5
-            loans = computed.6
-            capitalGains = computed.7
-            watchlist = computed.8
-            ipos = computed.9
+            let raw = try await RawData.fetch(from: api)
+            // Deriving every page takes a moment on a phone; keep it off the main thread.
+            data = await Task.detached(priority: .userInitiated) { Derived.compute(raw) }.value
             loadedAt = Date()
         } catch APIError.unauthorized {
             onUnauthorized()

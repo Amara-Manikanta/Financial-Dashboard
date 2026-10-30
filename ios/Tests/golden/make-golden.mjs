@@ -22,6 +22,7 @@ import { normaliseSector } from '../../../src/utils/sectors.js';
 import { riskOf, priorityOf, byPriority, riskCounts, priorityCounts } from '../../../src/utils/watchlistRisk.js';
 import { resolveMarketCap, NIFTY_50_STOCKS, NIFTY_NEXT_50_STOCKS, SBI_SMALL_CAP_WEIGHTS, HDFC_FLEXI_CAP_WEIGHTS } from '../../../src/utils/nifty50Data.js';
 import { rankedApplications, ipoSummary } from '../../../src/utils/ipoApplications.js';
+import { rankedReturns, portfolioReturn } from '../../../src/utils/xirr.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
 const RealDate = Date;
@@ -190,10 +191,21 @@ const benchmarkGolden = {
 const ipoMarket = db.savings.find((x) => x.type === 'stock_market' && !x.isArchived);
 const ipoGolden = { applications: rankedApplications(db.ipoApplications), summary: ipoSummary(db.ipoApplications, ipoMarket?.stocks || []) };
 
+// Returns.jsx: its two calls on your own stocks and every fund, and its sort code cut from the source.
+const retStocks = ownHoldings(account.stocks);
+const retFunds = db.savings.filter((x) => x.type === 'mutual_fund');
+const retRows = rankedReturns(retStocks, retFunds);
+const retSortBody = slice('src/pages/Returns.jsx', 'const sorted = useMemo(() => {', '}, [rows, sort]);');
+const retSort = new Function('rows', 'sort', retSortBody);
+const returnsGolden = {
+    rows: retRows, portfolio: portfolioReturn(retStocks, retFunds),
+    order: Object.fromEntries(['xirr', 'simple', 'invested', 'profit'].map((k) => [k, retSort(retRows, k).map((r) => `${r.kind}:${r.id}`)])),
+};
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden,
     months,
     stocks: {
         count: holdings.length,

@@ -8,6 +8,7 @@ enum NativeScreen: Hashable {
     case capitalGains
     case watchlist
     case ipos
+    case returns
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -37,6 +38,7 @@ struct NativeDestination: View {
         case .capitalGains: CapitalGainsView(store: store)
         case .watchlist: WatchlistView(store: store)
         case .ipos: IpoView(store: store)
+        case .returns: ReturnsView(store: store)
         }
     }
 }

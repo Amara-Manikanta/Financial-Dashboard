@@ -25,6 +25,9 @@ enum Fmt {
         String(format: "%@%.1f%%", value > 0 ? "+" : "", value)
     }
 
+    /// The Returns page's own style: always signed, one decimal, JavaScript rounding.
+    static func pct(_ value: Double) -> String { (value >= 0 ? "+" : "") + NetWorth.toFixed1(value) + "%" }
+
     /// "+₹1,200" / "-₹300" — a signed rupee amount.
     static func signed(_ value: Double) -> String {
         value > 0 ? "+\(Money.rupees(value))" : Money.rupees(value)

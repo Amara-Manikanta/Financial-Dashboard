@@ -406,3 +406,47 @@ final class IpoTests: XCTestCase {
         XCTAssertEqual(IpoPage.summary(applications: json("[]"), stocks: stocks).unlinkedAllotments.map(\.name), ["Alpha"])
     }
 }
+
+final class XirrTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+    private func ms(_ day: String) -> Double { JSDate.parse(day)!.timeIntervalSince1970 * 1000 }
+
+    func testAYearAtTenPercent() {
+        let r = Xirr.rate([.init(date: ms("2025-01-01"), amount: -1000), .init(date: ms("2026-01-01"), amount: 1100)])
+        XCTAssertEqual(r!, 0.10, accuracy: 0.001)
+    }
+
+    func testOneWayFlowsHaveNoRateRatherThanZero() {
+        XCTAssertNil(Xirr.rate([.init(date: ms("2025-01-01"), amount: -1000), .init(date: ms("2026-01-01"), amount: -500)]))
+        XCTAssertNil(Xirr.rate([.init(date: ms("2025-01-01"), amount: -1000)]))
+    }
+
+    func testASipIsNotTheAverageOfItsHoldingPeriods() {
+        // Money added later has less time to grow, so a money-weighted rate sits below a naive one.
+        let flows: [Xirr.Flow] = [.init(date: ms("2024-01-01"), amount: -1000), .init(date: ms("2025-01-01"), amount: -1000), .init(date: ms("2026-01-01"), amount: 2300)]
+        let r = Xirr.rate(flows)!
+        XCTAssertEqual(Xirr.npvForTest(r, flows), 0, accuracy: 0.01)
+    }
+
+    func testAClosedSixDayTradeIsFlaggedNotCelebrated() {
+        let stock = json("{\"id\":\"1\",\"name\":\"Quick\",\"shares\":0,\"transactions\":[{\"type\":\"buy\",\"date\":\"2021-06-01\",\"quantity\":10,\"price\":100},{\"type\":\"sell\",\"date\":\"2021-06-07\",\"quantity\":10,\"price\":116.5}]}")
+        let p = Xirr.stockReturn(stock, asOf: JSDate.parse("2026-10-01")!)
+        XCTAssertEqual(p.days, 6)                       // first flow to last flow, not to today
+        XCTAssertTrue(p.tooShortToAnnualise)
+        XCTAssertEqual(p.simplePct!, 16.5, accuracy: 0.001)
+    }
+
+    func testDividendsCountAsMoneyIn() {
+        let stock = json("{\"shares\":10,\"currentPrice\":100,\"transactions\":[{\"type\":\"buy\",\"date\":\"2025-01-01\",\"quantity\":10,\"price\":100},{\"type\":\"dividend\",\"date\":\"2025-07-01\",\"quantity\":0,\"price\":50}]}")
+        let flows = Xirr.stockCashflows(stock, asOf: JSDate.parse("2026-01-01")!)
+        XCTAssertEqual(flows.map(\.amount), [-1000, 50, 1000])
+    }
+
+    func testAHoldingWithNoValuationIsKeptAndSortedLast() {
+        let stocks = [json("{\"id\":\"a\",\"name\":\"No price\",\"shares\":0,\"transactions\":[{\"type\":\"buy\",\"date\":\"2025-01-01\",\"quantity\":5,\"price\":100}]}"),
+                      json("{\"id\":\"b\",\"name\":\"Fine\",\"shares\":1,\"currentPrice\":150,\"transactions\":[{\"type\":\"buy\",\"date\":\"2025-01-01\",\"quantity\":1,\"price\":100}]}")]
+        let ranked = Xirr.ranked(stocks: stocks, funds: [], asOf: JSDate.parse("2026-01-01")!)
+        XCTAssertEqual(ranked.map(\.id), ["b", "a"])
+        XCTAssertNil(ranked[1].xirrPct)
+    }
+}
