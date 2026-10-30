@@ -10,11 +10,14 @@ struct StockPosition: Equatable {
     var totalCost: Double
     var realised: Double
     var avgCostIsManual: Bool
+    /// Gross dividends by calendar year, replayed from the dividend rows.
+    var dividends: [String: Double] = [:]
 }
 
 enum Stocks {
     static func replay(_ transactions: [JSONValue]) -> StockPosition {
         var shares = 0.0, totalCost = 0.0, realised = 0.0
+        var dividends: [String: Double] = [:]
         // A split applies to whatever was held at the time, so order matters.
         let ordered = transactions.enumerated().sorted { a, b in
             let da = date(a.element["date"]), db = date(b.element["date"])
@@ -48,13 +51,19 @@ enum Stocks {
             case "merger_in":
                 totalCost = shares == 0 ? qty * price : totalCost + qty * price
                 shares += qty
+            case "dividend":
+                guard let when = JSDate.parse(tx["date"]) else { break }
+                let year = String(Calendar.current.component(.year, from: when))
+                // Gross, before any tax withheld: the same basis as dividendAnalytics.
+                let gross = tx["amountIsNet"].isTrue ? price + tx["tds"].double : price
+                dividends[year, default: 0] += gross
             default:
                 break
             }
         }
         let avgCost = shares > 0 ? Money.round2(totalCost / shares) : 0
         return StockPosition(shares: shares, avgCost: avgCost, totalCost: shares > 0 ? totalCost : 0,
-                             realised: Money.round2(realised), avgCostIsManual: false)
+                             realised: Money.round2(realised), avgCostIsManual: false, dividends: dividends)
     }
 
     /// Replay when there is history; the stored fields only for a holding with none.

@@ -25,6 +25,7 @@ import { rankedApplications, ipoSummary } from '../../../src/utils/ipoApplicatio
 import { rankedReturns, portfolioReturn } from '../../../src/utils/xirr.js';
 import { incomeByYear, incomeByMonth, incomeSummary, dividendPayers, lapsedPayers, dividendCalendar, busiestMonths } from '../../../src/utils/dividendAnalytics.js';
 import { dividendTaxSummary } from '../../../src/utils/dividendTax.js';
+import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
 const RealDate = Date;
@@ -218,10 +219,16 @@ const dividendsGolden = {
     treemap: new Function('stocks', `return stocks${treemapBody};`)(dvStocks),
 };
 
+// FreeHoldings.jsx: its five calls on your own stocks in the open account.
+const freeGolden = {
+    free: freePositions(dvStocks), almost: nearlyFree(dvStocks), all: recoveryRanking(dvStocks),
+    cashless: cashlessHoldings(dvStocks), totals: recoveryTotals(dvStocks),
+};
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden,
     months,
     stocks: {
         count: holdings.length,

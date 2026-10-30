@@ -501,3 +501,34 @@ final class DividendTests: XCTestCase {
         XCTAssertEqual(Dividends.payoutMonths(stocks[0]).first?.averagePerYear, 60)     // 120 over two years
     }
 }
+
+final class CostRecoveryTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+
+    func testSellingPartPlusDividendsCanMakeTheRestFree() {
+        // ₹10,000 in; ₹9,000 back from selling half; ₹1,500 of dividends: the 50 shares left cost nothing.
+        let stock = json("""
+        {"id":"1","name":"Acme","shares":50,"currentPrice":300,"transactions":[
+          {"type":"buy","date":"2021-01-01","quantity":100,"price":100},
+          {"type":"sell","date":"2022-01-01","quantity":50,"price":180},
+          {"type":"dividend","date":"2023-06-01","quantity":0,"price":1500}]}
+        """)
+        let r = CostRecovery.recovery(stock)
+        XCTAssertEqual(r.invested, 10_000); XCTAssertEqual(r.recovered, 10_500)
+        XCTAssertTrue(r.isFree); XCTAssertEqual(r.surplus, 500); XCTAssertEqual(r.netCostPerShare, 0)
+        XCTAssertEqual(r.recoveredPct, 100); XCTAssertEqual(r.rawPct, 105)
+    }
+
+    func testAHoldingThatCostNothingIsCashlessNotFree() {
+        let stock = json("{\"id\":\"2\",\"name\":\"Spun off\",\"shares\":11,\"currentPrice\":100,\"transactions\":[{\"type\":\"demerger\",\"date\":\"2025-10-01\",\"quantity\":11,\"price\":50}]}")
+        let r = CostRecovery.recovery(stock)
+        XCTAssertTrue(r.cashless); XCTAssertFalse(r.isFree); XCTAssertEqual(r.allocatedBasis, 550)
+        XCTAssertTrue(CostRecovery.ranking([stock]).isEmpty)         // no cost, so no recovery percentage
+        XCTAssertEqual(CostRecovery.cashlessHoldings([stock]).count, 1)
+    }
+
+    func testTheNetTaxDividendIsCountedGross() {
+        let replay = Stocks.replay(json("[{\"type\":\"dividend\",\"date\":\"2025-07-01\",\"price\":90,\"tds\":10,\"amountIsNet\":true}]").array)
+        XCTAssertEqual(replay.dividends["2025"], 100)
+    }
+}

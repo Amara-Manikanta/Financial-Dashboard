@@ -454,3 +454,30 @@ extension ParityTests {
         print("parity: dividends — lifetime \(s.lifetime), \(page.payers.count) payers, \(t.rows.count) tax rows, calendar and treemap match")
     }
 }
+
+extension ParityTests {
+    func testFreeHoldingsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["freeHoldings"]
+        let page = FreeHoldingsPage.page(savings: db["savings"])
+
+        func same(_ mine: [CostRecovery.Recovery], _ theirs: [JSONValue], _ label: String) {
+            XCTAssertEqual(mine.map(\.id), theirs.map { $0["id"].text }, "\(label): which holdings, in order")
+            for (m, t) in zip(mine, theirs) {
+                let tag = "\(label) \(m.name)"
+                for (key, value) in [("invested", m.invested), ("salesProceeds", m.salesProceeds), ("dividends", m.dividends), ("recovered", m.recovered),
+                                     ("outstandingCost", m.outstandingCost), ("surplus", m.surplus), ("value", m.value), ("allocatedBasis", m.allocatedBasis),
+                                     ("netCostPerShare", m.netCostPerShare)] { XCTAssertEqual(value, t[key].double, accuracy: 0.005, "\(tag) \(key)") }
+                XCTAssertEqual(m.rawPct, t["rawPct"].double, accuracy: 1e-9, tag); XCTAssertEqual(m.recoveredPct, t["recoveredPct"].double, accuracy: 1e-9, tag)
+                XCTAssertEqual(m.shares, t["shares"].double, tag); XCTAssertEqual(m.bonusShares, t["bonusShares"].double, tag)
+                XCTAssertEqual(m.isFree, t["isFree"].isTrue, tag); XCTAssertEqual(m.cashless, t["cashless"].isTrue, tag); XCTAssertEqual(m.held, t["held"].isTrue, tag)
+            }
+        }
+        same(page.free, web["free"].array, "free"); same(page.almost, web["almost"].array, "nearly free")
+        same(page.all, web["all"].array, "ranking"); same(page.cashless, web["cashless"].array, "cashless")
+        let t = page.totals, wt = web["totals"]
+        for (label, mine, theirs) in [("invested", t.invested, "invested"), ("recovered", t.recovered, "recovered"), ("stillAtRisk", t.stillAtRisk, "stillAtRisk"),
+                                      ("freeValue", t.freeValue, "freeValue"), ("bonusShares", t.bonusShares, "bonusShares")] { XCTAssertEqual(mine, wt[theirs].double, accuracy: 0.005, label) }
+        XCTAssertEqual(t.freeCount, Int(wt["freeCount"].double))
+        print("parity: free holdings — \(page.all.count) ranked, \(page.free.count) free, \(page.almost.count) nearly, \(page.cashless.count) cashless; at risk \(t.stillAtRisk)")
+    }
+}

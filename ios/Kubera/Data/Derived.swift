@@ -34,6 +34,7 @@ struct Derived {
     var ipos = IpoPage.Summary()
     var returns = ReturnsPage.Page()
     var dividends = DividendPage.Page()
+    var freeHoldings = FreeHoldingsPage.Page()
 
     static func compute(_ raw: RawData, asOf: Date = Date()) -> Derived {
         var d = Derived()
@@ -56,6 +57,7 @@ struct Derived {
         d.ipos = IpoPage.summary(applications: raw.ipoApplications, stocks: openAccount["stocks"].array)
         d.returns = ReturnsPage.page(savings: raw.savings, asOf: asOf)
         d.dividends = DividendPage.page(savings: raw.savings, asOf: asOf)
+        d.freeHoldings = FreeHoldingsPage.page(savings: raw.savings)
         return d
     }
 }

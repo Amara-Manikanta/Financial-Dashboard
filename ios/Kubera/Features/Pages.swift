@@ -37,7 +37,7 @@ enum Pages {
             AppPage(title: "IPO Applications", path: "/investments/ipos", icon: "ticket", native: .screen(.ipos)),
             AppPage(title: "Returns (XIRR)", path: "/investments/returns", icon: "gauge.with.dots.needle.67percent", native: .screen(.returns)),
             AppPage(title: "Capital Gains", path: "/investments/capital-gains", icon: "scalemass", native: .screen(.capitalGains)),
-            AppPage(title: "Free Holdings", path: "/investments/free-holdings", icon: "gift"),
+            AppPage(title: "Free Holdings", path: "/investments/free-holdings", icon: "gift", native: .screen(.freeHoldings)),
             AppPage(title: "Dividend Income", path: "/investments/dividend-income", icon: "indianrupeesign.circle", native: .screen(.dividends)),
             AppPage(title: "Nifty 50 & fund overlap", path: "/investments/nifty50-exposure", icon: "square.stack.3d.up"),
         ]),

@@ -26,6 +26,7 @@ final class FinanceStore: ObservableObject {
     var ipos: IpoPage.Summary { data.ipos }
     var returns: ReturnsPage.Page { data.returns }
     var dividends: DividendPage.Page { data.dividends }
+    var freeHoldings: FreeHoldingsPage.Page { data.freeHoldings }
 
     private let api: API
     private let onUnauthorized: () -> Void

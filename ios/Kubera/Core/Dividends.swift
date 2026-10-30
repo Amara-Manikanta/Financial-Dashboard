@@ -340,3 +340,119 @@ enum DividendPage {
                     shares: shares, stocks: stocks)
     }
 }
+
+/// How much of a holding's cost has already come back out of it — a port of
+/// `utils/costRecovery.js`. Cash in, cash out: nothing is marked to market, because the
+/// point is what has actually been recovered. Average cost cannot say "is any of my own
+/// money still at risk here?", because it keeps every remaining share at its original price.
+enum CostRecovery {
+    private static func money(_ v: Double) -> Double { Money.round2(v) }
+    private static func qty(_ tx: JSONValue) -> Double { [tx["quantity"], tx["shares"]].first { !$0.isNull }?.double ?? 0 }
+    private static func cash(_ tx: JSONValue) -> Double { tx["amount"].double != 0 ? tx["amount"].double : qty(tx) * tx["price"].double }
+
+    static let nearlyFreeFrom = 75.0
+
+    struct Recovery: Identifiable, Equatable {
+        let id: String
+        let name: String
+        let invested: Double
+        let salesProceeds: Double
+        let dividends: Double
+        let recovered: Double
+        let outstandingCost: Double
+        let recoveredPct: Double
+        let rawPct: Double
+        let surplus: Double
+        let shares: Double
+        let value: Double
+        let bonusShares: Double
+        let receivedShares: Double
+        let allocatedBasis: Double
+        /// Nothing was ever paid for this holding — it arrived by demerger or bonus — so it
+        /// has no cost to recover and sits outside the ranking rather than at 0% or 100%.
+        let cashless: Bool
+        let held: Bool
+        let isFree: Bool
+        let netCostPerShare: Double
+    }
+
+    static func recovery(_ stock: JSONValue) -> Recovery {
+        let txs = stock["transactions"].array
+        // Dividends come from the replay, not from the stored `dividends` object: that is
+        // derived from the same rows, so counting both would double every payout.
+        let replay = Stocks.replay(txs)
+        var invested = 0.0, sales = 0.0, bonus = 0.0, received = 0.0, basis = 0.0
+        for tx in txs {
+            switch tx["type"].text {
+            case "buy", "ipo": invested += cash(tx)
+            case "sell", "buyback": sales += cash(tx)
+            case "bonus": bonus += qty(tx); received += qty(tx)
+            case "merger_in": invested += cash(tx)
+            case "merger_out": invested = max(0, invested - cash(tx))      // that cost now sits in the acquirer
+            case "demerger": received += qty(tx); basis += qty(tx) * tx["price"].double   // no cash, but not free either
+            default: break
+            }
+        }
+        let dividends = replay.dividends.values.reduce(0, +)
+        let recovered = sales + dividends
+        let shares = stock["shares"].double
+        let value = shares * stock["currentPrice"].double
+        let outstanding = invested - recovered
+        return Recovery(
+            id: stock["id"].text, name: [stock["name"], stock["ticker"]].first { $0.truthy }?.text ?? "Unnamed",
+            invested: money(invested), salesProceeds: money(sales), dividends: money(dividends), recovered: money(recovered),
+            outstandingCost: money(outstanding), recoveredPct: invested > 0 ? min(100, recovered / invested * 100) : 0,
+            rawPct: invested > 0 ? recovered / invested * 100 : 0, surplus: money(max(0, -outstanding)), shares: shares, value: money(value),
+            bonusShares: bonus, receivedShares: received, allocatedBasis: money(basis),
+            cashless: invested == 0 && shares > 0 && received > 0, held: shares > 0,
+            isFree: invested > 0 && recovered >= invested && shares > 0,
+            netCostPerShare: shares > 0 ? money(max(0, outstanding) / shares) : 0)
+    }
+
+    private static func live(_ stocks: [JSONValue]) -> [JSONValue] { stocks.filter { !$0.isNull && !$0["isArchived"].truthy } }
+
+    /// Positions still held that were bought with cash, ranked by how much of their cost is back.
+    static func ranking(_ stocks: [JSONValue]) -> [Recovery] {
+        live(stocks).map(recovery).filter { $0.held && $0.invested > 0 }
+            .enumerated().sorted { $0.element.rawPct != $1.element.rawPct ? $0.element.rawPct > $1.element.rawPct : $0.offset < $1.offset }.map(\.element)
+    }
+
+    /// Holdings that arrived without a payment — kept visible rather than vanishing from the ranking.
+    static func cashlessHoldings(_ stocks: [JSONValue]) -> [Recovery] {
+        live(stocks).map(recovery).filter(\.cashless)
+            .enumerated().sorted { $0.element.value != $1.element.value ? $0.element.value > $1.element.value : $0.offset < $1.offset }.map(\.element)
+    }
+
+    static func freePositions(_ stocks: [JSONValue]) -> [Recovery] { ranking(stocks).filter(\.isFree) }
+    static func nearlyFree(_ stocks: [JSONValue]) -> [Recovery] { ranking(stocks).filter { !$0.isFree && $0.rawPct >= nearlyFreeFrom } }
+
+    struct Totals: Equatable {
+        var invested = 0.0, recovered = 0.0, stillAtRisk = 0.0, freeValue = 0.0, bonusShares = 0.0
+        var freeCount = 0
+    }
+
+    static func totals(_ stocks: [JSONValue]) -> Totals {
+        let held = ranking(stocks), free = held.filter(\.isFree)
+        return Totals(invested: money(held.reduce(0) { $0 + $1.invested }), recovered: money(held.reduce(0) { $0 + $1.recovered }),
+                      stillAtRisk: money(held.reduce(0) { $0 + max(0, $1.outstandingCost) }), freeValue: money(free.reduce(0) { $0 + $1.value }),
+                      bonusShares: held.reduce(0) { $0 + $1.bonusShares }, freeCount: free.count)
+    }
+}
+
+enum FreeHoldingsPage {
+    struct Page: Equatable {
+        var free: [CostRecovery.Recovery] = []
+        var almost: [CostRecovery.Recovery] = []
+        var all: [CostRecovery.Recovery] = []
+        var cashless: [CostRecovery.Recovery] = []
+        var totals = CostRecovery.Totals()
+        var recoveredPctOfPortfolio: Double { totals.invested > 0 ? totals.recovered / totals.invested * 100 : 0 }
+    }
+
+    static func page(savings: JSONValue) -> Page {
+        let market = savings.array.first { $0["type"].text == "stock_market" && !$0["isArchived"].truthy } ?? .null
+        let stocks = market["stocks"].array.filter(Stocks.isOwn)
+        return Page(free: CostRecovery.freePositions(stocks), almost: CostRecovery.nearlyFree(stocks), all: CostRecovery.ranking(stocks),
+                    cashless: CostRecovery.cashlessHoldings(stocks), totals: CostRecovery.totals(stocks))
+    }
+}
