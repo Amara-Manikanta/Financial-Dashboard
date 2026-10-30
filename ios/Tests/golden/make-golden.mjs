@@ -94,6 +94,20 @@ const savingsGolden = {
     profitLoss: savingsPage.totalProfitLoss,
 };
 
+// Investments.jsx: the three filters, the totals and the allocation.
+const invA = slice('src/pages/Investments.jsx', 'const investments = savings.filter(item =>', 'const handleArchiveClick');
+const invB = slice('src/pages/Investments.jsx', 'const totalPortfolioValue = activeInvestments', 'const isTotalProfit = totalProfitLoss >= 0;');
+const invC = slice('src/pages/Investments.jsx', 'const pieData = React.useMemo(() => {', '}, [activeInvestments, calculateItemCurrentValue]);');
+const invPage = new Function('savings', 'calculateItemCurrentValue', 'calculateItemInvestedValue',
+    `const investments = savings.filter(item =>${invA}\nconst totalPortfolioValue = activeInvestments${invB}\nconst pieData = (() => {${invC}})();\nreturn { activeInvestments, archivedInvestments, totalPortfolioValue, totalInvestedValue, totalProfitLoss, pieData };`,
+)(db.savings, calculateItemCurrentValue, calculateItemInvestedValue);
+const investmentsGolden = {
+    active: invPage.activeInvestments.map((i) => String(i.id)),
+    archived: invPage.archivedInvestments.map((i) => String(i.id)),
+    value: invPage.totalPortfolioValue, invested: invPage.totalInvestedValue, profitLoss: invPage.totalProfitLoss,
+    allocation: invPage.pieData,
+};
+
 const account = db.savings.find((s) => s.type === 'stock_market');
 const active = ownHoldings(account.stocks).filter((s) => !s.isArchived && Number(s.shares || 0) > 0);
 const holdings = active.map((s) => {
@@ -103,7 +117,7 @@ const holdings = active.map((s) => {
 
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
-    dashboard, items, savings: savingsGolden,
+    dashboard, items, savings: savingsGolden, investments: investmentsGolden,
     months,
     stocks: {
         count: holdings.length,

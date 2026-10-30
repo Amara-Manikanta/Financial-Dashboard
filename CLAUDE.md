@@ -931,11 +931,35 @@ against a sandbox, run it on `LAN_PORT=4002` (see §1) and pair with a code from
 `POST 127.0.0.1:4000/api/lan/pair`. Running on a real iPhone needs the project's
 signing team set in Xcode (not done: it needs an Apple ID chosen by the owner).
 
+### Native so far, and the order the rest follows
+
+Pages are rebuilt in the order of the More list (`Features/Pages.swift`):
+
+| Page | Native | Parity-tested |
+| --- | --- | --- |
+| Dashboard & net worth | yes | net worth, growth index, health, value and cost of all 33 accounts |
+| Savings | yes (accounts open the Mac page) | active accounts in order, totals, gratuity |
+| Investments (all accounts) | yes | accounts, totals, allocation slices in order |
+| Stocks | yes | every holding's value and cost |
+| Expenses (year, month, transactions) | yes | every month: spent, invested, income |
+| Loans & Lents | **next** | |
+| everything after it in the More list | web fallback | |
+
+A page is not "done" until its parity test passes against the web code on the
+real database. Fixed-deposit interest depends on today's date, so the golden
+script freezes `Date` and hands the same instant to the Swift side.
+
+Known difference: gold and silver without a stored value are valued at the
+manual rate in `appData.manualMetalRates`. Without one the web app uses a live
+feed this phone does not fetch (it falls back to ₹7,600 / ₹95 per gram, as the
+web does when the feed fails), so a database with no manual rate could differ.
+
 ### Not done yet
 
 - Native writes. A phone write would have to use the per-row endpoints and
   `If-Match` versions; until that is built and tested the app cannot change data.
-- Net worth, savings, loans, tax and the rest are still web fallbacks.
+- Savings and Investments account pages (a fund, a deposit, a policy) still
+  open the Mac's page; so does everything below Investments in the More list.
 - The web layout for phones has 8 known rough spots (a few fixed-width dropdowns
   and button rows on Salary, Grocery Builder, Profile and others); they only
   matter in the fallback pages and in Safari.

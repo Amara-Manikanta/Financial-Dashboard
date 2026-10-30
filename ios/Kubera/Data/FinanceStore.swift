@@ -12,6 +12,7 @@ final class FinanceStore: ObservableObject {
     @Published private(set) var portfolio = Stocks.Portfolio(holdings: [])
     @Published private(set) var netWorth = NetWorthSummary()
     @Published private(set) var savings = SavingsPage.Summary()
+    @Published private(set) var investments = InvestmentsPage.Summary()
     @Published private(set) var isLoading = false
     @Published private(set) var loadedAt: Date?
     @Published var errorMessage: String?
@@ -39,7 +40,7 @@ final class FinanceStore: ObservableObject {
             async let loans = api.get("loans")
             let (e, s, d, a, m, as_, l) = try await (expenses, savingsData, salary, appData, metals, assets, loans)
 
-            let computed = await Task.detached(priority: .userInitiated) { () -> ([YearSummary], Stocks.Portfolio, NetWorthSummary, SavingsPage.Summary) in
+            let computed = await Task.detached(priority: .userInitiated) { () -> ([YearSummary], Stocks.Portfolio, NetWorthSummary, SavingsPage.Summary, InvestmentsPage.Summary) in
                 let kinds = TransactionKind.categoryKinds(from: a)
                 let years = ExpenseLedger.years(expenses: e, categoryKinds: kinds, salaryDetails: d)
                 let account = s.array.first { $0["type"].text == "stock_market" } ?? .null
@@ -49,12 +50,13 @@ final class FinanceStore: ObservableObject {
                 let rates = NetWorth.MetalRates(manualGold: manual["gold"].double, manualSilver: manual["silver"].double)
                 let worth = NetWorth.summary(savings: s, metals: m, assets: as_, loans: l, rates: rates)
                 let savingsSummary = SavingsPage.summary(savings: s, salaryDetails: d, employments: a["employments"])
-                return (years, Stocks.portfolio(account: account), worth, savingsSummary)
+                return (years, Stocks.portfolio(account: account), worth, savingsSummary, InvestmentsPage.summary(savings: s))
             }.value
             years = computed.0
             portfolio = computed.1
             netWorth = computed.2
             savings = computed.3
+            investments = computed.4
             loadedAt = Date()
         } catch APIError.unauthorized {
             onUnauthorized()

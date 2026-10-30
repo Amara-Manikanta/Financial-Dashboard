@@ -38,6 +38,7 @@ struct HomeView: View {
             .navigationDestination(for: NativeScreen.self) { screen in
                 switch screen {
                 case .savings: SavingsView(store: store)
+                case .stocks: StocksView(store: store)
                 }
             }
         }
@@ -95,7 +96,7 @@ struct HomeView: View {
             KSectionHeader(title: "Savings & investments", detail: Money.compact(worth.totalSavings))
             lines([
                 Line(title: "Fixed deposits", value: worth.fixedDeposits, icon: "lock"),
-                Line(title: "Equity stocks", value: worth.stocks, icon: "chart.bar.xaxis", opens: .invest),
+                Line(title: "Equity stocks", value: worth.stocks, icon: "chart.bar.xaxis", screen: .stocks),
                 Line(title: "Mutual funds", value: worth.mutualFunds, icon: "chart.pie"),
                 Line(title: "PPF", value: worth.ppf, icon: "building.columns"),
                 Line(title: "Retirement (NPS)", value: worth.nps, icon: "figure.walk"),

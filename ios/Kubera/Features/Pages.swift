@@ -28,7 +28,7 @@ enum Pages {
             AppPage(title: "Dashboard & net worth", path: "/", icon: "house", native: .tab(.home)),
             AppPage(title: "Savings", path: "/savings", icon: "banknote", native: .screen(.savings)),
             AppPage(title: "Investments (all accounts)", path: "/investments", icon: "chart.line.uptrend.xyaxis"),
-            AppPage(title: "Stocks", path: "/savings/stock-market/3", icon: "chart.bar.xaxis", native: .tab(.invest)),
+            AppPage(title: "Stocks", path: "/savings/stock-market/3", icon: "chart.bar.xaxis", native: .screen(.stocks)),
             AppPage(title: "Loans & Lents", path: "/lents-loans", icon: "arrow.up.right.circle"),
         ]),
         PageGroup(title: "Investing", pages: [

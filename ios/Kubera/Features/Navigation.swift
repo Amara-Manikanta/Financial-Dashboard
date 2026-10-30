@@ -3,6 +3,7 @@ import SwiftUI
 /// Screens that are pushed rather than switched to with a tab.
 enum NativeScreen: Hashable {
     case savings
+    case stocks
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively

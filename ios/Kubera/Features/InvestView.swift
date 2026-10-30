@@ -1,42 +1,105 @@
 import SwiftUI
 
+/// The Investments tab: every mutual fund, stock account and gold bond together.
+/// Port of Investments.jsx; the stock account opens the native holdings list,
+/// the rest open the Mac's own account page until they are rebuilt here.
 struct InvestView: View {
     @ObservedObject var store: FinanceStore
+    @Environment(\.openWebPage) private var openWebPage
+    @State private var showArchived = false
 
-    private var holdings: [Stocks.Holding] { store.portfolio.holdings.sorted { $0.value > $1.value } }
+    private var summary: InvestmentsPage.Summary { store.investments }
 
     var body: some View {
         NavigationStack {
             KScreen(refresh: { await store.load() }) {
                 if let message = store.errorMessage { KNotice(message: message) { Task { await store.load() } } }
+
                 KCard(tint: Theme.accent) {
-                    KStat(label: "Current value", value: Money.rupees(store.portfolio.value), size: .hero)
+                    KStat(label: "Current value", value: Money.rupees(summary.value), size: .hero)
                     HStack(alignment: .top) {
-                        KStat(label: "Invested", value: Money.rupees(store.portfolio.invested))
+                        KStat(label: "Invested", value: Money.rupees(summary.invested))
                         Spacer()
-                        KStat(label: "Gain", value: Fmt.signed(store.portfolio.gain), tone: Tone.of(store.portfolio.gain),
-                              caption: Fmt.percent(store.portfolio.gainPercent))
+                        KStat(label: "Gain", value: Fmt.signed(summary.profitLoss), tone: Tone.of(summary.profitLoss),
+                              caption: Fmt.percent(summary.returnPercent))
                     }
                     .padding(.top, 10)
                 }
-                KSectionHeader(title: "Stocks", detail: "\(holdings.count) holdings")
-                KList(items: holdings) { holding in
-                    NavigationLink(value: holding.id) {
-                        KRow(title: holding.name, subtitle: "\(Fmt.shares(holding.shares)) × \(Money.rupees(holding.price))",
-                             value: Money.rupees(holding.value), valueTone: .neutral,
-                             valueCaption: "\(Fmt.signed(holding.gain)) · \(Fmt.percent(holding.gainPercent))",
-                             captionTone: Tone.of(holding.gain), chevron: true)
+
+                AllocationCard(slices: AllocationCard.condensed(summary.allocation.map { AllocationSlice(name: $0.name, value: $0.value) }))
+
+                KSectionHeader(title: "Accounts", detail: "\(summary.active.count)")
+                KList(items: summary.active.sorted { $0.value > $1.value }) { account in accountRow(account) }
+
+                if !summary.archived.isEmpty {
+                    Button { withAnimation { showArchived.toggle() } } label: {
+                        KSectionHeader(title: showArchived ? "Hide archived" : "Show archived", detail: "\(summary.archived.count)")
                     }
                     .buttonStyle(.plain)
-                }
-                if holdings.isEmpty && store.loadedAt != nil {
-                    KCard { Text("No active stock holdings.").font(Theme.footnote).foregroundStyle(Theme.muted) }
+                    if showArchived { KList(items: summary.archived) { account in accountRow(account) } }
                 }
             }
             .navigationTitle("Investments")
-            .navigationDestination(for: String.self) { id in
-                if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(holding: holding) }
+            .navigationDestination(for: NativeScreen.self) { screen in
+                switch screen {
+                case .savings: SavingsView(store: store)
+                case .stocks: StocksView(store: store)
+                }
             }
+        }
+    }
+
+    @ViewBuilder private func accountRow(_ account: SavingsPage.Account) -> some View {
+        let row = KRow(title: account.title, subtitle: account.typeLabel.capitalized, value: Money.rupees(account.value),
+                       valueCaption: "\(Fmt.signed(account.gain)) · \(Fmt.percent(account.gainPercent))",
+                       captionTone: Tone.of(account.gain), chevron: true)
+        if account.type == "stock_market" {
+            NavigationLink(value: NativeScreen.stocks) { row }.buttonStyle(.plain)
+        } else if let path = account.webPath {
+            Button { openWebPage(AppPage(title: account.title, path: path, icon: "chart.pie")) } label: { row }.buttonStyle(.plain)
+        } else {
+            row
+        }
+    }
+}
+
+/// Every stock holding of your own, valued as the web Dashboard does.
+struct StocksView: View {
+    @ObservedObject var store: FinanceStore
+
+    private var holdings: [Stocks.Holding] { store.portfolio.holdings.sorted { $0.value > $1.value } }
+
+    var body: some View {
+        KScreen(refresh: { await store.load() }) {
+            if let message = store.errorMessage { KNotice(message: message) { Task { await store.load() } } }
+            KCard(tint: Theme.accent) {
+                KStat(label: "Current value", value: Money.rupees(store.portfolio.value), size: .hero)
+                HStack(alignment: .top) {
+                    KStat(label: "Invested", value: Money.rupees(store.portfolio.invested))
+                    Spacer()
+                    KStat(label: "Gain", value: Fmt.signed(store.portfolio.gain), tone: Tone.of(store.portfolio.gain),
+                          caption: Fmt.percent(store.portfolio.gainPercent))
+                }
+                .padding(.top, 10)
+            }
+            KSectionHeader(title: "Stocks", detail: "\(holdings.count) holdings")
+            KList(items: holdings) { holding in
+                NavigationLink(value: holding.id) {
+                    KRow(title: holding.name, subtitle: "\(Fmt.shares(holding.shares)) × \(Money.rupees(holding.price))",
+                         value: Money.rupees(holding.value), valueTone: .neutral,
+                         valueCaption: "\(Fmt.signed(holding.gain)) · \(Fmt.percent(holding.gainPercent))",
+                         captionTone: Tone.of(holding.gain), chevron: true)
+                }
+                .buttonStyle(.plain)
+            }
+            if holdings.isEmpty && store.loadedAt != nil {
+                KCard { Text("No active stock holdings.").font(Theme.footnote).foregroundStyle(Theme.muted) }
+            }
+        }
+        .navigationTitle("Stocks")
+        .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: String.self) { id in
+            if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(holding: holding) }
         }
     }
 }

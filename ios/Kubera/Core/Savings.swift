@@ -119,3 +119,54 @@ enum SavingsPage {
         return result
     }
 }
+
+/// The Investments page: mutual funds, stock accounts and gold bonds.
+/// Port of the top of Investments.jsx.
+enum InvestmentsPage {
+    struct Slice: Equatable { let name: String; let value: Double }
+
+    struct Summary: Equatable {
+        var active: [SavingsPage.Account] = []
+        var archived: [SavingsPage.Account] = []
+        var value = 0.0
+        var invested = 0.0
+        var allocation: [Slice] = []
+        var profitLoss: Double { value - invested }
+        var returnPercent: Double { invested > 0 ? profitLoss / invested * 100 : 0 }
+    }
+
+    static func isInvestment(_ item: JSONValue) -> Bool {
+        ["mutual_fund", "stock_market", "sgb"].contains(item["type"].text)
+    }
+
+    static func summary(savings: JSONValue, asOf: Date = Date()) -> Summary {
+        func account(_ item: JSONValue) -> SavingsPage.Account {
+            let type = item["type"].text
+            let name = item["title"].truthy ? item["title"].text : (item["name"].truthy ? item["name"].text : "")
+            let label = type.replacingOccurrences(of: "_", with: " ", options: [], range: type.range(of: "_"))
+            return SavingsPage.Account(id: item["id"].text, title: name.isEmpty ? label : name, typeLabel: label, type: type,
+                                       value: Valuation.currentValue(item, asOf: asOf), invested: Valuation.investedValue(item),
+                                       isArchived: item["isArchived"].truthy)
+        }
+        let items = savings.array.filter { !$0.isNull && isInvestment($0) }
+        let all = items.map(account)
+        var result = Summary()
+        result.active = all.filter { !$0.isArchived }
+        result.archived = all.filter { $0.isArchived }
+        result.value = result.active.reduce(0) { $0 + $1.value }
+        result.invested = result.active.reduce(0) { $0 + $1.invested }
+
+        // Every stock account is one slice; each gold bond and fund stands alone.
+        var slices: [Slice] = []
+        let stocks = result.active.filter { $0.type == "stock_market" }.reduce(0) { $0 + $1.value }
+        if stocks > 0 { slices.append(Slice(name: "Stock Market", value: stocks)) }
+        for a in result.active where a.type == "sgb" && a.value > 0 {
+            slices.append(Slice(name: a.title == "sgb" ? "Gold Bonds (SGB)" : a.title, value: a.value))
+        }
+        for a in result.active where a.type == "mutual_fund" && a.value > 0 {
+            slices.append(Slice(name: a.title == "mutual fund" ? "Mutual Fund" : a.title, value: a.value))
+        }
+        result.allocation = slices.enumerated().sorted { $0.element.value == $1.element.value ? $0.offset < $1.offset : $0.element.value > $1.element.value }.map(\.element)
+        return result
+    }
+}
