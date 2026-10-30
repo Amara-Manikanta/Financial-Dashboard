@@ -450,3 +450,54 @@ final class XirrTests: XCTestCase {
         XCTAssertNil(ranked[1].xirrPct)
     }
 }
+
+final class DividendTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+    private let now = JSDate.parse("2026-10-30")!
+
+    func testYieldIsAgainstWhatYouPaidAndTdsIsAddedBack() {
+        let stock = json("""
+        {"id":"1","name":"Acme","shares":10,"transactions":[
+          {"type":"buy","date":"2020-01-01","quantity":10,"price":100},
+          {"type":"dividend","date":"2025-07-01","quantity":0,"price":40,"tds":4,"amountIsNet":true},
+          {"type":"dividend","date":"2026-07-01","quantity":0,"price":60}]}
+        """)
+        let p = Dividends.profile(stock, now: now)
+        XCTAssertEqual(p.invested, 1000)
+        XCTAssertEqual(p.total, 104)              // 40 net + 4 withheld = 44 gross, plus 60
+        XCTAssertEqual(p.pct, 10.4, accuracy: 1e-9)
+        XCTAssertEqual(Dividends.read(json("{\"date\":\"2025-07-01\",\"price\":40,\"tds\":4,\"amountIsNet\":true}")).net, 40)
+        XCTAssertEqual(Dividends.read(json("{\"date\":\"2025-07-01\",\"price\":40,\"tds\":4}")).net, 36)
+    }
+
+    func testAPayerThatStoppedIsLapsedOnlyAfterTwoCalendarYears() {
+        func stock(_ last: String) -> JSONValue { json("{\"shares\":5,\"transactions\":[{\"type\":\"dividend\",\"date\":\"2021-05-01\",\"price\":10},{\"type\":\"dividend\",\"date\":\"\(last)\",\"price\":10}]}") }
+        XCTAssertFalse(Dividends.profile(stock("2025-05-01"), now: now).lapsed)       // one year ago
+        XCTAssertTrue(Dividends.profile(stock("2024-05-01"), now: now).lapsed)        // two
+        XCTAssertEqual(Dividends.profile(stock("2024-05-01"), now: now).consistency, 2.0 / 6.0 * 100, accuracy: 1e-9)   // paid in 2 of 2021…2026
+    }
+
+    func testReitsWithholdFromTheFirstRupeeButCompaniesOnlyAboveTheThreshold() {
+        let holdings = json("""
+        [{"id":"r","name":"Embassy Office Parks REIT","transactions":[{"type":"dividend","date":"2026-06-01","price":100}]},
+         {"id":"c","name":"Big Co","transactions":[{"type":"dividend","date":"2026-06-01","price":9000},{"type":"dividend","date":"2026-09-01","price":2000}]},
+         {"id":"s","name":"Small Co","transactions":[{"type":"dividend","date":"2026-06-01","price":9000}]}]
+        """).array
+        let rows = Dividends.taxRows(holdings)
+        func row(_ id: String) -> Dividends.TaxRow { rows.first { $0.holdingId == id }! }
+        XCTAssertTrue(row("r").expectsTds); XCTAssertTrue(row("r").missingTds); XCTAssertNil(row("r").headroom)
+        XCTAssertTrue(row("c").expectsTds)         // 11,000 > 10,000 from FY 2025-26
+        XCTAssertFalse(row("s").expectsTds); XCTAssertEqual(row("s").headroom, 1000)
+        XCTAssertEqual(Dividends.thresholdFor("2024-25"), 5000)
+        let summary = Dividends.taxSummary(holdings, now: now)
+        XCTAssertEqual(summary.approaching.map(\.holdingId), ["s"])              // 1,000 left of a 10,000 limit is under 40%
+        XCTAssertEqual(summary.trustHoldings, ["Embassy Office Parks REIT"])
+    }
+
+    func testIncomeByMonthKeepsTheSilentMonths() {
+        let stocks = json("[{\"transactions\":[{\"type\":\"dividend\",\"date\":\"2026-03-10\",\"price\":50},{\"type\":\"dividend\",\"date\":\"2025-03-10\",\"price\":70}]}]").array
+        let months = Dividends.incomeByMonth(stocks, year: "2026")
+        XCTAssertEqual(months.count, 12); XCTAssertEqual(months[2].amount, 50); XCTAssertEqual(months[0].amount, 0)
+        XCTAssertEqual(Dividends.payoutMonths(stocks[0]).first?.averagePerYear, 60)     // 120 over two years
+    }
+}

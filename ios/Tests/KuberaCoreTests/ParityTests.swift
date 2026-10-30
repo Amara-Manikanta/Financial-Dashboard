@@ -384,3 +384,73 @@ extension ParityTests {
         print("parity: returns — \(page.rows.count) holdings, portfolio XIRR \(page.portfolio.xirrPct.map { String(format: "%.2f%%", $0) } ?? "—"), all four orders match")
     }
 }
+
+extension ParityTests {
+    func testDividendsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let asOf = try XCTUnwrap(f.date(from: golden["asOf"].text))
+        let web = golden["dividends"]
+        let page = DividendPage.page(savings: db["savings"], asOf: asOf)
+        let s = page.summary, ws = web["summary"]
+
+        XCTAssertEqual(s.lifetime, ws["lifetime"].double, accuracy: 0.005); XCTAssertEqual(s.thisYear, ws["thisYear"].double, accuracy: 0.005)
+        XCTAssertEqual(s.payerCount, Int(ws["payerCount"].double)); XCTAssertEqual(s.lapsedCount, Int(ws["lapsedCount"].double))
+        XCTAssertEqual(s.portfolioYieldOnCost, ws["portfolioYieldOnCost"].double, accuracy: 1e-9)
+        XCTAssertEqual(s.bestYear?.year, ws["bestYear"].isNull ? nil : ws["bestYear"]["year"].text)
+        XCTAssertEqual(s.bestYear?.amount ?? 0, ws["bestYear"].isNull ? 0 : ws["bestYear"]["amount"].double, accuracy: 0.005)
+        XCTAssertEqual(s.years.map(\.year), ws["years"].array.map { $0["year"].text })
+        for (mine, theirs) in zip(s.years, ws["years"].array) { XCTAssertEqual(mine.amount, theirs["amount"].double, accuracy: 0.005, "income \(mine.year)") }
+
+        XCTAssertEqual(page.payers.count, web["payers"].array.count)
+        for (mine, theirs) in zip(page.payers, web["payers"].array) {
+            let tag = mine.name
+            XCTAssertEqual(mine.id, theirs["id"].text, "payer order at \(tag)")
+            XCTAssertEqual(mine.invested, theirs["invested"].double, accuracy: 0.005, tag); XCTAssertEqual(mine.total, theirs["total"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.pct, theirs["pct"].double, accuracy: 1e-9, tag)
+            XCTAssertEqual(mine.payments, Int(theirs["payments"].double), tag); XCTAssertEqual(mine.paidYears, Int(theirs["paidYears"].double), tag)
+            XCTAssertEqual(mine.spanYears, Int(theirs["spanYears"].double), tag); XCTAssertEqual(mine.consistency, theirs["consistency"].double, accuracy: 1e-9, tag)
+            XCTAssertEqual(mine.lastPaid, theirs["lastPaid"].isNull ? nil : theirs["lastPaid"].text, tag)
+            XCTAssertEqual(mine.yearsSinceLast.map(Double.init) ?? -1, theirs["yearsSinceLast"].isNull ? -1 : theirs["yearsSinceLast"].double, tag)
+            XCTAssertEqual(mine.lapsed, theirs["lapsed"].isTrue, tag); XCTAssertEqual(mine.held, theirs["held"].isTrue, tag)
+            for (year, amount) in theirs["byYear"].object { XCTAssertEqual(mine.byYear[year] ?? -1, amount.double, accuracy: 0.005, "\(tag) \(year)") }
+            XCTAssertEqual(mine.byYear.count, theirs["byYear"].object.count, tag)
+        }
+        XCTAssertEqual(page.lapsed.map(\.id), web["lapsed"].array.map(\.text))
+
+        XCTAssertEqual(page.calendar.count, 12)
+        for (mine, theirs) in zip(page.calendar, web["calendar"].array) {
+            XCTAssertEqual(mine.payments, Int(theirs["payments"].double), mine.name); XCTAssertEqual(mine.typicalTotal, theirs["typicalTotal"].double, accuracy: 0.005, mine.name)
+            XCTAssertEqual(mine.payers.map(\.id), theirs["payers"].array.map { $0["id"].text }, "payers in \(mine.name)")
+            for (a, b) in zip(mine.payers, theirs["payers"].array) { XCTAssertEqual(a.averagePerYear, b["averagePerYear"].double, accuracy: 0.005) }
+        }
+        XCTAssertEqual(page.busiest.map(\.month), web["busiest"].array.map { Int($0.double) })
+        let latest = page.summary.years.last?.year ?? "\(Calendar.current.component(.year, from: asOf))"
+        XCTAssertEqual(latest, web["latestYear"].text)
+        for (mine, theirs) in zip(Dividends.incomeByMonth(page.stocks, year: latest), web["months"].array) {
+            XCTAssertEqual(mine.amount, theirs["amount"].double, accuracy: 0.005, mine.month); XCTAssertEqual(mine.payments, Int(theirs["payments"].double), mine.month)
+        }
+
+        let t = page.tax, wt = web["tax"]
+        XCTAssertEqual(t.currentFy, wt["currentFy"].text)
+        XCTAssertEqual(t.lifetimeGross, wt["lifetimeGross"].double, accuracy: 0.005); XCTAssertEqual(t.lifetimeTds, wt["lifetimeTds"].double, accuracy: 0.005)
+        XCTAssertEqual(t.lifetimeNet, wt["lifetimeNet"].double, accuracy: 0.005)
+        XCTAssertEqual(t.rows.count, wt["rows"].array.count)
+        for (mine, theirs) in zip(t.rows, wt["rows"].array) {
+            let tag = "\(mine.name) FY \(mine.fy)"
+            XCTAssertEqual(mine.id, "\(theirs["holdingId"].text)::\(theirs["fy"].text)", tag)
+            XCTAssertEqual(mine.gross, theirs["gross"].double, accuracy: 0.005, tag); XCTAssertEqual(mine.tds, theirs["tds"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(mine.expectsTds, theirs["expectsTds"].isTrue, tag); XCTAssertEqual(mine.missingTds, theirs["missingTds"].isTrue, tag)
+            XCTAssertEqual(mine.isTrust, theirs["isTrust"].isTrue, tag); XCTAssertEqual(mine.payments, Int(theirs["payments"].double), tag)
+            XCTAssertEqual(mine.headroom ?? -1, theirs["headroom"].isNull ? -1 : theirs["headroom"].double, accuracy: 0.005, tag)
+        }
+        XCTAssertEqual(t.years.map(\.fy), wt["years"].array.map { $0["fy"].text })
+        XCTAssertEqual(t.needsChecking.map(\.id), wt["needsChecking"].array.map { "\($0["holdingId"].text)::\($0["fy"].text)" })
+        XCTAssertEqual(t.approaching.map(\.id), wt["approaching"].array.map { "\($0["holdingId"].text)::\($0["fy"].text)" })
+        XCTAssertEqual(t.trustHoldings, wt["trustHoldings"].array.map(\.text))
+
+        XCTAssertEqual(page.shares.map(\.ticker), web["treemap"].array.map { $0["ticker"].text })
+        for (mine, theirs) in zip(page.shares, web["treemap"].array) { XCTAssertEqual(mine.value, theirs["value"].double, accuracy: 0.005, mine.ticker) }
+        print("parity: dividends — lifetime \(s.lifetime), \(page.payers.count) payers, \(t.rows.count) tax rows, calendar and treemap match")
+    }
+}

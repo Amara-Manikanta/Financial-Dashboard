@@ -23,6 +23,8 @@ import { riskOf, priorityOf, byPriority, riskCounts, priorityCounts } from '../.
 import { resolveMarketCap, NIFTY_50_STOCKS, NIFTY_NEXT_50_STOCKS, SBI_SMALL_CAP_WEIGHTS, HDFC_FLEXI_CAP_WEIGHTS } from '../../../src/utils/nifty50Data.js';
 import { rankedApplications, ipoSummary } from '../../../src/utils/ipoApplications.js';
 import { rankedReturns, portfolioReturn } from '../../../src/utils/xirr.js';
+import { incomeByYear, incomeByMonth, incomeSummary, dividendPayers, lapsedPayers, dividendCalendar, busiestMonths } from '../../../src/utils/dividendAnalytics.js';
+import { dividendTaxSummary } from '../../../src/utils/dividendTax.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
 const RealDate = Date;
@@ -202,10 +204,24 @@ const returnsGolden = {
     order: Object.fromEntries(['xirr', 'simple', 'invested', 'profit'].map((k) => [k, retSort(retRows, k).map((r) => `${r.kind}:${r.id}`)])),
 };
 
+// DividendIncome.jsx: its calls on your own stocks in the open account, and its treemap code from the source.
+const dvMarket = db.savings.find((x) => x.type === 'stock_market' && !x.isArchived);
+const dvStocks = ownHoldings(dvMarket?.stocks);
+const dvYears = incomeByYear(dvStocks);
+const treemapBody = slice('src/pages/DividendIncome.jsx', 'const treemapData = useMemo(() => stocks', ', [stocks]);');
+const dividendsGolden = {
+    summary: incomeSummary(dvStocks), years: dvYears, payers: dividendPayers(dvStocks), lapsed: lapsedPayers(dvStocks).map((p) => String(p.id)),
+    calendar: dividendCalendar(dvStocks), busiest: busiestMonths(dvStocks).map((m) => m.month),
+    latestYear: dvYears.length ? dvYears[dvYears.length - 1].year : String(new Date().getFullYear()),
+    months: incomeByMonth(dvStocks, dvYears.length ? dvYears[dvYears.length - 1].year : String(new Date().getFullYear())),
+    tax: dividendTaxSummary(dvStocks),
+    treemap: new Function('stocks', `return stocks${treemapBody};`)(dvStocks),
+};
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden,
     months,
     stocks: {
         count: holdings.length,

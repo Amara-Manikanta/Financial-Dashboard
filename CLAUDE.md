@@ -954,7 +954,8 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Watchlist (sorting, filters, ranges, alerts) | yes | 25 entries, all three sort orders, risk/priority/sector/cap, alert counts |
 | IPO Applications | yes | every application and the summary |
 | Returns (XIRR) | yes | all 71 holdings in rank order, the portfolio rate, all four sort orders (XIRR within the solver's own tolerance) |
-| Dividend Income, Free Holdings, Nifty 50, Stock Analyst | **next** | |
+| Dividend Income (tax withheld, yield, consistency, by year and month, calendar) | yes | 30 payers, 96 company-by-year tax rows, the calendar, every income figure |
+| Free Holdings, Nifty 50, Stock Analyst | **next** | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the
