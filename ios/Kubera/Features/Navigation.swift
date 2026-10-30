@@ -5,6 +5,7 @@ enum NativeScreen: Hashable {
     case savings
     case stocks
     case loans
+    case capitalGains
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -17,5 +18,21 @@ extension EnvironmentValues {
     var openWebPage: (AppPage) -> Void {
         get { self[OpenWebPageKey.self] }
         set { self[OpenWebPageKey.self] = newValue }
+    }
+}
+
+/// The one place that knows which view each pushed screen is, so a new screen is
+/// added here and in `Pages.swift` and nowhere else.
+struct NativeDestination: View {
+    let screen: NativeScreen
+    @ObservedObject var store: FinanceStore
+
+    var body: some View {
+        switch screen {
+        case .savings: SavingsView(store: store)
+        case .stocks: StocksView(store: store)
+        case .loans: LoansView(store: store)
+        case .capitalGains: CapitalGainsView(store: store)
+        }
     }
 }

@@ -1,8 +1,14 @@
 import Foundation
 
 enum Money {
+    /// JavaScript's `Math.round`: halves go toward +infinity, so -2.5 is -2, not -3.
+    static func jsRound(_ value: Double) -> Double {
+        let floor = value.rounded(.down)
+        return value - floor >= 0.5 ? floor + 1 : floor
+    }
+
     /// `Math.round(v * 100) / 100`.
-    static func round2(_ value: Double) -> Double { (value * 100).rounded(.toNearestOrAwayFromZero) / 100 }
+    static func round2(_ value: Double) -> Double { jsRound(value * 100) / 100 }
 
     private static let whole: NumberFormatter = make(digits: 0)
     private static let cents: NumberFormatter = make(digits: 2)

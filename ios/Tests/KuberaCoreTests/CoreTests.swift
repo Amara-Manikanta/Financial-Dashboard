@@ -254,3 +254,78 @@ final class LoansTests: XCTestCase {
         XCTAssertEqual(loan.badge.label, "Electronic Gadget EMI")
     }
 }
+
+final class CapitalGainsTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+
+    func testFifoMatchesTheOldestLotFirstAndSplitsShortFromLong() {
+        let tx = json("""
+        [{"id":"1","type":"buy","date":"2024-01-10","quantity":10,"price":100},
+         {"id":"2","type":"buy","date":"2025-10-01","quantity":10,"price":200},
+         {"id":"3","type":"sell","date":"2026-02-01","quantity":15,"price":300}]
+        """)
+        let r = CapitalGains.matchLots(tx, name: "ACME", id: "a")
+        XCTAssertEqual(r.disposals.count, 2)
+        XCTAssertEqual(r.disposals[0].term, "long");  XCTAssertEqual(r.disposals[0].gain, 2000)      // 10 × (300−100)
+        XCTAssertEqual(r.disposals[1].term, "short"); XCTAssertEqual(r.disposals[1].gain, 500)       // 5 × (300−200)
+        XCTAssertEqual(r.openLots.map(\.quantity), [5])
+    }
+
+    func testTwelveMonthsMeansMoreThanTwelveMonths() {
+        XCTAssertFalse(CapitalGains.isLongTerm("2025-10-20", "2026-10-20"))   // exactly a year is still short term
+        XCTAssertTrue(CapitalGains.isLongTerm("2025-10-20", "2026-10-21"))
+        XCTAssertEqual(CapitalGains.longTermFrom("2025-10-20"), "2026-10-21")
+        XCTAssertFalse(CapitalGains.isLongTerm("2024-02-29", "2025-02-28"))   // 29 February rolls to 1 March
+    }
+
+    func testASaleWithNoPurchaseIsReportedNotInvented() {
+        let r = CapitalGains.matchLots(json("[{\"id\":\"1\",\"type\":\"sell\",\"date\":\"2026-01-01\",\"quantity\":3,\"price\":50}]"))
+        XCTAssertTrue(r.disposals.isEmpty)
+        XCTAssertEqual(r.unmatched.first?.quantity, 3)
+    }
+
+    func testSplitsRestateOpenLotsAndBonusSharesCostNothing() {
+        let tx = json("""
+        [{"id":"1","type":"buy","date":"2025-01-01","quantity":10,"price":100},
+         {"id":"2","type":"split","date":"2025-06-01","splitFrom":1,"splitTo":2},
+         {"id":"3","type":"bonus","date":"2025-07-01","quantity":5}]
+        """)
+        let lots = CapitalGains.matchLots(tx).openLots
+        XCTAssertEqual(lots.map(\.quantity), [20, 5]); XCTAssertEqual(lots.map(\.costPerShare), [50, 0])
+    }
+
+    func testBuybackAfterOctober2024IsDividendAndItsCostIsALoss() {
+        let tx = json("[{\"id\":\"1\",\"type\":\"buy\",\"date\":\"2024-01-01\",\"quantity\":10,\"price\":100},{\"id\":\"2\",\"type\":\"buyback\",\"date\":\"2025-03-01\",\"quantity\":10,\"price\":150}]")
+        let d = CapitalGains.matchLots(tx).disposals[0]
+        XCTAssertTrue(d.treatedAsDividend); XCTAssertEqual(d.dividendIncome, 1500); XCTAssertEqual(d.proceeds, 0)
+        let year = CapitalGains.summariseYear([d], fy: "2024-25")
+        XCTAssertEqual(year.long, -1000)           // the cost of the shares tendered
+        XCTAssertEqual(year.buybackDividend, 1500)
+    }
+
+    func testLossesCarryForwardAndLapseAfterEightYears() {
+        func sale(_ id: String, _ buy: String, _ sell: String, _ price: Double) -> JSONValue {
+            json("[{\"id\":\"b\(id)\",\"type\":\"buy\",\"date\":\"\(buy)\",\"quantity\":1,\"price\":1000},{\"id\":\"s\(id)\",\"type\":\"sell\",\"date\":\"\(sell)\",\"quantity\":1,\"price\":\(price)}]")
+        }
+        let loss = CapitalGains.matchLots(sale("1", "2015-05-01", "2015-06-01", 400)).disposals            // a ₹600 short-term loss in FY 2015-16
+        let late = CapitalGains.matchLots(sale("2", "2024-05-01", "2024-06-01", 2000)).disposals           // a gain in FY 2024-25: the loss has lapsed
+        let ledger = CapitalGains.ledger(loss + late)
+        let year = ledger.years.first { $0.fy == "2024-25" }!
+        XCTAssertEqual(year.lapsed, 600)
+        XCTAssertEqual(year.netShort, 1000)
+        XCTAssertEqual(CapitalGains.ledger(loss).carriedShort.first?.expiresAfter, "2023-24")
+    }
+
+    func testExemptionAndRatesChangeWithTheYear() {
+        XCTAssertEqual(CapitalGains.exemption(for: "2023-24"), 100_000)
+        XCTAssertEqual(CapitalGains.exemption(for: "2024-25"), 125_000)
+        XCTAssertEqual(CapitalGains.fyFor(JSDate.parse("2026-03-31")!), "2025-26")
+        XCTAssertEqual(CapitalGains.fyFor(JSDate.parse("2026-04-01")!), "2026-27")
+    }
+
+    func testFundClassFollowsTheSchemeName() {
+        XCTAssertEqual(CapitalGainsPage.assetClass(of: "HDFC Liquid Fund"), "debt")
+        XCTAssertEqual(CapitalGainsPage.assetClass(of: "Union Balanced Advantage Fund"), "hybrid")
+        XCTAssertEqual(CapitalGainsPage.assetClass(of: "SBI Small Cap Fund"), "equity")
+    }
+}

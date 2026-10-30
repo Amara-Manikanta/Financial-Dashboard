@@ -15,6 +15,7 @@ final class FinanceStore: ObservableObject {
     @Published private(set) var investments = InvestmentsPage.Summary()
     @Published private(set) var people = LoansPage.People()
     @Published private(set) var loans = LoansPage.Loans()
+    @Published private(set) var capitalGains = CapitalGainsPage.Page()
     @Published private(set) var isLoading = false
     @Published private(set) var loadedAt: Date?
     @Published var errorMessage: String?
@@ -43,7 +44,7 @@ final class FinanceStore: ObservableObject {
             async let lentsData = api.get("lents")
             let (e, s, d, a, m, as_, l, lents) = try await (expenses, savingsData, salary, appData, metals, assets, loansData, lentsData)
 
-            let computed = await Task.detached(priority: .userInitiated) { () -> ([YearSummary], Stocks.Portfolio, NetWorthSummary, SavingsPage.Summary, InvestmentsPage.Summary, LoansPage.People, LoansPage.Loans) in
+            let computed = await Task.detached(priority: .userInitiated) { () -> ([YearSummary], Stocks.Portfolio, NetWorthSummary, SavingsPage.Summary, InvestmentsPage.Summary, LoansPage.People, LoansPage.Loans, CapitalGainsPage.Page) in
                 let kinds = TransactionKind.categoryKinds(from: a)
                 let years = ExpenseLedger.years(expenses: e, categoryKinds: kinds, salaryDetails: d)
                 let account = s.array.first { $0["type"].text == "stock_market" } ?? .null
@@ -53,7 +54,7 @@ final class FinanceStore: ObservableObject {
                 let rates = NetWorth.MetalRates(manualGold: manual["gold"].double, manualSilver: manual["silver"].double)
                 let worth = NetWorth.summary(savings: s, metals: m, assets: as_, loans: l, rates: rates)
                 let savingsSummary = SavingsPage.summary(savings: s, salaryDetails: d, employments: a["employments"])
-                return (years, Stocks.portfolio(account: account), worth, savingsSummary, InvestmentsPage.summary(savings: s), LoansPage.people(lents: lents), LoansPage.loans(l))
+                return (years, Stocks.portfolio(account: account), worth, savingsSummary, InvestmentsPage.summary(savings: s), LoansPage.people(lents: lents), LoansPage.loans(l), CapitalGainsPage.page(savings: s))
             }.value
             years = computed.0
             portfolio = computed.1
@@ -62,6 +63,7 @@ final class FinanceStore: ObservableObject {
             investments = computed.4
             people = computed.5
             loans = computed.6
+            capitalGains = computed.7
             loadedAt = Date()
         } catch APIError.unauthorized {
             onUnauthorized()

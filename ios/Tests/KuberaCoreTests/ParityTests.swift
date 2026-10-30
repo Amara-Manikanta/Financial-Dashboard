@@ -168,3 +168,80 @@ extension ParityTests {
         print("parity: \(people.debts.count) peer debts (lent \(people.totalLent), borrowed \(people.totalBorrowed)) and \(loans.loans.count) loans match")
     }
 }
+
+extension ParityTests {
+    func testCapitalGainsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let asOf = try XCTUnwrap(f.date(from: golden["asOf"].text))
+        let web = golden["capitalGains"]
+        let page = CapitalGainsPage.page(savings: db["savings"], asOf: asOf)
+
+        XCTAssertEqual(page.currentFy, web["currentFy"].text)
+
+        // Every disposal, in the page's order.
+        let webDisposals = web["disposals"].array
+        XCTAssertEqual(page.disposals.count, webDisposals.count, "disposal count")
+        for (mine, theirs) in zip(page.disposals, webDisposals) {
+            let tag = "\(mine.holding) \(mine.soldOn)"
+            XCTAssertEqual(mine.txId, theirs["txId"].text, tag)
+            XCTAssertEqual(mine.acquiredOn, theirs["acquiredOn"].text, tag)
+            XCTAssertEqual(mine.acquiredAs, theirs["acquiredAs"].text, tag)
+            XCTAssertEqual(mine.term, theirs["term"].text, tag)
+            XCTAssertEqual(mine.fy, theirs["fy"].text, tag)
+            XCTAssertEqual(mine.treatedAsDividend, theirs["treatedAsDividend"].isTrue, tag)
+            for (label, a, b) in [("quantity", mine.quantity, theirs["quantity"].double), ("cost", mine.cost, theirs["cost"].double),
+                                  ("proceeds", mine.proceeds, theirs["proceeds"].double), ("gain", mine.gain, theirs["gain"].double),
+                                  ("dividend", mine.dividendIncome, theirs["dividendIncome"].double)] {
+                XCTAssertEqual(a, b, accuracy: 0.005, "\(tag) \(label)")
+            }
+        }
+
+        XCTAssertEqual(page.unmatched.map(\.soldOn), web["unmatched"].array.map { $0["soldOn"].text })
+        XCTAssertEqual(page.unmatched.map(\.quantity), web["unmatched"].array.map { $0["quantity"].double })
+
+        // The ledger, year by year, every figure.
+        let years = web["years"].array
+        XCTAssertEqual(page.ledger.years.map(\.fy), years.map { $0["fy"].text })
+        for (mine, theirs) in zip(page.ledger.years, years) {
+            let pairs: [(String, Double, String)] = [
+                ("grossShort", mine.grossShort, "grossShort"), ("grossLong", mine.grossLong, "grossLong"),
+                ("openingShort", mine.openingCarriedShort, "openingCarriedShort"), ("openingLong", mine.openingCarriedLong, "openingCarriedLong"),
+                ("setOffCur", mine.setOffCurrentShortLossAgainstLong, "setOffCurrentShortLossAgainstLong"),
+                ("setOffSS", mine.setOffShortAgainstShort, "setOffShortAgainstShort"), ("setOffSL", mine.setOffShortAgainstLong, "setOffShortAgainstLong"),
+                ("setOffLL", mine.setOffLongAgainstLong, "setOffLongAgainstLong"), ("netShort", mine.netShort, "netShort"), ("netLong", mine.netLong, "netLong"),
+                ("exemption", mine.exemption, "exemption"), ("exemptUsed", mine.exemptUsed, "exemptUsed"), ("taxableLong", mine.taxableLong, "taxableLong"),
+                ("shortRate", mine.shortRate, "shortRate"), ("longRate", mine.longRate, "longRate"), ("tax", mine.estimatedTax, "estimatedTax"),
+                ("buybackDividend", mine.buybackDividend, "buybackDividend"), ("proceeds", mine.proceeds, "proceeds"), ("cost", mine.cost, "cost"),
+                ("lapsed", mine.lapsed, "lapsed"), ("closingShort", mine.closingCarriedShort, "closingCarriedShort"), ("closingLong", mine.closingCarriedLong, "closingCarriedLong"),
+            ]
+            for (label, a, key) in pairs { XCTAssertEqual(a, theirs[key].double, accuracy: 0.005, "FY \(mine.fy) \(label)") }
+            XCTAssertEqual(mine.disposalCount, Int(theirs["disposalCount"].double), "FY \(mine.fy) disposal count")
+        }
+        XCTAssertEqual(page.ledger.totalRealised, web["totals"]["realised"].double, accuracy: 0.005)
+        XCTAssertEqual(page.ledger.totalTax, web["totals"]["tax"].double, accuracy: 0.005)
+        XCTAssertEqual(page.ledger.carriedShort.map(\.fy), web["carried"]["short"].array.map { $0["fy"].text })
+        XCTAssertEqual(page.ledger.carriedLong.map(\.amount), web["carried"]["long"].array.map { $0["amount"].double })
+        XCTAssertEqual(page.ledger.carriedLong.map(\.expiresAfter), web["carried"]["long"].array.map { $0["expiresAfter"].text })
+
+        // What is still held.
+        let lots = web["unrealised"]["lots"].array
+        XCTAssertEqual(page.unrealised.lots.count, lots.count, "open lots")
+        for (mine, theirs) in zip(page.unrealised.lots, lots) {
+            XCTAssertEqual(mine.acquiredOn, theirs["acquiredOn"].text); XCTAssertEqual(mine.term, theirs["term"].text)
+            XCTAssertEqual(mine.longTermFrom, theirs["longTermFrom"].text); XCTAssertEqual(mine.daysToLongTerm, Int(theirs["daysToLongTerm"].double), "\(mine.holding) days to long term")
+            XCTAssertEqual(mine.quantity, theirs["quantity"].double, accuracy: 0.005); XCTAssertEqual(mine.cost, theirs["cost"].double, accuracy: 0.005)
+            XCTAssertEqual(mine.value, theirs["value"].double, accuracy: 0.005); XCTAssertEqual(mine.gain, theirs["gain"].double, accuracy: 0.005)
+        }
+        XCTAssertEqual(page.unrealised.shortTerm.gain, web["unrealised"]["shortTerm"]["gain"].double, accuracy: 0.005)
+        XCTAssertEqual(page.unrealised.longTerm.gain, web["unrealised"]["longTerm"]["gain"].double, accuracy: 0.005)
+        XCTAssertEqual(page.unrealised.crossingWithin90Days.count, Int(web["unrealised"]["crossing"].double))
+
+        // Mutual funds, with their inferred class.
+        XCTAssertEqual(page.funds.count, web["funds"].array.count, "fund disposals")
+        for (mine, theirs) in zip(page.funds, web["funds"].array) {
+            XCTAssertEqual(mine.assetClass, theirs["assetClass"].text); XCTAssertEqual(mine.disposal.gain, theirs["gain"].double, accuracy: 0.005, mine.disposal.holding)
+        }
+        print("parity: capital gains — \(page.disposals.count) disposals, \(page.ledger.years.count) years, tax \(page.ledger.totalTax), \(page.unrealised.lots.count) open lots, \(page.funds.count) fund disposals match")
+    }
+}

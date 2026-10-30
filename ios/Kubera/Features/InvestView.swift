@@ -40,13 +40,7 @@ struct InvestView: View {
                 }
             }
             .navigationTitle("Investments")
-            .navigationDestination(for: NativeScreen.self) { screen in
-                switch screen {
-                case .savings: SavingsView(store: store)
-                case .stocks: StocksView(store: store)
-                case .loans: LoansView(store: store)
-                }
-            }
+            .navigationDestination(for: NativeScreen.self) { NativeDestination(screen: $0, store: store) }
         }
     }
 

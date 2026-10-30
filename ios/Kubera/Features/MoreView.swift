@@ -38,13 +38,7 @@ struct MoreView: View {
                     .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
             }
             .navigationTitle("More")
-            .navigationDestination(for: NativeScreen.self) { screen in
-                switch screen {
-                case .savings: SavingsView(store: store)
-                case .stocks: StocksView(store: store)
-                case .loans: LoansView(store: store)
-                }
-            }
+            .navigationDestination(for: NativeScreen.self) { NativeDestination(screen: $0, store: store) }
             .confirmationDialog("Disconnect this iPhone from \(mac.name)?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
                 Button("Disconnect", role: .destructive, action: disconnect)
             } message: { Text("You'll need a new pairing code from the Mac to connect again.") }

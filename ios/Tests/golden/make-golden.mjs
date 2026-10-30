@@ -16,6 +16,7 @@ import { totalAccruedValue, totalPrincipal } from '../../../src/utils/fdAccrual.
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
 import { calculateNetWorth, calculateGratuity } from '../../../src/utils/financeCalculators.js';
 import { lentOutstanding } from '../../../src/utils/lents.js';
+import { disposalsForStocks, gainsLedger, unrealisedSummary, matchLots, fyFor } from '../../../src/utils/capitalGains.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
 const RealDate = Date;
@@ -131,9 +132,29 @@ const holdings = active.map((s) => {
     return { id: String(s.id), value: Number(s.shares || 0) * Number(s.currentPrice || 0), invested: shares * avgCost, avgCost };
 });
 
+// CapitalGains.jsx: the page's own calls, and its fund classifier cut out of the source.
+const cgStocks = ownHoldings(account.stocks);
+const cgDisposals = disposalsForStocks(cgStocks);
+const cgLedger = gainsLedger(cgDisposals.disposals);
+const cgUnrealised = unrealisedSummary(cgStocks);
+const classOf = new Function(`const DEBT_HINTS${slice('src/pages/CapitalGains.jsx', 'const DEBT_HINTS', 'const CapitalGains = () =>')}\nreturn classOf;`)();
+const cgFunds = [];
+db.savings.filter((x) => x.type === 'mutual_fund').forEach((f) => {
+    const name = f.title || f.name || 'Unnamed fund';
+    matchLots(f.transactions, { name, id: f.id }).disposals.forEach((d) => cgFunds.push({ ...d, assetClass: classOf(name) }));
+});
+cgFunds.sort((a, b) => String(b.soldOn).localeCompare(String(a.soldOn)));
+const capitalGainsGolden = {
+    currentFy: fyFor(new Date()),
+    years: cgLedger.years, carried: cgLedger.carried, totals: cgLedger.totals,
+    disposals: cgDisposals.disposals, unmatched: cgDisposals.unmatched,
+    unrealised: { shortTerm: cgUnrealised.shortTerm, longTerm: cgUnrealised.longTerm, lots: cgUnrealised.lots, crossing: cgUnrealised.crossingWithin90Days.length },
+    funds: cgFunds,
+};
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
-    dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden,
+    dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
     months,
     stocks: {
         count: holdings.length,

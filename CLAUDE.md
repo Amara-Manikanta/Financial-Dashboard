@@ -933,7 +933,12 @@ signing team set in Xcode (not done: it needs an Apple ID chosen by the owner).
 
 ### Native so far, and the order the rest follows
 
-Pages are rebuilt in the order of the More list (`Features/Pages.swift`):
+Pages are rebuilt in the order of the More list (`Features/Pages.swift`), except that a module several
+pages share is ported once, first: Capital Gains came before the Stock Analyst because the
+analyst runs a sale through the same ledger (`simulateSale`), and XIRR, dividends and watchlist
+risk each serve a page of their own as well as the analyst. To add a screen: `NativeScreen` case,
+`NativeDestination`, and `native:` on its `AppPage`.
+
 
 | Page | Native | Parity-tested |
 | --- | --- | --- |
@@ -943,7 +948,8 @@ Pages are rebuilt in the order of the More list (`Features/Pages.swift`):
 | Stocks | yes | every holding's value and cost |
 | Expenses (year, month, transactions) | yes | every month: spent, invested, income |
 | Loans & Lents (people, loans, EMI calculator) | yes | peer totals, per-debt balance, every loan's paid / pending / progress / due this month |
-| Stock Analyst, Watchlist, IPOs, Returns, Capital Gains, … | **next, in More-list order** | |
+| Capital Gains (tax by year, losses carried, open lots, every sale, fund sales) | yes | all 136 disposals, every ledger figure for 6 years, 127 open lots, fund classes |
+| Stock Analyst, Watchlist, IPOs, Returns (XIRR), Free Holdings, Dividend Income, Nifty 50 | **next** | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the
