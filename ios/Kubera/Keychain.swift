@@ -20,7 +20,10 @@ enum Keychain {
         return String(data: data, encoding: .utf8)
     }
 
-    static func write(_ value: String, for account: String) {
+    /// False when the system refused the write — the caller must not report a
+    /// pairing it could not keep.
+    @discardableResult
+    static func write(_ value: String, for account: String) -> Bool {
         delete(account)
         let attributes: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
@@ -29,7 +32,7 @@ enum Keychain {
             kSecValueData as String: Data(value.utf8),
             kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
         ]
-        SecItemAdd(attributes as CFDictionary, nil)
+        return SecItemAdd(attributes as CFDictionary, nil) == errSecSuccess
     }
 
     static func delete(_ account: String) {

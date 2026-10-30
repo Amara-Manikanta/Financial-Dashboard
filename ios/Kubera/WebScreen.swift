@@ -9,6 +9,7 @@ import WebKit
 struct WebScreen: UIViewRepresentable {
     let mac: MacEndpoint
     let token: String
+    var path: String = "/"
     let reloadID: UUID
     let onFailure: (String) -> Void
     let onUnauthorized: () -> Void
@@ -73,7 +74,8 @@ struct WebScreen: UIViewRepresentable {
                 .domain: mac.host, .path: "/", .name: "kubera_token", .value: parent.token,
                 .expires: Date(timeIntervalSinceNow: 31_536_000),
             ]
-            var request = URLRequest(url: mac.baseURL)
+            let target = URL(string: parent.path, relativeTo: mac.baseURL)?.absoluteURL ?? mac.baseURL
+            var request = URLRequest(url: target)
             request.setValue("Bearer \(parent.token)", forHTTPHeaderField: "Authorization")
             guard let cookie = HTTPCookie(properties: properties) else { web.load(request); return }
             web.configuration.websiteDataStore.httpCookieStore.setCookie(cookie) { web.load(request) }

@@ -324,3 +324,17 @@
     overflow-x: clip;
   }
 }
+
+/*
+ * Inside the iPhone app a Mac page is shown as a fallback under the app's own
+ * close button, so the web header and tab bar would be a second, competing
+ * navigation. WebScreen adds `native-ios` to <html> before the page loads.
+ */
+html.native-ios header,
+html.native-ios nav[aria-label="Main"] {
+  display: none !important;
+}
+html.native-ios main {
+  padding-top: calc(56px + env(safe-area-inset-top)) !important;
+  padding-bottom: calc(28px + env(safe-area-inset-bottom)) !important;
+}

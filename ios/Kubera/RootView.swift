@@ -1,55 +1,49 @@
 import SwiftUI
 
 struct RootView: View {
-    @StateObject private var store = ConnectionStore()
-    @State private var reloadID = UUID()
-    @State private var failure: String?
+    @StateObject private var connection = ConnectionStore()
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
-            if let mac = store.mac, let token = store.token {
-                WebScreen(
-                    mac: mac, token: token, reloadID: reloadID,
-                    onFailure: { failure = $0 },
-                    onUnauthorized: { store.forget() },
-                    onUnpair: { store.forget() }
-                )
-                .ignoresSafeArea()
-                .opacity(failure == nil ? 1 : 0)
-
-                if let failure {
-                    Unreachable(mac: mac, detail: failure,
-                                retry: { self.failure = nil; reloadID = UUID() },
-                                change: { self.failure = nil; store.forget() })
-                }
+            if let mac = connection.mac, let token = connection.token {
+                PairedRoot(mac: mac, token: token, forget: { connection.forget() })
+                    .id(token)
             } else {
-                PairView(store: store)
+                PairView(store: connection)
             }
         }
     }
 }
 
-/// The Mac is asleep, off, or on another network.
-private struct Unreachable: View {
+/// The app once paired: native tabs over data read from the Mac.
+private struct PairedRoot: View {
     let mac: MacEndpoint
-    let detail: String
-    let retry: () -> Void
-    let change: () -> Void
+    let token: String
+    let forget: () -> Void
+
+    @StateObject private var store: FinanceStore
+    @State private var tab: AppTab = .home
+
+    init(mac: MacEndpoint, token: String, forget: @escaping () -> Void) {
+        self.mac = mac
+        self.token = token
+        self.forget = forget
+        _store = StateObject(wrappedValue: FinanceStore(api: API(base: mac.baseURL, token: token), onUnauthorized: forget))
+    }
 
     var body: some View {
-        VStack(spacing: 18) {
-            Image(systemName: "wifi.exclamationmark").font(.system(size: 46)).foregroundStyle(.orange)
-            Text("Can't reach \(mac.name)").font(.title2.weight(.heavy))
-            Text("Make sure your Mac is on and awake, and that this phone is on the same Wi-Fi.")
-                .font(.subheadline).foregroundStyle(Theme.muted).multilineTextAlignment(.center)
-            Text(detail).font(.caption).foregroundStyle(Theme.muted.opacity(0.7)).multilineTextAlignment(.center)
-            Button(action: retry) {
-                Text("Try again").fontWeight(.bold).frame(maxWidth: .infinity).padding(.vertical, 14)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 14)).foregroundStyle(.black)
-            }
-            Button("Connect to a different Mac", action: change).font(.footnote).foregroundStyle(Theme.muted)
+        TabView(selection: $tab) {
+            HomeView(store: store, openMore: { tab = .more })
+                .tabItem { Label("Home", systemImage: "house.fill") }.tag(AppTab.home)
+            ExpensesView(store: store)
+                .tabItem { Label("Expenses", systemImage: "creditcard.fill") }.tag(AppTab.expenses)
+            InvestView(store: store)
+                .tabItem { Label("Invest", systemImage: "chart.line.uptrend.xyaxis") }.tag(AppTab.invest)
+            MoreView(mac: mac, token: token, select: { tab = $0 }, disconnect: forget)
+                .tabItem { Label("More", systemImage: "ellipsis") }.tag(AppTab.more)
         }
-        .padding(30)
+        .tint(Theme.accent)
+        .task { await store.load() }
     }
 }

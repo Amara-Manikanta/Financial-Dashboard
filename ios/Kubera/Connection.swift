@@ -74,7 +74,9 @@ final class ConnectionStore: ObservableObject {
             throw PairError.refused((body?["error"] as? String) ?? "The Mac didn't accept that code.")
         }
 
-        Keychain.write(token, for: "token")
+        guard Keychain.write(token, for: "token") else {
+            throw PairError.refused("The Mac accepted the code, but this iPhone couldn't store the pairing securely. Try again.")
+        }
         let endpoint = MacEndpoint(host: host, port: port, name: name)
         UserDefaults.standard.set(try? JSONEncoder().encode(endpoint), forKey: "mac")
         self.token = token

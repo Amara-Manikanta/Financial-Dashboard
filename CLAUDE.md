@@ -798,7 +798,7 @@ Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js`, `claudeNews.js` | `npm run server` |
+| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js`, `claudeNews.js`, `lanAccess.js`, `jsonServerLocal.mjs` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |
@@ -833,3 +833,109 @@ React/CSS source changes hot-reload normally.
 - `finance.sqlite` is **not** a backup. It is derived from `db.json` and is
   rebuilt from it whenever that file changes — including from a corrupted one.
   Recovery still comes from `backups/`.
+
+---
+
+## 12. The iPhone app (`ios/`) and the Wi-Fi gateway
+
+### The API answers this Mac and nothing else
+
+Until this was found, `server.js` (3000) and json-server (3001) listened on
+**every interface** and had no login. Anyone on the same Wi-Fi could read all of
+`expenses` (2 MB), `GET /users` (usernames **and plain-text passwords**), and
+write through 3001 directly. Do not undo any of these:
+
+- `server.js` answers `403` to any request whose `socket.remoteAddress` is not
+  loopback (`isLoopback` in `lanAccess.js`; the Electron shell and Vite both
+  reach it over 127.0.0.1, so nothing local changes).
+- json-server starts through `jsonServerLocal.mjs`. beta.3 calls
+  `app.listen(port, cb)` with no host, so **`--host` does nothing**; the
+  launcher patches `listen` to bind `127.0.0.1` without touching `node_modules`.
+- Another device gets in only through the **gateway** (`lanAccess.js`, port
+  5181, `LAN_PORT`), which is **off until switched on** in Profile → iPhone
+  connection.
+
+### How a phone is let in
+
+1. Mac shows a six-digit code (5 min, single use, dead after 5 wrong guesses).
+2. `POST /pair {code}` returns a 32-byte token. Only its **sha256** is kept, in
+   `.kubera-lan.json` beside the database (gitignored, mode 600) — reading that
+   file does not let anyone in.
+3. Every later request carries the token: a cookie for the web view, a bearer
+   header for the app. `/ping` is the only unauthenticated route and leaks
+   nothing.
+4. The gateway serves the built UI and forwards `/_api/*` and `/api/*` to
+   `server.js` over loopback with `x-kubera-lan: 1`, so **the write guard,
+   backups and version checks apply to phone writes exactly as to the Mac's**.
+5. `/api/lan/*` (mint codes, unpair, switch on/off) is **Mac-only**: the gateway
+   refuses it and `server.js` refuses anything carrying `x-kubera-lan`. A paired
+   phone must not be able to pair another device.
+
+The page learns it is behind the gateway from `window.__KUBERA_API__ = "/_api"`
+(injected into `index.html`), which `utils/apiUrl.js` prefers — same origin, so
+the cookie rides along and no CORS is needed. Bonjour (`_kubera._tcp`) is
+advertised with macOS's own `dns-sd`, so the phone finds the Mac without an IP.
+
+Plain HTTP on the home network: there is no certificate for a `.local` name,
+which is why pairing exists. The iOS app allows it with
+`NSAllowsLocalNetworking`, not a blanket ATS exception.
+
+### The native app
+
+SwiftUI, iOS 17+, `ios/Kubera.xcodeproj` (a hand-written file-system-synchronised
+project: **new files in `ios/Kubera/` are picked up automatically**).
+
+| Folder | What it is |
+| --- | --- |
+| `Kubera/Core/` | Pure Foundation logic. No UI, so it is testable from the command line. `JSONValue` reads the database as loosely as JavaScript does (`Number("")` is 0, `"1,200"` is NaN). |
+| `Kubera/Design/` | **The only place cards, figures and rows are styled** (`KCard`, `KStat`, `KRow`, `KList`, `KScreen`…). Build every screen from these; do not style a card inline. Multi-child content must sit inside the card's own `VStack`, or each child gets its own background. |
+| `Kubera/Data/` | `API` (bearer-token reads through the gateway) and `FinanceStore`. **Read-only.** |
+| `Kubera/Features/` | Screens. `Pages.swift` lists every page of the Mac app. |
+
+**A page is either native or a web fallback.** Native pages move to their tab;
+every other page in `Pages.groups` opens the Mac's own screen in a web view
+(`html.native-ios` hides the web header and tab bar there). So the phone has all
+features while native coverage grows. To port a page: add its logic to `Core/`,
+write the parity test, build the screen, then set `native:` on its `AppPage`.
+
+### Ported logic must match the web, and a test proves it
+
+`Core/TransactionKind.swift`, `Expenses.swift` and `Stocks.swift` are ports of
+`utils/transactionKind.js`, the Expenses page grouping, `calculateSalaryStats`
+and `utils/investmentSync.js`. A port that is "close" is a wrong number on a
+financial screen, so:
+
+```bash
+ios/Tests/run-parity.sh          # runs the WEB code on a copy of db.json, then checks Swift against it
+cd ios && swift test             # the always-on unit tests (made-up data only)
+```
+
+`make-golden.mjs` cuts the Expenses grouping and the salary maths **out of the
+source files at run time** rather than copying them, so the expected numbers
+always come from the code actually in the app. It compares every month of every
+year (spent, invested, income, category counts) and every stock holding. The
+golden file is your finances: it is written to `/tmp`, never to the repo. If you
+change a rule in the JS, this fails until the Swift matches.
+
+### Building and running
+
+```bash
+xcodebuild -project ios/Kubera.xcodeproj -scheme Kubera \
+  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+```
+
+Build **with** the default "Sign to Run Locally". `CODE_SIGNING_ALLOWED=NO`
+produces an unsigned app whose Keychain writes fail, so the pairing is lost on
+relaunch — the app now refuses to report a pairing it could not store. To test
+against a sandbox, run it on `LAN_PORT=4002` (see §1) and pair with a code from
+`POST 127.0.0.1:4000/api/lan/pair`. Running on a real iPhone needs the project's
+signing team set in Xcode (not done: it needs an Apple ID chosen by the owner).
+
+### Not done yet
+
+- Native writes. A phone write would have to use the per-row endpoints and
+  `If-Match` versions; until that is built and tested the app cannot change data.
+- Net worth, savings, loans, tax and the rest are still web fallbacks.
+- The web layout for phones has 8 known rough spots (a few fixed-width dropdowns
+  and button rows on Salary, Grocery Builder, Profile and others); they only
+  matter in the fallback pages and in Safari.
