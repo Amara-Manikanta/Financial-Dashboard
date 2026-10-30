@@ -37,6 +37,7 @@ struct Derived {
     var freeHoldings = FreeHoldingsPage.Page()
     /// Kept for the overlap page, whose basis and fund focus change on screen and so cannot be precomputed.
     var savingsRaw = JSONValue.null
+    var watchlistRaw = JSONValue.null
 
     static func compute(_ raw: RawData, asOf: Date = Date()) -> Derived {
         var d = Derived()
@@ -61,6 +62,7 @@ struct Derived {
         d.dividends = DividendPage.page(savings: raw.savings, asOf: asOf)
         d.freeHoldings = FreeHoldingsPage.page(savings: raw.savings)
         d.savingsRaw = raw.savings
+        d.watchlistRaw = raw.watchlist
         return d
     }
 }

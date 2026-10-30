@@ -12,6 +12,7 @@ enum NativeScreen: Hashable {
     case dividends
     case freeHoldings
     case overlap
+    case analyst
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -45,6 +46,7 @@ struct NativeDestination: View {
         case .dividends: DividendsView(store: store)
         case .freeHoldings: FreeHoldingsView(store: store)
         case .overlap: OverlapView(store: store)
+        case .analyst: AnalystView(store: store)
         }
     }
 }

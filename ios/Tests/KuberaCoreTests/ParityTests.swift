@@ -529,4 +529,44 @@ extension ParityTests {
         }
         print("parity: nifty overlap — \(all.exposures.count) companies, \(all.sectors.count) sectors, portfolio \(all.portfolioValue); \(checked) rows compared over 10 views")
     }
+
+    func testStockAnalystMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")
+        let asOf = try frozenNow(web)
+        let market = db["savings"].array.first { $0["type"].text == "stock_market" && !$0["isArchived"].truthy } ?? .null
+        let stocks = market["stocks"].array.filter(Stocks.isOwn)
+        var closes: [String: Double] = [:]
+        for (k, v) in web["analyst"]["closes"].object { closes[k] = v.double }
+        var funds: [String: JSONValue] = [:]
+        for (k, v) in web["analyst"]["fundamentals"].object { funds[k] = v }
+
+        for (label, mine) in [
+            ("plain", Analyst.analyse(stocks: stocks, watchlist: db["watchlist"].array, sectorLimits: market["sectorLimits"], pricesUpdatedAt: market["pricesUpdatedAt"].truthy ? market["pricesUpdatedAt"].text : nil, asOf: asOf)),
+            ("rich", Analyst.analyse(stocks: stocks, watchlist: db["watchlist"].array, sectorLimits: market["sectorLimits"], fundamentals: funds, indexCloses: closes, pricesUpdatedAt: market["pricesUpdatedAt"].truthy ? market["pricesUpdatedAt"].text : nil, asOf: asOf)),
+        ] {
+            let theirs = web["analyst"][label]
+            XCTAssertEqual(mine.asOf, theirs["asOf"].text, label)
+            let tf = theirs["findings"].array
+            XCTAssertEqual(mine.findings.map { $0.id }, tf.map { $0["id"].text }, "\(label): which findings, in order")
+            for (m, t) in zip(mine.findings, tf) {
+                let tag = "\(label) \(m.id)"
+                XCTAssertEqual(m.kind, t["kind"].text, tag); XCTAssertEqual(m.severity.rawValue, t["severity"].text, tag)
+                XCTAssertEqual(m.title, t["title"].text, tag); XCTAssertEqual(m.detail, t["detail"].text, tag); XCTAssertEqual(m.action, t["action"].text, tag)
+                XCTAssertEqual(m.rule, t["rule"].text, tag)
+                XCTAssertEqual(m.evidence.map { "\($0.label): \($0.value)" }, t["evidence"].array.map { "\($0["label"].text): \($0["value"].text)" }, tag)
+                XCTAssertEqual(m.impact, t["impact"].double, accuracy: 0.005, tag)
+                XCTAssertEqual(m.deadline ?? "", t["deadline"].text, tag)
+            }
+            let ms = mine.snapshot, ts = theirs["snapshot"]
+            for (name, a, b) in [("value", ms.value, "value"), ("invested", ms.invested, "invested"), ("unrealised", ms.unrealised, "unrealised"), ("topFive", ms.topFiveShare, "topFiveShare"),
+                                 ("short", ms.realisedShort, "realisedShort"), ("long", ms.realisedLong, "realisedLong"), ("tax", ms.estimatedTax, "estimatedTax"),
+                                 ("exempt", ms.exemptionUsed, "exemptionUsed"), ("carried", ms.carriedLosses, "carriedLosses")] {
+                XCTAssertEqual(a, ts[b].double, accuracy: 0.005, "\(label) snapshot \(name)")
+            }
+            XCTAssertEqual(ms.heldCount, Int(ts["heldCount"].double), label); XCTAssertEqual(ms.daysToFyEnd, Int(ts["daysToFyEnd"].double), label)
+            XCTAssertEqual(ms.fundamentalsLoaded, Int(ts["fundamentalsLoaded"].double), label)
+            XCTAssertEqual(ms.sectors.map { $0.sector }, ts["sectors"].array.map { $0["sector"].text }, label)
+            print("parity: analyst \(label) — \(mine.findings.count) findings (\(mine.counts[.act] ?? 0) act, \(mine.counts[.review] ?? 0) review, \(mine.counts[.info] ?? 0) info)")
+        }
+    }
 }

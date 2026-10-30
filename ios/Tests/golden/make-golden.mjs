@@ -28,6 +28,7 @@ import { dividendTaxSummary } from '../../../src/utils/dividendTax.js';
 import { readComposition } from '../../../src/utils/fundComposition.js';
 import { sectorFor, capFor } from '../../../src/utils/sectors.js';
 import { ALL_BENCHMARK_STOCKS } from '../../../src/utils/nifty50Data.js';
+import { analysePortfolio, symbolFor } from '../../../src/utils/stockAdvisor.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -257,10 +258,34 @@ const overlapFilters = [
         .filteredStocks.map((r) => r.symbol),
 }));
 
+// StockAnalyst.jsx: its one call into the analyst, with and without the fundamentals and index history the server supplies.
+// Those two come from the network, so here they are made up — the same arrays are handed to the Swift side.
+const analystMarket = db.savings.find((x) => x.type === 'stock_market' && !x.isArchived);
+const analystStocks = ownHoldings(analystMarket?.stocks);
+const analystCloses = {};
+for (let t = RealDate.UTC(2015, 0, 1), i = 0; t <= frozenMs; t += 86400000, i += 1) {
+    analystCloses[new RealDate(t).toISOString().slice(0, 10)] = Math.round((8000 + 6.5 * i + 450 * Math.sin(i / 45)) * 100) / 100;
+}
+const analystFundamentals = {};
+[...analystStocks, ...(db.watchlist || [])].forEach((item, i) => {
+    const key = symbolFor(item);
+    if (!key || analystFundamentals[key]) return;
+    const kind = i % 4;
+    if (kind === 0) analystFundamentals[key] = { signal: { action: 'sell', label: 'Review for Exit', reasons: ['Debt is rising', 'Margins are shrinking'] }, healthScore: { total: 2, max: 5, checks: [{ name: 'Debt', status: 'bad', detail: 'Debt/equity 2.1' }, { name: 'Margins', status: 'caution', detail: 'Margin 4%' }, { name: 'Revenue', status: 'good', detail: 'Growing' }] } };
+    else if (kind === 1) analystFundamentals[key] = { signal: { action: 'trim', label: 'Consider Trimming', reasons: ['Valuation stretched'] }, healthScore: { total: 3, max: 5, checks: [{ name: 'Valuation', status: 'caution', detail: 'P/E 60' }] } };
+    else analystFundamentals[key] = { signal: { action: 'hold', label: 'Hold', reasons: [] }, healthScore: { total: 4, max: 5, checks: [] } };
+});
+const analystArgs = { stocks: analystStocks, watchlist: db.watchlist || [], sectorLimits: analystMarket?.sectorLimits || {}, pricesUpdatedAt: analystMarket?.pricesUpdatedAt || null, asOf: new RealDate(frozenMs) };
+const analystGolden = {
+    plain: analysePortfolio(analystArgs),
+    rich: analysePortfolio({ ...analystArgs, fundamentals: analystFundamentals, indexCloses: analystCloses }),
+    closes: analystCloses, fundamentals: analystFundamentals,
+};
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

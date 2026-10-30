@@ -28,6 +28,20 @@ final class FinanceStore: ObservableObject {
     var dividends: DividendPage.Page { data.dividends }
     var freeHoldings: FreeHoldingsPage.Page { data.freeHoldings }
 
+    /// Reads that are not part of the database: a stock's fundamentals check and ten years of the Nifty.
+    func fundamentals(for symbol: String) async -> JSONValue? {
+        guard let json = try? await api.get(path: "api/stock-financials", query: [URLQueryItem(name: "symbol", value: symbol)]),
+              !json["signal"].isNull else { return nil }
+        return json
+    }
+
+    func indexCloses() async -> [String: Double]? {
+        guard let json = try? await api.get(path: "api/history", query: [URLQueryItem(name: "symbol", value: "^NSEI"), URLQueryItem(name: "range", value: "10y")]) else { return nil }
+        var closes: [String: Double] = [:]
+        for (k, v) in json["closes"].object { closes[k] = v.double }
+        return closes
+    }
+
     private let api: API
     private let onUnauthorized: () -> Void
 

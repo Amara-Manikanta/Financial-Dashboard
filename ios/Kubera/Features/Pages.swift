@@ -32,7 +32,7 @@ enum Pages {
             AppPage(title: "Loans & Lents", path: "/lents-loans", icon: "arrow.up.right.circle", native: .screen(.loans)),
         ]),
         PageGroup(title: "Investing", pages: [
-            AppPage(title: "Stock Analyst", path: "/investments/analyst", icon: "sparkles"),
+            AppPage(title: "Stock Analyst", path: "/investments/analyst", icon: "sparkles", native: .screen(.analyst)),
             AppPage(title: "Watchlist", path: "/investments/watchlist", icon: "eye", native: .screen(.watchlist)),
             AppPage(title: "IPO Applications", path: "/investments/ipos", icon: "ticket", native: .screen(.ipos)),
             AppPage(title: "Returns (XIRR)", path: "/investments/returns", icon: "gauge.with.dots.needle.67percent", native: .screen(.returns)),

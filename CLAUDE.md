@@ -957,7 +957,8 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Dividend Income (tax withheld, yield, consistency, by year and month, calendar) | yes | 30 payers, 96 company-by-year tax rows, the calendar, every income figure |
 | Free Holdings (cost recovery) | yes | 37 ranked positions, free / nearly free / cashless, totals |
 | Nifty 50 & fund overlap | yes | 105 companies, 12 sectors, ₹3,23,171.14 looked through; all 10 basis × fund views and 5 filter/sort combinations compared |
-| Stock Analyst | **next** | |
+| Stock Analyst (findings, tax simulation, fundamentals and Nifty comparison loaded from the Mac) | yes | every finding's id, order, wording and figures, with and without fundamentals/index history (the network inputs are made up identically on both sides) |
+| Salary | **next** | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the

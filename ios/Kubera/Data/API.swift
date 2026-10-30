@@ -21,8 +21,13 @@ struct API {
     let base: URL
     let token: String
 
-    func get(_ collection: String) async throws -> JSONValue {
-        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent(collection))
+    func get(_ collection: String) async throws -> JSONValue { try await get(path: collection, query: []) }
+
+    /// Any read the Mac serves — a collection, or `api/...` (quotes, fundamentals, index history).
+    func get(path: String, query: [URLQueryItem]) async throws -> JSONValue {
+        var url = path.split(separator: "/").reduce(base.appendingPathComponent("_api")) { $0.appendingPathComponent(String($1)) }
+        if !query.isEmpty, var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) { parts.queryItems = query; url = parts.url ?? url }
+        var request = URLRequest(url: url)
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 30
         let data: Data
