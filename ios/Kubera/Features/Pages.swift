@@ -24,7 +24,7 @@ struct PageGroup: Identifiable {
 enum Pages {
     static let groups: [PageGroup] = [
         PageGroup(title: "Overview", pages: [
-            AppPage(title: "Dashboard & net worth", path: "/", icon: "house"),
+            AppPage(title: "Dashboard & net worth", path: "/", icon: "house", native: .home),
             AppPage(title: "Savings", path: "/savings", icon: "banknote"),
             AppPage(title: "Investments (all accounts)", path: "/investments", icon: "chart.line.uptrend.xyaxis"),
             AppPage(title: "Stocks", path: "/savings/stock-market/3", icon: "chart.bar.xaxis", native: .invest),

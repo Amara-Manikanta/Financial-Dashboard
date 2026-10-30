@@ -34,7 +34,7 @@ private struct PairedRoot: View {
 
     var body: some View {
         TabView(selection: $tab) {
-            HomeView(store: store, openMore: { tab = .more })
+            HomeView(store: store, select: { tab = $0 })
                 .tabItem { Label("Home", systemImage: "house.fill") }.tag(AppTab.home)
             ExpensesView(store: store)
                 .tabItem { Label("Expenses", systemImage: "creditcard.fill") }.tag(AppTab.expenses)

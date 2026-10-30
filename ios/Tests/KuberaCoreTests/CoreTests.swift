@@ -107,3 +107,77 @@ final class CoreTests: XCTestCase {
         XCTAssertEqual(p.value, 1000)
     }
 }
+
+final class ValuationTests: XCTestCase {
+    private func json(_ text: String) -> JSONValue { try! JSONValue.parse(Data(text.utf8)) }
+    private let jan1 = JSDate.parse("2026-01-01")!
+
+    func testGoldIsValuedByPurityAndAFilledValueIsKept() {
+        let metals = json("""
+        {"gold":[{"weightGm":10,"purity":24},{"weightGm":10,"purity":22},{"weightGm":10,"purity":18},{"weightGm":10,"purity":22,"currentValue":5000}],
+         "silver":[{"weightGm":100}],"platinum":[],"antique_coins":[],"currencies":[]}
+        """)
+        let processed = NetWorth.processedMetals(metals, rates: .init(manualGold: 12000, manualSilver: 200))
+        let gold = processed["gold"]!.map { $0["currentValue"].double }
+        XCTAssertEqual(gold[0], 120000)
+        XCTAssertEqual(gold[1], 110000, accuracy: 0.001)
+        XCTAssertEqual(gold[2], 110000, accuracy: 0.001)      // 18K is valued at the 22K rate, as the web does
+        XCTAssertEqual(gold[3], 5000)
+        XCTAssertEqual(processed["silver"]![0]["currentValue"].double, 20000)
+    }
+
+    func testRatesFallBackWhenNothingIsSet() {
+        XCTAssertEqual(NetWorth.MetalRates().gold24, 7600)
+        XCTAssertEqual(NetWorth.MetalRates().silver, 95)
+        XCTAssertEqual(NetWorth.MetalRates(manualGold: 0, manualSilver: 0, liveGold: 9000, liveSilver: 80).gold24, 9000)
+    }
+
+    func testFixedDepositAccruesAndStopsAtMaturity() {
+        let fd = json("{\"originalAmount\":100000,\"interestRate\":8,\"startDate\":\"2025-01-01\",\"endDate\":\"2026-01-01\",\"bank\":\"HDFC\"}")
+        let atMaturity = Valuation.depositValue(fd, asOf: jan1)
+        // 8% compounded quarterly for 365 days.
+        XCTAssertEqual(atMaturity, 100000 * pow(1.02, 4 * 365 / 365.25), accuracy: 0.01)
+        XCTAssertEqual(Valuation.depositValue(fd, asOf: JSDate.parse("2030-01-01")!), atMaturity, accuracy: 0.001)   // no interest after the end date
+        XCTAssertEqual(Valuation.depositValue(fd, asOf: JSDate.parse("2024-06-01")!), 100000, accuracy: 0.001)       // none before the start
+    }
+
+    func testArchivedDepositsAndAnUnparseableOneAreHandled() {
+        let list = json("[{\"originalAmount\":1000,\"isArchived\":true},{\"originalAmount\":500,\"currentValue\":520,\"startDate\":\"nonsense\",\"endDate\":\"2026-01-01\"}]")
+        XCTAssertEqual(Valuation.totalAccrued(list, asOf: jan1), 520)       // archived skipped; bad date falls back to the stored value
+        XCTAssertEqual(Valuation.totalPrincipal(list), 500)
+    }
+
+    func testProtectionOnlyPoliciesAreNotSavings() {
+        let term = json("{\"type\":\"Policy\",\"amount\":9000000,\"isProtectionOnly\":true,\"premiums\":[{\"status\":\"Paid\",\"amount\":5000}]}")
+        let endowment = json("{\"type\":\"policy\",\"amount\":500000,\"premiums\":[{\"status\":\"Paid\",\"amount\":5000},{\"status\":\"Paid\",\"amount\":5000},{\"status\":\"Received\",\"amount\":2000}]}")
+        let motor = json("{\"type\":\"Policy\",\"policyDetails\":{\"category\":\"Car\"},\"premiums\":[{\"status\":\"Paid\",\"amount\":900}]}")
+        XCTAssertEqual(Valuation.currentValue(term), 0)
+        XCTAssertEqual(Valuation.currentValue(endowment), 8000)
+        XCTAssertEqual(Valuation.currentValue(motor), 0)
+    }
+
+    func testMutualFundCostFollowsAverageOnSales() {
+        let fund = json("""
+        {"type":"mutual_fund","currentNav":50,"transactions":[
+          {"type":"buy","date":"2025-01-01","units":100,"amount":4000},
+          {"type":"buy","date":"2025-02-01","units":100,"nav":60},
+          {"type":"sell","date":"2025-03-01","units":50}]}
+        """)
+        XCTAssertEqual(Valuation.currentValue(fund), 7500)       // 150 units × 50
+        XCTAssertEqual(Valuation.investedValue(fund), 7500)      // 10000 cost, a quarter of it sold
+    }
+
+    func testLoanBalanceAmortisesFromRecordedPayments() {
+        let loan = json("{\"principalAmount\":100000,\"interestRate\":12,\"startDate\":\"2025-01-01\",\"payments\":[{\"date\":\"2025-02-01\",\"amount\":10000},{\"date\":\"2025-03-01\",\"amount\":10000}]}")
+        let b = NetWorth.loanBalances(loan)
+        XCTAssertEqual(b["2025-01"], 100000)
+        XCTAssertEqual(b["2025-02"], 91000)                      // 1% interest = 1000; 9000 to principal
+        XCTAssertEqual(b["2025-03"]!, 91000 - (10000 - 910), accuracy: 0.01)
+    }
+
+    func testGrowthIndexFormattingFollowsJavaScript() {
+        XCTAssertEqual(NetWorth.toFixed1(12.25), "12.3")
+        XCTAssertEqual(NetWorth.toFixed1(-0.04), "-0.0")
+        XCTAssertEqual(NetWorth.toFixed1(13.44), "13.4")
+    }
+}

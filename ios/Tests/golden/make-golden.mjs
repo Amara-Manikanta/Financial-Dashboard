@@ -12,6 +12,17 @@ import fs from 'fs';
 import { isDebit, kindFor, expenseBuckets, defaultKindForCategory } from '../../../src/utils/transactionKind.js';
 import { effectiveStockPosition } from '../../../src/utils/investmentSync.js';
 import { ownHoldings } from '../../../src/utils/holdingOwner.js';
+import { totalAccruedValue, totalPrincipal } from '../../../src/utils/fdAccrual.js';
+import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
+import { calculateNetWorth } from '../../../src/utils/financeCalculators.js';
+
+// Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
+const RealDate = Date;
+const frozenMs = RealDate.now();
+globalThis.Date = class extends RealDate {
+    constructor(...args) { if (args.length === 0) super(frozenMs); else super(...args); }
+    static now() { return frozenMs; }
+};
 
 const [dbPath, outPath, projectRoot] = process.argv.slice(2);
 const root = projectRoot.endsWith('/') ? projectRoot : `${projectRoot}/`;
@@ -47,6 +58,27 @@ for (const [year, byIndex] of Object.entries(groups)) {
     }
 }
 
+// FinanceContext.jsx: how each account type is valued, and how metals get a value.
+const policySource = slice('src/context/FinanceContext.jsx', 'export const isProtectionOnlyPolicy', 'export const METAL_CATEGORIES');
+const policyContributed = new Function(`const isProtectionOnlyPolicy${policySource}\nreturn policyContributed;`.replace(/export const/g, 'const'))();
+const valuationSource = slice('src/context/FinanceContext.jsx', 'const calculateItemCurrentValue = (item) => {', 'const updateItem = async (type, item) => {');
+const { calculateItemCurrentValue, calculateItemInvestedValue } = new Function(
+    'ownHoldings', 'totalAccruedValue', 'totalPrincipal', 'readSgbHolding', 'policyContributed', 'effectiveStockPosition',
+    `const calculateItemCurrentValue = (item) => {${valuationSource}\nreturn { calculateItemCurrentValue, calculateItemInvestedValue };`,
+)(ownHoldings, totalAccruedValue, totalPrincipal, readSgbHolding, policyContributed, effectiveStockPosition);
+
+const metalBody = slice('src/context/FinanceContext.jsx', 'const processedMetals = React.useMemo(() => {', '}, [metals, metalRates, manualMetalRates]);');
+const manualMetalRates = db.appData?.manualMetalRates || { gold: 0, silver: 0 };
+const metalRates = { gold: 0, silver: 0 };   // the live feed is not available here; manual rates, when set, win
+const processedMetals = new Function('metals', 'metalRates', 'manualMetalRates', metalBody)(db.metals, metalRates, manualMetalRates);
+
+// Dashboard.jsx: the stats block.
+const statsBody = slice('src/pages/Dashboard.jsx', 'const stats = useMemo(() => {', '}, [savings, metals, assets, calculateItemCurrentValue, calculateItemInvestedValue]);');
+const dashboard = new Function('savings', 'metals', 'assets', 'loans', 'calculateItemCurrentValue', 'calculateItemInvestedValue', 'calculateNetWorth', statsBody)(
+    db.savings, processedMetals, db.assets, db.loans, calculateItemCurrentValue, calculateItemInvestedValue, calculateNetWorth,
+);
+const items = db.savings.map((i) => ({ id: String(i.id), type: i.type, current: Number(calculateItemCurrentValue(i)) || 0, invested: Number(calculateItemInvestedValue(i)) || 0 }));
+
 const account = db.savings.find((s) => s.type === 'stock_market');
 const active = ownHoldings(account.stocks).filter((s) => !s.isArchived && Number(s.shares || 0) > 0);
 const holdings = active.map((s) => {
@@ -55,6 +87,8 @@ const holdings = active.map((s) => {
 });
 
 fs.writeFileSync(outPath, JSON.stringify({
+    asOf: new RealDate(frozenMs).toISOString(),
+    dashboard, items,
     months,
     stocks: {
         count: holdings.length,
@@ -63,4 +97,4 @@ fs.writeFileSync(outPath, JSON.stringify({
         holdings,
     },
 }, null, 1));
-console.log(`golden: ${months.length} months, ${holdings.length} holdings → ${outPath}`);
+console.log(`golden: ${months.length} months, ${holdings.length} holdings, ${items.length} accounts, net worth ${dashboard.netWorth} → ${outPath}`);

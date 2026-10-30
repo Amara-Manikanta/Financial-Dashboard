@@ -47,3 +47,49 @@ final class ParityTests: XCTestCase {
         print("parity: \(portfolio.holdings.count) holdings, value and cost match")
     }
 }
+
+extension ParityTests {
+    private func frozenNow(_ golden: JSONValue) throws -> Date {
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return try XCTUnwrap(f.date(from: golden["asOf"].text), "golden has no asOf")
+    }
+
+    private func rates(_ db: JSONValue) -> NetWorth.MetalRates {
+        let manual = db["appData"]["manualMetalRates"]
+        return NetWorth.MetalRates(manualGold: manual["gold"].double, manualSilver: manual["silver"].double)
+    }
+
+    func testEveryAccountIsValuedAsTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let asOf = try frozenNow(golden)
+        var mismatches: [String] = []
+        for expected in golden["items"].array {
+            guard let item = db["savings"].array.first(where: { $0["id"].text == expected["id"].text }) else { mismatches.append("\(expected["id"].text): missing"); continue }
+            let current = Valuation.currentValue(item, asOf: asOf), invested = Valuation.investedValue(item)
+            if abs(current - expected["current"].double) > 0.005 { mismatches.append("\(expected["type"].text) \(expected["id"].text) current: swift \(current) vs web \(expected["current"].double)") }
+            if abs(invested - expected["invested"].double) > 0.005 { mismatches.append("\(expected["type"].text) \(expected["id"].text) invested: swift \(invested) vs web \(expected["invested"].double)") }
+        }
+        XCTAssertTrue(mismatches.isEmpty, "\(mismatches.count) mismatches, first: \(mismatches.prefix(6))")
+        print("parity: \(golden["items"].array.count) accounts valued the same")
+    }
+
+    func testDashboardMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let s = NetWorth.summary(savings: db["savings"], metals: db["metals"], assets: db["assets"], loans: db["loans"],
+                                 rates: rates(db), asOf: try frozenNow(golden))
+        let web = golden["dashboard"]
+        let pairs: [(String, Double, String)] = [
+            ("netWorth", s.netWorth, "netWorth"), ("debt", s.debt, "debt"), ("totalSavings", s.totalSavings, "totalSavings"),
+            ("totalMetals", s.totalMetals, "totalMetals"), ("totalAssets", s.totalAssets, "totalAssets"),
+            ("gold", s.goldValue, "goldVal"), ("goldGms", s.goldGrams, "goldGms"), ("silver", s.silverValue, "silverVal"),
+            ("silverGms", s.silverGrams, "silverGms"), ("platinum", s.platinumValue, "platinumVal"),
+            ("antique", s.antiqueCoinsValue, "antiqueCoinsVal"), ("currencies", s.currenciesValue, "currenciesVal"),
+            ("fd", s.fixedDeposits, "fd"), ("stocks", s.stocks, "stocks"), ("mf", s.mutualFunds, "mf"),
+            ("ppf", s.ppf, "ppf"), ("nps", s.nps, "nps"), ("sgb", s.goldBonds, "sgb"),
+        ]
+        for (label, mine, key) in pairs { XCTAssertEqual(mine, web[key].double, accuracy: 0.005, label) }
+        XCTAssertEqual(s.growthIndex, web["growthIndex"].text)
+        XCTAssertEqual(s.assetHealth, web["assetHealth"].text)
+        print("parity: net worth \(s.netWorth) matches, growth \(s.growthIndex), health \(s.assetHealth)")
+    }
+}
