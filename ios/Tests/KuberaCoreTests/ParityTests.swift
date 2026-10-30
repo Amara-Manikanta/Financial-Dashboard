@@ -569,4 +569,31 @@ extension ParityTests {
             print("parity: analyst \(label) — \(mine.findings.count) findings (\(mine.counts[.act] ?? 0) act, \(mine.counts[.review] ?? 0) review, \(mine.counts[.info] ?? 0) info)")
         }
     }
+
+    func testSalaryMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["salary"]
+        let now = try frozenNow(load("KUBERA_GOLDEN"))
+        XCTAssertEqual(SalaryPage.years(db["salaryDetails"], now: now), web["years"].array.map { $0.text })
+        let annual = SalaryPage.page(salaryDetails: db["salaryDetails"], appData: db["appData"], year: web["years"][0].text, now: now).annual
+        XCTAssertEqual(annual.map { $0.year }, web["annual"].array.map { $0["year"].text }, "annual years")
+        for (m, t) in zip(annual, web["annual"].array) { for (k, v) in m.values { XCTAssertEqual(v, t[k].double, accuracy: 0.005, "annual \(m.year) \(k)") } }
+        var checked = 0
+        for year in web["years"].array.map({ $0.text }) {
+            let p = SalaryPage.page(salaryDetails: db["salaryDetails"], appData: db["appData"], year: year, now: now), w = web["byYear"][year]
+            for (m, t) in zip(p.months, w["monthly"].array) {
+                XCTAssertEqual(m.gross, t["Gross"].double, accuracy: 0.005, "\(year) \(m.name) gross"); XCTAssertEqual(m.deductions, t["Deductions"].double, accuracy: 0.005, "\(year) \(m.name) deductions")
+                XCTAssertEqual(m.net, t["Net"].double, accuracy: 0.005, "\(year) \(m.name) net")
+                for f in p.fields.earnings + p.fields.deductions { XCTAssertEqual(m.values[f.key] ?? 0, t[f.key].double, accuracy: 0.005, "\(year) \(m.name) \(f.key)") }
+            }
+            XCTAssertEqual(p.totalGross, w["aggregates"]["totalGross"].double, accuracy: 0.005, year); XCTAssertEqual(p.totalNet, w["aggregates"]["totalNet"].double, accuracy: 0.005, year)
+            XCTAssertEqual(p.totalIncomeTax, w["aggregates"]["totalIncomeTax"].double, accuracy: 0.005, year); XCTAssertEqual(p.totalEpf, w["aggregates"]["totalEpf"].double, accuracy: 0.005, year)
+            XCTAssertEqual(p.annualTotal, w["annualTotal"].double, accuracy: 0.005, year)
+            if p.annualRecord != nil {
+                for c in p.comparison { XCTAssertEqual(c.target, w["comparison"][c.field.key]["target"].double, accuracy: 0.005, "\(year) \(c.field.key)"); XCTAssertEqual(c.received, w["comparison"][c.field.key]["received"].double, accuracy: 0.005, "\(year) \(c.field.key)") }
+            } else { XCTAssertTrue(w["comparison"].isNull, "\(year) comparison") }
+            XCTAssertEqual(p.gratuity.total, w["gratuity"].double, accuracy: 0.005, year); XCTAssertEqual(p.gratuity.thisYear, w["gratuityYear"].double, accuracy: 0.005, year)
+            checked += p.months.count
+        }
+        print("parity: salary — \(web["years"].array.count) years, \(checked) months compared, \(annual.count) annual packages")
+    }
 }

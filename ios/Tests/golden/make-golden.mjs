@@ -14,7 +14,7 @@ import { effectiveStockPosition } from '../../../src/utils/investmentSync.js';
 import { ownHoldings } from '../../../src/utils/holdingOwner.js';
 import { totalAccruedValue, totalPrincipal } from '../../../src/utils/fdAccrual.js';
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
-import { calculateNetWorth, calculateGratuity } from '../../../src/utils/financeCalculators.js';
+import { calculateNetWorth, calculateGratuity, gratuityForYear } from '../../../src/utils/financeCalculators.js';
 import { lentOutstanding } from '../../../src/utils/lents.js';
 import { disposalsForStocks, gainsLedger, unrealisedSummary, matchLots, fyFor } from '../../../src/utils/capitalGains.js';
 import { readQuote, triggeredAlerts, atRangeEdges } from '../../../src/utils/priceRange.js';
@@ -282,10 +282,35 @@ const analystGolden = {
     closes: analystCloses, fundamentals: analystFundamentals,
 };
 
+// Salary.jsx: the memos behind the page, cut from the source, for every year with a record plus the current one.
+const salConsts = slice('src/pages/Salary.jsx', 'const MONTHS', 'const MultiSelectDropdown');
+const salFields = (key, defaults) => [...defaults, ...((db.appData?.customSalaryFields || {})[key] || [])].filter((f) => !(db.appData?.hiddenSalaryFields || []).includes(f.key));
+const salC = new Function(`const MONTHS${salConsts}\nreturn { MONTHS, ANNUAL_FIELDS_DEFAULT, MONTHLY_EARNINGS_DEFAULT, MONTHLY_DEDUCTIONS_DEFAULT };`)();
+const salAnnual = salFields('annual', salC.ANNUAL_FIELDS_DEFAULT), salEarn = salFields('monthlyEarnings', salC.MONTHLY_EARNINGS_DEFAULT), salDed = salFields('monthlyDeductions', salC.MONTHLY_DEDUCTIONS_DEFAULT);
+const salMonthlyBody = slice('src/pages/Salary.jsx', 'const monthlyData = useMemo(() => {', '}, [salaryDetails, selectedYear, activeMonthlyEarnings, activeMonthlyDeductions]);');
+const salAggBody = slice('src/pages/Salary.jsx', 'const monthlyAggregates = useMemo(() => {', '}, [monthlyData]);');
+const salCmpBody = slice('src/pages/Salary.jsx', 'const comparisonData = useMemo(() => {', '}, [annualRecordForSelectedYear, monthlyData, activeMonthlyEarnings]);');
+const salAnnualBody = slice('src/pages/Salary.jsx', 'const annualData = useMemo(() => {', '}, [salaryDetails, activeAnnualFields]);');
+const salYearsBody = slice('src/pages/Salary.jsx', 'const years = useMemo(() => {', '}, [salaryDetails]);');
+const salYears = new Function('salaryDetails', salYearsBody)(db.salaryDetails);
+const salaryGolden = { years: salYears, annual: new Function('salaryDetails', 'activeAnnualFields', salAnnualBody)(db.salaryDetails, salAnnual), byYear: {} };
+for (const year of salYears) {
+    const monthlyData = new Function('MONTHS', 'salaryDetails', 'selectedYear', 'activeMonthlyEarnings', 'activeMonthlyDeductions', salMonthlyBody)(salC.MONTHS, db.salaryDetails, year, salEarn, salDed);
+    const annualRecordForSelectedYear = db.salaryDetails.find((s) => s.year === year && s.month === 'Annual') || null;
+    salaryGolden.byYear[year] = {
+        monthly: monthlyData,
+        aggregates: new Function('monthlyData', salAggBody)(monthlyData),
+        comparison: new Function('annualRecordForSelectedYear', 'activeMonthlyEarnings', 'monthlyData', salCmpBody)(annualRecordForSelectedYear, salEarn, monthlyData),
+        annualTotal: annualRecordForSelectedYear ? salAnnual.reduce((sum, f) => sum + (Number(annualRecordForSelectedYear[f.key]) || 0), 0) : 0,
+        gratuity: calculateGratuity(db.appData?.employments || [], db.salaryDetails, new RealDate(frozenMs)).total,
+        gratuityYear: gratuityForYear(db.salaryDetails, year),
+    };
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,
