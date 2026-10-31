@@ -1,5 +1,6 @@
 import Foundation
 import UIKit
+import ImageIO
 
 /// Everything the native screens show, loaded from the Mac and derived with the
 /// same rules as the web app (see Core/ and the parity tests).
@@ -43,12 +44,21 @@ final class FinanceStore: ObservableObject {
         return closes
     }
 
-    /// A photo from the Mac, kept in memory so scrolling back does not fetch it again.
+    /// A photo from the Mac, shrunk to `maxPixel` on its longest side while it is decoded. The
+    /// originals are full-camera size (a dozen megapixels, ~50 MB each once decoded), and a gallery
+    /// of 59 of them decoded whole is enough to make a phone kill the app. Cached in memory.
     private static let photos = NSCache<NSString, UIImage>()
-    func photo(_ path: String) async -> UIImage? {
-        if let hit = Self.photos.object(forKey: path as NSString) { return hit }
-        guard let data = try? await api.data(path: path), let image = UIImage(data: data) else { return nil }
-        Self.photos.setObject(image, forKey: path as NSString)
+    func photo(_ path: String, maxPixel: CGFloat = 700) async -> UIImage? {
+        let key = "\(path)@\(Int(maxPixel))" as NSString
+        if let hit = Self.photos.object(forKey: key) { return hit }
+        guard let data = try? await api.data(path: path) else { return nil }
+        let image = await Task.detached(priority: .userInitiated) { () -> UIImage? in
+            guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
+            let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
+                                            kCGImageSourceShouldCacheImmediately: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel]
+            return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary).map { UIImage(cgImage: $0) }
+        }.value
+        if let image { Self.photos.setObject(image, forKey: key, cost: Int(image.size.width * image.size.height * 4)) }
         return image
     }
 

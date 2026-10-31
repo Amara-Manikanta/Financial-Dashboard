@@ -49,7 +49,7 @@ struct GalleryView: View {
         .fullScreenCover(item: $open) { s in
             ZStack(alignment: .topTrailing) {
                 Color.black.ignoresSafeArea()
-                Photo(store: store, path: s.url, fit: true) {}.ignoresSafeArea()
+                Photo(store: store, path: s.url, fit: true, maxPixel: 2200) {}.ignoresSafeArea()
                 Button { open = nil } label: { Image(systemName: "xmark.circle.fill").font(.system(size: 30)).foregroundStyle(.white.opacity(0.85)).padding() }
             }
         }
@@ -70,6 +70,7 @@ private struct Photo: View {
     @ObservedObject var store: FinanceStore
     let path: String
     var fit = false
+    var maxPixel: CGFloat = 700
     let failed: () -> Void
     @State private var image: UIImage?
 
@@ -79,7 +80,7 @@ private struct Photo: View {
             if let image { Image(uiImage: image).resizable().aspectRatio(contentMode: fit ? .fit : .fill) } else { ProgressView() }
         }
         .task(id: path) {
-            if let img = await store.photo(path) { image = img } else { failed() }
+            if let img = await store.photo(path, maxPixel: maxPixel) { image = img } else { failed() }
         }
     }
 }
