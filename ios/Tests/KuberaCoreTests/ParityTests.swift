@@ -840,4 +840,22 @@ extension ParityTests {
         }
         print("parity: warranties — \(w.total) items; data health — \(checks.count) checks (\(checks.filter { $0.severity != .ok }.count) with findings)")
     }
+
+    func testBudgetsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["budgets"]
+        let map = Budgets.categoryMap(appData: db["appData"])
+        XCTAssertEqual(Set(map.map { $0.main }), Set(web["map"].array.map { $0[0].text }), "main categories")
+        for (main, subs) in map { XCTAssertEqual(Set(subs), Set((web["map"].array.first { $0[0].text == main }?[1].array ?? []).map { $0.text }), main) }
+        for m in web["months"].array {
+            let tag = "\(m["year"].text) \(m["month"].text)"
+            let sp = Budgets.spending(expenses: db["expenses"], year: m["year"].text, month: m["month"].text, map: map)
+            for (k, v) in m["sub"].object { XCTAssertEqual(sp.sub[k] ?? 0, v.double, accuracy: 0.005, "\(tag) sub \(k)") }
+            for (k, v) in m["main"].object { XCTAssertEqual(sp.main[k] ?? 0, v.double, accuracy: 0.005, "\(tag) main \(k)") }
+            XCTAssertEqual(sp.sub.count, m["sub"].object.count, tag); XCTAssertEqual(sp.main.count, m["main"].object.count, tag)
+            let st = Budgets.stats(map: map, budgets: web["budgets"], spending: sp), w = m["stats"]
+            XCTAssertEqual(st.totalTarget, w["totalTarget"].double, accuracy: 0.005, tag); XCTAssertEqual(st.totalActual, w["totalActual"].double, accuracy: 0.005, tag)
+            XCTAssertEqual([st.over, st.warning, st.safe, st.tracked], ["overBudgetCount", "warningCount", "safeCount", "totalTrackedCategories"].map { Int(w[$0].double) }, tag); XCTAssertEqual(st.health, w["healthScore"].double, tag)
+        }
+        print("parity: budgets — \(web["months"].array.count) months, \(map.count) categories")
+    }
 }

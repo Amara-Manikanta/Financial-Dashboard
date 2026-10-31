@@ -29,6 +29,7 @@ enum NativeScreen: Hashable {
     case metals
     case cardIntelligence
     case profile
+    case budgets
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -87,6 +88,7 @@ struct NativeDestination: View {
         case .metals: MetalsView(store: store)
         case .cardIntelligence: CardIntelligenceView(store: store)
         case .profile: ProfileView(store: store)
+        case .budgets: BudgetsView(store: store)
         }
     }
 }

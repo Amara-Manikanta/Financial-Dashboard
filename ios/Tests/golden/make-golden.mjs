@@ -37,6 +37,8 @@ import { KINDS as MF_KINDS, flowBreakdown, allTransactions, isDebit as mfIsDebit
 import { allCardProfiles, cardTotals } from '../../../src/utils/creditCards.js';
 import { runHealthChecks } from '../../../src/utils/dataHealth.js';
 import { summariseWarranties } from '../../../src/utils/warranty.js';
+import { CATEGORY_MAP } from '../../../src/utils/categories.js';
+import { calculateBudgetStatus } from '../../../src/utils/budgetUtils.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -413,10 +415,26 @@ const warrantyGolden = { total: wSummary.total, active: wSummary.active, expirin
     rows: wSummary.rows.map((r) => ({ name: r.item.name, category: r.categoryName, state: r.status.state, daysLeft: r.status.daysLeft, expiry: r.status.expiryIso || null, extended: r.status.extended, services: r.services })) };
 const healthGolden = runHealthChecks(db.expenses, db.salaryDetails || [], db.creditCards || [], db.assets || []).map(({ sample, ...c }) => ({ ...c, sample }));
 
+// CategoryBudgets.jsx and the category-map merge in FinanceContext.jsx, for every month of the last two years.
+const mapSrc = slice('src/context/FinanceContext.jsx', 'const mergedCategoryMap = useMemo(() => {', '}, [customCategoryMap, deletedCategories]);');
+const budgetMap = new Function('CATEGORY_MAP', 'customCategoryMap', 'deletedCategories', mapSrc)(CATEGORY_MAP, db.appData?.customCategoryMap || {}, db.appData?.deletedCategories || []);
+const budgetSpendSrc = slice('src/pages/CategoryBudgets.jsx', 'const actualSpending = useMemo(() => {', '}, [expenses, selectedYear, selectedMonth, mergedCategoryMap]);');
+const budgetStatsSrc = slice('src/pages/CategoryBudgets.jsx', 'const stats = useMemo(() => {', '}, [displayMainCategories, mergedCategoryMap, localBudgets, actualSpending]);');
+const budgetsGolden = { map: Object.entries(budgetMap), months: [], budgets: db.appData?.categoryBudgets || {} };
+const excludedMain = ['Income', 'Transfers', 'Investments', 'Loans'];
+const displayMain = Object.keys(budgetMap).filter((cat) => !excludedMain.includes(cat));
+for (const year of Object.keys(db.expenses).sort().slice(-2)) {
+    for (const month of Object.keys(db.expenses[year])) {
+        const spend = new Function('expenses', 'selectedYear', 'selectedMonth', 'mergedCategoryMap', `${budgetSpendSrc}`.replace(/^/, 'return (() => {') + '})()')(db.expenses, year, month, budgetMap);
+        const st = new Function('displayMainCategories', 'mergedCategoryMap', 'localBudgets', 'actualSpending', 'calculateBudgetStatus', budgetStatsSrc)(displayMain, budgetMap, budgetsGolden.budgets, spend, calculateBudgetStatus);
+        budgetsGolden.months.push({ year, month, stats: st, sub: spend.subCatSpend, main: spend.mainCatSpend });
+    }
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,
