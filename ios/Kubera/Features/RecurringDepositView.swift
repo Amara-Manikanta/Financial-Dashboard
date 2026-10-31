@@ -130,7 +130,7 @@ struct RecurringDepositView: View {
         .confirmationDialog("Delete this recurring deposit?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 Task {
-                    let failure = await store.saveAccountChange(accountId: route.accountId) { DepositLedger.recurringPatch(account: $0, change: .delete(id: route.rdId)) }
+                    let failure = await store.saveAccount(route.accountId, .recurring(.delete(id: route.rdId)), label: "Delete recurring deposit")
                     if let failure { message = failure } else { dismiss() }
                 }
             }
@@ -138,8 +138,7 @@ struct RecurringDepositView: View {
         .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 if let d = deleting {
-                    Task { message = await store.saveAccountChange(accountId: route.accountId) {
-                        DepositLedger.nestedPatch(account: $0, listKey: "recurringDeposits", depositId: route.rdId, subKey: d.key, change: .delete(id: d.row["id"].text)) } }
+                    Task { message = await store.saveAccount(route.accountId, .nested(listKey: "recurringDeposits", depositId: route.rdId, subKey: d.key, .delete(id: d.row["id"].text)), label: "Delete entry from \(rd["name"].text)") }
                 }
             }
         }

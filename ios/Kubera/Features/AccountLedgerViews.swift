@@ -34,8 +34,7 @@ struct AccountLedgerSections: View {
         .confirmationDialog("Delete this row?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 if let d = deleting {
-                    Task { message = await store.saveAccountChange(accountId: account["id"].text) {
-                        AccountLedger.patch(account: $0, spec: d.spec, parentIndex: d.parent, change: .delete(index: d.index, expected: d.row)).mapError { DepositLedger.Failure(message: $0.message) } } }
+                    Task { message = await store.saveAccount(account["id"].text, .ledger(specId: d.spec.id, parentIndex: d.parent, .delete(index: d.index, expected: d.row)), label: "Delete \(d.spec.title.lowercased()) row · \(account["title"].text)") }
                 }
             }
         }
@@ -141,9 +140,7 @@ struct LedgerRowSheet: View {
             if let index, let editing { return .replace(index: index, expected: editing, row) }
             return .add(row)
         }()
-        return await store.saveAccountChange(accountId: accountId) {
-            AccountLedger.patch(account: $0, spec: spec, parentIndex: parentIndex, change: change).mapError { DepositLedger.Failure(message: $0.message) }
-        }
+        return await store.saveAccount(accountId, .ledger(specId: spec.id, parentIndex: parentIndex, change), label: "\(editing == nil ? "Add" : "Change") \(spec.title.lowercased()) row")
     }
 }
 

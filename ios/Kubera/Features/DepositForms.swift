@@ -120,7 +120,7 @@ struct FDFormSheet: View {
         var row = DepositLedger.fdRow(draft, id: id, base: editing ?? .null)
         if renewal, let editing, case .object(var f) = row { f["renewalCount"] = .number(editing["renewalCount"].double + 1); row = .object(f) }
         let change: DepositLedger.ListChange = editing != nil ? .replace(id: editing!["id"].text, row) : .add(row)
-        return await store.saveAccountChange(accountId: accountId) { DepositLedger.depositsPatch(account: $0, change: change) }
+        return await store.saveAccount(accountId, .deposits(change), label: "\(editing == nil ? "Add" : renewal ? "Renew" : "Change") fixed deposit \(draft.bank)")
     }
 }
 
@@ -147,7 +147,7 @@ struct FDCloseSheet: View {
 
     private func save() async -> String? {
         let row = DepositLedger.closedRow(deposit, closureDate: date, finalInterest: Double(interest.replacingOccurrences(of: ",", with: "")) ?? 0, remarks: remarks)
-        return await store.saveAccountChange(accountId: accountId) { DepositLedger.depositsPatch(account: $0, change: .replace(id: deposit["id"].text, row)) }
+        return await store.saveAccount(accountId, .deposits(.replace(id: deposit["id"].text, row)), label: "Close deposit \(deposit["bank"].text)")
     }
 }
 
@@ -181,7 +181,7 @@ struct RDFormSheet: View {
     private func save() async -> String? {
         let row = DepositLedger.rdRow(draft, id: DepositLedger.newId(), base: editing ?? .null)
         let change: DepositLedger.ListChange = editing != nil ? .replace(id: editing!["id"].text, row) : .add(row)
-        return await store.saveAccountChange(accountId: accountId) { DepositLedger.recurringPatch(account: $0, change: change) }
+        return await store.saveAccount(accountId, .recurring(change), label: "\(editing == nil ? "Add" : "Change") recurring deposit \(draft.name)")
     }
 }
 
@@ -215,8 +215,6 @@ struct EntrySheet: View {
     private func save() async -> String? {
         let row = DepositLedger.entryRow(draft, id: DepositLedger.newId(), base: editing ?? .null, interest: isInterest)
         let change: DepositLedger.ListChange = editing != nil ? .replace(id: editing!["id"].text, row) : .add(row)
-        return await store.saveAccountChange(accountId: accountId) {
-            DepositLedger.nestedPatch(account: $0, listKey: listKey, depositId: depositId, subKey: subKey, change: change)
-        }
+        return await store.saveAccount(accountId, .nested(listKey: listKey, depositId: depositId, subKey: subKey, change), label: "\(editing == nil ? "Add" : "Change") \(isInterest ? "interest" : "instalment")")
     }
 }

@@ -799,3 +799,66 @@ final class AccountLedgerTests: XCTestCase {
         XCTAssertEqual(AccountLedger.newAccount(type: "ppf", title: "x", amount: 0, date: "2026-01-01")["details"] as? [Any] != nil, true)
     }
 }
+
+final class OfflineTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    private func roundTrip(_ op: AccountOp) -> AccountOp? {
+        let o = OfflineOp(id: "1", created: Date(timeIntervalSince1970: 5), label: "x", kind: .account(collection: "savings", id: "a", op))
+        let data = try! JSONSerialization.data(withJSONObject: OfflineCoding.encode(o))
+        let back = OfflineCoding.decode(try! JSONSerialization.jsonObject(with: data) as! [String: Any])
+        if case .account(_, _, let a)? = back?.kind { return a }
+        return nil
+    }
+
+    func testQueuedChangesSurviveBeingWrittenToDisk() throws {
+        let acct = json(#"{"id":"a","type":"recurring_deposit","amount":0,"recurringDeposits":[{"id":"r","name":"LIC","maturityAmount":100,"installments":[]}]}"#)
+        let row = json(#"{"id":"9","date":"2026-02-01","amount":5000,"remarks":""}"#)
+        let op = AccountOp.nested(listKey: "recurringDeposits", depositId: "r", subKey: "installments", .add(row))
+        let back = try XCTUnwrap(roundTrip(op))
+        let a = try op.patch(for: acct).get(), b = try back.patch(for: acct).get()
+        XCTAssertEqual(OfflineCoding.value(a["recurringDeposits"] as Any), OfflineCoding.value(b["recurringDeposits"] as Any))
+        // The other kinds of change round-trip too.
+        for o in [AccountOp.deposits(.delete(id: "d")), .recurring(.replace(id: "r", row)), .stock(holdingId: "h", .add(row)),
+                  .ledger(specId: "details", parentIndex: nil, .replace(index: 2, expected: row, row)), .fields(["notes": "x"], expected: ["notes": .string("old")])] {
+            XCTAssertNotNil(roundTrip(o))
+        }
+    }
+
+    func testAChangeIsRebuiltAgainstTheMacsRecordWhenItIsBack() throws {
+        // Made on the phone against its copy…
+        let phone = json(#"{"id":"s","type":"savings_account","amount":10,"transactions":[{"id":"1","type":"deposit","amount":10,"date":"2026-01-01"}]}"#)
+        let spec = AccountLedger.lists(for: "savings_account")[0]
+        var d = AccountLedger.draft(for: spec); d["amount"] = "5"; d["date"] = "2026-02-01"; d["type"] = "withdraw"
+        let op = AccountOp.ledger(specId: spec.id, parentIndex: nil, .add(AccountLedger.row(d, spec: spec, type: "savings_account")))
+        XCTAssertEqual(try op.patch(for: phone).get()["amount"] as? Double, 5)
+        // …and the Mac meanwhile got another deposit: the new row lands on top of it.
+        let mac = json(#"{"id":"s","type":"savings_account","amount":110,"transactions":[{"id":"1","type":"deposit","amount":10,"date":"2026-01-01"},{"id":"2","type":"deposit","amount":100,"date":"2026-01-15"}]}"#)
+        XCTAssertEqual(try op.patch(for: mac).get()["amount"] as? Double, 105)
+        // A change to a row that has since been edited on the Mac is held, not forced.
+        let edit = AccountOp.ledger(specId: spec.id, parentIndex: nil, .delete(index: 0, expected: phone["transactions"][0]))
+        let moved = json(#"{"id":"s","type":"savings_account","transactions":[{"id":"1","type":"deposit","amount":999,"date":"2026-01-01"}]}"#)
+        XCTAssertThrowsError(try edit.patch(for: moved).get())
+        // A field edited on both sides is held; a different field is not.
+        let f = AccountOp.fields(["notes": "mine"], expected: ["notes": .string("old")])
+        XCTAssertThrowsError(try f.patch(for: json(#"{"id":"x","notes":"theirs"}"#)).get())
+        XCTAssertNoThrow(try f.patch(for: json(#"{"id":"x","notes":"old","other":"changed on mac"}"#)).get())
+    }
+
+    func testLocalCopyShowsAChangeBeforeTheMacHasIt() throws {
+        var expenses: Any = ["2026": ["October": ["categories": [String: Any](), "transactions": [["id": "1", "date": "2026-10-05", "amount": 10.0]]]]]
+        LocalApply.addTransaction(&expenses, body: ["transaction": ["id": "2", "date": "2026-11-02", "amount": 5.0]])
+        var e = expenses as! [String: [String: Any]]
+        XCTAssertEqual(((e["2026"]?["November"] as? [String: Any])?["transactions"] as? [Any])?.count, 1, "a new month is created")
+        XCTAssertTrue(LocalApply.patchTransaction(&expenses, id: "1", fields: ["date": "2026-11-09", "amount": 12.0]))
+        e = expenses as! [String: [String: Any]]
+        XCTAssertEqual(((e["2026"]?["October"] as? [String: Any])?["transactions"] as? [Any])?.count, 0, "moved out of October")
+        XCTAssertEqual(((e["2026"]?["November"] as? [String: Any])?["transactions"] as? [Any])?.count, 2)
+        XCTAssertTrue(LocalApply.deleteTransaction(&expenses, id: "2"))
+        XCTAssertFalse(LocalApply.deleteTransaction(&expenses, id: "nope"))
+        var savings: Any = [["id": "a", "amount": 1.0], ["id": 7, "amount": 2.0]]
+        XCTAssertTrue(LocalApply.patchRecord(&savings, id: "7", fields: ["amount": 9.0]), "numeric ids match by text")
+        LocalApply.appendRecord(&savings, record: ["id": "n"])
+        XCTAssertEqual((savings as! [Any]).count, 3)
+    }
+}

@@ -185,7 +185,7 @@ struct FixedDepositView: View {
         .confirmationDialog("Delete this deposit?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 Task {
-                    let failure = await store.saveAccountChange(accountId: route.accountId) { DepositLedger.depositsPatch(account: $0, change: .delete(id: route.depositId)) }
+                    let failure = await store.saveAccount(route.accountId, .deposits(.delete(id: route.depositId)), label: "Delete deposit \(deposit["bank"].text)")
                     if let failure { message = failure } else { dismiss() }
                 }
             }
@@ -193,8 +193,7 @@ struct FixedDepositView: View {
         .confirmationDialog("Delete this entry?", isPresented: Binding(get: { deletingEntry != nil }, set: { if !$0 { deletingEntry = nil } }), titleVisibility: .visible) {
             Button("Delete", role: .destructive) {
                 if let e = deletingEntry {
-                    Task { message = await store.saveAccountChange(accountId: route.accountId) {
-                        DepositLedger.nestedPatch(account: $0, listKey: "deposits", depositId: route.depositId, subKey: "interestTransactions", change: .delete(id: e["id"].text)) } }
+                    Task { message = await store.saveAccount(route.accountId, .nested(listKey: "deposits", depositId: route.depositId, subKey: "interestTransactions", .delete(id: e["id"].text)), label: "Delete interest entry") }
                 }
             }
         }
@@ -203,7 +202,7 @@ struct FixedDepositView: View {
     private func restore(_ d: JSONValue) async -> String? {
         guard case .object(var f) = d else { return nil }
         f["isArchived"] = .bool(false)
-        return await store.saveAccountChange(accountId: route.accountId) { DepositLedger.depositsPatch(account: $0, change: .replace(id: route.depositId, .object(f))) }
+        return await store.saveAccount(route.accountId, .deposits(.replace(id: route.depositId, .object(f))), label: "Restore deposit \(d["bank"].text)")
     }
 
     @ViewBuilder private func content(_ d: JSONValue) -> some View {

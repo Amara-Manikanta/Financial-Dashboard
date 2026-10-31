@@ -43,13 +43,13 @@ final class FinanceStore: ObservableObject {
         try await api.record(collection, id: id)
     }
 
-    /// Saves changed fields of one record, then reloads every screen. Nil when saved.
-    func saveRecord(_ collection: String, id: String, fields: [String: Any], version: String?, stampUpdated: Bool) async -> String? {
-        var fields = fields
-        if stampUpdated { fields["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
-        if let failure = await api.patchRecord(collection, id: id, fields: fields, version: version) { return failure }
-        await load()
-        return nil
+    // MARK: Writing — online straight to the Mac; away from it, kept on the phone and sent when it is back
+
+    /// Saves changed fields of one record. `original` is the record as the screen read it, so a field that has
+    /// changed on the Mac since is noticed rather than overwritten.
+    func saveRecord(_ collection: String, id: String, fields: [String: Any], original: JSONValue, stampUpdated: Bool, label: String) async -> String? {
+        let expected = Dictionary(uniqueKeysWithValues: fields.keys.map { ($0, original[$0]) })
+        return await perform(collection: collection, id: id, op: .fields(fields, expected: expected), stamp: stampUpdated, label: label)
     }
 
     /// The stock-market account that holds a holding, so its transactions can be changed.
@@ -57,53 +57,129 @@ final class FinanceStore: ObservableObject {
         data.savingsRaw.array.first { $0["type"].text == "stock_market" && $0["stocks"].array.contains { $0["id"].text == id } }?["id"].text
     }
 
-    /// Applies one change to one holding's transactions. The account is loaded fresh with its version
-    /// at the moment of saving, the change is made on that copy and the holding's figures replayed, and
-    /// the write carries the version — so only a change landing in that instant can be refused.
-    /// Nil when saved, otherwise why nothing changed.
+
+    /// Applies one change to one holding's transactions (the holding's shares, average cost and dividends are replayed).
+    /// Nil when saved — or when saved on the phone to be sent later — otherwise why nothing changed.
     func saveStockTransaction(holding id: String, change: StockLedger.Change) async -> String? {
         guard let accountId = stockAccountId(holding: id) else { return "That holding is no longer on your Mac. Nothing was changed." }
-        do {
-            let fresh = try await api.record("savings", id: accountId)
-            switch StockLedger.updatedStocks(account: fresh.value, stockId: id, change: change) {
-            case .failure(let failure): return failure.message
-            case .success(let stocks):
-                var fields: [String: Any] = ["stocks": stocks]
-                if !fresh.value["updatedAt"].isNull { fields["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
-                if let failure = await api.patchRecord("savings", id: accountId, fields: fields, version: fresh.version) { return failure }
-            }
-        } catch { return error.localizedDescription }
-        await load()
-        return nil
+        return await perform(collection: "savings", id: accountId, op: .stock(holdingId: id, change), stamp: true, label: "Stock transaction")
     }
 
-    /// Changes one savings account the way a deposit page does: the account is loaded fresh with its
-    /// version, `build` works out the fields to change from that copy, and they are sent under the
-    /// version — so a stale phone is refused, never allowed to overwrite. Nil when saved.
-    func saveAccountChange(accountId: String, _ build: (JSONValue) -> Result<[String: Any], DepositLedger.Failure>) async -> String? {
-        do {
-            let fresh = try await api.record("savings", id: accountId)
-            switch build(fresh.value) {
-            case .failure(let failure): return failure.message
-            case .success(var fields):
-                if !fresh.value["updatedAt"].isNull { fields["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
-                if let failure = await api.patchRecord("savings", id: accountId, fields: fields, version: fresh.version) { return failure }
-            }
-        } catch { return error.localizedDescription }
-        await load()
-        return nil
+    /// Changes one row of one list of a savings account (deposits, instalments, ledger rows…). Nil when saved.
+    func saveAccount(_ accountId: String, _ op: AccountOp, label: String) async -> String? {
+        await perform(collection: "savings", id: accountId, op: op, stamp: true, label: label)
+    }
+
+    /// The one path every record change takes. Online: load the record fresh with its version, build the patch from
+    /// it, send it under that version. Not reachable: build the same patch from the phone's copy, apply it there so
+    /// the screens show it, and queue the *intent* — it is rebuilt against the Mac's record when the Mac is back.
+    private func perform(collection: String, id: String, op: AccountOp, stamp: Bool, label: String) async -> String? {
+        func stamped(_ f: [String: Any], _ record: JSONValue) -> [String: Any] {
+            var f = f
+            if stamp && !record["updatedAt"].isNull { f["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
+            return f
+        }
+        if mirror?.offline != true {
+            do {
+                let fresh = try await api.record(collection, id: id)
+                if mirror?.offline != true {
+                    switch op.patch(for: fresh.value) {
+                    case .failure(let failure): return failure.message
+                    case .success(let fields):
+                        switch await api.patchRecordOutcome(collection, id: id, fields: stamped(fields, fresh.value), version: fresh.version) {
+                        case .ok: await load(); return nil
+                        case .refused(let m): return m
+                        case .unauthorized: onUnauthorized(); return APIError.unauthorized.errorDescription
+                        case .unreachable: mirror?.setOffline(true)
+                        }
+                    }
+                }
+            } catch APIError.unauthorized { onUnauthorized(); return APIError.unauthorized.errorDescription
+            } catch APIError.unreachable { mirror?.setOffline(true)
+            } catch { return error.localizedDescription }
+        }
+        guard let mirror, let cached = mirror.record(collection, id: id) else {
+            return "This record has not been downloaded to the phone yet. Connect to your Mac once, then try again."
+        }
+        switch op.patch(for: cached) {
+        case .failure(let failure): return failure.message
+        case .success(let fields):
+            let applied = stamped(fields, cached)
+            mirror.modify(collection) { LocalApply.patchRecord(&$0, id: id, fields: applied) }
+            mirror.enqueue(OfflineOp(id: UUID().uuidString, created: Date(), label: label, kind: .account(collection: collection, id: id, op)))
+            await rebuildFromMirror()
+            return nil
+        }
     }
 
     /// Creates one new savings account (a single-record POST, never a whole-collection write). Nil when saved.
     func createAccount(_ account: [String: Any]) async -> String? {
-        do {
-            let r = try await api.send("POST", path: "savings", body: account)
-            if !(200...299).contains(r.status) {
+        if mirror?.offline != true {
+            do {
+                let r = try await api.send("POST", path: "savings", body: account)
+                if (200...299).contains(r.status) { await load(); return nil }
                 return r.body["reason"].truthy ? r.body["reason"].text : r.body["error"].truthy ? r.body["error"].text : "Your Mac refused the new account (\(r.status)); nothing was added."
-            }
-        } catch { return error.localizedDescription }
-        await load()
+            } catch APIError.unauthorized { onUnauthorized(); return APIError.unauthorized.errorDescription
+            } catch { mirror?.setOffline(true) }
+        }
+        guard let mirror else { return APIError.unreachable.errorDescription }
+        guard mirror.modify("savings", { LocalApply.appendRecord(&$0, record: account) }) else {
+            return "Your savings have not been downloaded to the phone yet. Connect to your Mac once, then try again."
+        }
+        mirror.enqueue(OfflineOp(id: UUID().uuidString, created: Date(), label: "New account \(account["title"] as? String ?? "")", kind: .createAccount(account)))
+        await rebuildFromMirror()
         return nil
+    }
+
+    // MARK: Transactions (one row at a time)
+
+    private func performTx(_ kind: OfflineOp.Kind, label: String) async -> String? {
+        if mirror?.offline != true {
+            let outcome: API.Outcome
+            switch kind {
+            case .txPost(let b): outcome = await api.writeTransactionOutcome("POST", body: b)
+            case .txPatch(let id, let b): outcome = await api.writeTransactionOutcome("PATCH", id: id, body: b)
+            case .txDelete(let id): outcome = await api.writeTransactionOutcome("DELETE", id: id)
+            default: return nil
+            }
+            switch outcome {
+            case .ok: await load(); return nil
+            case .refused(let m): return m
+            case .unauthorized: onUnauthorized(); return APIError.unauthorized.errorDescription
+            case .unreachable: mirror?.setOffline(true)
+            }
+        }
+        guard let mirror else { return APIError.unreachable.errorDescription }
+        var found = true
+        let stored = mirror.modify("expenses") { e in
+            switch kind {
+            case .txPost(let b): LocalApply.addTransaction(&e, body: b)
+            case .txPatch(let id, let f): found = LocalApply.patchTransaction(&e, id: id, fields: f)
+            case .txDelete(let id): found = LocalApply.deleteTransaction(&e, id: id)
+            default: break
+            }
+        }
+        guard stored else { return "Your expenses have not been downloaded to the phone yet. Connect to your Mac once, then try again." }
+        guard found else { return "That transaction is no longer on the phone's copy — refresh and look again. Nothing was changed." }
+        mirror.enqueue(OfflineOp(id: UUID().uuidString, created: Date(), label: label, kind: kind))
+        await rebuildFromMirror()
+        return nil
+    }
+
+    /// Saves one new transaction. Returns nil when saved, or the reason it was not.
+    func addTransaction(_ draft: NewTransaction.Draft) async -> String? {
+        let map = Budgets.categoryMap(appData: data.appDataRaw)
+        return await performTx(.txPost(NewTransaction.body(draft, map: map)), label: "New transaction · \(draft.title)")
+    }
+
+    /// Changes one transaction (only the fields in `patch`).
+    func updateTransaction(id: String, patch: [String: Any]) async -> String? {
+        await performTx(.txPatch(id: id, patch), label: "Change transaction")
+    }
+
+    /// Removes one transaction.
+    func deleteTransaction(id: String) async -> String? {
+        await performTx(.txDelete(id: id), label: "Delete transaction")
     }
 
     // MARK: News (read and collected on the Mac; the phone only asks)
@@ -177,62 +253,136 @@ final class FinanceStore: ObservableObject {
     func photo(_ path: String, maxPixel: CGFloat = 700) async -> UIImage? {
         let key = "\(path)@\(Int(maxPixel))" as NSString
         if let hit = Self.photos.object(forKey: key) { return hit }
-        guard let data = try? await api.data(path: path) else { return nil }
+        let diskKey = "photo-\(key)"
+        // Away from the Mac, the thumbnail kept from the last time it was shown.
+        func fromDisk() -> UIImage? { mirror?.get(diskKey).flatMap { UIImage(data: $0) } }
+        if mirror?.offline == true { return fromDisk() }
+        guard let data = try? await api.data(path: path) else { return fromDisk() }
         let image = await Task.detached(priority: .userInitiated) { () -> UIImage? in
             guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
             let options: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceCreateThumbnailWithTransform: true,
                                             kCGImageSourceShouldCacheImmediately: true, kCGImageSourceThumbnailMaxPixelSize: maxPixel]
             return CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary).map { UIImage(cgImage: $0) }
         }.value
-        if let image { Self.photos.setObject(image, forKey: key, cost: Int(image.size.width * image.size.height * 4)) }
+        if let image {
+            Self.photos.setObject(image, forKey: key, cost: Int(image.size.width * image.size.height * 4))
+            if let jpeg = image.jpegData(compressionQuality: 0.8) { mirror?.put(diskKey, jpeg) }
+        }
         return image
     }
 
-    /// Saves one new transaction, then reloads so every screen shows what the Mac actually holds.
-    /// Returns nil when saved, or the reason it was not.
-    func addTransaction(_ draft: NewTransaction.Draft) async -> String? {
-        let map = Budgets.categoryMap(appData: data.appDataRaw)
-        if let failure = await api.addTransaction(NewTransaction.body(draft, map: map)) { return failure }
-        await load()
-        return nil
+    // MARK: Offline and syncing
+
+    @Published private(set) var offline = false
+    @Published private(set) var syncedAt: Date?
+    @Published private(set) var pending: [OfflineOp] = []
+    @Published private(set) var isSyncing = false
+
+    private let mirror: LocalMirror?
+
+    private func publishSyncState() {
+        offline = mirror?.offline ?? false
+        syncedAt = mirror?.syncedAt
+        pending = mirror?.ops ?? []
     }
 
-    /// Changes one transaction (only the fields in `patch`), then reloads.
-    func updateTransaction(id: String, patch: [String: Any]) async -> String? {
-        if let failure = await api.writeTransaction("PATCH", id: id, body: patch) { return failure }
-        await load()
-        return nil
+    /// Rebuilds every screen from the phone's own copy (after a change made away from the Mac).
+    private func rebuildFromMirror() async {
+        if let mirror, let raw = RawData.fromMirror(mirror) {
+            data = await Task.detached(priority: .userInitiated) { Derived.compute(raw) }.value
+        }
+        publishSyncState()
     }
 
-    /// Removes one transaction, then reloads.
-    func deleteTransaction(id: String) async -> String? {
-        if let failure = await api.writeTransaction("DELETE", id: id) { return failure }
-        await load()
-        return nil
+    /// Sends the queued changes, oldest first. One that can no longer be made (its row moved, the record is gone)
+    /// is held with the reason for the user to look at; the rest still go. Stops quietly if the Mac goes away.
+    private func syncPending() async {
+        guard let mirror else { return }
+        isSyncing = true; defer { isSyncing = false }
+        for op in mirror.ops where op.state == .pending {
+            switch await replay(op) {
+            case .done: mirror.remove(op.id)
+            case .conflict(let why): mirror.update(op.id) { $0.state = .conflict; $0.message = why }
+            case .unreachable: mirror.setOffline(true); return
+            case .unauthorized: onUnauthorized(); return
+            }
+        }
     }
+
+    private enum Replay { case done, conflict(String), unreachable, unauthorized }
+
+    private func replay(_ op: OfflineOp) async -> Replay {
+        func map(_ o: API.Outcome) -> Replay {
+            switch o { case .ok: return .done; case .refused(let m): return .conflict(m); case .unreachable: return .unreachable; case .unauthorized: return .unauthorized }
+        }
+        switch op.kind {
+        case .txPost(let b): return map(await api.writeTransactionOutcome("POST", body: b))
+        case .txPatch(let id, let b): return map(await api.writeTransactionOutcome("PATCH", id: id, body: b))
+        case .txDelete(let id): return map(await api.writeTransactionOutcome("DELETE", id: id))
+        case .createAccount(let a):
+            do {
+                let r = try await api.send("POST", path: "savings", body: a)
+                if (200...299).contains(r.status) { return .done }
+                return .conflict(r.body["reason"].truthy ? r.body["reason"].text : "Your Mac refused the new account (\(r.status)).")
+            } catch APIError.unauthorized { return .unauthorized } catch { return .unreachable }
+        case .account(let collection, let id, let a):
+            let fresh: (value: JSONValue, version: String?)
+            do { fresh = try await api.record(collection, id: id) }
+            catch APIError.unauthorized { return .unauthorized }
+            catch APIError.server(404) { return .conflict("That record is no longer on your Mac.") }
+            catch { return .unreachable }
+            if mirror?.offline == true { return .unreachable }
+            switch a.patch(for: fresh.value) {
+            case .failure(let f): return .conflict(f.message)
+            case .success(var fields):
+                if !fresh.value["updatedAt"].isNull { fields["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
+                return map(await api.patchRecordOutcome(collection, id: id, fields: fields, version: fresh.version))
+            }
+        }
+    }
+
+    /// Give up on a held change. The next refresh shows the Mac's own version again.
+    func discard(_ id: String) async { mirror?.remove(id); await load() }
+
+    /// Try a held change again.
+    func retry(_ id: String) async { mirror?.update(id) { $0.state = .pending; $0.message = nil }; await load() }
 
     private let api: API
     private let onUnauthorized: () -> Void
 
     init(api: API, onUnauthorized: @escaping () -> Void) {
         self.api = api
+        self.mirror = api.mirror
         self.onUnauthorized = onUnauthorized
+        publishSyncState()
     }
 
+    /// Loads everything. With the Mac in reach: first sends any changes made while away, then downloads a fresh copy
+    /// (kept on the phone). Without it: shows the last copy, with the changes made since.
     func load() async {
         guard !isLoading else { return }
         isLoading = true
         errorMessage = nil
-        defer { isLoading = false }
+        defer { isLoading = false; publishSyncState() }
+        if mirror != nil {
+            switch await api.ping() {
+            case .unpaired: onUnauthorized(); return
+            case .offline: mirror?.setOffline(true)
+            case .online: mirror?.setOffline(false); await syncPending()
+            }
+        }
         do {
             let raw = try await RawData.fetch(from: api)
             // Deriving every page takes a moment on a phone; keep it off the main thread.
             data = await Task.detached(priority: .userInitiated) { Derived.compute(raw) }.value
             loadedAt = Date()
+            if mirror?.offline == false { mirror?.markSynced() }
         } catch APIError.unauthorized {
             onUnauthorized()
         } catch {
-            errorMessage = error.localizedDescription
+            errorMessage = (mirror?.offline == true)
+                ? "Your Mac is out of reach and nothing has been saved on this phone yet. Connect to it once on your home Wi-Fi to download your data."
+                : error.localizedDescription
         }
     }
 }

@@ -18,6 +18,18 @@ struct RawData {
     }
 }
 
+extension RawData {
+    /// Everything as last stored on the phone, or nil if any collection has not been downloaded yet.
+    static func fromMirror(_ m: LocalMirror) -> RawData? {
+        func read(_ k: String) -> JSONValue? { m.get(k).flatMap { try? JSONValue.parse($0) } }
+        guard let expenses = read("expenses"), let savings = read("savings"), let salary = read("salaryDetails"), let appData = read("appData"),
+              let metals = read("metals"), let assets = read("assets"), let loans = read("loans"), let lents = read("lents"),
+              let watchlist = read("watchlist"), let ipos = read("ipoApplications"), let taxes = read("taxes"), let goals = read("goals"), let cards = read("creditCards") else { return nil }
+        return RawData(expenses: expenses, savings: savings, salaryDetails: salary, appData: appData, metals: metals, assets: assets, loans: loans, lents: lents,
+                       watchlist: watchlist, ipoApplications: ipos, taxes: taxes, goals: goals, creditCards: cards)
+    }
+}
+
 /// Every figure the screens show, derived from `RawData` with the same rules as the
 /// web app (see Core/ and the parity tests). One value, so a refresh swaps the whole
 /// picture at once.

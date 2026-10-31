@@ -41,7 +41,7 @@ struct AddTransactionView: View {
                     }
                 }
                 if let failure { Section { Label(failure, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Theme.negative).font(.footnote) } header: { Text("Not saved") } }
-                Section { Text("This adds one row on your Mac and nothing else. Edit or delete it there.").font(.footnote).foregroundStyle(.secondary) }
+                Section { Text("This adds one row. Away from your Mac it is kept on this phone and sent when the Mac is back.").font(.footnote).foregroundStyle(.secondary) }
             }
             .navigationTitle("Add transaction")
             .navigationBarTitleDisplayMode(.inline)

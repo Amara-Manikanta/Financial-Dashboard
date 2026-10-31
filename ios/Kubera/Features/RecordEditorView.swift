@@ -84,7 +84,7 @@ struct RecordEditorView: View {
 
     private func save() async {
         saving = true; message = nil
-        let failure = await store.saveRecord(collection, id: id, fields: patch, version: version, stampUpdated: !record["updatedAt"].isNull)
+        let failure = await store.saveRecord(collection, id: id, fields: patch, original: record, stampUpdated: !record["updatedAt"].isNull, label: "Edit \(title)")
         saving = false
         if let failure {
             message = failure
@@ -216,7 +216,7 @@ private struct NestedRowsView: View {
     /// Nil when saved; the record and its version are refreshed either way.
     private func write(_ list: [Any]) async -> String? {
         message = nil
-        let failure = await store.saveRecord(collection, id: id, fields: [key: list], version: version, stampUpdated: !record["updatedAt"].isNull)
+        let failure = await store.saveRecord(collection, id: id, fields: [key: list], original: record, stampUpdated: !record["updatedAt"].isNull, label: "Edit \(RecordEditing.label(key)) list")
         if let r = try? await store.record(collection, id: id) { record = r.value; version = r.version }
         if let failure { message = failure }
         return failure

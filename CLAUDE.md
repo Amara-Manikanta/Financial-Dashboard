@@ -896,7 +896,7 @@ project: **new files in `ios/Kubera/` are picked up automatically**).
 | --- | --- |
 | `Kubera/Core/` | Pure Foundation logic. No UI, so it is testable from the command line. `JSONValue` reads the database as loosely as JavaScript does (`Number("")` is 0, `"1,200"` is NaN). |
 | `Kubera/Design/` | **The only place cards, figures and rows are styled** (`KCard`, `KStat`, `KRow`, `KList`, `KScreen`…). Build every screen from these; do not style a card inline. Multi-child content must sit inside the card's own `VStack`, or each child gets its own background. |
-| `Kubera/Data/` | `API` (bearer-token reads through the gateway) and `FinanceStore`. **Read-only.** |
+| `Kubera/Data/` | `API` (bearer-token requests through the gateway), `FinanceStore`, and `LocalMirror` (the phone's own copy, see "Offline" below). |
 | `Kubera/Features/` | Screens. `Pages.swift` lists every page of the Mac app. |
 
 **A page is either native or a web fallback.** Native pages move to their tab;
@@ -1065,6 +1065,29 @@ NAV, fund composition, policy document upload, the savings account's automatic d
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
 (`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.
+
+### Offline (`LocalMirror`, `OfflineOp`, `SyncViews`)
+
+The app opens and works with the Mac out of reach, and syncs when it is back.
+
+- **Reads.** Every successful GET is stored on the phone (`Application Support/KuberaMirror/<hash of token>/`,
+  complete file protection, excluded from backups; other pairings' folders and the whole folder on disconnect
+  are deleted; `users` is never requested so passwords never reach the phone). `load()` first pings the
+  gateway (`/ping`, 3 s). Unreachable → `LocalMirror.offline`, every read is served from the stored copy and a
+  banner says how old it is. Photos are kept as thumbnails.
+- **Writes.** `FinanceStore.perform` (records), `performTx` (transactions) and `createAccount` try the Mac
+  first; when it cannot be reached they apply the change to the phone's copy (`LocalApply`) so the screens
+  show it, and queue the **intent** (`AccountOp` / `OfflineOp`, stored as plain JSON in `pending.json`) — not the
+  final patch. On sync each is **rebuilt against the Mac's record as it is then** with the same pure functions
+  (`DepositLedger`, `AccountLedger`, `StockLedger`), and sent under that record's version. A change to a row
+  that moved, was edited or no longer exists is *held* with the reason (banner → Sync sheet → Try again /
+  Discard) and the Mac's record is left untouched; everything else still goes. Result: a PPF row added on the
+  phone and another added on the Mac meanwhile both end up in the record (tested on the sandbox).
+- **Sync triggers:** app comes to the foreground, pull-to-refresh, "Sync now".
+- **Limits.** The queue is applied oldest first; the `categories` totals of a month are not updated on the
+  phone's copy (the Mac recomputes them); news fetch/analyse, Claude brief refresh and NAV need the Mac.
+  Disconnecting the phone deletes its queue — sync first.
+- `FinanceStore.errorMessage` for "nothing saved yet" appears only on a phone that has never reached the Mac.
 
 An isolated instance (`DB_FILE` set) no longer syncs to iCloud: the first sandbox write test
 replaced the real off-machine copy with sandbox data (restored from `db.json`, which was
