@@ -73,7 +73,7 @@ enum Pages {
             AppPage(title: "Warranties & Receipts", path: "/warranties", icon: "checkmark.shield", native: .screen(.warranties)),
         ]),
         PageGroup(title: "Account", pages: [
-            AppPage(title: "Profile & settings", path: "/profile", icon: "person.crop.circle"),
+            AppPage(title: "Profile & settings", path: "/profile", icon: "person.crop.circle", native: .screen(.profile)),
         ]),
     ]
 }

@@ -28,6 +28,7 @@ enum NativeScreen: Hashable {
     case assets
     case metals
     case cardIntelligence
+    case profile
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -36,7 +37,15 @@ private struct OpenWebPageKey: EnvironmentKey {
     static let defaultValue: (AppPage) -> Void = { _ in }
 }
 
+/// Who this phone is connected to, and how to disconnect — for the Profile screen only.
+struct ConnectionInfo { var mac: MacEndpoint?; var disconnect: () -> Void = {} }
+private struct ConnectionInfoKey: EnvironmentKey { static let defaultValue = ConnectionInfo() }
+
 extension EnvironmentValues {
+    var connectionInfo: ConnectionInfo {
+        get { self[ConnectionInfoKey.self] }
+        set { self[ConnectionInfoKey.self] = newValue }
+    }
     var openWebPage: (AppPage) -> Void {
         get { self[OpenWebPageKey.self] }
         set { self[OpenWebPageKey.self] = newValue }
@@ -77,6 +86,7 @@ struct NativeDestination: View {
         case .assets: AssetsView(store: store)
         case .metals: MetalsView(store: store)
         case .cardIntelligence: CardIntelligenceView(store: store)
+        case .profile: ProfileView(store: store)
         }
     }
 }

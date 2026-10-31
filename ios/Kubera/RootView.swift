@@ -46,6 +46,7 @@ private struct PairedRoot: View {
         }
         .tint(Theme.accent)
         .environment(\.openWebPage, { webPage = $0 })
+        .environment(\.connectionInfo, ConnectionInfo(mac: mac, disconnect: forget))
         .fullScreenCover(item: $webPage) { page in
             WebPageView(mac: mac, token: token, page: page, onUnauthorized: forget)
         }
