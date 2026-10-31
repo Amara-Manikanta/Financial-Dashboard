@@ -39,6 +39,8 @@ import { runHealthChecks } from '../../../src/utils/dataHealth.js';
 import { summariseWarranties } from '../../../src/utils/warranty.js';
 import { CATEGORY_MAP } from '../../../src/utils/categories.js';
 import { calculateBudgetStatus } from '../../../src/utils/budgetUtils.js';
+import { isWasteful, wasteSummary } from '../../../src/utils/wasteful.js';
+import { matchesIssue } from '../../../src/utils/dataHealth.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -468,10 +470,23 @@ const gmCategories = { ...gmDefaults, ...gmLoaded };
 const gmItemsSrc = slice('src/pages/GroceryMasterList.jsx', 'const currentItems = useMemo(() => {', '}, [groceryCategories, selectedCategory, customGroceryItems, expenses]);');
 const groceryMasterGolden = { categories: Object.entries(gmCategories).map(([k, v]) => [k, v]), items: Object.fromEntries(Object.keys(gmCategories).map((c) => [c, new Function('groceryCategories', 'selectedCategory', 'customGroceryItems', 'expenses', gmItemsSrc)(gmCategories, c, db.appData?.customGroceryItems || {}, db.expenses)])) };
 
+// AllTransactions.jsx: its flatten/sort and filter memos, for several filter sets.
+const atAllSrc = slice('src/pages/AllTransactions.jsx', 'const allTransactions = useMemo(() => {', '}, [expenses]);');
+const atFilterSrc = slice('src/pages/AllTransactions.jsx', 'const filteredTransactions = useMemo(() => {', '}, [allTransactions, searchTerm, typeFilter, yearFilter, monthFilter, issue, categoryFilter, subCategoryFilter, mergedCategoryMap, wasteFilter]);');
+const atAll = new Function('expenses', atAllSrc)(db.expenses);
+const atRun = (o) => {
+    const rows = new Function('allTransactions', 'searchTerm', 'typeFilter', 'yearFilter', 'monthFilter', 'issue', 'categoryFilter', 'subCategoryFilter', 'mergedCategoryMap', 'wasteFilter', 'matchesIssue', 'isWasteful', atFilterSrc)(
+        atAll, o.search || '', o.type || 'all', o.year || 'all', o.month || 'all', o.issue || null, o.cat || 'all', o.sub || 'all', budgetMap, o.waste || 'all', matchesIssue, isWasteful);
+    const w = wasteSummary(rows);
+    return { o, count: rows.length, first: rows.slice(0, 25).map((r) => `${r.id}|${r.date}`), waste: { total: w.total, count: w.count, byCategory: w.byCategory } };
+};
+const atYears = [...new Set(atAll.map((t) => t.year))].sort().reverse();
+const allTxGolden = { total: atAll.length, years: atYears, first: atAll.slice(0, 25).map((r) => `${r.id}|${r.date}`), cases: [{}, { search: 'amazon' }, { type: 'credit' }, { type: 'debit', year: atYears[0] }, { year: atYears[0], month: 'March' }, { issue: 'vague-category' }, { issue: 'no-title' }, { cat: 'Food & Dining' }, { cat: Object.keys(budgetMap)[3] }, { waste: 'only' }].map(atRun) };
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

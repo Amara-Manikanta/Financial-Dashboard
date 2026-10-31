@@ -906,4 +906,24 @@ extension ParityTests {
         }
         print("parity: grocery master — \(cats.count) categories")
     }
+
+    func testAllTransactionsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["allTx"]
+        let all = AllTransactions.list(db["expenses"])
+        XCTAssertEqual(all.count, Int(web["total"].double)); XCTAssertEqual(AllTransactions.years(all), web["years"].array.map { $0.text })
+        func key(_ r: AllTransactions.Row) -> String { "\(r.raw["id"].text)|\(r.date)" }
+        XCTAssertEqual(all.prefix(25).map(key), web["first"].array.map { $0.text }, "newest first")
+        let map = Budgets.categoryMap(appData: db["appData"])
+        for c in web["cases"].array {
+            let o = c["o"], tag = o.object.keys.sorted().joined(separator: ",") + ":" + o.object.values.map { $0.text }.joined(separator: ",")
+            let rows = AllTransactions.filter(all, search: o["search"].text, type: o["type"].text == "credit" ? .credit : o["type"].text == "debit" ? .debit : .all,
+                                              year: o["year"].truthy ? o["year"].text : "all", month: o["month"].truthy ? o["month"].text : "all", category: o["cat"].truthy ? o["cat"].text : "all",
+                                              subCategory: o["sub"].truthy ? o["sub"].text : "all", onlyWasteful: o["waste"].text == "only", issue: o["issue"].truthy ? o["issue"].text : nil, map: map)
+            XCTAssertEqual(rows.count, Int(c["count"].double), tag)
+            XCTAssertEqual(rows.prefix(25).map(key), c["first"].array.map { $0.text }, tag)
+            let w = AllTransactions.waste(rows)
+            XCTAssertEqual(w.total, c["waste"]["total"].double, accuracy: 0.005, tag); XCTAssertEqual(w.count, Int(c["waste"]["count"].double), tag)
+        }
+        print("parity: all transactions — \(all.count) rows, \(web["cases"].array.count) filter sets")
+    }
 }

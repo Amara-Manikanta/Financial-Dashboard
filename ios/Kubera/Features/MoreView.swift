@@ -9,6 +9,12 @@ struct MoreView: View {
     @Environment(\.openWebPage) private var openWebPage
     @State private var path = NavigationPath()
     @State private var confirmDisconnect = false
+    /// `-screen <name>` on the command line opens that screen straight away, for checking one without tapping to it.
+    private static let launchScreen: NativeScreen? = {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-screen"), args.indices.contains(i + 1) else { return nil }
+        return NativeScreen.allCases.first { String(describing: $0) == args[i + 1] }
+    }()
 
     var body: some View {
         NavigationStack(path: $path) {
@@ -38,6 +44,7 @@ struct MoreView: View {
                     .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
             }
             .navigationTitle("More")
+            .onAppear { if let s = Self.launchScreen, path.isEmpty { path.append(s) } }
             .navigationDestination(for: NativeScreen.self) { NativeDestination(screen: $0, store: store) }
             .confirmationDialog("Disconnect this iPhone from \(mac.name)?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
                 Button("Disconnect", role: .destructive, action: disconnect)

@@ -54,7 +54,7 @@ enum Pages {
         ]),
         PageGroup(title: "Spending", pages: [
             AppPage(title: "All Expenses", path: "/expenses", icon: "creditcard", native: .tab(.expenses)),
-            AppPage(title: "All Transactions", path: "/all-transactions", icon: "list.bullet.rectangle"),
+            AppPage(title: "All Transactions", path: "/all-transactions", icon: "list.bullet.rectangle", native: .screen(.allTransactions)),
             AppPage(title: "Money Flow", path: "/money-flow", icon: "arrow.left.arrow.right", native: .screen(.moneyFlow)),
             AppPage(title: "Spending Analysis", path: "/analytics", icon: "chart.pie", native: .screen(.spending)),
             AppPage(title: "Cards", path: "/credit-cards", icon: "creditcard.fill", native: .screen(.cards)),
