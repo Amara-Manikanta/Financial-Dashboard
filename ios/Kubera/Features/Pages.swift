@@ -64,13 +64,13 @@ enum Pages {
             AppPage(title: "Fuel Analytics", path: "/fuel", icon: "fuelpump"),
             AppPage(title: "Grocery Analytics", path: "/grocery-analytics", icon: "cart"),
             AppPage(title: "Grocery Builder", path: "/grocery-master-list", icon: "list.clipboard"),
-            AppPage(title: "Data Health", path: "/data-health", icon: "stethoscope"),
+            AppPage(title: "Data Health", path: "/data-health", icon: "stethoscope", native: .screen(.dataHealth)),
         ]),
         PageGroup(title: "Gold, silver & assets", pages: [
             AppPage(title: "All Metals", path: "/metals", icon: "circle.hexagongrid"),
             AppPage(title: "Ornament Gallery", path: "/metals/gallery", icon: "photo.on.rectangle"),
-            AppPage(title: "All Assets", path: "/assets", icon: "car"),
-            AppPage(title: "Warranties & Receipts", path: "/warranties", icon: "checkmark.shield"),
+            AppPage(title: "All Assets", path: "/assets", icon: "car", native: .screen(.assets)),
+            AppPage(title: "Warranties & Receipts", path: "/warranties", icon: "checkmark.shield", native: .screen(.warranties)),
         ]),
         PageGroup(title: "Account", pages: [
             AppPage(title: "Profile & settings", path: "/profile", icon: "person.crop.circle"),

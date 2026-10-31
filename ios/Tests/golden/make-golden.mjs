@@ -35,6 +35,8 @@ import { netWorthSeries, contributionByYear } from '../../../src/utils/netWorthH
 import { spendingOverview, categoryMovers, categoryTrends, spendingOutliers, concentration, monthlySeries } from '../../../src/utils/spendingAnalytics.js';
 import { KINDS as MF_KINDS, flowBreakdown, allTransactions, isDebit as mfIsDebit, kindFor as mfKindFor, defaultKindForCategory as mfDefault, isVagueCategory, averageMonthlySpend } from '../../../src/utils/transactionKind.js';
 import { allCardProfiles, cardTotals } from '../../../src/utils/creditCards.js';
+import { runHealthChecks } from '../../../src/utils/dataHealth.js';
+import { summariseWarranties } from '../../../src/utils/warranty.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -405,10 +407,16 @@ const ccFns = new Function('useMemo', 'expenses', `const cardSpendMap = useMemo(
 const ccDue = new Function('creditCards', 'getCardSpend', `return creditCards.reduce((sum, card) => {${ccDueSrc}}, 0);`)(db.creditCards || [], ccFns.getCardSpend);
 const cardListGolden = { totalDue: ccDue, cards: (db.creditCards || []).map((c) => ({ id: String(c.id), spend: ccFns.getCardSpend(c), wallet: ccFns.getWalletBalance(c), points: ccFns.getCardRewardPoints(c), pending: (c.monthlyData || []).filter((m) => !m.isPaid).reduce((s, m) => s + (Number(m.billAmount) || 0), 0) })) };
 
+// warranty.js and dataHealth.js.
+const wSummary = summariseWarranties(db.assets || [], new RealDate(frozenMs));
+const warrantyGolden = { total: wSummary.total, active: wSummary.active, expiring: wSummary.expiring, expired: wSummary.expired, unknown: wSummary.unknown, missingReceipt: wSummary.missingReceipt,
+    rows: wSummary.rows.map((r) => ({ name: r.item.name, category: r.categoryName, state: r.status.state, daysLeft: r.status.daysLeft, expiry: r.status.expiryIso || null, extended: r.status.extended, services: r.services })) };
+const healthGolden = runHealthChecks(db.expenses, db.salaryDetails || [], db.creditCards || [], db.assets || []).map(({ sample, ...c }) => ({ ...c, sample }));
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

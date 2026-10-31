@@ -821,4 +821,23 @@ extension ParityTests {
         XCTAssertEqual(r.totalDue, web["totalDue"].double, accuracy: 0.005)
         print("parity: cards list — \(r.cards.count) cards, total due \(r.totalDue)")
     }
+
+    func testWarrantiesAndDataHealthMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN"), now = try frozenNow(golden)
+        let w = Warranty.summary(assets: db["assets"], today: now), ww = golden["warranty"]
+        XCTAssertEqual([w.total, w.active, w.expiring, w.expired, w.unknown, w.missingReceipt], ["total", "active", "expiring", "expired", "unknown", "missingReceipt"].map { Int(ww[$0].double) })
+        XCTAssertEqual(w.rows.map { $0.name }, ww["rows"].array.map { $0["name"].text }, "warranty rows in order")
+        for (m, t) in zip(w.rows, ww["rows"].array) {
+            XCTAssertEqual(m.status.state.rawValue, t["state"].text, m.name); XCTAssertEqual(m.status.expiryIso ?? "", t["expiry"].text, m.name); XCTAssertEqual(m.status.extended, t["extended"].isTrue, m.name)
+            if let d = m.status.daysLeft { XCTAssertEqual(d, Int(t["daysLeft"].double), m.name) } else { XCTAssertTrue(t["daysLeft"].isNull, m.name) }
+            XCTAssertEqual(m.services.paid, t["services"]["paid"].double, accuracy: 0.005, m.name); XCTAssertEqual(m.services.covered, t["services"]["covered"].double, accuracy: 0.005, m.name)
+        }
+        let checks = DataHealth.run(expenses: db["expenses"], salaryDetails: db["salaryDetails"], creditCards: db["creditCards"], assets: db["assets"], today: now), wc = golden["health"].array
+        XCTAssertEqual(checks.map { $0.id }, wc.map { $0["id"].text }, "checks in order")
+        for (m, t) in zip(checks, wc) {
+            XCTAssertEqual(m.severity.rawValue, t["severity"].text, m.id); XCTAssertEqual(m.count, Int(t["count"].double), m.id); XCTAssertEqual(m.total, t["total"].double, accuracy: 0.005, m.id)
+            XCTAssertEqual(m.title, t["title"].text, m.id); XCTAssertEqual(m.detail, t["detail"].text, m.id)
+        }
+        print("parity: warranties — \(w.total) items; data health — \(checks.count) checks (\(checks.filter { $0.severity != .ok }.count) with findings)")
+    }
 }
