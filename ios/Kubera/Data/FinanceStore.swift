@@ -37,6 +37,63 @@ final class FinanceStore: ObservableObject {
         return json
     }
 
+    // MARK: News (read and collected on the Mac; the phone only asks)
+
+    private func newsQuery(_ symbol: String, _ name: String) -> [URLQueryItem] {
+        [URLQueryItem(name: "symbol", value: symbol), URLQueryItem(name: "name", value: name)]
+    }
+
+    /// Stories already stored for a stock (`db/news/<SYMBOL>.csv` on the Mac).
+    func storedNews(symbol: String, name: String) async throws -> [JSONValue] {
+        let r = try await api.send("GET", path: "api/analyst/news/stored", query: newsQuery(symbol, name))
+        guard r.status == 200 else { throw APIError.server(r.status) }
+        return r.body["items"].array
+    }
+
+    /// Fetches fresh headlines on the Mac (skipping its cache). Returns a sentence for the screen.
+    func fetchNews(symbol: String, name: String) async -> String {
+        do {
+            let r = try await api.send("GET", path: "api/analyst/news", query: newsQuery(symbol, name) + [URLQueryItem(name: "fresh", value: "1")], timeout: 60)
+            if r.status != 200 { return r.body["error"].truthy ? r.body["error"].text : "The Mac could not fetch news (\(r.status))." }
+            let added = Int(r.body["archive"]["added"].double)
+            let errors = r.body["errors"].array.map(\.text).filter { !$0.isEmpty }
+            return "\(added) new \(added == 1 ? "story" : "stories")" + (errors.isEmpty ? "" : " · " + errors.joined(separator: "; "))
+        } catch { return error.localizedDescription }
+    }
+
+    /// Has the Mac read up to five unread stories (Claude or the local model, whichever it uses).
+    func analyseNews(symbol: String, name: String) async -> String {
+        do {
+            let r = try await api.send("POST", path: "api/analyst/news/analyse", query: newsQuery(symbol, name) + [URLQueryItem(name: "count", value: "5")], timeout: 300)
+            let b = r.body
+            if r.status != 200 { return b["error"].truthy ? b["error"].text : "The Mac could not analyse news (\(r.status))." }
+            if b["modelUnavailable"].truthy {
+                let why = b["errors"][0].text
+                return b["reader"].text == "claude" ? "Claude unavailable: \(why)" : "No local model is running on the Mac (\(why.isEmpty ? "start LM Studio" : why))."
+            }
+            var parts = ["\(Int(b["analysed"].double)) analysed"]
+            if b["skipped"].double > 0 { parts.append("\(Int(b["skipped"].double)) could not be read") }
+            if b["failed"].double > 0 { parts.append("\(Int(b["failed"].double)) failed") }
+            return parts.joined(separator: ", ") + "."
+        } catch { return error.localizedDescription }
+    }
+
+    /// Claude's running brief for a stock, and whether Claude reading is on.
+    func claudeBrief(symbol: String) async throws -> (brief: JSONValue, status: JSONValue) {
+        let r = try await api.send("GET", path: "api/analyst/claude/brief", query: [URLQueryItem(name: "symbol", value: symbol)])
+        guard r.status == 200 else { throw APIError.server(r.status) }
+        return (r.body["brief"], r.body["status"])
+    }
+
+    /// Reads unread stories with Claude, then updates the brief. Nil when it worked, otherwise why not.
+    func refreshClaudeBrief(symbol: String, name: String) async -> String? {
+        do {
+            let r = try await api.send("POST", path: "api/analyst/claude/brief", query: newsQuery(symbol, name), timeout: 600)
+            if r.status == 200 { return nil }
+            return r.body["error"].truthy ? r.body["error"].text : "Claude could not update the brief (\(r.status))."
+        } catch { return error.localizedDescription }
+    }
+
     func indexCloses() async -> [String: Double]? {
         guard let json = try? await api.get(path: "api/history", query: [URLQueryItem(name: "symbol", value: "^NSEI"), URLQueryItem(name: "range", value: "10y")]) else { return nil }
         var closes: [String: Double] = [:]

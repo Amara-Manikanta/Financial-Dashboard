@@ -54,6 +54,27 @@ struct API {
 
     func addTransaction(_ body: [String: Any]) async -> String? { await writeTransaction("POST", body: body) }
 
+    /// Any request to the Mac's API, answered with its status and JSON body whatever the status,
+    /// so a caller can show the server's own reason. Throws only when the Mac cannot be reached.
+    func send(_ method: String, path: String, query: [URLQueryItem] = [], body: Any? = nil, timeout: TimeInterval = 30) async throws -> (status: Int, body: JSONValue) {
+        var url = path.split(separator: "/").reduce(base.appendingPathComponent("_api")) { $0.appendingPathComponent(String($1)) }
+        if !query.isEmpty, var parts = URLComponents(url: url, resolvingAgainstBaseURL: false) { parts.queryItems = query; url = parts.url ?? url }
+        var request = URLRequest(url: url)
+        request.httpMethod = method
+        if let body {
+            request.httpBody = try JSONSerialization.data(withJSONObject: body)
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = timeout
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await URLSession.shared.data(for: request) } catch { throw APIError.unreachable }
+        guard let http = response as? HTTPURLResponse else { throw APIError.unreachable }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        let json = (try? await Task.detached(priority: .userInitiated) { try JSONValue.parse(data) }.value) ?? .null
+        return (http.statusCode, json)
+    }
+
     /// A file the Mac serves (a photo), fetched with the same token as everything else.
     func data(path: String) async throws -> Data {
         let url = path.split(separator: "/").reduce(base.appendingPathComponent("_api")) { $0.appendingPathComponent(String($1)) }

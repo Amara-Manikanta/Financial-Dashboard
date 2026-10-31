@@ -95,12 +95,13 @@ struct StocksView: View {
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
         .navigationDestination(for: String.self) { id in
-            if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(holding: holding) }
+            if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(store: store, holding: holding) }
         }
     }
 }
 
 private struct HoldingView: View {
+    @ObservedObject var store: FinanceStore
     let holding: Stocks.Holding
 
     private struct Row: Identifiable { let id: Int; let tx: JSONValue }
@@ -130,6 +131,14 @@ private struct HoldingView: View {
                     KStat(label: "Price", value: Money.rupees(holding.price))
                 }
                 if !holding.sector.isEmpty { KBadge(text: holding.sector).padding(.top, 10) }
+            }
+            if !holding.ticker.isEmpty {
+                NavigationLink {
+                    StockNewsView(store: store, symbol: StockNewsView.symbol(for: holding.ticker), name: holding.name)
+                } label: {
+                    KCard { KRow(title: "News & analysis", subtitle: "Stories, key points and Claude's brief", systemImage: "newspaper", chevron: true) }
+                }
+                .buttonStyle(.plain)
             }
             if !history.isEmpty {
                 KSectionHeader(title: "Transactions", detail: "\(history.count)")
