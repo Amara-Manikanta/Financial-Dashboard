@@ -63,6 +63,31 @@ struct InvestView: View {
 /// Every stock holding of your own, valued as the web Dashboard does.
 struct StocksView: View {
     @ObservedObject var store: FinanceStore
+    @State private var expanded: Set<String> = []
+
+    /// What a row hides until it is opened: where the price sits in its ranges, the day's move,
+    /// cost, weight in the stock portfolio and sector.
+    @ViewBuilder private func details(_ h: Stocks.Holding) -> some View {
+        let q = h.raw["quote"]
+        let previous = q["previousClose"].double
+        let day = previous > 0 && h.price > 0 ? (h.price - previous) / previous * 100 : nil
+        let weight = store.portfolio.value > 0 ? h.value / store.portfolio.value * 100 : 0
+        VStack(alignment: .leading, spacing: 10) {
+            StockRanges(raw: h.raw, price: h.price)
+            HStack(alignment: .top) {
+                KStat(label: "Avg cost", value: Money.rupees(h.avgCost))
+                Spacer()
+                KStat(label: "Invested", value: Money.rupees(h.invested))
+                Spacer()
+                KStat(label: "Weight", value: String(format: "%.1f%%", weight))
+            }
+            HStack(alignment: .top) {
+                if let day { KStat(label: "Today", value: Fmt.percent(day), tone: Tone.of(day)) }
+                Spacer()
+                if !h.sector.isEmpty { KBadge(text: h.sector) }
+            }
+        }
+    }
 
     private var holdings: [Stocks.Holding] { store.portfolio.holdings.sorted { $0.value > $1.value } }
 
@@ -81,13 +106,25 @@ struct StocksView: View {
             }
             KSectionHeader(title: "Stocks", detail: "\(holdings.count) holdings")
             KList(items: holdings) { holding in
-                NavigationLink(value: holding.id) {
-                    KRow(title: holding.name, subtitle: "\(Fmt.shares(holding.shares)) × \(Money.rupees(holding.price))",
-                         value: Money.rupees(holding.value), valueTone: .neutral,
-                         valueCaption: "\(Fmt.signed(holding.gain)) · \(Fmt.percent(holding.gainPercent))",
-                         captionTone: Tone.of(holding.gain), chevron: true)
+                VStack(spacing: 0) {
+                    HStack(spacing: 8) {
+                        NavigationLink(value: holding.id) {
+                            KRow(title: holding.name, subtitle: "\(Fmt.shares(holding.shares)) × \(Money.rupees(holding.price))",
+                                 value: Money.rupees(holding.value), valueTone: .neutral,
+                                 valueCaption: "\(Fmt.signed(holding.gain)) · \(Fmt.percent(holding.gainPercent))",
+                                 captionTone: Tone.of(holding.gain))
+                        }
+                        .buttonStyle(.plain)
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.2)) { if expanded.contains(holding.id) { expanded.remove(holding.id) } else { expanded.insert(holding.id) } }
+                        } label: {
+                            Image(systemName: "chevron.down").font(.system(size: 12, weight: .bold)).foregroundStyle(Theme.muted)
+                                .rotationEffect(.degrees(expanded.contains(holding.id) ? 180 : 0)).frame(width: 32, height: 32)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    if expanded.contains(holding.id) { details(holding).padding(.top, 8) }
                 }
-                .buttonStyle(.plain)
             }
             if holdings.isEmpty && store.loadedAt != nil {
                 KCard { Text("No active stock holdings.").font(Theme.footnote).foregroundStyle(Theme.muted) }

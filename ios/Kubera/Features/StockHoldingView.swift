@@ -1,6 +1,45 @@
 import SwiftUI
 import Charts
 
+/// 52-week and day ranges from the holding's last stored quote, drawn as bars. The position is a
+/// fact about where the price sits in the range, not a verdict. Draws nothing without a quote.
+struct StockRanges: View {
+    let raw: JSONValue
+    let price: Double
+
+    private func position(_ low: Double, _ high: Double) -> Double? {
+        high > low ? max(0, min(100, (price - low) / (high - low) * 100)) : nil
+    }
+
+    var body: some View {
+        let q = raw["quote"]
+        let yearLow = q["fiftyTwoWeekLow"].double, yearHigh = q["fiftyTwoWeekHigh"].double
+        let dayLow = q["dayLow"].double, dayHigh = q["dayHigh"].double
+        VStack(alignment: .leading, spacing: 12) {
+            if let pos = position(yearLow, yearHigh) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text("52-WEEK RANGE").font(Theme.caption).tracking(1.0).foregroundStyle(Theme.muted)
+                        Spacer()
+                        Text("\(Int(pos.rounded()))% of the way up").font(Theme.footnote).foregroundStyle(Theme.muted)
+                    }
+                    RangeBar(position: pos, low: yearLow, high: yearHigh)
+                    if yearHigh > 0 && price > 0 {
+                        Text("\(String(format: "%.1f", (yearHigh - price) / yearHigh * 100))% below the high · \(String(format: "%.1f", (price - yearLow) / yearLow * 100))% above the low")
+                            .font(Theme.footnote).foregroundStyle(Theme.muted)
+                    }
+                }
+            }
+            if let pos = position(dayLow, dayHigh) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("TODAY'S RANGE").font(Theme.caption).tracking(1.0).foregroundStyle(Theme.muted)
+                    RangeBar(position: pos, low: dayLow, high: dayHigh)
+                }
+            }
+        }
+    }
+}
+
 /// One stock holding: its position, dividend record, news and every transaction, which can be
 /// added to, changed and removed. Each save replays the holding's shares, average cost and
 /// dividends from the whole history (`StockLedger`), as the Mac's stock page does.
@@ -50,6 +89,9 @@ struct HoldingView: View {
                     KStat(label: "Price", value: Money.rupees(holding.price))
                 }
                 if !holding.sector.isEmpty { KBadge(text: holding.sector).padding(.top, 10) }
+            }
+            if holding.raw["quote"]["fiftyTwoWeekHigh"].double > 0 {
+                KCard { StockRanges(raw: holding.raw, price: holding.price) }
             }
 
             fundamentalsCard(holding)
