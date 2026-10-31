@@ -13,7 +13,11 @@ struct NetWorthHistoryView: View {
         ("gold", "Gold & silver", .yellow), ("deposits", "Deposits", .cyan), ("retirement", "PF, PPF & NPS", .purple),
         ("property", "Property", .pink), ("equities", "Equities", .green), ("cash", "Cash", .gray),
     ]
-    private struct Slice: Identifiable { let id = UUID(); let month: String; let label: String; let value: Double }
+    private struct Slice: Identifiable { let id = UUID(); let month: Date; let label: String; let value: Double }
+    private static func day(_ month: String) -> Date {
+        let p = month.split(separator: "-").compactMap { Int($0) }
+        return Calendar.current.date(from: DateComponents(year: p.first, month: p.count > 1 ? p[1] : 1, day: 1)) ?? Date()
+    }
 
     private func inr(_ v: Double) -> String { Money.rupees(Money.jsRound(v)) }
 
@@ -23,7 +27,7 @@ struct NetWorthHistoryView: View {
         let shown = range.months.map { Array(s.points.suffix($0)) } ?? s.points
         let latest = s.points.last, first = shown.first
         let growth = (latest != nil && first != nil) ? latest!.net - first!.net : 0
-        let slices = shown.flatMap { p in Self.names.map { Slice(month: p.month, label: $0.label, value: p.values[$0.key] ?? 0) } }
+        let slices = shown.flatMap { p in Self.names.map { Slice(month: Self.day(p.month), label: $0.label, value: p.values[$0.key] ?? 0) } }
 
         KScreen(refresh: { await store.load() }) {
             if s.points.isEmpty {
@@ -45,7 +49,7 @@ struct NetWorthHistoryView: View {
                         AreaMark(x: .value("Month", x.month), y: .value("Amount", x.value)).foregroundStyle(by: .value("Part", x.label))
                     }
                     .chartForegroundStyleScale(domain: Self.names.map(\.label), range: Self.names.map(\.color))
-                    .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisValueLabel().foregroundStyle(Theme.muted) } }
+                    .chartXAxis { AxisMarks(values: .stride(by: .year, count: 2)) { _ in AxisValueLabel(format: .dateTime.year()).foregroundStyle(Theme.muted) } }
                     .chartYAxis { AxisMarks { v in AxisGridLine().foregroundStyle(Color.white.opacity(0.06)); AxisValueLabel { if let n = v.as(Double.self) { Text(Money.compact(n)).foregroundStyle(Theme.muted) } } } }
                     .frame(height: 220)
                 }

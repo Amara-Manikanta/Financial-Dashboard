@@ -960,7 +960,11 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Stock Analyst (findings, tax simulation, fundamentals and Nifty comparison loaded from the Mac) | yes | every finding's id, order, wording and figures, with and without fundamentals/index history (the network inputs are made up identically on both sides) |
 | Salary (year totals, month by month, annual package vs received, gratuity, every year's package) | yes | all 10 years: every month's gross/deductions/net and each field, yearly totals, comparison, annual packages, gratuity |
 | Taxes (ITR returns, Form 16 A and B, refunds awaited, old-vs-new regime calculator) | yes | the calculator's prefill for all 9 years plus 5 hand-picked cases (HRA, both slab sets, rebate edge), return order and totals |
-| Planning pages | **next** | |
+| Financial Goals | yes | all 5 goals: saved from each linked account, progress, status, totals |
+| Insurance Gap Analysis | yes | every tab with and without archived, two profiles: cover per kind, gaps, vehicles, expiry |
+| Cashflow Forecast (and recurring-charge detection) | yes | all 79 detected series with cadence/typical/next date/overrides; every forecast event, cycle and total at 30/60/90 days |
+| Net Worth Over Time | yes | all 113 months by component, debt, yearly additions, steps to check |
+| DocuSetu, Spending, Metals and assets, Profile | **next** | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the
