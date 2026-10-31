@@ -642,3 +642,55 @@ final class RecordEditingTests: XCTestCase {
         XCTAssertTrue(RecordEditing.fields(of: json(#"{"type":"given","amount":5}"#), collection: "lents", parent: json(#"{"id":"1"}"#)).map(\.key).contains("type"), "a row's type is editable")
     }
 }
+
+final class StockLedgerTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+    private let account = #"{"id":"a","type":"stock_market","stocks":[{"id":"s1","name":"Coal","shares":10,"avgCost":100,"dividends":{"2020":5},"transactions":[{"id":"1","date":"2024-01-01","type":"buy","quantity":10,"price":100}]},{"id":"s2","name":"Other","shares":1,"transactions":[]}]}"#
+
+    private func stocks(_ r: Result<[Any], StockLedger.Failure>) -> [[String: Any]] { (try! r.get()) as! [[String: Any]] }
+
+    func testAddingABuyReplaysSharesAndAverageCost() {
+        var d = StockLedger.Draft(); d.date = "2024-06-01"; d.quantity = "10"; d.price = "120"
+        let out = stocks(StockLedger.updatedStocks(account: json(account), stockId: "s1", change: .add(StockLedger.row(d, id: "9"))))
+        XCTAssertEqual(out[0]["shares"] as? Double, 20)
+        XCTAssertEqual(out[0]["avgCost"] as? Double, 110)
+        XCTAssertEqual((out[0]["transactions"] as? [Any])?.count, 2)
+        XCTAssertEqual(out[1]["name"] as? String, "Other", "other holdings pass through")
+    }
+
+    func testADividendIsCreditedToItsYearAndKeepsHandTypedYears() {
+        var d = StockLedger.Draft(); d.kind = .dividend; d.date = "2025-03-10"; d.price = "450"; d.tds = "45"; d.amountIsNet = true
+        let row = StockLedger.row(d, id: "d")
+        XCTAssertEqual(row["quantity"].double, 0)
+        let out = stocks(StockLedger.updatedStocks(account: json(account), stockId: "s1", change: .add(row)))
+        let div = out[0]["dividends"] as? [String: Double]
+        XCTAssertEqual(div?["2025"], 495, "gross = net + tax withheld")
+        XCTAssertEqual(div?["2020"], 5, "a year not in the history stays")
+        XCTAssertEqual(out[0]["shares"] as? Double, 10, "a dividend moves no shares")
+    }
+
+    func testDeleteAndEditAndStaleRows() {
+        let acct = json(account)
+        var out = stocks(StockLedger.updatedStocks(account: acct, stockId: "s1", change: .delete(id: "1")))
+        XCTAssertEqual(out[0]["shares"] as? Double, 0)
+        var d = StockLedger.draft(from: acct["stocks"][0]["transactions"][0]); d.quantity = "4"
+        out = stocks(StockLedger.updatedStocks(account: acct, stockId: "s1", change: .replace(id: "1", StockLedger.row(d, id: "1", base: acct["stocks"][0]["transactions"][0]))))
+        XCTAssertEqual(out[0]["shares"] as? Double, 4)
+        XCTAssertThrowsError(try StockLedger.updatedStocks(account: acct, stockId: "s1", change: .delete(id: "gone")).get())
+        XCTAssertThrowsError(try StockLedger.updatedStocks(account: acct, stockId: "nope", change: .delete(id: "1")).get())
+    }
+
+    func testValidationAndLocks() {
+        let history = json(account)["stocks"][0]["transactions"].array
+        var d = StockLedger.Draft(); d.kind = .sell; d.date = "2024-06-01"; d.quantity = "11"; d.price = "1"
+        XCTAssertEqual(StockLedger.problems(d, history: history, editing: nil).count, 1, "cannot sell more than held")
+        d.quantity = "10"; XCTAssertTrue(StockLedger.problems(d, history: history, editing: nil).isEmpty)
+        d.date = "2023-01-01"; XCTAssertFalse(StockLedger.problems(d, history: history, editing: nil).isEmpty, "nothing held before the first buy")
+        XCTAssertNotNil(StockLedger.rowLock(json(#"{"id":"1","expenseId":"e"}"#)))
+        XCTAssertNotNil(StockLedger.holdingLock(json(#"{"transactions":[{"type":"merger_out"}]}"#)))
+        XCTAssertNil(StockLedger.holdingLock(json(#"{"transactions":[{"type":"buy"}]}"#)))
+        var split = StockLedger.Draft(); split.kind = .split; split.splitFrom = "1"; split.splitTo = "2"; split.date = "2024-06-01"
+        XCTAssertTrue(StockLedger.problems(split, history: history, editing: nil).isEmpty)
+        XCTAssertEqual(StockLedger.row(split, id: "x")["tds"], .null, "tax only belongs on a dividend")
+    }
+}

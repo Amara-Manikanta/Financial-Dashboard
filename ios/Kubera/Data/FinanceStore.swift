@@ -52,6 +52,31 @@ final class FinanceStore: ObservableObject {
         return nil
     }
 
+    /// The stock-market account that holds a holding, so its transactions can be changed.
+    func stockAccountId(holding id: String) -> String? {
+        data.savingsRaw.array.first { $0["type"].text == "stock_market" && $0["stocks"].array.contains { $0["id"].text == id } }?["id"].text
+    }
+
+    /// Applies one change to one holding's transactions. The account is loaded fresh with its version
+    /// at the moment of saving, the change is made on that copy and the holding's figures replayed, and
+    /// the write carries the version — so only a change landing in that instant can be refused.
+    /// Nil when saved, otherwise why nothing changed.
+    func saveStockTransaction(holding id: String, change: StockLedger.Change) async -> String? {
+        guard let accountId = stockAccountId(holding: id) else { return "That holding is no longer on your Mac. Nothing was changed." }
+        do {
+            let fresh = try await api.record("savings", id: accountId)
+            switch StockLedger.updatedStocks(account: fresh.value, stockId: id, change: change) {
+            case .failure(let failure): return failure.message
+            case .success(let stocks):
+                var fields: [String: Any] = ["stocks": stocks]
+                if !fresh.value["updatedAt"].isNull { fields["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
+                if let failure = await api.patchRecord("savings", id: accountId, fields: fields, version: fresh.version) { return failure }
+            }
+        } catch { return error.localizedDescription }
+        await load()
+        return nil
+    }
+
     // MARK: News (read and collected on the Mac; the phone only asks)
 
     private func newsQuery(_ symbol: String, _ name: String) -> [URLQueryItem] {

@@ -41,6 +41,8 @@ struct InvestView: View {
             }
             .navigationTitle("Investments")
             .navigationDestination(for: NativeScreen.self) { NativeDestination(screen: $0, store: store) }
+            // Funds, deposits, policies… open here; the link existed but nothing answered it.
+            .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
         }
     }
 
@@ -95,64 +97,7 @@ struct StocksView: View {
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
         .navigationDestination(for: String.self) { id in
-            if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(store: store, holding: holding) }
+            if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(store: store, holdingId: holding.id) }
         }
-    }
-}
-
-private struct HoldingView: View {
-    @ObservedObject var store: FinanceStore
-    let holding: Stocks.Holding
-
-    private struct Row: Identifiable { let id: Int; let tx: JSONValue }
-    private var history: [Row] {
-        holding.raw["transactions"].array.enumerated()
-            .sorted { $0.element["date"].text > $1.element["date"].text }
-            .map { Row(id: $0.offset, tx: $0.element) }
-    }
-
-    var body: some View {
-        KScreen {
-            KCard {
-                KStat(label: "Value", value: Money.rupees(holding.value), size: .hero)
-                HStack(alignment: .top) {
-                    KStat(label: "Gain", value: Fmt.signed(holding.gain), tone: Tone.of(holding.gain), caption: Fmt.percent(holding.gainPercent))
-                    Spacer()
-                    KStat(label: "Invested", value: Money.rupees(holding.invested))
-                }
-                .padding(.top, 10)
-            }
-            KCard {
-                HStack(alignment: .top) {
-                    KStat(label: "Shares", value: Fmt.shares(holding.shares))
-                    Spacer()
-                    KStat(label: "Avg cost", value: Money.rupees(holding.avgCost))
-                    Spacer()
-                    KStat(label: "Price", value: Money.rupees(holding.price))
-                }
-                if !holding.sector.isEmpty { KBadge(text: holding.sector).padding(.top, 10) }
-            }
-            if !holding.ticker.isEmpty {
-                NavigationLink {
-                    StockNewsView(store: store, symbol: StockNewsView.symbol(for: holding.ticker), name: holding.name)
-                } label: {
-                    KCard { KRow(title: "News & analysis", subtitle: "Stories, key points and Claude's brief", systemImage: "newspaper", chevron: true) }
-                }
-                .buttonStyle(.plain)
-            }
-            if !history.isEmpty {
-                KSectionHeader(title: "Transactions", detail: "\(history.count)")
-                KList(items: history) { row in
-                    let tx = row.tx
-                    let money = tx["quantity"].double * tx["price"].double
-                    KRow(title: tx["type"].text.capitalized,
-                         subtitle: Fmt.date(tx["date"].text),
-                         value: ["dividend", "bonus", "split"].contains(tx["type"].text) ? nil : Money.rupees(money),
-                         valueCaption: ["dividend", "split"].contains(tx["type"].text) ? nil : "\(Fmt.shares(tx["quantity"].double)) @ \(Money.rupees(tx["price"].double))")
-                }
-            }
-        }
-        .navigationTitle(holding.name)
-        .navigationBarTitleDisplayMode(.inline)
     }
 }

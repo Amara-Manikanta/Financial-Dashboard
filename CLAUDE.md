@@ -1029,6 +1029,17 @@ the user is told to make the change again. `updatedAt` is stamped when the recor
 editable yet: `metals` and `appData` (object collections — budgets, manual rates, overrides), and
 creating or deleting whole records.
 
+**Stock transactions** (`StockLedger`, `StockHoldingView`): a holding's page has a + to add a
+transaction (buy, sell, dividend, bonus, split, IPO, buyback) and tap / long-press to change or delete
+one. The account is loaded fresh with its version at the moment of saving, the change is applied to
+that copy, the holding's `shares`, `avgCost` and `dividends` are replayed from the whole history
+(`Stocks.replay`, the port of `recomputeStockMetrics` — a test compares the stored result with the
+web's), and `PATCH /savings/<id> { stocks }` is sent with the version. Locked: a holding with a merger
+in its history, merger/demerger rows, and rows linked to an expense. A sale larger than what was held on
+that date is refused. The page also shows the dividend amount per payment, a five-year dividend chart,
+and the Mac's fundamentals read (`/api/stock-financials`): Buy / Hold / Trim / Exit signal, the five
+health checks and quarterly revenue and earnings. Mutual-fund and other account ledgers are still read-only.
+
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
 (`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.
@@ -1039,7 +1050,7 @@ untouched — checked by hash).
 
 ### Not done yet
 
-- Writes to holdings (stock/fund ledgers), `metals`, `appData` settings, and creating or deleting whole records.
+- Writes to mutual-fund/NPS/SGB ledgers, demergers and mergers, `metals`, `appData` settings, and creating or deleting whole records.
 - Savings and Investments account pages (a fund, a deposit, a policy) still
   open the Mac's page; so does everything below Investments in the More list.
 - The web layout for phones has 8 known rough spots (a few fixed-width dropdowns
