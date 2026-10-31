@@ -32,6 +32,7 @@ import { analysePortfolio, symbolFor } from '../../../src/utils/stockAdvisor.js'
 import { detectRecurring, applyOverrides } from '../../../src/utils/recurring.js';
 import { buildForecast } from '../../../src/utils/cashflow.js';
 import { netWorthSeries, contributionByYear } from '../../../src/utils/netWorthHistory.js';
+import { spendingOverview, categoryMovers, categoryTrends, spendingOutliers, concentration, monthlySeries } from '../../../src/utils/spendingAnalytics.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -368,10 +369,23 @@ const nwSeries = netWorthSeries({ savings: db.savings, metals: db.metals, assets
 const nwStepsBody = slice('src/pages/NetWorthHistory.jsx', 'const bigSteps = useMemo(() => {', '}, [series]);');
 const netWorthGolden = { series: nwSeries, byYear: contributionByYear(nwSeries.points), steps: new Function('series', nwStepsBody)(nwSeries) };
 
+// spendingAnalytics.js, as Analytics.jsx calls it.
+const spOverview = spendingOverview(db.expenses, categoryKinds, new RealDate(frozenMs));
+const spLast = spOverview?.lastComplete?.month || null;
+const spendingGolden = {
+    overview: spOverview ? { ...spOverview, series: undefined, complete: spOverview.complete.map((m) => m.month) } : null,
+    series: monthlySeries(db.expenses, categoryKinds),
+    movers: categoryMovers(db.expenses, categoryKinds, { month: spLast, baselineMonths: 6 }),
+    moversOlder: categoryMovers(db.expenses, categoryKinds, { month: (spOverview?.complete || []).slice(-8)[0]?.month, baselineMonths: 6 }),
+    conc: Object.fromEntries([6, 12, 24].map((w) => [w, concentration(db.expenses, categoryKinds, w)])),
+    trends: Object.fromEntries([6, 12, 24].map((w) => [w, categoryTrends(db.expenses, categoryKinds, w)])),
+    outliers: Object.fromEntries([6, 12, 24].map((w) => [w, spendingOutliers(db.expenses, categoryKinds, { sinceMonths: w })])),
+};
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

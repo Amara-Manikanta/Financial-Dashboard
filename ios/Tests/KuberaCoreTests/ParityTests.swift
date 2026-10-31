@@ -713,4 +713,44 @@ extension ParityTests {
         XCTAssertEqual(steps.map { $0.month }, web["steps"].array.map { $0["month"].text })
         print("parity: net worth history — \(s.points.count) months, \(years.count) years, \(steps.count) steps to check, \(s.undated.items.count) undated")
     }
+
+    func testSpendingAnalyticsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN"), web = golden["spending"]
+        let kinds = TransactionKind.categoryKinds(from: db["appData"]), now = try frozenNow(golden)
+        let series = SpendingAnalytics.monthlySeries(db["expenses"], kinds)
+        XCTAssertEqual(series.map { $0.month }, web["series"].array.map { $0["month"].text })
+        for (m, t) in zip(series, web["series"].array) {
+            for (a, b) in [(m.income, "income"), (m.spend, "spend"), (m.netSpend, "netSpend"), (m.refunds, "refunds"), (m.transfers, "transfers"), (m.settlements, "settlements"),
+                           (m.lending, "lending"), (m.transfersIn, "transfersIn"), (m.payroll, "payroll"), (m.surplus, "surplus")] { XCTAssertEqual(a, t[b].double, accuracy: 0.005, "\(m.month) \(b)") }
+            XCTAssertEqual(m.incomeIncomplete, t["incomeIncomplete"].isTrue, m.month); XCTAssertEqual(m.noIncomeRecorded, t["noIncomeRecorded"].isTrue, m.month)
+            if let r = m.savingsRate { XCTAssertEqual(r, t["savingsRate"].double, accuracy: 1e-6, m.month) } else { XCTAssertTrue(t["savingsRate"].isNull, m.month) }
+        }
+        let o = try XCTUnwrap(SpendingAnalytics.overview(db["expenses"], kinds, now: now)), wo = web["overview"]
+        XCTAssertEqual(o.normalSpend, wo["normalSpend"].double, accuracy: 0.005); XCTAssertEqual(o.normalIncome, wo["normalIncome"].double, accuracy: 0.005)
+        XCTAssertEqual(o.monthsMissingIncome, wo["monthsMissingIncome"].array.map { $0.text }); XCTAssertEqual(o.monthsWithIncome, Int(wo["monthsWithIncome"].double))
+        if let r = o.medianSavingsRate { XCTAssertEqual(r, wo["medianSavingsRate"].double, accuracy: 1e-6) } else { XCTAssertTrue(wo["medianSavingsRate"].isNull) }
+        XCTAssertEqual(o.complete.map { $0.month }, wo["complete"].array.map { $0.text })
+
+        func movers(_ m: SpendingAnalytics.Movers, _ t: JSONValue, _ label: String) {
+            XCTAssertEqual(m.month ?? "", t["month"].text, label); XCTAssertEqual(m.rows.map { $0.category }, t["rows"].array.map { $0["category"].text }, "\(label) rows")
+            XCTAssertEqual(m.increases.map { $0.category }, t["increases"].array.map { $0["category"].text }, "\(label) increases"); XCTAssertEqual(m.decreases.map { $0.category }, t["decreases"].array.map { $0["category"].text }, "\(label) decreases")
+            for (r, w) in zip(m.rows, t["rows"].array) {
+                XCTAssertEqual(r.current, w["current"].double, accuracy: 0.005, r.category); XCTAssertEqual(r.normal, w["normal"].double, accuracy: 0.005, r.category)
+                XCTAssertEqual(r.monthsSeen, Int(w["monthsSeen"].double), r.category); XCTAssertEqual(r.isNew, w["isNew"].isTrue, r.category); XCTAssertEqual(r.stopped, w["stopped"].isTrue, r.category)
+                if let p = r.changePct { XCTAssertEqual(p, w["changePct"].double, accuracy: 1e-6, r.category) } else { XCTAssertTrue(w["changePct"].isNull, r.category) }
+            }
+        }
+        movers(SpendingAnalytics.movers(db["expenses"], kinds, month: o.lastComplete?.month), web["movers"], "movers")
+        movers(SpendingAnalytics.movers(db["expenses"], kinds, month: o.complete.suffix(8).first?.month), web["moversOlder"], "older movers")
+        for w in [6, 12, 24] {
+            let c = SpendingAnalytics.concentration(db["expenses"], kinds, months: w), wc = web["conc"]["\(w)"]
+            XCTAssertEqual(c.rows.map { $0.category }, wc["rows"].array.map { $0["category"].text }, "conc \(w)"); XCTAssertEqual(c.total, wc["total"].double, accuracy: 0.005); XCTAssertEqual(c.categoriesTo80, Int(wc["categoriesTo80"].double))
+            let t = SpendingAnalytics.trends(db["expenses"], kinds, windowMonths: w), wt = web["trends"]["\(w)"].array
+            XCTAssertEqual(t.map { $0.category }, wt.map { $0["category"].text }, "trends \(w)")
+            for (a, b) in zip(t, wt) { XCTAssertEqual(a.change, b["change"].double, accuracy: 0.005, a.category); XCTAssertEqual(a.direction, b["direction"].text, a.category); XCTAssertEqual(a.activeMonths, Int(b["activeMonths"].double), a.category) }
+            let out = SpendingAnalytics.outliers(db["expenses"], kinds, sinceMonths: w), wout = web["outliers"]["\(w)"].array
+            XCTAssertEqual(out.map { $0.txId }, wout.map { $0["id"].text }, "outliers \(w)")
+        }
+        print("parity: spending analytics — \(series.count) months, \(web["movers"]["rows"].array.count) movers, normal month \(o.normalSpend)")
+    }
 }
