@@ -635,4 +635,28 @@ extension ParityTests {
         XCTAssertEqual(page.overallProgress, web["overallProgress"].double)
         print("parity: goals — \(page.goals.count) goals, achieved \(page.totalAchieved) of \(page.totalTarget)")
     }
+
+    func testInsuranceMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["insurance"]
+        let stored = InsurancePage.profile(appData: db["appData"], salaryDetails: db["salaryDetails"])
+        if !web["profile"].isNull { XCTAssertEqual(stored.annualIncome, web["profile"]["annualIncome"].double); XCTAssertEqual(stored.dependents, web["profile"]["dependents"].double) }
+        let tabs: [String: InsurancePage.Tab] = ["all": .all, "bike": .bike, "life": .life, "health": .health, "home": .home]
+        var shown = 0
+        for c in web["cases"].array {
+            let pr = c["profile"]
+            let p = InsurancePage.page(savings: db["savings"], profile: .init(age: pr["age"].double, dependents: pr["dependents"].double, annualIncome: pr["annualIncome"].double, liabilities: pr["liabilities"].double),
+                                       tab: tabs[c["tab"].text]!, showArchived: c["showArchived"].isTrue)
+            let o = c["out"], tag = "\(c["tab"].text) archived=\(c["showArchived"].isTrue)"
+            XCTAssertEqual(p.policies.map { $0.id }, o["policyItems"].array.map { $0["id"].text }, tag); XCTAssertEqual(p.shown.map { $0.id }, o["filteredPolicies"].array.map { $0["id"].text }, tag)
+            XCTAssertEqual(p.archivedCount, Int(o["archivedCount"].double), tag)
+            for (a, b) in [(p.life, "existingLifeCover"), (p.health, "existingHealthCover"), (p.bike, "totalBikeIdv"), (p.car, "totalCarIdv"), (p.home, "totalHomeCover"), (p.premiums, "totalAnnualPremiums"),
+                           (p.recommendedLife, "recommendedLifeCover"), (p.recommendedHealth, "recommendedHealthCover"), (p.lifeGap, "lifeGap"), (p.healthGap, "healthGap"), (p.lifePct, "lifeCoveragePct"), (p.healthPct, "healthCoveragePct")] {
+                XCTAssertEqual(a, o[b].double, accuracy: 0.005, "\(tag) \(b)")
+            }
+            XCTAssertEqual(p.vehicles, o["bikeVehicleList"].array.map { $0.text }, tag)
+            XCTAssertEqual(p.policies.map { InsurancePage.isExpired($0, today: web["today"].text) }, o["expired"].array.map { $0.isTrue }, tag)
+            shown += p.shown.count
+        }
+        print("parity: insurance — \(web["cases"].array.count) tab/profile/archive combinations, \(shown) policy rows compared")
+    }
 }

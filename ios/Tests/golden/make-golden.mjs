@@ -338,10 +338,22 @@ const goalsRun = new Function('goals', 'savings', 'lents', 'calculateItemCurrent
     `const isItemActive = (item) => {${goalsBody}\nconst overallProgress = totalTargetAmount > 0${goalsTail}\nreturn { processedGoals, totalTargetAmount, totalAchievedAmount, overallProgress };`);
 const goalsGolden = goalsRun(db.goals || [], db.savings, db.lents, calculateItemCurrentValue, lentOutstanding, receivableLents, totalReceivable);
 
+// InsuranceAnalysis.jsx: the computation between its state and its handlers, for every tab with and without archived policies.
+const insBody = slice('src/pages/InsuranceAnalysis.jsx', 'const DEFAULT_POLICIES = [', '    const handleSavePolicy');
+const insRun = new Function('savings', 'showArchived', 'activeTab', 'annualIncome', 'liabilities', 'dependents',
+    `const DEFAULT_POLICIES = [${insBody}\nreturn { policyItems, archivedCount, existingLifeCover, existingHealthCover, totalBikeIdv, totalCarIdv, totalHomeCover, totalAnnualPremiums, bikeVehicleList, recommendedLifeCover, recommendedHealthCover, lifeGap, healthGap, lifeCoveragePct, healthCoveragePct, filteredPolicies, expired: policyItems.map(isExpired) };`);
+const insProfile = { age: 31, dependents: 2, annualIncome: 1800000, liabilities: 4300000 };
+const insuranceGolden = { profile: db.appData?.insuranceProfile || null, today: new RealDate(frozenMs).toISOString().split('T')[0], cases: [] };
+for (const showArchived of [false, true]) for (const tab of ['all', 'bike', 'life', 'health', 'home']) {
+    for (const prof of [insProfile, { age: 40, dependents: 0, annualIncome: 600000, liabilities: 0 }]) {
+        insuranceGolden.cases.push({ showArchived, tab, profile: prof, out: insRun(db.savings, showArchived, tab, prof.annualIncome, prof.liabilities, prof.dependents) });
+    }
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,
