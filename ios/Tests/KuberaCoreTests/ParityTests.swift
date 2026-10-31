@@ -841,6 +841,30 @@ extension ParityTests {
         print("parity: warranties — \(w.total) items; data health — \(checks.count) checks (\(checks.filter { $0.severity != .ok }.count) with findings)")
     }
 
+    func testMonthCategoriesMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["monthCategories"]
+        let map = Budgets.categoryMap(appData: db["appData"])
+        let slips = ExpenseLedger.payslips(db["salaryDetails"])
+        func same(_ mine: [MonthCategories.Item], _ theirs: [JSONValue], _ tag: String) {
+            // Ties keep JavaScript insertion order, which an unordered decode cannot see.
+            let a = mine.map { "\($0.category)|\($0.mainCategory)|\(String(format: "%.2f|%.2f", $0.amount, $0.deductibleAmount))" }.sorted()
+            let b = theirs.map { "\($0["category"].text)|\($0["mainCategory"].text)|\(String(format: "%.2f|%.2f", $0["amount"].double, $0["deductibleAmount"].double))" }.sorted()
+            XCTAssertEqual(a, b, tag)
+            XCTAssertEqual(mine.map(\.amount), theirs.map { $0["amount"].double }, "\(tag) order")
+        }
+        for m in web.array {
+            let (y, mo) = (m["year"].text, m["month"].text), tag = "\(y) \(mo)"
+            let node = db["expenses"][y][mo]
+            let d = MonthCategories.detail(node: node, salary: ExpenseLedger.configuredSalary(year: y, month: mo, node: node, slips: slips), map: map)
+            XCTAssertEqual(d.salary, m["salary"].double, accuracy: 0.005, tag)
+            same(d.items, m["items"].array, "\(tag) items")
+            same(d.mainItems, m["mainItems"].array, "\(tag) main")
+            XCTAssertEqual(d.income.map { "\($0.category)|\($0.amount)|\($0.percentage)" }.sorted(),
+                           m["income"].array.map { "\($0["category"].text)|\($0["amount"].double)|\(Int($0["percentage"].double))" }.sorted(), "\(tag) income")
+        }
+        print("parity: month categories — \(web.array.count) months")
+    }
+
     func testBudgetsMatchTheWebApp() throws {
         let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["budgets"]
         let map = Budgets.categoryMap(appData: db["appData"])

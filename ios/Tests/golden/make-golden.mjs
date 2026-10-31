@@ -483,10 +483,26 @@ const atRun = (o) => {
 const atYears = [...new Set(atAll.map((t) => t.year))].sort().reverse();
 const allTxGolden = { total: atAll.length, years: atYears, first: atAll.slice(0, 25).map((r) => `${r.id}|${r.date}`), cases: [{}, { search: 'amazon' }, { type: 'credit' }, { type: 'debit', year: atYears[0] }, { year: atYears[0], month: 'March' }, { issue: 'vague-category' }, { issue: 'no-title' }, { cat: 'Food & Dining' }, { cat: Object.keys(budgetMap)[3] }, { waste: 'only' }].map(atRun) };
 
+
+// Monthly page categories: the monthDetails memo, cut off before the buckets.
+const monthCatSrc = slice('src/pages/ExpenseDetails.jsx', 'const monthData = expenses[year]?.[month] || {};', 'const buckets = expenseBuckets');
+const monthCatFn = new Function('expenses', 'year', 'month', 'salaryStats', 'mergedCategoryMap', 'countsAsSpending',
+    'const monthData = expenses[year]?.[month] || {};' + monthCatSrc + '\nreturn { items, mainItems, incomeItems, salary };');
+const countsAsSpendingFn = (tx) => !tx || tx.deductFromSalary !== false;
+const monthCategoriesGolden = [];
+for (const year of Object.keys(db.expenses || {})) {
+    for (const month of Object.keys(db.expenses[year] || {})) {
+        const r = monthCatFn(db.expenses, year, month, salaryStats, budgetMap, countsAsSpendingFn);
+        const pick = (i) => ({ category: i.category, mainCategory: i.mainCategory || i.category, amount: i.amount, deductibleAmount: i.deductibleAmount });
+        monthCategoriesGolden.push({ year, month, salary: r.salary, items: r.items.map(pick), mainItems: r.mainItems.map(pick),
+            income: r.incomeItems.map((i) => ({ category: i.category, amount: i.amount, percentage: i.percentage })) });
+    }
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden,
     months,
     stocks: {
         count: holdings.length,

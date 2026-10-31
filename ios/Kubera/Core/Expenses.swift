@@ -67,6 +67,19 @@ enum ExpenseLedger {
     /// Income for one month: a payslip, overridden by salary rows in the ledger,
     /// falling back to the legacy category totals.
     static func income(year: String, month: String, node: JSONValue, slips: [String: [String: Double]]) -> Double {
+        let salary = configuredSalary(year: year, month: month, node: node, slips: slips)
+        if salary == 0 {
+            let categories = node["categories"].isNull ? node : node["categories"]
+            for key in ["salary received", "salary", "income"] where categories[key].truthy {
+                return categories[key].double
+            }
+            return 0
+        }
+        return salary
+    }
+
+    /// `salaryStats[year].months[month]`: the payslip, overridden by salary rows in the ledger.
+    static func configuredSalary(year: String, month: String, node: JSONValue, slips: [String: [String: Double]]) -> Double {
         var salary = slips[year]?[month] ?? 0
         if case .array(let rows) = node["transactions"] {
             var sum = 0.0
@@ -79,13 +92,6 @@ enum ExpenseLedger {
                 }
             }
             if sum > 0 { salary = sum }
-        }
-        if salary == 0 {
-            let categories = node["categories"].isNull ? node : node["categories"]
-            for key in ["salary received", "salary", "income"] where categories[key].truthy {
-                return categories[key].double
-            }
-            return 0
         }
         return salary
     }
