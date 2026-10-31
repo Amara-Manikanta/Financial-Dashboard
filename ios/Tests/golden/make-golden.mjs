@@ -34,6 +34,7 @@ import { buildForecast } from '../../../src/utils/cashflow.js';
 import { netWorthSeries, contributionByYear } from '../../../src/utils/netWorthHistory.js';
 import { spendingOverview, categoryMovers, categoryTrends, spendingOutliers, concentration, monthlySeries } from '../../../src/utils/spendingAnalytics.js';
 import { KINDS as MF_KINDS, flowBreakdown, allTransactions, isDebit as mfIsDebit, kindFor as mfKindFor, defaultKindForCategory as mfDefault, isVagueCategory, averageMonthlySpend } from '../../../src/utils/transactionKind.js';
+import { allCardProfiles, cardTotals } from '../../../src/utils/creditCards.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -392,10 +393,22 @@ for (const period of ['12m', 'year', 'all']) {
     moneyFlowGolden[period] = mfRun((f) => f(), db.expenses, categoryKinds, period, new RealDate(frozenMs), false, () => {}, allTransactions, flowBreakdown, mfIsDebit, averageMonthlySpend, mfKindFor, mfDefault, isVagueCategory, MF_KINDS);
 }
 
+// creditCards.js, for the Cards and Card Intelligence pages.
+const cardProfiles = allCardProfiles(db.creditCards || [], db.expenses, new RealDate(frozenMs));
+const cardsGolden = { profiles: cardProfiles.map(({ history, ...rest }) => ({ ...rest, history })), totals: (({ idle, highestUtilisation, ...rest }) => ({ ...rest, idle: idle.map((p) => p.name), highestUtilisation: highestUtilisation?.name || null }))(cardTotals(cardProfiles)) };
+
+// CreditCardDetails.jsx: spend, wallet, points and due, cut from the page.
+const ccSpendSrc = slice('src/pages/CreditCardDetails.jsx', 'const cardSpendMap = useMemo(() => {', '    const handleSave');
+const ccPointsSrc = slice('src/pages/CreditCardDetails.jsx', 'const getCardRewardPoints = (c) => {', '                    const totalPoints');
+const ccDueSrc = slice('src/pages/CreditCardDetails.jsx', 'const totalDue = useMemo(() => creditCards.reduce((sum, card) => {', '}, 0), [creditCards, expenses]);');
+const ccFns = new Function('useMemo', 'expenses', `const cardSpendMap = useMemo(() => {${ccSpendSrc}\nconst getCardRewardPoints = (c) => {${ccPointsSrc}\nreturn { getCardSpend, getWalletBalance, getCardRewardPoints };`)((f) => f(), db.expenses);
+const ccDue = new Function('creditCards', 'getCardSpend', `return creditCards.reduce((sum, card) => {${ccDueSrc}}, 0);`)(db.creditCards || [], ccFns.getCardSpend);
+const cardListGolden = { totalDue: ccDue, cards: (db.creditCards || []).map((c) => ({ id: String(c.id), spend: ccFns.getCardSpend(c), wallet: ccFns.getWalletBalance(c), points: ccFns.getCardRewardPoints(c), pending: (c.monthlyData || []).filter((m) => !m.isPaid).reduce((s, m) => s + (Number(m.billAmount) || 0), 0) })) };
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

@@ -781,4 +781,44 @@ extension ParityTests {
         }
         print("parity: money flow — 3 periods, \(MoneyFlow.page(expenses: db["expenses"], kinds: kinds, period: .all, now: now).categories.count) categories")
     }
+
+    func testCardIntelligenceMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN"), web = golden["cards"]
+        let ps = Cards.profiles(creditCards: db["creditCards"], expenses: db["expenses"], now: try frozenNow(golden))
+        XCTAssertEqual(ps.map { $0.name }, web["profiles"].array.map { $0["name"].text }, "cards in order")
+        for (m, t) in zip(ps, web["profiles"].array) {
+            let tag = m.name
+            for (a, b) in [(m.limit, "limit"), (m.outstanding, "outstanding"), (m.peakBalance, "peakBalance"), (m.lifetimeSpend, "lifetimeSpend"), (m.interestPaid, "interestPaid"),
+                           (m.rewards, "rewards"), (m.averageMonthlySpend, "averageMonthlySpend"), (m.worstShortfall, "worstShortfall")] { XCTAssertEqual(a, t[b].double, accuracy: 0.005, "\(tag) \(b)") }
+            XCTAssertEqual(m.isWallet, t["isWallet"].isTrue, tag); XCTAssertEqual(m.transactionCount, Int(t["transactionCount"].double), tag); XCTAssertEqual(m.revolvingMonths, Int(t["revolvingMonths"].double), tag)
+            XCTAssertEqual(m.lastUsed ?? "", t["lastUsed"].text, tag)
+            if let d = m.daysIdle { XCTAssertEqual(d, Int(t["daysIdle"].double), tag) } else { XCTAssertTrue(t["daysIdle"].isNull, tag) }
+            if let u = m.utilisation { XCTAssertEqual(u, t["utilisation"].double, accuracy: 1e-6, tag) } else { XCTAssertTrue(t["utilisation"].isNull, tag) }
+            if let c = m.cycle { XCTAssertEqual(c.lastStatement, t["cycle"]["lastStatement"].text, tag); XCTAssertEqual(c.nextStatement, t["cycle"]["nextStatement"].text, tag); XCTAssertEqual(c.daysToNext, Int(t["cycle"]["daysToNextStatement"].double), tag) } else { XCTAssertTrue(t["cycle"].isNull, tag) }
+            XCTAssertEqual(m.history.map { $0.month }, t["history"].array.map { $0["month"].text }, "\(tag) months")
+            for (h, w) in zip(m.history, t["history"].array) {
+                for (a, b) in [(h.spend, "spend"), (h.payment, "payment"), (h.interest, "interest"), (h.refund, "refund"), (h.reward, "reward"), (h.shortfall, "shortfall")] { XCTAssertEqual(a, w[b].double, accuracy: 0.005, "\(tag) \(h.month) \(b)") }
+                XCTAssertEqual(h.revolved, w["revolved"].isTrue, "\(tag) \(h.month)"); XCTAssertEqual(h.tracked, w["trackedBalance"].isTrue, "\(tag) \(h.month)")
+                if let c = h.closing { XCTAssertEqual(c, w["closingBalance"].double, accuracy: 0.005, "\(tag) \(h.month)") } else { XCTAssertTrue(w["closingBalance"].isNull, "\(tag) \(h.month)") }
+            }
+            XCTAssertEqual(m.interestMonths.map { $0.month }, t["interestMonths"].array.map { $0["month"].text }, tag)
+            XCTAssertEqual(m.topCategories.map { $0.amount }, t["topCategories"].array.map { $0["amount"].double }, "\(tag) top categories")
+        }
+        let tot = Cards.totals(ps), wt = web["totals"]
+        for (a, b) in [(tot.limit, "limit"), (tot.outstanding, "outstanding"), (tot.available, "available"), (tot.interestPaid, "interestPaid"), (tot.lifetimeSpend, "lifetimeSpend")] { XCTAssertEqual(a, wt[b].double, accuracy: 0.005, b) }
+        XCTAssertEqual(tot.utilisation, wt["utilisation"].double, accuracy: 1e-6); XCTAssertEqual(tot.idle, wt["idle"].array.map { $0.text }); XCTAssertEqual(tot.highestUtilisation ?? "", wt["highestUtilisation"].text)
+        print("parity: cards — \(ps.count) cards, \(ps.reduce(0) { $0 + $1.history.count }) card-months, outstanding \(tot.outstanding)")
+    }
+
+    func testCardsListMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["cardList"]
+        let r = Cards.listCards(creditCards: db["creditCards"], expenses: db["expenses"])
+        XCTAssertEqual(r.cards.map { $0.id }, web["cards"].array.map { $0["id"].text })
+        for (m, t) in zip(r.cards, web["cards"].array) {
+            XCTAssertEqual(m.spend, t["spend"].double, accuracy: 0.005, m.name); XCTAssertEqual(m.wallet, t["wallet"].double, accuracy: 0.005, m.name)
+            XCTAssertEqual(m.points, t["points"].double, accuracy: 0.005, m.name); XCTAssertEqual(m.pending, t["pending"].double, accuracy: 0.005, m.name)
+        }
+        XCTAssertEqual(r.totalDue, web["totalDue"].double, accuracy: 0.005)
+        print("parity: cards list — \(r.cards.count) cards, total due \(r.totalDue)")
+    }
 }
