@@ -858,4 +858,25 @@ extension ParityTests {
         }
         print("parity: budgets — \(web["months"].array.count) months, \(map.count) categories")
     }
+
+    func testFuelMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["fuel"]
+        XCTAssertEqual(Fuel.page(expenses: db["expenses"]).years, web["years"].array.map { Int($0.double) })
+        var rows = 0
+        for c in web["cases"].array {
+            let tag = "\(c["v"].text)/\(c["y"].text)/\(c["m"].text)"
+            let p = Fuel.page(expenses: db["expenses"], vehicle: c["v"].text, year: c["y"].text, month: c["m"].text)
+            XCTAssertEqual(p.rows.count, Int(c["count"].double), tag)
+            for (a, b) in [(p.totalSpent, "totalSpent"), (p.totalLiters, "totalLiters"), (p.totalDistance, "totalDistance"), (p.avgMileage, "avgMileage"), (p.avgPrice, "avgPrice")] { XCTAssertEqual(a, c[b].double, accuracy: 1e-6, "\(tag) \(b)") }
+            XCTAssertEqual(p.validMileage, Int(c["valid"].double), tag)
+            for (m, t) in zip(p.rows, c["rows"].array) {
+                XCTAssertEqual(m.txId, t["id"].text, tag)
+                if let d = m.distance { XCTAssertEqual(d, t["distance"].double, accuracy: 1e-9, tag) } else { XCTAssertTrue(t["distance"].isNull, tag) }
+                if let x = m.mileage { XCTAssertEqual(x, t["mileage"].double, accuracy: 1e-9, tag) } else { XCTAssertTrue(t["mileage"].isNull, tag) }
+                if let x = m.pricePerLiter { XCTAssertEqual(x, t["pricePerLiter"].double, accuracy: 1e-9, tag) } else { XCTAssertTrue(t["pricePerLiter"].isNull, tag) }
+            }
+            rows += p.rows.count
+        }
+        print("parity: fuel — \(web["cases"].array.count) filter sets, \(rows) fill-ups")
+    }
 }

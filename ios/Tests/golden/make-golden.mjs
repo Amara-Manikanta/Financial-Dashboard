@@ -431,10 +431,24 @@ for (const year of Object.keys(db.expenses).sort().slice(-2)) {
     }
 }
 
+// FuelAnalytics.jsx: its memos, for a few filter combinations.
+const fuelTxSrc = slice('src/pages/FuelAnalytics.jsx', 'const fuelTransactions = useMemo(() => {', '}, [expenses]);');
+const fuelFilterSrc = slice('src/pages/FuelAnalytics.jsx', 'const filteredTransactions = useMemo(() => {', '}, [fuelTransactions, selectedVehicle, selectedYear, selectedMonth]);');
+const fuelDataSrc = slice('src/pages/FuelAnalytics.jsx', 'const analyticsData = useMemo(() => {', '}, [filteredTransactions]);');
+const fuelTx = new Function('expenses', fuelTxSrc)(db.expenses);
+const fuelRun = (v, y, m) => {
+    const filtered = new Function('fuelTransactions', 'selectedVehicle', 'selectedYear', 'selectedMonth', fuelFilterSrc)(fuelTx, v, y, m);
+    const a = new Function('filteredTransactions', fuelDataSrc)(filtered);
+    return { v, y, m, count: filtered.length, totalSpent: a.totalSpent, totalLiters: a.totalLiters, totalDistance: a.totalDistance, avgMileage: a.avgMileage, avgPrice: a.avgPrice, valid: a.validMileageData.length,
+        rows: a.chartData.map((d) => ({ id: d.id, distance: d.distance, mileage: d.mileage, pricePerLiter: d.pricePerLiter, liters: d.liters })) };
+};
+const fuelYears = [...new Set(fuelTx.map((t) => t.year))].sort((a, b) => b - a);
+const fuelGolden = { years: fuelYears, cases: [fuelRun('All', 'All', 'All'), fuelRun('scooty', 'All', 'All'), fuelRun('bike', 'All', 'All'), fuelRun('car', 'All', 'All'), ...fuelYears.slice(0, 2).map((y) => fuelRun('All', String(y), 'All'))] };
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

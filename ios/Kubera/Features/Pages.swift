@@ -61,7 +61,7 @@ enum Pages {
             AppPage(title: "Card Intelligence", path: "/credit-cards/intelligence", icon: "gauge", native: .screen(.cardIntelligence)),
             AppPage(title: "Budget Limits", path: "/category-budgets", icon: "slider.horizontal.3", native: .screen(.budgets)),
             AppPage(title: "Recurring & Subscriptions", path: "/recurring", icon: "repeat", native: .screen(.recurring)),
-            AppPage(title: "Fuel Analytics", path: "/fuel", icon: "fuelpump"),
+            AppPage(title: "Fuel Analytics", path: "/fuel", icon: "fuelpump", native: .screen(.fuel)),
             AppPage(title: "Grocery Analytics", path: "/grocery-analytics", icon: "cart"),
             AppPage(title: "Grocery Builder", path: "/grocery-master-list", icon: "list.clipboard"),
             AppPage(title: "Data Health", path: "/data-health", icon: "stethoscope", native: .screen(.dataHealth)),
