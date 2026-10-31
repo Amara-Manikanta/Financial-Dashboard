@@ -29,7 +29,14 @@ struct AccountDetailView: View {
             ForEach(p.sections) { s in
                 KSectionHeader(title: s.title, detail: "\(s.rows.count)")
                 KList(items: Array(s.rows.prefix(limit))) { r in
-                    KRow(title: r.title, subtitle: r.subtitle, value: r.value, valueTone: r.tone > 0 ? .positive : .neutral)
+                    if s.title == "Recurring deposits" {
+                        NavigationLink(value: RDRoute(accountId: route.id, index: r.id)) {
+                            KRow(title: r.title, subtitle: r.subtitle, value: r.value, valueTone: r.tone > 0 ? .positive : .neutral, chevron: true)
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        KRow(title: r.title, subtitle: r.subtitle, value: r.value, valueTone: r.tone > 0 ? .positive : .neutral)
+                    }
                 }
                 if s.rows.count > limit { Button("Show 30 more") { limit += 30 }.font(Theme.footnote.weight(.bold)) }
             }
@@ -38,5 +45,6 @@ struct AccountDetailView: View {
         .navigationTitle(p.title.isEmpty ? "Account" : p.title)
         .toolbar { EditRecordButton(store: store, collection: "savings", id: route.id, title: p.title.isEmpty ? "Account" : p.title) }
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: RDRoute.self) { RecurringDepositView(store: store, route: $0) }
     }
 }
