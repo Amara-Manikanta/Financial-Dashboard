@@ -17,7 +17,7 @@ struct CardsView: View {
             }
             if r.cards.isEmpty { KCard { Text("No cards yet. Add one on the Mac.").font(Theme.body).foregroundStyle(Theme.muted) } }
             ForEach(r.cards) { c in
-                Button { openWebPage(AppPage(title: c.name, path: "/credit-cards/\(c.id)", icon: "creditcard")) } label: {
+                NavigationLink(value: CardRoute(id: c.id)) {
                     KCard {
                         HStack { Text(c.name).font(Theme.body.weight(.bold)).foregroundStyle(.white); Spacer()
                             Text(c.isWallet ? "Wallet" : c.raw["last4Digits"].truthy ? "•••• \(c.raw["last4Digits"].text)" : "Card").font(.system(.footnote, design: .monospaced)).foregroundStyle(Theme.muted) }
@@ -43,5 +43,6 @@ struct CardsView: View {
         }
         .navigationTitle("Cards")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: CardRoute.self) { CardDetailView(store: store, route: $0) }
     }
 }

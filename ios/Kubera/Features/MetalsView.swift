@@ -28,7 +28,7 @@ struct MetalsView: View {
             KList(items: Self.titles.filter { !(processed[$0.key] ?? []).isEmpty }.map { Kind_(key: $0.key, title: $0.title) }) { k in
                 let items = processed[k.key] ?? []
                 let hideWeight = k.key == "antique_coins" || k.key == "currencies"
-                Button { openWebPage(AppPage(title: k.title, path: "/metals/\(k.key)", icon: "circle.hexagongrid")) } label: {
+                NavigationLink(value: MetalRoute(key: k.key)) {
                     KRow(title: k.title, subtitle: "\(items.count) positions\(hideWeight ? "" : " · \(String(format: "%g", (Self.sum(processed, k.key, "weightGm") * 10000).rounded() / 10000))g")", value: inr(Self.sum(processed, k.key, "currentValue")))
                 }.buttonStyle(.plain)
             }
@@ -36,6 +36,7 @@ struct MetalsView: View {
         }
         .navigationTitle("Precious Metals")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: MetalRoute.self) { MetalDetailView(store: store, route: $0) }
     }
     private static func sum(_ p: [String: [JSONValue]], _ k: String, _ f: String) -> Double { (p[k] ?? []).reduce(0) { $0 + $1[f].double } }
     private struct Kind_: Identifiable { let key: String; let title: String; var id: String { key } }

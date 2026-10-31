@@ -35,6 +35,7 @@ struct LoansView: View {
         }
         .navigationTitle("Loans & Lents")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: LentRoute.self) { LentDetailView(store: store, route: $0) }
     }
 
     // MARK: People
@@ -62,7 +63,7 @@ struct LoansView: View {
             KCard { Text("No peer-to-peer debts recorded.").font(Theme.footnote).foregroundStyle(Theme.muted) }
         } else {
             KList(items: filteredDebts) { debt in
-                Button { openWebPage(AppPage(title: debt.name, path: "/lents-loans/\(debt.id)", icon: "arrow.up.right.circle")) } label: {
+                NavigationLink(value: LentRoute(id: debt.id)) {
                     KRow(title: debt.name, subtitle: debt.detail.isEmpty ? (debt.isLent ? "Lent" : "Borrowed") : debt.detail,
                          value: Money.rupees(debt.outstanding), valueTone: debt.isLent ? .positive : .negative,
                          valueCaption: debt.isLent ? "owed to you" : "you owe", chevron: true)

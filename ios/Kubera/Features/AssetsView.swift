@@ -36,12 +36,13 @@ struct AssetsView: View {
             KList(items: cats.map { Cat(raw: $0) }) { cat in
                 let c = cat.raw
                 let items = c["items"].array
-                Button { openWebPage(AppPage(title: c["title"].text, path: "/assets/\(c["id"].text)", icon: "car")) } label: {
+                NavigationLink(value: AssetCategoryRoute(id: c["id"].text)) {
                     KRow(title: c["title"].text, subtitle: "\(items.count) items", value: inr(items.reduce(0) { $0 + value($1) }))
                 }.buttonStyle(.plain)
             }
         }
         .navigationTitle("Assets")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: AssetCategoryRoute.self) { AssetCategoryView(store: store, route: $0) }
     }
 }
