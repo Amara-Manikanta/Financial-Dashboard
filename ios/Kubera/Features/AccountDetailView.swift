@@ -33,14 +33,16 @@ struct AccountDetailView: View {
                     HStack(alignment: .firstTextBaseline) { Text(f.label).font(Theme.footnote).foregroundStyle(Theme.muted); Spacer(); Text(f.value).font(Theme.footnote.weight(.semibold)).foregroundStyle(.white) }
                 }
             }
-            ForEach(p.sections) { s in
+            let specs = AccountLedger.lists(for: raw["type"].text)
+            if !specs.isEmpty { AccountLedgerSections(store: store, account: raw, specs: specs) }
+            ForEach(specs.isEmpty ? p.sections : []) { s in
                 KSectionHeader(title: s.title, detail: "\(s.rows.count)")
                 KList(items: Array(s.rows.prefix(limit))) { r in
                     KRow(title: r.title, subtitle: r.subtitle, value: r.value, valueTone: r.tone > 0 ? .positive : .neutral)
                 }
                 if s.rows.count > limit { Button("Show 30 more") { limit += 30 }.font(Theme.footnote.weight(.bold)) }
             }
-            Text("Records are added and edited on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+            Text(specs.isEmpty ? "Records are added and edited on the Mac." : "").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle(p.title.isEmpty ? "Account" : p.title)
         .toolbar { EditRecordButton(store: store, collection: "savings", id: route.id, title: p.title.isEmpty ? "Account" : p.title) }

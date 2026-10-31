@@ -94,6 +94,18 @@ final class FinanceStore: ObservableObject {
         return nil
     }
 
+    /// Creates one new savings account (a single-record POST, never a whole-collection write). Nil when saved.
+    func createAccount(_ account: [String: Any]) async -> String? {
+        do {
+            let r = try await api.send("POST", path: "savings", body: account)
+            if !(200...299).contains(r.status) {
+                return r.body["reason"].truthy ? r.body["reason"].text : r.body["error"].truthy ? r.body["error"].text : "Your Mac refused the new account (\(r.status)); nothing was added."
+            }
+        } catch { return error.localizedDescription }
+        await load()
+        return nil
+    }
+
     // MARK: News (read and collected on the Mac; the phone only asks)
 
     private func newsQuery(_ symbol: String, _ name: String) -> [URLQueryItem] {

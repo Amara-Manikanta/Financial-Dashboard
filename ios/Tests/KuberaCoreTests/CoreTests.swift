@@ -747,3 +747,55 @@ final class DepositLedgerTests: XCTestCase {
         XCTAssertEqual(DepositLedger.banks([json(#"{"bank":"b"}"#), json(#"{"bank":"A"}"#), json(#"{"bank":"b"}"#)]), ["A", "b"])
     }
 }
+
+final class AccountLedgerTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    func testPPFEntryRecalculatesBalancesAndAmount() throws {
+        let acct = json(#"{"id":"p","type":"ppf","amount":500,"details":[{"id":"1","date":"2021-09-24","type":"investment","amount":500,"interestEarned":0,"balance":500}]}"#)
+        let spec = AccountLedger.lists(for: "ppf")[0]
+        var d = AccountLedger.draft(for: spec); d["date"] = "2021-10-01"; d["type"] = "investment"; d["amount"] = "1,000"
+        let patch = try AccountLedger.patch(account: acct, spec: spec, change: .add(AccountLedger.row(d, spec: spec, type: "ppf"))).get()
+        XCTAssertEqual(patch["amount"] as? Double, 1500)
+        XCTAssertEqual(((patch["details"] as! [[String: Any]]).last)?["balance"] as? Double, 1500)
+    }
+
+    func testStaleRowsAreRefused() {
+        let acct = json(#"{"id":"s","type":"savings_account","transactions":[{"id":"1","type":"deposit","amount":10,"date":"2026-01-01"}]}"#)
+        let spec = AccountLedger.lists(for: "savings_account")[0]
+        let old = json(#"{"id":"1","type":"deposit","amount":99,"date":"2026-01-01"}"#)
+        XCTAssertThrowsError(try AccountLedger.patch(account: acct, spec: spec, change: .delete(index: 0, expected: old)).get())
+        XCTAssertThrowsError(try AccountLedger.patch(account: acct, spec: spec, change: .delete(index: 4, expected: old)).get())
+    }
+
+    func testFundTransactionDerivesUnitsAndAmountAndKeepsLinks() throws {
+        let acct = json(#"{"id":"f","type":"mutual_fund","currentNav":50,"amount":0,"transactions":[{"id":"1","type":"buy","units":10,"nav":40,"amount":400,"date":"2026-01-01","expenseId":"e"}]}"#)
+        let spec = AccountLedger.lists(for: "mutual_fund")[0]
+        var d = AccountLedger.draft(for: spec); d["amount"] = "1000"; d["nav"] = "50"; d["date"] = "2026-02-01"; d["type"] = "sip"
+        let row = AccountLedger.row(d, spec: spec, type: "mutual_fund")
+        XCTAssertEqual(row["units"].double, 20)
+        let patch = try AccountLedger.patch(account: acct, spec: spec, change: .add(row)).get()
+        XCTAssertEqual(patch["amount"] as? Double, 1500, "30 units at ₹50")
+        XCTAssertNotNil(AccountLedger.rowLock(acct["transactions"][0], type: "mutual_fund"))
+    }
+
+    func testNpsTransactionResyncsSchemeAndAccount() throws {
+        let acct = json(#"{"id":"n","type":"nps","amount":0,"holdings":[{"id":"h","issueName":"Scheme C","currentPrice":10,"transactions":[]}]}"#)
+        let spec = AccountLedger.lists(for: "nps")[1]
+        var d = AccountLedger.draft(for: spec); d["amount"] = "1000"; d["units"] = "100"; d["nav"] = "10"; d["type"] = "contribution"
+        let patch = try AccountLedger.patch(account: acct, spec: spec, parentIndex: 0, change: .add(AccountLedger.row(d, spec: spec, type: "nps"))).get()
+        XCTAssertEqual(patch["amount"] as? Double, 1000); XCTAssertEqual(patch["investedAmount"] as? Double, 1000)
+        XCTAssertEqual(((patch["holdings"] as! [[String: Any]])[0])["percentage"] as? Double, 100)
+    }
+
+    func testPremiumsSumPaidAndValidation() throws {
+        let acct = json(#"{"id":"p","type":"policy","amount":0,"premiums":[]}"#)
+        let spec = AccountLedger.lists(for: "policy")[0]
+        var d = AccountLedger.draft(for: spec); XCTAssertFalse(AccountLedger.problems(d, spec: spec).isEmpty)
+        d["amount"] = "1228"; d["status"] = "Paid"
+        XCTAssertTrue(AccountLedger.problems(d, spec: spec).isEmpty)
+        let patch = try AccountLedger.patch(account: acct, spec: spec, change: .add(AccountLedger.row(d, spec: spec, type: "policy"))).get()
+        XCTAssertEqual(patch["amount"] as? Double, 1228)
+        XCTAssertEqual(AccountLedger.newAccount(type: "ppf", title: "x", amount: 0, date: "2026-01-01")["details"] as? [Any] != nil, true)
+    }
+}

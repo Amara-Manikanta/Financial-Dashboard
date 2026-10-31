@@ -1049,8 +1049,18 @@ deposit; each deposit page adds, changes and deletes instalments and interest cr
 itself can be edited or deleted. Every save loads the account fresh with its version, changes one row of one
 list, and PATCHes `/savings/<id>` under that version. The account `amount` is recomputed as the web does
 (live fixed deposits at today's accrual; recurring deposits at maturity) and a parity test checks accrual,
-maturity and the amount for all 22 fixed deposits against `fdAccrual.js`. Not yet on the phone: PPF, PF, NPS,
-SGB, policy, savings-account and emergency-fund ledgers, and mutual-fund transactions.
+maturity and the amount for all 22 fixed deposits against `fdAccrual.js`.
+
+**Other accounts** (`AccountLedger`, `AccountLedgerViews`): mutual-fund and emergency-fund transactions, PPF and PF
+entries, savings-account transactions, policy premiums / claims / benefits, gold-bond holdings and interest, and
+NPS schemes and their transactions can be added, changed and deleted from the account page; the Savings tab's +
+adds a whole account (`POST /savings`, one record). Each save loads the account fresh, changes one row (a row that
+no longer matches what the phone read is refused) and PATCHes the list together with what the Mac's page
+recomputes: fund `amount` (units × NAV), PPF running balances, PF EPF/EPS balances, NPS units / invested / share,
+premiums paid. A test replays every PPF, PF, fund, NPS and savings account through these recomputes and checks
+they reproduce the stored figures. Rows linked to an expense are locked. Not on the phone: refreshing a fund's
+NAV, fund composition, policy document upload, the savings account's automatic daily-interest credit, PPF's
+"add yearly interest" helper, and mutual-fund creation (Invest page).
 
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines

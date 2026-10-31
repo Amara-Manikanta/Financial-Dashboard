@@ -5,6 +5,7 @@ struct SavingsView: View {
     @ObservedObject var store: FinanceStore
     @Environment(\.openWebPage) private var openWebPage
     @State private var showArchived = false
+    @State private var addingAccount = false
 
     private var summary: SavingsPage.Summary { store.savings }
 
@@ -51,6 +52,8 @@ struct SavingsView: View {
         }
         .navigationTitle("Savings")
         .navigationBarTitleDisplayMode(.large)
+        .toolbar { ToolbarItem(placement: .primaryAction) { Button { addingAccount = true } label: { Image(systemName: "plus") } } }
+        .sheet(isPresented: $addingAccount) { NewAccountSheet(store: store) }
         .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
     }
 

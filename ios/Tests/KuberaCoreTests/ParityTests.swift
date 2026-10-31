@@ -988,3 +988,35 @@ extension ParityTests {
         print("account details: \(db["savings"].array.count - 1) accounts, \(rows) ledger rows")
     }
 }
+
+final class AccountLedgerDataTests: XCTestCase {
+    /// Replaying each account's own rows through the ported recomputes must reproduce what the Mac stored.
+    func testRecomputesReproduceTheStoredFigures() throws {
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: ProcessInfo.processInfo.environment["KUBERA_DB"] ?? "/dev/null")))
+        var checked = 0
+        for a in db["savings"].array {
+            switch a["type"].text {
+            case "ppf":
+                let rows = AccountLedger.ppfBalances(a["details"].array)
+                XCTAssertEqual(rows.last?["balance"].double ?? 0, a["amount"].double, accuracy: 0.01, "ppf amount"); checked += 1
+            case "pf":
+                let rows = AccountLedger.pfBalances(a["details"].array, opening: a["amount"].double)
+                let stored = a["details"].array.sorted { $0["date"].text < $1["date"].text }
+                XCTAssertEqual(rows.last?["balance"].double ?? 0, stored.last?["balance"].double ?? 0, accuracy: 0.01, "pf balance")
+                XCTAssertEqual(rows.last?["epsBalance"].double ?? 0, stored.last?["epsBalance"].double ?? 0, accuracy: 0.01, "pf eps"); checked += 1
+            case "mutual_fund":
+                let v = AccountLedger.fundUnits(a["transactions"].array) * a["currentNav"].double
+                XCTAssertEqual(v, a["amount"].double, accuracy: max(1, a["amount"].double * 0.001), "fund \(a["title"].text)"); checked += 1
+            case "nps":
+                let s = AccountLedger.npsSync(a["holdings"].array)
+                XCTAssertEqual(s.current, a["amount"].double, accuracy: 1, "nps current"); checked += 1
+            case "savings_account":
+                let sum = a["transactions"].array.reduce(0.0) { acc, t in
+                    switch t["type"].text { case "deposit", "interest", "monnies_redeemed": return acc + t["amount"].double; case "withdraw": return acc - t["amount"].double; default: return acc } }
+                XCTAssertEqual(sum, a["amount"].double, accuracy: 0.01, "savings account \(a["title"].text)"); checked += 1
+            default: break
+            }
+        }
+        print("parity: account ledgers — \(checked) accounts reproduce their stored figures")
+    }
+}
