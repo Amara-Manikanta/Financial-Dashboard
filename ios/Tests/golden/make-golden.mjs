@@ -33,6 +33,7 @@ import { detectRecurring, applyOverrides } from '../../../src/utils/recurring.js
 import { buildForecast } from '../../../src/utils/cashflow.js';
 import { netWorthSeries, contributionByYear } from '../../../src/utils/netWorthHistory.js';
 import { spendingOverview, categoryMovers, categoryTrends, spendingOutliers, concentration, monthlySeries } from '../../../src/utils/spendingAnalytics.js';
+import { KINDS as MF_KINDS, flowBreakdown, allTransactions, isDebit as mfIsDebit, kindFor as mfKindFor, defaultKindForCategory as mfDefault, isVagueCategory, averageMonthlySpend } from '../../../src/utils/transactionKind.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -382,10 +383,19 @@ const spendingGolden = {
     outliers: Object.fromEntries([6, 12, 24].map((w) => [w, spendingOutliers(db.expenses, categoryKinds, { sinceMonths: w })])),
 };
 
+// MoneyFlow.jsx: its memos, for each period.
+const mfBody = slice('src/pages/MoneyFlow.jsx', 'const scoped = useMemo(() => {', '    const spendPct');
+const mfRun = new Function('useMemo', 'expenses', 'categoryKinds', 'period', 'now', 'onlyUnreviewed', 'saveCategoryKinds', 'allTransactions', 'flowBreakdown', 'isDebit', 'averageMonthlySpend', 'kindFor', 'defaultKindForCategory', 'isVagueCategory', 'KINDS',
+    `const scoped = useMemo(() => {${mfBody}\nreturn { breakdown, naive, avg, categoryRows };`);
+const moneyFlowGolden = {};
+for (const period of ['12m', 'year', 'all']) {
+    moneyFlowGolden[period] = mfRun((f) => f(), db.expenses, categoryKinds, period, new RealDate(frozenMs), false, () => {}, allTransactions, flowBreakdown, mfIsDebit, averageMonthlySpend, mfKindFor, mfDefault, isVagueCategory, MF_KINDS);
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

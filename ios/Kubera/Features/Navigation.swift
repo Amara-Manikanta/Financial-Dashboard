@@ -21,6 +21,7 @@ enum NativeScreen: Hashable {
     case netWorthHistory
     case recurring
     case spending
+    case moneyFlow
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -63,6 +64,7 @@ struct NativeDestination: View {
         case .netWorthHistory: NetWorthHistoryView(store: store)
         case .recurring: RecurringView(store: store)
         case .spending: SpendingView(store: store)
+        case .moneyFlow: MoneyFlowView(store: store)
         }
     }
 }

@@ -753,4 +753,32 @@ extension ParityTests {
         }
         print("parity: spending analytics — \(series.count) months, \(web["movers"]["rows"].array.count) movers, normal month \(o.normalSpend)")
     }
+
+    func testMoneyFlowMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN"), now = try frozenNow(golden)
+        let kinds = TransactionKind.categoryKinds(from: db["appData"])
+        for (key, period) in [("12m", MoneyFlow.Period.twelve), ("year", .year), ("all", .all)] {
+            let p = MoneyFlow.page(expenses: db["expenses"], kinds: kinds, period: period, now: now), w = golden["moneyFlow"][key]
+            XCTAssertEqual(p.breakdown.gross, w["breakdown"]["gross"].double, accuracy: 0.005, key); XCTAssertEqual(p.naive, w["naive"].double, accuracy: 0.005, key)
+            XCTAssertEqual(p.averageSpend, w["avg"]["average"].double, accuracy: 0.005, key); XCTAssertEqual(p.averageMonths, Int(w["avg"]["months"].double), key)
+            for (r, t) in zip(p.breakdown.rows, w["breakdown"]["rows"].array) {
+                XCTAssertEqual(r.kind.rawValue, t["kind"].text); XCTAssertEqual(r.total, t["total"].double, accuracy: 0.005, "\(key) \(r.kind)"); XCTAssertEqual(r.count, Int(t["count"].double), "\(key) \(r.kind)")
+                // Equal totals can come out in either order (the file's own month order decides in the web app), so compare name by name.
+                XCTAssertEqual(Dictionary(uniqueKeysWithValues: r.categories.map { ($0.category, $0.amount) }), Dictionary(uniqueKeysWithValues: t["categories"].array.map { ($0["category"].text, $0["amount"].double) }), "\(key) \(r.kind) categories")
+                XCTAssertEqual(r.categories.map { $0.amount }, t["categories"].array.map { $0["amount"].double }, "\(key) \(r.kind) amounts in order")
+            }
+            let u = w["breakdown"]["unreviewed"]
+            XCTAssertEqual(p.breakdown.unreviewed.total, u["total"].double, accuracy: 0.005, key); XCTAssertEqual(p.breakdown.unreviewed.count, Int(u["count"].double), key)
+            XCTAssertEqual(p.breakdown.unreviewed.categories.map { $0.amount }, u["categories"].array.map { $0["amount"].double }, key)
+            XCTAssertEqual(p.categories.map { $0.amount }, w["categoryRows"].array.map { $0["amount"].double }, "\(key) category amounts in order")
+            let byName = Dictionary(uniqueKeysWithValues: w["categoryRows"].array.map { ($0["category"].text, $0) })
+            XCTAssertEqual(Set(p.categories.map { $0.category }), Set(byName.keys), "\(key) category set")
+            for r in p.categories {
+                guard let t = byName[r.category] else { continue }
+                XCTAssertEqual(r.kind.rawValue, t["kind"].text, r.category); XCTAssertEqual(r.suggested.rawValue, t["suggested"].text, r.category); XCTAssertEqual(r.vague, t["vague"].isTrue, r.category)
+                XCTAssertEqual(r.assigned?.rawValue ?? "", t["assigned"].text, r.category); XCTAssertEqual(r.amount, t["amount"].double, accuracy: 0.005, r.category)
+            }
+        }
+        print("parity: money flow — 3 periods, \(MoneyFlow.page(expenses: db["expenses"], kinds: kinds, period: .all, now: now).categories.count) categories")
+    }
 }
