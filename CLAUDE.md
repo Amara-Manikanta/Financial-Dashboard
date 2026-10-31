@@ -919,6 +919,9 @@ year (spent, invested, income, category counts) and every stock holding. The
 golden file is your finances: it is written to `/tmp`, never to the repo. If you
 change a rule in the JS, this fails until the Swift matches.
 
+To open one screen without tapping to it, launch the simulator app with `-screen <NativeScreen case>`:
+`xcrun simctl launch <udid> com.kubera.finance.phone -screen budgets`.
+
 ### Building and running
 
 ```bash
@@ -964,7 +967,17 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Insurance Gap Analysis | yes | every tab with and without archived, two profiles: cover per kind, gaps, vehicles, expiry |
 | Cashflow Forecast (and recurring-charge detection) | yes | all 79 detected series with cadence/typical/next date/overrides; every forecast event, cycle and total at 30/60/90 days |
 | Net Worth Over Time | yes | all 113 months by component, debt, yearly additions, steps to check |
-| DocuSetu, Spending, Metals and assets, Profile | **next** | |
+| Spending Analysis | yes | all 114 months, normal month/income/savings rate, every mover for two months, trends, outliers and concentration at 6/12/24 months |
+| Money Flow | yes | three periods: breakdown by kind, unreviewed categories, every category's classification, average real month |
+| Cards, Card Intelligence | yes | 6 cards, 178 card-months: utilisation, interest, revolving, idle, statement dates; list page's due, wallet and points |
+| Budget Limits | yes | every month of the last two years: spend per main and sub category, over/near/within counts, health |
+| Recurring & Subscriptions | yes | 79 detected series, overrides (cancelled/ignored/watching), still-charging |
+| Fuel Analytics | yes | six filter sets: spend, litres, distance, mileage and every fill-up's figures |
+| Grocery Analytics, Grocery Builder (read-only) | yes | 522 line items, four filter sets with their option lists; every category's item list |
+| All Transactions | yes | 8,165 rows newest first, ten filter sets, the regret tally |
+| Data Health, Warranties, Assets, Precious Metals | yes | Data Health's 9 checks and Warranties' 20 items; Assets and Metals reuse verified valuations |
+| Profile (this iPhone only) | yes | not a port: password, backups, Claude key and iPhone pairing deliberately stay on the Mac |
+| Ornament Gallery, DocuSetu, account detail pages (a fund, deposit, policy, stock, card, loan, metal, asset) | web fallback | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the

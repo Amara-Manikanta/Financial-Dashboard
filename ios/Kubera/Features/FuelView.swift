@@ -40,7 +40,7 @@ struct FuelView: View {
                 if mileage.count > 1 {
                     KSectionHeader(title: "Mileage")
                     KCard {
-                        Chart(mileage) { r in LineMark(x: .value("Date", Self.day(r.date)), y: .value("kmpl", r.mileage ?? 0)).foregroundStyle(Theme.warning).interpolationMethod(.monotone)
+                        Chart(mileage) { r in LineMark(x: .value("Date", Self.day(r.date)), y: .value("kmpl", r.mileage ?? 0)).foregroundStyle(Theme.warning.opacity(0.6))
                             PointMark(x: .value("Date", Self.day(r.date)), y: .value("kmpl", r.mileage ?? 0)).foregroundStyle(Theme.warning).symbolSize(18) }
                             .chartYAxis { AxisMarks { v in AxisGridLine().foregroundStyle(Color.white.opacity(0.06)); AxisValueLabel().foregroundStyle(Theme.muted) } }
                             .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisValueLabel(format: .dateTime.month(.abbreviated).year(.twoDigits)).foregroundStyle(Theme.muted) } }

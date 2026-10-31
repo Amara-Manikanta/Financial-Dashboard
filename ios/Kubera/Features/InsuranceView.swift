@@ -22,7 +22,7 @@ struct InsuranceView: View {
             cover("Health cover", have: page.health, need: page.recommendedHealth, pct: page.healthPct, gap: page.healthGap, warn: Theme.warning)
 
             KCard {
-                KStat(label: "Vehicle cover (IDV)", value: inr(page.bike + page.car), caption: page.vehicles.isEmpty ? nil : page.vehicles.joined(separator: ", "))
+                KStat(label: "Vehicle cover (IDV)", value: inr(page.bike + page.car), caption: page.vehicles.isEmpty ? nil : page.vehicles.reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", "))
                 HStack(alignment: .top) {
                     KStat(label: "Annual premiums", value: inr(page.premiums), caption: "across \(page.policies.count) policies")
                     Spacer()
