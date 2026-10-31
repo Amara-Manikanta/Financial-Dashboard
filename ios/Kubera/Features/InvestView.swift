@@ -51,7 +51,7 @@ struct InvestView: View {
         if account.type == "stock_market" {
             NavigationLink(value: NativeScreen.stocks) { row }.buttonStyle(.plain)
         } else if let path = account.webPath {
-            Button { openWebPage(AppPage(title: account.title, path: path, icon: "chart.pie")) } label: { row }.buttonStyle(.plain)
+            NavigationLink(value: AccountRoute(id: account.id)) { row }.buttonStyle(.plain)
         } else {
             row
         }
@@ -93,6 +93,7 @@ struct StocksView: View {
         }
         .navigationTitle("Stocks")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
         .navigationDestination(for: String.self) { id in
             if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(holding: holding) }
         }

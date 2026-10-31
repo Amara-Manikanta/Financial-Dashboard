@@ -926,4 +926,16 @@ extension ParityTests {
         }
         print("parity: all transactions — \(all.count) rows, \(web["cases"].array.count) filter sets")
     }
+
+    func testEveryAccountHasADetailPage() throws {
+        let db = try load("KUBERA_DB"), now = try frozenNow(load("KUBERA_GOLDEN"))
+        var rows = 0
+        for a in db["savings"].array where a["type"].text != "stock_market" {
+            let p = AccountDetail.page(a, asOf: now)
+            XCTAssertFalse(p.title.isEmpty, a["id"].text)
+            XCTAssertEqual(p.value, Valuation.currentValue(a, asOf: now), accuracy: 0.005, p.title)
+            rows += p.sections.reduce(0) { $0 + $1.rows.count }
+        }
+        print("account details: \(db["savings"].array.count - 1) accounts, \(rows) ledger rows")
+    }
 }

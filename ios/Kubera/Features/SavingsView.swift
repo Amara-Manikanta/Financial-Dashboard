@@ -51,6 +51,7 @@ struct SavingsView: View {
         }
         .navigationTitle("Savings")
         .navigationBarTitleDisplayMode(.large)
+        .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
     }
 
     private struct GratuityLine: Identifiable { let amount: Double; var id: String { "gratuity" } }
@@ -67,7 +68,7 @@ struct SavingsView: View {
                        chevron: account.webPath != nil)
         if let path = account.webPath {
             // The account's own screen still comes from the Mac until it is rebuilt here.
-            Button { openWebPage(AppPage(title: account.title, path: path, icon: "banknote")) } label: { row }.buttonStyle(.plain)
+            NavigationLink(value: AccountRoute(id: account.id)) { row }.buttonStyle(.plain)
         } else {
             row
         }

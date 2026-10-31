@@ -977,7 +977,8 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | All Transactions | yes | 8,165 rows newest first, ten filter sets, the regret tally |
 | Data Health, Warranties, Assets, Precious Metals | yes | Data Health's 9 checks and Warranties' 20 items; Assets and Metals reuse verified valuations |
 | Profile (this iPhone only) | yes | not a port: password, backups, Claude key and iPhone pairing deliberately stay on the Mac |
-| Ornament Gallery, DocuSetu, account detail pages (a fund, deposit, policy, stock, card, loan, metal, asset) | web fallback | |
+| Account detail (fund, deposits, PF, PPF, NPS, SGB, savings account, policy, emergency fund) | yes, read-only ledgers | every account's value equals the verified valuation; 496 ledger rows build without error |
+| Ornament Gallery, DocuSetu, and the detail pages for a card, loan, metal category, asset category and one month's expenses | web fallback | |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the
