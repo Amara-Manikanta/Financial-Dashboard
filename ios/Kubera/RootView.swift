@@ -39,6 +39,8 @@ private struct PairedRoot: View {
                 .tabItem { Label("Home", systemImage: "house.fill") }.tag(AppTab.home)
             ExpensesView(store: store)
                 .tabItem { Label("Expenses", systemImage: "creditcard.fill") }.tag(AppTab.expenses)
+            NavigationStack { SavingsView(store: store) }
+                .tabItem { Label("Savings", systemImage: "banknote.fill") }.tag(AppTab.savings)
             InvestView(store: store)
                 .tabItem { Label("Invest", systemImage: "chart.line.uptrend.xyaxis") }.tag(AppTab.invest)
             MoreView(store: store, mac: mac, select: { tab = $0 }, disconnect: forget)

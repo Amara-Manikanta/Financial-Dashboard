@@ -12,6 +12,13 @@ struct AccountDetailView: View {
     var body: some View {
         let raw = store.data.savingsRaw.array.first { $0["id"].text == route.id } ?? .null
         let p = AccountDetail.page(raw)
+        // Deposits have their own pages: bank filter and totals, a card each, instalments and interest.
+        if raw["type"].text == "fixed_deposit" { FixedDepositsView(store: store, accountId: route.id) }
+        else if raw["type"].text == "recurring_deposit" { RecurringDepositsView(store: store, accountId: route.id) }
+        else { generic(raw, p) }
+    }
+
+    @ViewBuilder private func generic(_ raw: JSONValue, _ p: AccountDetail.Page) -> some View {
         KScreen(refresh: { await store.load() }) {
             KCard(tint: Theme.accent) {
                 KStat(label: p.kind.capitalized, value: Money.rupees(p.value), size: .hero)
@@ -29,14 +36,7 @@ struct AccountDetailView: View {
             ForEach(p.sections) { s in
                 KSectionHeader(title: s.title, detail: "\(s.rows.count)")
                 KList(items: Array(s.rows.prefix(limit))) { r in
-                    if s.title == "Recurring deposits" {
-                        NavigationLink(value: RDRoute(accountId: route.id, index: r.id)) {
-                            KRow(title: r.title, subtitle: r.subtitle, value: r.value, valueTone: r.tone > 0 ? .positive : .neutral, chevron: true)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
-                        KRow(title: r.title, subtitle: r.subtitle, value: r.value, valueTone: r.tone > 0 ? .positive : .neutral)
-                    }
+                    KRow(title: r.title, subtitle: r.subtitle, value: r.value, valueTone: r.tone > 0 ? .positive : .neutral)
                 }
                 if s.rows.count > limit { Button("Show 30 more") { limit += 30 }.font(Theme.footnote.weight(.bold)) }
             }
@@ -45,6 +45,5 @@ struct AccountDetailView: View {
         .navigationTitle(p.title.isEmpty ? "Account" : p.title)
         .toolbar { EditRecordButton(store: store, collection: "savings", id: route.id, title: p.title.isEmpty ? "Account" : p.title) }
         .navigationBarTitleDisplayMode(.large)
-        .navigationDestination(for: RDRoute.self) { RecurringDepositView(store: store, route: $0) }
     }
 }

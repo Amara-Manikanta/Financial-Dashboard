@@ -865,6 +865,31 @@ extension ParityTests {
         print("parity: month categories — \(web.array.count) months")
     }
 
+    func testDepositAccrualMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["deposits"]
+        let asOf = try { () -> Date in let g = try load("KUBERA_GOLDEN"); return JSDate.parse(g["asOf"].text)! }()
+        var accounts: [String: JSONValue] = [:]
+        for a in db["savings"].array where a["type"].text == "fixed_deposit" { accounts[a["id"].text] = a }
+        var count = 0
+        for w in web.array {
+            if w["account"].truthy {
+                let a = accounts[w["account"].text]!
+                XCTAssertEqual(DepositLedger.fdAccountAmount(a["deposits"].array, asOf: asOf), w["amount"].double, accuracy: 0.01, "account amount \(w["account"].text)")
+                continue
+            }
+            let d = accounts.values.flatMap { $0["deposits"].array }.first { $0["id"].text == w["id"].text }!
+            let a = DepositLedger.accrual(d, asOf: asOf)
+            XCTAssertEqual(a.accruedValue, w["accruedValue"].double, accuracy: 1e-6, "value \(w["id"].text)")
+            XCTAssertEqual(a.accruedInterest, w["accruedInterest"].double, accuracy: 1e-6, "interest \(w["id"].text)")
+            XCTAssertEqual(a.daysElapsed, w["daysElapsed"].double, "days \(w["id"].text)")
+            XCTAssertEqual(a.totalDays, w["totalDays"].double, "total \(w["id"].text)")
+            XCTAssertEqual(a.matured, w["matured"].isTrue, "matured \(w["id"].text)")
+            XCTAssertEqual(DepositLedger.maturity(d), w["maturity"].double, accuracy: 1e-6, "maturity \(w["id"].text)")
+            count += 1
+        }
+        print("parity: deposits — \(count) fixed deposits")
+    }
+
     func testBudgetsMatchTheWebApp() throws {
         let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["budgets"]
         let map = Budgets.categoryMap(appData: db["appData"])

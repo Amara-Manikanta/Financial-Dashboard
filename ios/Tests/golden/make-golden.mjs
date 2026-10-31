@@ -12,7 +12,7 @@ import fs from 'fs';
 import { isDebit, kindFor, expenseBuckets, defaultKindForCategory } from '../../../src/utils/transactionKind.js';
 import { effectiveStockPosition } from '../../../src/utils/investmentSync.js';
 import { ownHoldings } from '../../../src/utils/holdingOwner.js';
-import { totalAccruedValue, totalPrincipal } from '../../../src/utils/fdAccrual.js';
+import { totalAccruedValue, totalPrincipal, depositAccrual, depositMaturity } from '../../../src/utils/fdAccrual.js';
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
 import { calculateNetWorth, calculateGratuity, gratuityForYear } from '../../../src/utils/financeCalculators.js';
 import { lentOutstanding, receivableLents, totalReceivable } from '../../../src/utils/lents.js';
@@ -499,10 +499,21 @@ for (const year of Object.keys(db.expenses || {})) {
     }
 }
 
+
+// Fixed deposits: accrual and maturity per deposit, and the account amount the Mac saves after a change.
+const depositsGolden = [];
+for (const acct of db.savings.filter((x) => x.type === 'fixed_deposit')) {
+    for (const d of acct.deposits || []) {
+        const a = depositAccrual(d, new RealDate(frozenMs));
+        depositsGolden.push({ id: String(d.id), ...a, maturity: depositMaturity(d) });
+    }
+    depositsGolden.push({ account: acct.id, amount: (acct.deposits || []).filter((d) => !d.isArchived).reduce((sum, d) => sum + (depositAccrual(d, new RealDate(frozenMs)).accruedValue || d.originalAmount || 0), 0) });
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden,
     months,
     stocks: {
         count: holdings.length,

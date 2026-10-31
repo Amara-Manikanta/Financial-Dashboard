@@ -694,3 +694,56 @@ final class StockLedgerTests: XCTestCase {
         XCTAssertEqual(StockLedger.row(split, id: "x")["tds"], .null, "tax only belongs on a dividend")
     }
 }
+
+
+final class DepositLedgerTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+    private let account = #"{"id":"a","type":"recurring_deposit","amount":100,"recurringDeposits":[{"id":"r1","name":"LIC","maturityAmount":62000,"installments":[{"id":1,"date":"2026-01-01","amount":5000}],"interestTransactions":[]},{"id":"r2","name":"Axis","maturityAmount":1000,"installments":[]}]}"#
+
+    func testAddingAnInstalmentTouchesOnlyThatDepositsList() throws {
+        var d = DepositLedger.EntryDraft(); d.date = "2026-02-01"; d.amount = "5,000"
+        let row = DepositLedger.entryRow(d, id: "9", interest: false)
+        let patch = try DepositLedger.nestedPatch(account: json(account), listKey: "recurringDeposits", depositId: "r1", subKey: "installments", change: .add(row)).get()
+        let rds = patch["recurringDeposits"] as! [[String: Any]]
+        XCTAssertEqual((rds[0]["installments"] as! [Any]).count, 2)
+        XCTAssertEqual(rds[0]["name"] as? String, "LIC"); XCTAssertEqual(rds[1]["name"] as? String, "Axis")
+        XCTAssertNil(patch["amount"], "an instalment does not change the account amount")
+        XCTAssertNil(row["financialYear"].text.isEmpty ? nil : row["financialYear"], "instalments carry no financial year")
+    }
+
+    func testInterestRowsCarryTheirFinancialYear() {
+        XCTAssertEqual(DepositLedger.financialYear("2026-03-31"), "2025-2026")
+        XCTAssertEqual(DepositLedger.financialYear("2026-04-01"), "2026-2027")
+        var d = DepositLedger.EntryDraft(); d.date = "2026-09-26"; d.amount = "98"
+        XCTAssertEqual(DepositLedger.entryRow(d, id: "1", interest: true)["financialYear"].text, "2026-2027")
+    }
+
+    func testStaleRowsAndDepositsAreRefused() {
+        let acct = json(account)
+        XCTAssertThrowsError(try DepositLedger.nestedPatch(account: acct, listKey: "recurringDeposits", depositId: "zz", subKey: "installments", change: .delete(id: "1")).get())
+        XCTAssertThrowsError(try DepositLedger.nestedPatch(account: acct, listKey: "recurringDeposits", depositId: "r1", subKey: "installments", change: .replace(id: "gone", .null)).get())
+    }
+
+    func testRecurringChangesRecomputeTheAccountAmountAndKeepHistory() throws {
+        let acct = json(account)
+        var d = DepositLedger.rdDraft(from: acct["recurringDeposits"][0]); d.maturityAmount = "70000"
+        let row = DepositLedger.rdRow(d, id: "x", base: acct["recurringDeposits"][0])
+        XCTAssertEqual((row["installments"].array.count), 1, "editing the form fields keeps the payment history")
+        let patch = try DepositLedger.recurringPatch(account: acct, change: .replace(id: "r1", row)).get()
+        XCTAssertEqual(patch["amount"] as? Double, 71000)
+        XCTAssertEqual(DepositLedger.rdProblems(DepositLedger.RDDraft()).isEmpty, false)
+    }
+
+    func testFixedDepositRowFiguresFollowTheModal() throws {
+        var d = DepositLedger.FDDraft(); d.accountNo = "1"; d.bank = "UBI"; d.startDate = "2025-01-01"; d.endDate = "2026-01-01"; d.originalAmount = "100000"; d.interestRate = "7"
+        XCTAssertTrue(DepositLedger.fdProblems(d).isEmpty)
+        let row = DepositLedger.fdRow(d, id: "5", asOf: JSDate.parse("2025-07-01")!)
+        XCTAssertEqual(row["maturityAmount"].double, (100000 * pow(1 + 0.07 / 4, 4 * 365 / 365.25)).rounded())
+        XCTAssertEqual(row["interestEarned"].double, row["maturityAmount"].double - 100000)
+        XCTAssertEqual(row["renewalCount"].double, 0)
+        d.bank = ""; XCTAssertFalse(DepositLedger.fdProblems(d).isEmpty)
+        let closed = DepositLedger.closedRow(row, closureDate: "2025-09-01", finalInterest: 3000, remarks: "early")
+        XCTAssertTrue(closed["isArchived"].isTrue); XCTAssertEqual(closed["currentValue"].double, 103000); XCTAssertEqual(closed["endDate"].text, "2025-09-01")
+        XCTAssertEqual(DepositLedger.banks([json(#"{"bank":"b"}"#), json(#"{"bank":"A"}"#), json(#"{"bank":"b"}"#)]), ["A", "b"])
+    }
+}

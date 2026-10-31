@@ -1040,6 +1040,18 @@ that date is refused. The page also shows the dividend amount per payment, a fiv
 and the Mac's fundamentals read (`/api/stock-financials`): Buy / Hold / Trim / Exit signal, the five
 health checks and quarterly revenue and earnings. Mutual-fund and other account ledgers are still read-only.
 
+**Deposits** (`DepositLedger`, `FixedDepositViews`, `RecurringDepositView`, `DepositForms`): the Savings tab
+(beside Expenses) opens each account. A fixed-deposit account shows totals, an Active/Archived switch, a
+filter by bank, and a card per deposit that opens its own page (terms, accrual, progress, interest credited).
+Deposits can be added, edited, renewed, closed (archived with a final interest figure), restored and deleted;
+interest rows can be added, changed and deleted. A recurring-deposit account shows totals and a card per
+deposit; each deposit page adds, changes and deletes instalments and interest credits, and the deposit
+itself can be edited or deleted. Every save loads the account fresh with its version, changes one row of one
+list, and PATCHes `/savings/<id>` under that version. The account `amount` is recomputed as the web does
+(live fixed deposits at today's accrual; recurring deposits at maturity) and a parity test checks accrual,
+maturity and the amount for all 22 fixed deposits against `fdAccrual.js`. Not yet on the phone: PPF, PF, NPS,
+SGB, policy, savings-account and emergency-fund ledgers, and mutual-fund transactions.
+
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
 (`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.

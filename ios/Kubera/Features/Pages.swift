@@ -5,7 +5,7 @@ import Foundation
 /// all the features from day one while the native set grows.
 ///
 /// Keep in step with src/components/navSections.js and the routes in App.jsx.
-enum AppTab: Hashable { case home, expenses, invest, more }
+enum AppTab: Hashable { case home, expenses, savings, invest, more }
 
 struct AppPage: Identifiable {
     enum Native { case tab(AppTab), screen(NativeScreen) }

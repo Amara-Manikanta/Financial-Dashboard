@@ -77,6 +77,23 @@ final class FinanceStore: ObservableObject {
         return nil
     }
 
+    /// Changes one savings account the way a deposit page does: the account is loaded fresh with its
+    /// version, `build` works out the fields to change from that copy, and they are sent under the
+    /// version — so a stale phone is refused, never allowed to overwrite. Nil when saved.
+    func saveAccountChange(accountId: String, _ build: (JSONValue) -> Result<[String: Any], DepositLedger.Failure>) async -> String? {
+        do {
+            let fresh = try await api.record("savings", id: accountId)
+            switch build(fresh.value) {
+            case .failure(let failure): return failure.message
+            case .success(var fields):
+                if !fresh.value["updatedAt"].isNull { fields["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
+                if let failure = await api.patchRecord("savings", id: accountId, fields: fields, version: fresh.version) { return failure }
+            }
+        } catch { return error.localizedDescription }
+        await load()
+        return nil
+    }
+
     // MARK: News (read and collected on the Mac; the phone only asks)
 
     private func newsQuery(_ symbol: String, _ name: String) -> [URLQueryItem] {
