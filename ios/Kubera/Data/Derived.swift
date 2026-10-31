@@ -4,17 +4,17 @@ import Foundation
 struct RawData {
     var expenses = JSONValue.null, savings = JSONValue.null, salaryDetails = JSONValue.null, appData = JSONValue.null
     var metals = JSONValue.null, assets = JSONValue.null, loans = JSONValue.null, lents = JSONValue.null
-    var watchlist = JSONValue.null, ipoApplications = JSONValue.null, taxes = JSONValue.null, goals = JSONValue.null
+    var watchlist = JSONValue.null, ipoApplications = JSONValue.null, taxes = JSONValue.null, goals = JSONValue.null, creditCards = JSONValue.null
 
     /// All collections at once; a failure in any one fails the load, so the screens
     /// never show half of a refresh.
     static func fetch(from api: API) async throws -> RawData {
         async let expenses = api.get("expenses"), savings = api.get("savings"), salary = api.get("salaryDetails")
         async let appData = api.get("appData"), metals = api.get("metals"), assets = api.get("assets")
-        async let loans = api.get("loans"), lents = api.get("lents"), watchlist = api.get("watchlist"), ipos = api.get("ipoApplications"), taxes = api.get("taxes"), goals = api.get("goals")
+        async let loans = api.get("loans"), lents = api.get("lents"), watchlist = api.get("watchlist"), ipos = api.get("ipoApplications"), taxes = api.get("taxes"), goals = api.get("goals"), cards = api.get("creditCards")
         return RawData(expenses: try await expenses, savings: try await savings, salaryDetails: try await salary, appData: try await appData,
                        metals: try await metals, assets: try await assets, loans: try await loans, lents: try await lents,
-                       watchlist: try await watchlist, ipoApplications: try await ipos, taxes: try await taxes, goals: try await goals)
+                       watchlist: try await watchlist, ipoApplications: try await ipos, taxes: try await taxes, goals: try await goals, creditCards: try await cards)
     }
 }
 
@@ -41,6 +41,9 @@ struct Derived {
     var salaryRaw = JSONValue.null
     var taxesRaw = JSONValue.null
     var goalsRaw = JSONValue.null
+    var expensesRaw = JSONValue.null
+    var loansRaw = JSONValue.null
+    var creditCardsRaw = JSONValue.null
     var lentsRaw = JSONValue.null
     var appDataRaw = JSONValue.null
 
@@ -71,6 +74,9 @@ struct Derived {
         d.salaryRaw = raw.salaryDetails
         d.taxesRaw = raw.taxes
         d.goalsRaw = raw.goals
+        d.expensesRaw = raw.expenses
+        d.loansRaw = raw.loans
+        d.creditCardsRaw = raw.creditCards
         d.lentsRaw = raw.lents
         d.appDataRaw = raw.appData
         return d

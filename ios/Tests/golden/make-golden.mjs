@@ -29,6 +29,8 @@ import { readComposition } from '../../../src/utils/fundComposition.js';
 import { sectorFor, capFor } from '../../../src/utils/sectors.js';
 import { ALL_BENCHMARK_STOCKS } from '../../../src/utils/nifty50Data.js';
 import { analysePortfolio, symbolFor } from '../../../src/utils/stockAdvisor.js';
+import { detectRecurring, applyOverrides } from '../../../src/utils/recurring.js';
+import { buildForecast } from '../../../src/utils/cashflow.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -350,10 +352,20 @@ for (const showArchived of [false, true]) for (const tab of ['all', 'bike', 'lif
     }
 }
 
+// recurring.js and cashflow.js, run as the Recurring and Cashflow pages call them.
+const recOverrides = db.appData?.recurringOverrides || {};
+const recDetected = detectRecurring(db.expenses, new RealDate(frozenMs));
+const recurringGolden = { detected: recDetected.map(({ events, ...rest }) => ({ ...rest, eventCount: events.length, firstEvent: events[0], lastEvent: events[events.length - 1], cards: events.map((e) => e.card) })), overridden: applyOverrides(recDetected, recOverrides).map((x) => ({ key: x.key, status: x.status, active: x.active, overridden: x.overridden, chargedAfterCancel: x.chargedAfterCancel || false })) };
+const cashflowGolden = {};
+for (const days of [30, 60, 90]) {
+    const f = buildForecast({ expenses: db.expenses, creditCards: db.creditCards || [], loans: db.loans || [], salaryDetails: db.salaryDetails || [], recurringOverrides: recOverrides, asOf: new RealDate(frozenMs), days });
+    cashflowGolden[days] = f;
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

@@ -17,6 +17,7 @@ enum NativeScreen: Hashable {
     case taxes
     case goals
     case insurance
+    case cashflow
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -55,6 +56,7 @@ struct NativeDestination: View {
         case .taxes: TaxesView(store: store)
         case .goals: GoalsView(store: store)
         case .insurance: InsuranceView(store: store)
+        case .cashflow: CashflowView(store: store)
         }
     }
 }

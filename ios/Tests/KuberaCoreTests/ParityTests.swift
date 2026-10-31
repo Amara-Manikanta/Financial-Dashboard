@@ -659,4 +659,39 @@ extension ParityTests {
         }
         print("parity: insurance — \(web["cases"].array.count) tab/profile/archive combinations, \(shown) policy rows compared")
     }
+
+    func testRecurringAndCashflowMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN")
+        let asOf = try frozenNow(golden)
+        let series = Recurring.detect(db["expenses"], asOf: asOf), web = golden["recurring"]["detected"].array
+        XCTAssertEqual(series.map { $0.key }, web.map { $0["key"].text }, "which series, in order")
+        for (m, t) in zip(series, web) {
+            let tag = m.key
+            XCTAssertEqual(m.label, t["label"].text, tag); XCTAssertEqual(m.kind, t["kind"].text, tag); XCTAssertEqual(m.cadence, t["cadence"].text, tag)
+            XCTAssertEqual(m.medianGap, t["medianGap"].double, tag); XCTAssertEqual(m.count, Int(t["count"].double), tag)
+            XCTAssertEqual(m.typical, t["typical"].double, accuracy: 0.005, tag); XCTAssertEqual(m.min, t["min"].double, accuracy: 0.005, tag); XCTAssertEqual(m.max, t["max"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(m.first, t["first"].text, tag); XCTAssertEqual(m.last, t["last"].text, tag); XCTAssertEqual(m.nextExpected, t["nextExpected"].text, tag)
+            XCTAssertEqual(m.active, t["active"].isTrue, tag); XCTAssertEqual(m.total, t["total"].double, accuracy: 0.005, tag)
+            XCTAssertEqual(m.annualRunRate, t["annualRunRate"].double, accuracy: 0.005, tag); XCTAssertEqual(m.priceChangePct, t["priceChangePct"].double, accuracy: 1e-6, tag)
+            XCTAssertEqual(m.events.map { $0.card ?? "" }, t["cards"].array.map { $0.text }, tag)
+        }
+        let over = Recurring.applyOverrides(series, db["appData"]["recurringOverrides"])
+        for (m, t) in zip(over, golden["recurring"]["overridden"].array) {
+            XCTAssertEqual(m.status, t["status"].text, m.key); XCTAssertEqual(m.active, t["active"].isTrue, m.key); XCTAssertEqual(m.chargedAfterCancel, t["chargedAfterCancel"].isTrue, m.key)
+        }
+        var rows = 0
+        for days in [30, 60, 90] {
+            let f = Cashflow.build(expenses: db["expenses"], creditCards: db["creditCards"], loans: db["loans"], overrides: db["appData"]["recurringOverrides"], asOf: asOf, days: days), w = golden["cashflow"]["\(days)"]
+            XCTAssertEqual(f.salaryAmount, w["salaryAmount"].double, "\(days) salary"); XCTAssertEqual(f.monthlyCommitted, w["monthlyCommitted"].double, accuracy: 0.005, "\(days) committed")
+            XCTAssertEqual(f.events.map { "\($0.date)|\($0.kind)|\($0.label)" }, w["events"].array.map { "\($0["date"].text)|\($0["kind"].text)|\($0["label"].text)" }, "\(days) events")
+            for (m, t) in zip(f.events, w["events"].array) {
+                if t["amount"].isNull { XCTAssertNil(m.amount, "\(days) \(m.label)") } else { XCTAssertEqual(m.amount ?? -1, t["amount"].double, accuracy: 0.005, "\(days) \(m.label)") }
+                XCTAssertEqual(m.detail, t["detail"].text); XCTAssertEqual(m.includes.map { "\($0.label)=\($0.amount)" }, t["includes"].array.map { "\($0["label"].text)=\($0["amount"].double)" }, "\(days) \(m.label) includes")
+            }
+            XCTAssertEqual(f.cycles.map { "\($0.from)>\($0.to)" }, w["cycles"].array.map { "\($0["from"].text)>\($0["to"].text)" }, "\(days) cycles")
+            for (m, t) in zip(f.cycles, w["cycles"].array) { XCTAssertEqual(m.income, t["income"].double, accuracy: 0.005); XCTAssertEqual(m.committed, t["committed"].double, accuracy: 0.005); XCTAssertEqual(m.unknown, Int(t["unknown"].double)) }
+            rows += f.events.count
+        }
+        print("parity: recurring — \(series.count) series; cashflow — \(rows) events over 30/60/90 days")
+    }
 }
