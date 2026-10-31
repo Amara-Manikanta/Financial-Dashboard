@@ -896,4 +896,14 @@ extension ParityTests {
         print("parity: groceries — \(all.count) line items")
     }
     private func jsNum(_ v: Double) -> String { v == v.rounded() && abs(v) < 1e15 ? String(Int64(v)) : String(v) }
+
+    func testGroceryMasterMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["groceryMaster"]
+        let cats = GroceryMaster.categories(appData: db["appData"])
+        XCTAssertEqual(Set(cats.map { $0.category }), Set(web["categories"].array.map { $0[0].text }))
+        for (name, items) in web["items"].object {
+            XCTAssertEqual(GroceryMaster.items(of: name, base: cats, appData: db["appData"], expenses: db["expenses"]), items.array.map { $0.text }, name)
+        }
+        print("parity: grocery master — \(cats.count) categories")
+    }
 }

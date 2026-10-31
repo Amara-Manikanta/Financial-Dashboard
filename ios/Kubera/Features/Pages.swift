@@ -63,7 +63,7 @@ enum Pages {
             AppPage(title: "Recurring & Subscriptions", path: "/recurring", icon: "repeat", native: .screen(.recurring)),
             AppPage(title: "Fuel Analytics", path: "/fuel", icon: "fuelpump", native: .screen(.fuel)),
             AppPage(title: "Grocery Analytics", path: "/grocery-analytics", icon: "cart", native: .screen(.groceries)),
-            AppPage(title: "Grocery Builder", path: "/grocery-master-list", icon: "list.clipboard"),
+            AppPage(title: "Grocery Builder", path: "/grocery-master-list", icon: "list.clipboard", native: .screen(.groceryMaster)),
             AppPage(title: "Data Health", path: "/data-health", icon: "stethoscope", native: .screen(.dataHealth)),
         ]),
         PageGroup(title: "Gold, silver & assets", pages: [

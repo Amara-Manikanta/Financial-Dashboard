@@ -461,10 +461,17 @@ const grCat = [...new Set(grAll.map((g) => g.subcategory))].sort()[1] || 'All';
 const grItem = grAll.find((g) => g.subcategory === grCat)?.name || 'All';
 const groceryGolden = { total: grAll.length, first: grAll.slice(0, 40).map((r) => `${r.transactionId}|${r.name}|${r.price}`), cases: [grRun('All', 'All', 'All', 'All'), grRun(grCat, 'All', 'All', 'All'), grRun(grCat, grItem, 'All', 'All'), grRun('All', grItem, 'All', 'All')] };
 
+// GroceryMasterList.jsx: the item list for each category.
+const gmDefaults = new Function(`return ${slice('src/context/FinanceContext.jsx', 'export const DEFAULT_GROCERY_CATEGORIES = ', '};', true).replace(/^/, '').replace(/$/, '')}`)();
+const gmLoaded = db.appData?.groceryCategories && Object.keys(db.appData.groceryCategories).length > 0 ? db.appData.groceryCategories : {};
+const gmCategories = { ...gmDefaults, ...gmLoaded };
+const gmItemsSrc = slice('src/pages/GroceryMasterList.jsx', 'const currentItems = useMemo(() => {', '}, [groceryCategories, selectedCategory, customGroceryItems, expenses]);');
+const groceryMasterGolden = { categories: Object.entries(gmCategories).map(([k, v]) => [k, v]), items: Object.fromEntries(Object.keys(gmCategories).map((c) => [c, new Function('groceryCategories', 'selectedCategory', 'customGroceryItems', 'expenses', gmItemsSrc)(gmCategories, c, db.appData?.customGroceryItems || {}, db.expenses)])) };
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,
