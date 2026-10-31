@@ -879,4 +879,21 @@ extension ParityTests {
         }
         print("parity: fuel — \(web["cases"].array.count) filter sets, \(rows) fill-ups")
     }
+
+    func testGroceriesMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["grocery"]
+        let all = Groceries.all(db["expenses"])
+        XCTAssertEqual(all.count, Int(web["total"].double)); XCTAssertEqual(all.prefix(40).map { "\($0.txId)|\($0.name)|\(jsNum($0.price))" }, web["first"].array.map { $0.text })
+        for c in web["cases"].array {
+            let tag = "\(c["c"].text)/\(c["i"].text)"
+            let o = Groceries.options(all, category: c["c"].text, item: c["i"].text, brand: c["b"].text), w = c["opts"]
+            XCTAssertEqual(o.categories, w["categories"].array.map { $0.text }, tag); XCTAssertEqual(o.items, w["items"].array.map { $0.text }, tag)
+            XCTAssertEqual(o.brands, w["brands"].array.map { $0.text }, tag); XCTAssertEqual(o.flavours, w["flavours"].array.map { $0.text }, tag)
+            let rows = Groceries.filter(all, category: c["c"].text, item: c["i"].text, brand: c["b"].text, flavour: c["f"].text), st = Groceries.stats(rows)
+            XCTAssertEqual(rows.count, Int(c["count"].double), tag)
+            XCTAssertEqual(st.totalSpent, c["stats"]["totalSpent"].double, accuracy: 0.005, tag); XCTAssertEqual(st.avgPrice, c["stats"]["avgPrice"].double, accuracy: 1e-6, tag)
+        }
+        print("parity: groceries — \(all.count) line items")
+    }
+    private func jsNum(_ v: Double) -> String { v == v.rounded() && abs(v) < 1e15 ? String(Int64(v)) : String(v) }
 }

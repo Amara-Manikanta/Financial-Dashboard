@@ -445,10 +445,26 @@ const fuelRun = (v, y, m) => {
 const fuelYears = [...new Set(fuelTx.map((t) => t.year))].sort((a, b) => b - a);
 const fuelGolden = { years: fuelYears, cases: [fuelRun('All', 'All', 'All'), fuelRun('scooty', 'All', 'All'), fuelRun('bike', 'All', 'All'), fuelRun('car', 'All', 'All'), ...fuelYears.slice(0, 2).map((y) => fuelRun('All', String(y), 'All'))] };
 
+// GroceryAnalytics.jsx: its memos.
+const grAllSrc = slice('src/pages/GroceryAnalytics.jsx', 'const allGroceries = useMemo(() => {', '}, [expenses]);');
+const grOptSrc = slice('src/pages/GroceryAnalytics.jsx', 'const filterOptions = useMemo(() => {', '}, [allGroceries, selectedCategory, selectedItem, selectedBrand]);');
+const grFilterSrc = slice('src/pages/GroceryAnalytics.jsx', 'const filteredData = useMemo(() => {', '}, [allGroceries, selectedCategory, selectedItem, selectedBrand, selectedFlavour]);');
+const grStatsSrc = slice('src/pages/GroceryAnalytics.jsx', 'const stats = useMemo(() => {', '}, [filteredData]);');
+const grAll = new Function('expenses', grAllSrc)(db.expenses);
+const grRun = (c, i, b, f) => {
+    const opts = new Function('allGroceries', 'selectedCategory', 'selectedItem', 'selectedBrand', grOptSrc)(grAll, c, i, b);
+    const rows = new Function('allGroceries', 'selectedCategory', 'selectedItem', 'selectedBrand', 'selectedFlavour', grFilterSrc)(grAll, c, i, b, f);
+    const st = new Function('filteredData', grStatsSrc)(rows);
+    return { c, i, b, f, opts, count: rows.length, stats: st, ids: rows.slice(0, 40).map((r) => `${r.transactionId}|${r.name}|${r.price}`) };
+};
+const grCat = [...new Set(grAll.map((g) => g.subcategory))].sort()[1] || 'All';
+const grItem = grAll.find((g) => g.subcategory === grCat)?.name || 'All';
+const groceryGolden = { total: grAll.length, first: grAll.slice(0, 40).map((r) => `${r.transactionId}|${r.name}|${r.price}`), cases: [grRun('All', 'All', 'All', 'All'), grRun(grCat, 'All', 'All', 'All'), grRun(grCat, grItem, 'All', 'All'), grRun('All', grItem, 'All', 'All')] };
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,
