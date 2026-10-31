@@ -26,6 +26,7 @@ enum NativeScreen: Hashable {
     case warranties
     case dataHealth
     case assets
+    case metals
     case cardIntelligence
 }
 
@@ -74,6 +75,7 @@ struct NativeDestination: View {
         case .warranties: WarrantiesView(store: store)
         case .dataHealth: DataHealthView(store: store)
         case .assets: AssetsView(store: store)
+        case .metals: MetalsView(store: store)
         case .cardIntelligence: CardIntelligenceView(store: store)
         }
     }

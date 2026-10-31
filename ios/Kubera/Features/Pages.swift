@@ -67,7 +67,7 @@ enum Pages {
             AppPage(title: "Data Health", path: "/data-health", icon: "stethoscope", native: .screen(.dataHealth)),
         ]),
         PageGroup(title: "Gold, silver & assets", pages: [
-            AppPage(title: "All Metals", path: "/metals", icon: "circle.hexagongrid"),
+            AppPage(title: "All Metals", path: "/metals", icon: "circle.hexagongrid", native: .screen(.metals)),
             AppPage(title: "Ornament Gallery", path: "/metals/gallery", icon: "photo.on.rectangle"),
             AppPage(title: "All Assets", path: "/assets", icon: "car", native: .screen(.assets)),
             AppPage(title: "Warranties & Receipts", path: "/warranties", icon: "checkmark.shield", native: .screen(.warranties)),
