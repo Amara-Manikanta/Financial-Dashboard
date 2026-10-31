@@ -42,7 +42,7 @@ enum Pages {
             AppPage(title: "Nifty 50 & fund overlap", path: "/investments/nifty50-exposure", icon: "square.stack.3d.up", native: .screen(.overlap)),
         ]),
         PageGroup(title: "Income", pages: [
-            AppPage(title: "Salary", path: "/salary", icon: "briefcase"),
+            AppPage(title: "Salary", path: "/salary", icon: "briefcase", native: .screen(.salary)),
             AppPage(title: "Taxes", path: "/taxes", icon: "doc.text"),
         ]),
         PageGroup(title: "Planning", pages: [
