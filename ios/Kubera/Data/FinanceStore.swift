@@ -61,6 +61,20 @@ final class FinanceStore: ObservableObject {
         return nil
     }
 
+    /// Changes one transaction (only the fields in `patch`), then reloads.
+    func updateTransaction(id: String, patch: [String: Any]) async -> String? {
+        if let failure = await api.writeTransaction("PATCH", id: id, body: patch) { return failure }
+        await load()
+        return nil
+    }
+
+    /// Removes one transaction, then reloads.
+    func deleteTransaction(id: String) async -> String? {
+        if let failure = await api.writeTransaction("DELETE", id: id) { return failure }
+        await load()
+        return nil
+    }
+
     private let api: API
     private let onUnauthorized: () -> Void
 

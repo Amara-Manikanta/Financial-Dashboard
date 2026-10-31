@@ -23,15 +23,19 @@ struct API {
 
     func get(_ collection: String) async throws -> JSONValue { try await get(path: collection, query: []) }
 
-    /// One new row: `POST api/tx`. Never a whole-collection write — a phone working from a stale
-    /// copy must not be able to overwrite what it never loaded. Returns nil on success, otherwise
-    /// a sentence saying why nothing was saved.
-    func addTransaction(_ body: [String: Any]) async -> String? {
-        guard let json = try? JSONSerialization.data(withJSONObject: body) else { return "That transaction could not be encoded." }
-        var request = URLRequest(url: ["_api", "api", "tx"].reduce(base) { $0.appendingPathComponent($1) })
-        request.httpMethod = "POST"
-        request.httpBody = json
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    /// One-row writes: `POST api/tx`, `PATCH api/tx/<id>`, `DELETE api/tx/<id>`. Never a whole-collection
+    /// write — a phone working from a stale copy must not be able to overwrite what it never loaded.
+    /// Returns nil on success, otherwise a sentence saying why nothing was changed.
+    func writeTransaction(_ method: String, id: String? = nil, body: [String: Any]? = nil) async -> String? {
+        var parts = ["_api", "api", "tx"]
+        if let id { parts.append(id) }
+        var request = URLRequest(url: parts.reduce(base) { $0.appendingPathComponent($1) })
+        request.httpMethod = method
+        if let body {
+            guard let json = try? JSONSerialization.data(withJSONObject: body) else { return "That change could not be encoded." }
+            request.httpBody = json
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        }
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 20
         let (data, response): (Data, URLResponse)
@@ -41,11 +45,14 @@ struct API {
         switch http.statusCode {
         case 200...299: return nil
         case 401: return APIError.unauthorized.errorDescription
-        case 404, 503: return "Your Mac has per-row saving switched off, so nothing was saved. Start it with npm run server (not server:json) and try again."
-        case 409: return (info?["reason"] as? String) ?? (info?["error"] as? String) ?? "Your Mac's safety check refused that change, so nothing was saved."
-        default: return (info?["reason"] as? String) ?? (info?["error"] as? String) ?? "Your Mac answered with an error (\(http.statusCode)); nothing was saved."
+        case 503: return "Your Mac has per-row saving switched off, so nothing was changed. Start it with npm run server (not server:json) and try again."
+        case 404 where id == nil: return "Your Mac has per-row saving switched off, so nothing was changed. Start it with npm run server (not server:json) and try again."
+        case 404: return "That transaction is no longer on your Mac — refresh and look again. Nothing was changed."
+        default: return (info?["reason"] as? String) ?? (info?["error"] as? String) ?? "Your Mac refused the change (\(http.statusCode)); nothing was changed."
         }
     }
+
+    func addTransaction(_ body: [String: Any]) async -> String? { await writeTransaction("POST", body: body) }
 
     /// A file the Mac serves (a photo), fetched with the same token as everything else.
     func data(path: String) async throws -> Data {

@@ -11,6 +11,8 @@ struct AllTransactionsView: View {
     @State private var category = "all"
     @State private var onlyWasteful = false
     @State private var limit = 40
+    @State private var editing: AllTransactions.Row?
+    @State private var openedForTest = false
 
     private func inr(_ v: Double) -> String { Money.rupees(v) }
 
@@ -37,14 +39,19 @@ struct AllTransactionsView: View {
             if w.count > 0 { KNotice(message: "\(w.count) payment\(w.count == 1 ? "" : "s") here you flagged as a regret, \(inr(w.total)) in all.") }
 
             KList(items: Array(rows.prefix(limit))) { r in
-                KRow(title: r.title.isEmpty ? "(no title)" : r.title,
+                Button { editing = r } label: { KRow(title: r.title.isEmpty ? "(no title)" : r.title,
                      subtitle: "\(r.date) · \(r.category.isEmpty ? "uncategorised" : r.category)\(r.isWasteful ? " · regret" : "")",
-                     value: "\(r.isCredited ? "+" : "−")\(inr(abs(r.amount)))", valueTone: r.isCredited ? .positive : .neutral)
+                     value: "\(r.isCredited ? "+" : "−")\(inr(abs(r.amount)))", valueTone: r.isCredited ? .positive : .neutral) }.buttonStyle(.plain)
             }
             if rows.count > limit { Button("Show 40 more") { limit += 40 }.font(Theme.footnote.weight(.bold)) }
         }
         .navigationTitle("All Transactions")
         .navigationBarTitleDisplayMode(.large)
+        .onAppear { if !openedForTest, ProcessInfo.processInfo.arguments.contains("-editFirst") { openedForTest = true; editing = all.first } }
+        .sheet(item: $editing) { r in
+            EditTransactionView(store: store, row: r,
+                                lock: EditTransaction.lockReason(r.raw, idCount: all.filter { $0.raw["id"].text == r.raw["id"].text }.count))
+        }
     }
 
     private func chip(_ text: String) -> some View {

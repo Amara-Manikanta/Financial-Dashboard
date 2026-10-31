@@ -564,3 +564,34 @@ final class NewTransactionTests: XCTestCase {
         d.card = "HPCL"; d.date = Date().addingTimeInterval(10 * 86_400); XCTAssertEqual(NewTransaction.problems(d), [.date])
     }
 }
+
+final class EditTransactionTests: XCTestCase {
+    private let map: [(main: String, subs: [String])] = [("Food", ["Restaurants", "Groceries"]), ("Travel", ["Fuel"])]
+    private func tx(_ json: String) throws -> JSONValue { try JSONValue.parse(Data(json.utf8)) }
+
+    func testOnlyWhatChangedIsSent() throws {
+        let t = try tx(#"{"id":"1","title":"Lunch","amount":250,"category":"restaurants","date":"2026-10-30","mainCategory":"Food"}"#)
+        var d = EditTransaction.draft(from: t)
+        XCTAssertTrue(EditTransaction.patch(original: t, draft: d, map: map).isEmpty, "untouched means nothing to save")
+        d.title = "Lunch with Ravi"; d.amount = "275.5"
+        let p = EditTransaction.patch(original: t, draft: d, map: map)
+        XCTAssertEqual(Set(p.keys), ["title", "amount"]); XCTAssertEqual(p["amount"] as? Double, 275.5)
+        d.category = "fuel"
+        let q = EditTransaction.patch(original: t, draft: d, map: map)
+        XCTAssertEqual(q["category"] as? String, "fuel"); XCTAssertEqual(q["mainCategory"] as? String, "Travel")
+    }
+
+    func testRowsTheMacMustChangeAreLocked() throws {
+        XCTAssertNil(EditTransaction.lockReason(try tx(#"{"id":"1"}"#), idCount: 1))
+        XCTAssertNotNil(EditTransaction.lockReason(try tx(#"{"title":"x"}"#), idCount: 0))
+        XCTAssertNotNil(EditTransaction.lockReason(try tx(#"{"id":"1"}"#), idCount: 2))
+        XCTAssertNotNil(EditTransaction.lockReason(try tx(#"{"id":"1","investmentData":{"legs":[]}}"#), idCount: 1))
+        XCTAssertNotNil(EditTransaction.lockReason(try tx(#"{"id":"1","expenseId":"9"}"#), idCount: 1))
+    }
+
+    func testAnEditCannotLeaveAnAmountOfZero() {
+        var d = EditTransaction.Draft(title: "", amount: "0", category: "x", date: Date())
+        XCTAssertEqual(EditTransaction.problems(d), [.amount]); d.amount = "5"; d.category = " "
+        XCTAssertEqual(EditTransaction.problems(d), [.category])
+    }
+}
