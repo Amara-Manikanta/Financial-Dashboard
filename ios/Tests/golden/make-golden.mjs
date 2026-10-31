@@ -15,7 +15,7 @@ import { ownHoldings } from '../../../src/utils/holdingOwner.js';
 import { totalAccruedValue, totalPrincipal } from '../../../src/utils/fdAccrual.js';
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
 import { calculateNetWorth, calculateGratuity, gratuityForYear } from '../../../src/utils/financeCalculators.js';
-import { lentOutstanding } from '../../../src/utils/lents.js';
+import { lentOutstanding, receivableLents, totalReceivable } from '../../../src/utils/lents.js';
 import { disposalsForStocks, gainsLedger, unrealisedSummary, matchLots, fyFor } from '../../../src/utils/capitalGains.js';
 import { readQuote, triggeredAlerts, atRangeEdges } from '../../../src/utils/priceRange.js';
 import { normaliseSector } from '../../../src/utils/sectors.js';
@@ -331,10 +331,17 @@ for (const c of [[600000, 250000, 350000, 100000, 108302, 150000, 25000, 50000, 
     taxGolden.cases.push({ in: c, out: taxCalcFn(...c) });
 }
 
+// FinancialGoals.jsx: the computation above its render, cut from the source.
+const goalsBody = slice('src/pages/FinancialGoals.jsx', 'const isItemActive = (item) => {', 'const filteredGoals');
+const goalsTail = slice('src/pages/FinancialGoals.jsx', 'const overallProgress = totalTargetAmount > 0', '    return (', false);
+const goalsRun = new Function('goals', 'savings', 'lents', 'calculateItemCurrentValue', 'lentOutstanding', 'receivableLents', 'totalReceivable',
+    `const isItemActive = (item) => {${goalsBody}\nconst overallProgress = totalTargetAmount > 0${goalsTail}\nreturn { processedGoals, totalTargetAmount, totalAchievedAmount, overallProgress };`);
+const goalsGolden = goalsRun(db.goals || [], db.savings, db.lents, calculateItemCurrentValue, lentOutstanding, receivableLents, totalReceivable);
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

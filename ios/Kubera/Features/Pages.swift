@@ -46,7 +46,7 @@ enum Pages {
             AppPage(title: "Taxes", path: "/taxes", icon: "doc.text", native: .screen(.taxes)),
         ]),
         PageGroup(title: "Planning", pages: [
-            AppPage(title: "Financial Goals", path: "/goals", icon: "target"),
+            AppPage(title: "Financial Goals", path: "/goals", icon: "target", native: .screen(.goals)),
             AppPage(title: "Insurance Gap Analysis", path: "/insurance-analysis", icon: "shield.checkered"),
             AppPage(title: "DocuSetu — Documents & Claims", path: "/docusetu", icon: "folder.badge.gearshape"),
             AppPage(title: "Cashflow Forecast", path: "/cashflow", icon: "calendar.badge.clock"),

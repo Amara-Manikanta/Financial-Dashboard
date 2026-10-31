@@ -621,4 +621,18 @@ extension ParityTests {
         XCTAssertEqual(rows.map { $0.fy }, db["taxes"].array.map { $0["financialYear"].text }.sorted(by: >))
         print("parity: taxes — \(rows.count) returns, \(web["fys"].array.count) prefills, \(web["cases"].array.count) regime cases; paid \(t.taxPaid), refunds received \(t.refundReceived)")
     }
+
+    func testGoalsMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN"), web = golden["goals"]
+        let page = GoalsPage.page(goals: db["goals"], savings: db["savings"], lents: db["lents"], asOf: try frozenNow(golden))
+        XCTAssertEqual(page.goals.map { $0.id }, web["processedGoals"].array.map { $0["id"].text })
+        for (m, t) in zip(page.goals, web["processedGoals"].array) {
+            XCTAssertEqual(m.saved, t["currentSaved"].double, accuracy: 0.005, m.name); XCTAssertEqual(m.progressPct, t["progressPct"].double, m.name)
+            XCTAssertEqual(m.status, t["status"].text, m.name)
+            if let d = m.daysLeft { XCTAssertEqual(d, t["diffDays"].double, m.name) } else { XCTAssertTrue(t["diffDays"].isNull, m.name) }
+        }
+        XCTAssertEqual(page.totalTarget, web["totalTargetAmount"].double, accuracy: 0.005); XCTAssertEqual(page.totalAchieved, web["totalAchievedAmount"].double, accuracy: 0.005)
+        XCTAssertEqual(page.overallProgress, web["overallProgress"].double)
+        print("parity: goals — \(page.goals.count) goals, achieved \(page.totalAchieved) of \(page.totalTarget)")
+    }
 }
