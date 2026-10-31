@@ -595,3 +595,50 @@ final class EditTransactionTests: XCTestCase {
         XCTAssertEqual(EditTransaction.problems(d), [.category])
     }
 }
+
+final class RecordEditingTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    func testOnlyPlainUnlockedFieldsAreOffered() {
+        let fund = json(#"{"id":"7","type":"mutual_fund","title":"Nifty","amount":5000,"currentNav":12.3,"transactions":[{"units":1}],"isArchived":false,"date":"2024-01-05","updatedAt":"2026-01-01T00:00:00.000Z"}"#)
+        let keys = RecordEditing.fields(of: fund, collection: "savings").map(\.key)
+        XCTAssertEqual(keys, ["title", "date", "isArchived"], "id, type, derived amount/NAV, timestamps and lists stay locked")
+        let bank = json(#"{"id":"3","type":"savings_account","title":"HDFC","amount":5000}"#)
+        XCTAssertTrue(RecordEditing.fields(of: bank, collection: "savings").map(\.key).contains("amount"), "a bank balance is the user's own figure")
+        XCTAssertNotNil(RecordEditing.nestedLock(key: "transactions", collection: "savings", record: fund))
+        XCTAssertNil(RecordEditing.nestedLock(key: "transactions", collection: "lents", record: json(#"{"id":"1"}"#)))
+    }
+
+    func testFieldKindsFollowTheStoredType() {
+        let tax = json(#"{"id":"t","taxesPaid":"12500","itrStatus":"Filed","refundReceivedDate":"2025-08-01","verified":true}"#)
+        let kinds = Dictionary(uniqueKeysWithValues: RecordEditing.fields(of: tax, collection: "taxes").map { ($0.key, $0.kind) })
+        XCTAssertEqual(kinds["taxesPaid"], .numericText)
+        XCTAssertEqual(kinds["itrStatus"], .text)
+        XCTAssertEqual(kinds["refundReceivedDate"], .date)
+        XCTAssertEqual(kinds["verified"], .toggle)
+    }
+
+    func testPatchHoldsOnlyChangesTypedAsStored() {
+        let goal = json(#"{"id":"g","name":"House","targetAmount":3000000,"notes":"old","done":false,"paid":"100"}"#)
+        let fields = RecordEditing.fields(of: goal, collection: "goals")
+        var edits: [String: RecordEditing.Edit] = ["name": .text("House"), "targetAmount": .text("3,500,000"), "done": .toggle(true), "paid": .text("150")]
+        let patch = RecordEditing.patch(fields: fields, edits: edits, record: goal)
+        XCTAssertEqual(patch.count, 3, "an unchanged name is not sent")
+        XCTAssertEqual(patch["targetAmount"] as? Double, 3500000)
+        XCTAssertEqual(patch["done"] as? Bool, true)
+        XCTAssertEqual(patch["paid"] as? String, "150", "numbers stored as text stay text")
+        edits["targetAmount"] = .text("abc")
+        XCTAssertEqual(RecordEditing.problems(fields: fields, edits: edits)["targetAmount"], "Not a number")
+    }
+
+    func testRowsAreReplacedOrRemovedAndLinkedRowsLocked() {
+        let rows = json(#"[{"date":"2025-01-01","amount":100},{"date":"2025-02-01","amount":200,"note":"x"}]"#).array
+        let changed = RecordEditing.replacingRow(rows, at: 1, with: ["amount": 250.0])
+        XCTAssertEqual((changed[1] as? [String: Any])?["amount"] as? Double, 250)
+        XCTAssertEqual((changed[1] as? [String: Any])?["note"] as? String, "x", "other fields of the row survive")
+        XCTAssertEqual((changed[0] as? [String: Any])?["amount"] as? Double, 100)
+        XCTAssertEqual(RecordEditing.replacingRow(rows, at: 0, with: nil).count, 1)
+        XCTAssertNotNil(RecordEditing.rowLock(json(#"{"expenseId":"e1"}"#)))
+        XCTAssertTrue(RecordEditing.fields(of: json(#"{"type":"given","amount":5}"#), collection: "lents", parent: json(#"{"id":"1"}"#)).map(\.key).contains("type"), "a row's type is editable")
+    }
+}

@@ -124,6 +124,7 @@ struct WatchlistView: View {
                 }
                 if !row.notes.isEmpty { Text(row.notes).font(Theme.footnote).foregroundStyle(Theme.muted).lineLimit(3) }
             }
+            .editable(store, "watchlist", id: row.id, title: row.name)
         }
     }
 }

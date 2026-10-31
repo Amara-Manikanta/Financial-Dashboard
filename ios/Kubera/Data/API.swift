@@ -54,6 +54,44 @@ struct API {
 
     func addTransaction(_ body: [String: Any]) async -> String? { await writeTransaction("POST", body: body) }
 
+    /// One record and its version (`X-DB-Version`), which a later save must send back as `If-Match`.
+    func record(_ collection: String, id: String) async throws -> (value: JSONValue, version: String?) {
+        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent(collection).appendingPathComponent(id))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 20
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await URLSession.shared.data(for: request) } catch { throw APIError.unreachable }
+        guard let http = response as? HTTPURLResponse else { throw APIError.unreachable }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        guard http.statusCode == 200 else { throw APIError.server(http.statusCode) }
+        return (try JSONValue.parse(data), http.value(forHTTPHeaderField: "X-DB-Version"))
+    }
+
+    /// Changes only the given fields of one record. Nil when saved, otherwise why nothing changed.
+    func patchRecord(_ collection: String, id: String, fields: [String: Any], version: String?) async -> String? {
+        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent(collection).appendingPathComponent(id))
+        request.httpMethod = "PATCH"
+        guard let json = try? JSONSerialization.data(withJSONObject: fields) else { return "That change could not be encoded." }
+        request.httpBody = json
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let version { request.setValue(version, forHTTPHeaderField: "If-Match") }
+        request.timeoutInterval = 20
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await URLSession.shared.data(for: request) } catch { return APIError.unreachable.errorDescription }
+        guard let http = response as? HTTPURLResponse else { return APIError.unreachable.errorDescription }
+        let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        switch http.statusCode {
+        case 200...299: return nil
+        case 401: return APIError.unauthorized.errorDescription
+        case 404: return "That record is no longer on your Mac. Nothing was changed."
+        case 409 where info?["currentVersion"] != nil:
+            return "This was changed on your Mac since you opened it, so nothing was saved. It has been reloaded — make your change again."
+        default: return (info?["reason"] as? String) ?? (info?["error"] as? String) ?? "Your Mac refused the change (\(http.statusCode)); nothing was changed."
+        }
+    }
+
     /// Any request to the Mac's API, answered with its status and JSON body whatever the status,
     /// so a caller can show the server's own reason. Throws only when the Mac cannot be reached.
     func send(_ method: String, path: String, query: [URLQueryItem] = [], body: Any? = nil, timeout: TimeInterval = 30) async throws -> (status: Int, body: JSONValue) {

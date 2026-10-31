@@ -141,6 +141,7 @@ struct TaxesView: View {
                         KRow(title: "Net tax payable", value: inr(r.n("f16NetTaxPayable")), valueTone: .negative)
                     }
                 }
+                .editable(store, "taxes", id: r.id, title: "FY \(r.fy)")
             }
             Text("Attached documents are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }

@@ -67,6 +67,7 @@ struct IpoView: View {
                         }
                         if let days = app.daysBlocked { Text("Money tied up for \(days) day\(days == 1 ? "" : "s")").font(Theme.footnote).foregroundStyle(Theme.muted) }
                     }
+                    .editable(store, "ipoApplications", id: app.id, title: app.company)
                 }
             }
         }

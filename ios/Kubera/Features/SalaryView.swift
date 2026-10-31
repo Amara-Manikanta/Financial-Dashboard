@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Salary by year: what each month paid and took, the annual package against what actually
-/// arrived, gratuity, and every year's package. Read-only — payslips are entered on the Mac.
+/// arrived, gratuity, and every year's package. Long-press a month to edit its payslip.
 struct SalaryView: View {
     @ObservedObject var store: FinanceStore
     @State private var year = String(Calendar.current.component(.year, from: Date()))
@@ -36,6 +36,7 @@ struct SalaryView: View {
                             ForEach(p.fields.deductions) { f in line(f.label, -(m.values[f.key] ?? 0)) }
                         }
                     }
+                    .editable(store, "salaryDetails", id: salaryId(m.name), title: "\(m.name) \(year)")
                 }
             } else {
                 KCard { Text("No monthly payslips recorded for \(year).").font(Theme.body).foregroundStyle(Theme.muted) }
@@ -89,4 +90,10 @@ struct SalaryView: View {
     private func line(_ label: String, _ value: Double) -> some View {
         HStack { Text(label).font(Theme.footnote).foregroundStyle(Theme.muted); Spacer(); Text(inr(value)).font(Theme.footnote.weight(.semibold)).foregroundStyle(.white) }
     }
+
+    /// The stored payslip behind a month, so it can be edited.
+    private func salaryId(_ month: String) -> String {
+        store.data.salaryRaw.array.first { $0["type"].text != "annual" && $0["year"].text == year && $0["month"].text.lowercased() == month.lowercased() }?["id"].text ?? ""
+    }
+
 }

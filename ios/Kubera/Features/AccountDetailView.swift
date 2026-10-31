@@ -36,6 +36,7 @@ struct AccountDetailView: View {
             Text("Records are added and edited on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle(p.title.isEmpty ? "Account" : p.title)
+        .toolbar { EditRecordButton(store: store, collection: "savings", id: route.id, title: p.title.isEmpty ? "Account" : p.title) }
         .navigationBarTitleDisplayMode(.large)
     }
 }

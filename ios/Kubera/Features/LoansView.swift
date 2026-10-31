@@ -88,7 +88,7 @@ struct LoansView: View {
         if page.loans.isEmpty {
             KCard { Text("No loans or EMIs recorded.").font(Theme.footnote).foregroundStyle(Theme.muted) }
         }
-        ForEach(page.loans) { loan in loanCard(loan) }
+        ForEach(page.loans) { loan in loanCard(loan).editable(store, "loans", id: loan.id, title: loan.name) }
     }
 
     private func loanCard(_ loan: LoansPage.Loan) -> some View {

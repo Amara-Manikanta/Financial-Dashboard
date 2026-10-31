@@ -201,6 +201,13 @@ sends that value back as `If-Match` may only write on top of that exact
 version; if the database has moved, the write is refused with **409** and the
 banner tells the user to reload.
 
+**Single records are versioned the same way.** `GET /<collection>/<id>` returns
+that record's own fingerprint (`itemVersion`, sha1 of the one row) as
+`X-DB-Version`, and a `PATCH`/`PUT`/`DELETE` on that path carrying it as
+`If-Match` is refused with 409 if the record changed since. The phone's record
+editor depends on this; per-item writes still go through the queue, the
+freshness check, the guard and the backups like every other write.
+
 Clients that send no `If-Match` are still accepted, so nothing breaks — but any
 new whole-collection write path should send it. `FinanceContext` does this for
 `expenses`, which is the collection that actually suffers.
@@ -951,7 +958,7 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Savings | yes (accounts open the Mac page) | active accounts in order, totals, gratuity |
 | Investments (all accounts) | yes | accounts, totals, allocation slices in order |
 | Stocks | yes | every holding's value and cost |
-| Expenses (year, month, transactions) | yes | every month: spent, invested, income |
+| Expenses (year, month, transactions) | yes | every month: spent, invested, income; the month page's Categories and Income tabs (`MonthCategories`, a port of `monthDetails` in ExpenseDetails.jsx) for all 120 months |
 | Loans & Lents (people, loans, EMI calculator) | yes | peer totals, per-debt balance, every loan's paid / pending / progress / due this month |
 | Capital Gains (tax by year, losses carried, open lots, every sale, fund sales) | yes | all 136 disposals, every ledger figure for 6 years, 127 open lots, fund classes |
 | Watchlist (sorting, filters, ranges, alerts) | yes | 25 entries, all three sort orders, risk/priority/sector/cap, alert counts |
@@ -1007,13 +1014,32 @@ Mac form's own rows (`NewTransaction`, unit-tested). Nothing is saved until Save
 shows its reason and changes nothing. There is no fallback to a whole-collection save. Test it only against `ios/Tests/sandbox.sh`; open the sheet
 directly with `-addTransaction`.
 
+**Editing records** (`RecordEditing` in Core, `RecordEditorView`): a pencil on account,
+person, card and asset-category pages, and long-press → Edit on goals, loans, tax years,
+salary months, IPO applications and watchlist entries. The sheet loads the record fresh with
+its version, offers only plain fields (text, number, switch, date), and sends only what changed
+as `PATCH /<collection>/<id>` with `If-Match`. Locked, with the reason shown: ids, `type`, links
+(`expenseId`, `linkedStockId`, `itemId`), timestamps, photos/documents, anything a page derives
+(a fund's or stock account's `amount`, NAV, units, watchlist `sectorKey`…), `users` entirely, and
+the ledgers of stock, fund, NPS and SGB accounts (units are replayed from them on the Mac). Other
+nested lists (a lent's transactions, a loan's payments, a card's months, asset items) are edited
+or deleted a row at a time by re-sending that list under the record's version; rows linked to an
+expense are locked. A record changed on the Mac since the sheet opened is refused, reloaded, and
+the user is told to make the change again. `updatedAt` is stamped when the record has one. Not
+editable yet: `metals` and `appData` (object collections — budgets, manual rates, overrides), and
+creating or deleting whole records.
+
+**News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
+Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
+(`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.
+
 An isolated instance (`DB_FILE` set) no longer syncs to iCloud: the first sandbox write test
 replaced the real off-machine copy with sandbox data (restored from `db.json`, which was
 untouched — checked by hash).
 
 ### Not done yet
 
-- Writes other than adding, editing and deleting a plain transaction (no accounts, holdings, goals or settings).
+- Writes to holdings (stock/fund ledgers), `metals`, `appData` settings, and creating or deleting whole records.
 - Savings and Investments account pages (a fund, a deposit, a policy) still
   open the Mac's page; so does everything below Investments in the More list.
 - The web layout for phones has 8 known rough spots (a few fixed-width dropdowns

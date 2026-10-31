@@ -41,6 +41,7 @@ struct GoalsView: View {
                     Text(timing(g)).font(Theme.footnote).foregroundStyle(Theme.muted)
                     if g.raw["notes"].truthy { Text(g.raw["notes"].text).font(Theme.footnote).foregroundStyle(Theme.muted) }
                 }
+                .editable(store, "goals", id: g.id, title: g.name)
             }
         }
         .navigationTitle("Financial Goals")

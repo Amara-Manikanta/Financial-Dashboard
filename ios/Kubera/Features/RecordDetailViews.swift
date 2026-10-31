@@ -37,6 +37,7 @@ struct LentDetailView: View {
             }
         }
         .navigationTitle(d["name"].text)
+        .toolbar { EditRecordButton(store: store, collection: "lents", id: route.id, title: d["name"].text) }
         .navigationBarTitleDisplayMode(.large)
     }
 }
@@ -65,6 +66,7 @@ struct AssetCategoryView: View {
             Text("Photos, bills and service history are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle(cat["title"].text)
+        .toolbar { EditRecordButton(store: store, collection: "assets", id: route.id, title: cat["title"].text) }
         .navigationBarTitleDisplayMode(.large)
     }
 }
@@ -138,6 +140,7 @@ struct CardDetailView: View {
             Text("Statements, edits and payments are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle(card["name"].text)
+        .toolbar { EditRecordButton(store: store, collection: "creditCards", id: route.id, title: card["name"].text) }
         .navigationBarTitleDisplayMode(.large)
     }
 }

@@ -37,6 +37,21 @@ final class FinanceStore: ObservableObject {
         return json
     }
 
+    // MARK: Records (one at a time, version-checked)
+
+    func record(_ collection: String, id: String) async throws -> (value: JSONValue, version: String?) {
+        try await api.record(collection, id: id)
+    }
+
+    /// Saves changed fields of one record, then reloads every screen. Nil when saved.
+    func saveRecord(_ collection: String, id: String, fields: [String: Any], version: String?, stampUpdated: Bool) async -> String? {
+        var fields = fields
+        if stampUpdated { fields["updatedAt"] = ISO8601DateFormatter.withMillis.string(from: Date()) }
+        if let failure = await api.patchRecord(collection, id: id, fields: fields, version: version) { return failure }
+        await load()
+        return nil
+    }
+
     // MARK: News (read and collected on the Mac; the phone only asks)
 
     private func newsQuery(_ symbol: String, _ name: String) -> [URLQueryItem] {
@@ -166,4 +181,13 @@ final class FinanceStore: ObservableObject {
             errorMessage = error.localizedDescription
         }
     }
+}
+
+extension ISO8601DateFormatter {
+    /// `2026-10-31T09:15:00.000Z`, the form JavaScript's `toISOString()` writes.
+    static let withMillis: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
 }

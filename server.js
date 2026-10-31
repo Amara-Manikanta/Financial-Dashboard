@@ -106,6 +106,31 @@ const collectionVersion = (name) => {
     }
 };
 
+/**
+ * The same fingerprint for one record of an array collection (`/savings/<id>`).
+ * Per-item writes merge correctly in json-server, but a device editing a record
+ * it loaded earlier would still overwrite fields someone else changed since —
+ * so a record can carry its own version, sent back as If-Match like a
+ * collection's. Null when the path is not a record that exists.
+ */
+const itemOf = (url) => {
+    const m = /^\/([A-Za-z0-9_-]+)\/([^/?]+)$/.exec(String(url).split('?')[0]);
+    if (!m || m[1] === 'api') return null;
+    try { return { name: m[1], id: decodeURIComponent(m[2]) }; } catch { return null; }
+};
+const itemVersion = (url) => {
+    const item = itemOf(url);
+    if (!item) return null;
+    try {
+        const list = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'))[item.name];
+        if (!Array.isArray(list)) return null;
+        const row = list.find((r) => r && String(r.id) === item.id);
+        return row ? crypto.createHash('sha1').update(JSON.stringify(row)).digest('hex').slice(0, 16) : null;
+    } catch {
+        return null;
+    }
+};
+
 console.log(`[SafetyGuard] Starting internal json-server on port ${INTERNAL_PORT}...`);
 
 // Spawn the actual json-server.
@@ -1478,8 +1503,8 @@ const proxy = http.createServer((req, res) => {
             // client can base its next write on it. json-server has already
             // written db.json by the time it responds, so this reads the result.
             const name = collectionOf(req.url);
-            if (name) {
-                const version = collectionVersion(name);
+            if (name || itemOf(req.url)) {
+                const version = name ? collectionVersion(name) : itemVersion(req.url);
                 if (version) {
                     outHeaders['x-db-version'] = version;
                     // Custom headers are invisible to fetch() unless exposed.
@@ -1579,8 +1604,9 @@ const proxy = http.createServer((req, res) => {
         // client is told to reload rather than quietly winning.
         const baseVersion = req.headers['if-match'];
         const targetCollection = collectionOf(req.url);
-        if (baseVersion && targetCollection) {
-            const current = collectionVersion(targetCollection);
+        if (baseVersion && (targetCollection || itemOf(req.url))) {
+            // A record that no longer exists has no version; json-server answers 404 for it.
+            const current = targetCollection ? collectionVersion(targetCollection) : itemVersion(req.url);
             if (current && current !== baseVersion) {
                 console.error(`[SafetyGuard] ⛔ STALE ${req.method} ${req.url} (based on ${baseVersion}, current ${current})`);
                 sendJson(res, 409, {
