@@ -23,7 +23,7 @@ private struct PairedRoot: View {
     let forget: () -> Void
 
     @StateObject private var store: FinanceStore
-    @State private var tab: AppTab = ProcessInfo.processInfo.arguments.contains("-screen") ? .more : .home
+    @State private var tab: AppTab = ProcessInfo.processInfo.arguments.contains("-screen") ? .more : ProcessInfo.processInfo.arguments.contains("-addTransaction") ? .expenses : .home
     @State private var webPage: AppPage?
 
     init(mac: MacEndpoint, token: String, forget: @escaping () -> Void) {

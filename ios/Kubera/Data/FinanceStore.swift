@@ -52,6 +52,15 @@ final class FinanceStore: ObservableObject {
         return image
     }
 
+    /// Saves one new transaction, then reloads so every screen shows what the Mac actually holds.
+    /// Returns nil when saved, or the reason it was not.
+    func addTransaction(_ draft: NewTransaction.Draft) async -> String? {
+        let map = Budgets.categoryMap(appData: data.appDataRaw)
+        if let failure = await api.addTransaction(NewTransaction.body(draft, map: map)) { return failure }
+        await load()
+        return nil
+    }
+
     private let api: API
     private let onUnauthorized: () -> Void
 

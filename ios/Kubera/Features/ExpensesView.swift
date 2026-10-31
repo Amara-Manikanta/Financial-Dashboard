@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ExpensesView: View {
     @ObservedObject var store: FinanceStore
+    @State private var adding = ProcessInfo.processInfo.arguments.contains("-addTransaction")
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,8 @@ struct ExpensesView: View {
                 }
             }
             .navigationTitle("Expenses")
+            .toolbar { ToolbarItem(placement: .primaryAction) { Button { adding = true } label: { Image(systemName: "plus") } } }
+            .sheet(isPresented: $adding) { AddTransactionView(store: store) }
             .navigationDestination(for: Int.self) { year in
                 if let summary = store.years.first(where: { $0.year == year }) { YearView(year: summary) }
             }

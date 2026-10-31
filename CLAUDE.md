@@ -992,10 +992,23 @@ manual rate in `appData.manualMetalRates`. Without one the web app uses a live
 feed this phone does not fetch (it falls back to ₹7,600 / ₹95 per gram, as the
 web does when the feed fails), so a database with no manual rate could differ.
 
+### Writing from the phone
+
+One write exists: **Expenses → + → Add transaction**. It sends ONE row to `POST /api/tx` (never
+a whole collection, so a stale phone cannot overwrite what it never loaded) shaped like the
+Mac form's own rows (`NewTransaction`, unit-tested). Nothing is saved until Save; a refusal
+(503/404 means the Mac runs `server:json` without per-row writes, 409 is the write guard)
+shows its reason and changes nothing. There is no fallback to a whole-collection save and no
+edit or delete from the phone. Test it only against `ios/Tests/sandbox.sh`; open the sheet
+directly with `-addTransaction`.
+
+An isolated instance (`DB_FILE` set) no longer syncs to iCloud: the first sandbox write test
+replaced the real off-machine copy with sandbox data (restored from `db.json`, which was
+untouched — checked by hash).
+
 ### Not done yet
 
-- Native writes. A phone write would have to use the per-row endpoints and
-  `If-Match` versions; until that is built and tested the app cannot change data.
+- Editing or deleting from the phone, and writes other than adding one transaction.
 - Savings and Investments account pages (a fund, a deposit, a policy) still
   open the Mac's page; so does everything below Investments in the More list.
 - The web layout for phones has 8 known rough spots (a few fixed-width dropdowns

@@ -532,3 +532,35 @@ final class CostRecoveryTests: XCTestCase {
         XCTAssertEqual(replay.dividends["2025"], 100)
     }
 }
+
+final class NewTransactionTests: XCTestCase {
+    private let map: [(main: String, subs: [String])] = [("Food", ["Restaurants", "Groceries"]), ("Travel", ["Fuel"])]
+
+    func testAnEntryIsShapedLikeTheMacsAndSentAsOneRow() throws {
+        var d = NewTransaction.Draft(); d.title = " Lunch "; d.amount = "1,250.50"; d.category = "restaurants"
+        let body = NewTransaction.body(d, map: map, now: Date(timeIntervalSince1970: 1_786_000_000))
+        let tx = try XCTUnwrap(body["transaction"] as? [String: Any])
+        XCTAssertEqual(tx["id"] as? String, "1786000000000")
+        XCTAssertEqual(tx["title"] as? String, "Lunch"); XCTAssertEqual(tx["amount"] as? Double, 1250.5)
+        XCTAssertEqual(tx["category"] as? String, "restaurants"); XCTAssertEqual(tx["mainCategory"] as? String, "Food")
+        XCTAssertEqual(tx["paymentMode"] as? String, "direct"); XCTAssertEqual(tx["transactionType"] as? String, "debit"); XCTAssertEqual(tx["isCredited"] as? Bool, false)
+        XCTAssertEqual(tx["deductFromSalary"] as? Bool, true); XCTAssertTrue(tx["creditCardName"] is NSNull)
+        XCTAssertEqual(body.count, 1, "one transaction, nothing else")
+        XCTAssertNotNil(try? JSONSerialization.data(withJSONObject: body))
+    }
+
+    func testCardAndReceivedEntries() throws {
+        var d = NewTransaction.Draft(); d.amount = "200"; d.category = "Fuel"; d.onCard = true; d.card = "HPCL"; d.received = true
+        let tx = try XCTUnwrap(NewTransaction.body(d, map: map)["transaction"] as? [String: Any])
+        XCTAssertEqual(tx["paymentMode"] as? String, "credit_card"); XCTAssertEqual(tx["creditCardName"] as? String, "HPCL")
+        XCTAssertEqual(tx["isCredited"] as? Bool, true); XCTAssertEqual(tx["transactionType"] as? String, "credit")
+    }
+
+    func testIncompleteEntriesAreRefused() {
+        XCTAssertEqual(Set(NewTransaction.problems(NewTransaction.Draft())), [.amount, .category])
+        var d = NewTransaction.Draft(); d.amount = "0"; d.category = "x"; XCTAssertEqual(NewTransaction.problems(d), [.amount])
+        d.amount = "-5"; XCTAssertEqual(NewTransaction.problems(d), [.amount])
+        d.amount = "5"; d.onCard = true; XCTAssertEqual(NewTransaction.problems(d), [.card])
+        d.card = "HPCL"; d.date = Date().addingTimeInterval(10 * 86_400); XCTAssertEqual(NewTransaction.problems(d), [.date])
+    }
+}

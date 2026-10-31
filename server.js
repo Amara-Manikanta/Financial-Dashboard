@@ -235,6 +235,10 @@ const ICLOUD_DIR = path.join(process.env.HOME || '/Users/manikantaamara', 'Libra
 const ICLOUD_DB_FILE = path.join(ICLOUD_DIR, 'db.json');
 
 const syncToICloud = () => {
+    // An isolated instance (DB_FILE set) works on a throwaway copy. Letting it sync
+    // would replace the real off-machine backup with that copy — it did, once, the
+    // first time a phone write was tested against a sandbox.
+    if (process.env.DB_FILE) return;
     try {
         if (!fs.existsSync(ICLOUD_DIR)) {
             fs.mkdirSync(ICLOUD_DIR, { recursive: true });
