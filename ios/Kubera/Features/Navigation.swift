@@ -29,6 +29,7 @@ enum NativeScreen: Hashable, CaseIterable {
     case metals
     case cardIntelligence
     case profile
+    case gallery
     case budgets
     case fuel
     case groceries
@@ -92,6 +93,7 @@ struct NativeDestination: View {
         case .metals: MetalsView(store: store)
         case .cardIntelligence: CardIntelligenceView(store: store)
         case .profile: ProfileView(store: store)
+        case .gallery: GalleryView(store: store)
         case .budgets: BudgetsView(store: store)
         case .fuel: FuelView(store: store)
         case .groceries: GroceriesView(store: store)

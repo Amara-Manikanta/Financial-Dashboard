@@ -23,6 +23,20 @@ struct API {
 
     func get(_ collection: String) async throws -> JSONValue { try await get(path: collection, query: []) }
 
+    /// A file the Mac serves (a photo), fetched with the same token as everything else.
+    func data(path: String) async throws -> Data {
+        let url = path.split(separator: "/").reduce(base.appendingPathComponent("_api")) { $0.appendingPathComponent(String($1)) }
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 30
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await URLSession.shared.data(for: request) } catch { throw APIError.unreachable }
+        guard let http = response as? HTTPURLResponse else { throw APIError.unreachable }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        guard http.statusCode == 200 else { throw APIError.server(http.statusCode) }
+        return data
+    }
+
     /// Any read the Mac serves — a collection, or `api/...` (quotes, fundamentals, index history).
     func get(path: String, query: [URLQueryItem]) async throws -> JSONValue {
         var url = path.split(separator: "/").reduce(base.appendingPathComponent("_api")) { $0.appendingPathComponent(String($1)) }

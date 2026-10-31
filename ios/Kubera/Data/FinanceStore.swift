@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 /// Everything the native screens show, loaded from the Mac and derived with the
 /// same rules as the web app (see Core/ and the parity tests).
@@ -40,6 +41,15 @@ final class FinanceStore: ObservableObject {
         var closes: [String: Double] = [:]
         for (k, v) in json["closes"].object { closes[k] = v.double }
         return closes
+    }
+
+    /// A photo from the Mac, kept in memory so scrolling back does not fetch it again.
+    private static let photos = NSCache<NSString, UIImage>()
+    func photo(_ path: String) async -> UIImage? {
+        if let hit = Self.photos.object(forKey: path as NSString) { return hit }
+        guard let data = try? await api.data(path: path), let image = UIImage(data: data) else { return nil }
+        Self.photos.setObject(image, forKey: path as NSString)
+        return image
     }
 
     private let api: API

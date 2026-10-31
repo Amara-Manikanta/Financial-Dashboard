@@ -978,7 +978,9 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Data Health, Warranties, Assets, Precious Metals | yes | Data Health's 9 checks and Warranties' 20 items; Assets and Metals reuse verified valuations |
 | Profile (this iPhone only) | yes | not a port: password, backups, Claude key and iPhone pairing deliberately stay on the Mac |
 | Account detail (fund, deposits, PF, PPF, NPS, SGB, savings account, policy, emergency fund) | yes, read-only ledgers | every account's value equals the verified valuation; 496 ledger rows build without error |
-| Ornament Gallery, DocuSetu, and the detail pages for a card, loan, metal category, asset category and one month's expenses | web fallback | |
+| Person/debt, asset category, metal and card detail pages | yes, read-only | card history reuses the parity-tested card profile; the rest read stored rows and verified valuations |
+| Ornament Gallery | yes | photos are fetched from the Mac with the pairing token (`API.data`), cached in memory; files missing on the Mac are left out and counted |
+| DocuSetu | web fallback | a 1,800-line checklist dataset with progress saved on the Mac; not rebuilt |
 | everything after that in the More list | web fallback | |
 
 A page is not "done" until its parity test passes against the web code on the
