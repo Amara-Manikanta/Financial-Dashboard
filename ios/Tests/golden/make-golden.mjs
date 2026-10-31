@@ -307,10 +307,34 @@ for (const year of salYears) {
     };
 }
 
+// TaxPlanningCalculator.jsx: its prefill effect and its arithmetic, cut from the source, for each financial year on record.
+const taxEffect = slice('src/components/TaxPlanningCalculator.jsx', 'useEffect(() => {', '}, [selectedFy, salaryDetails, savings, taxes]);');
+const taxCalc = slice('src/components/TaxPlanningCalculator.jsx', 'const grossIncome =', 'const newRefundOrPayable = Number(tdsPaid) - newTax;', true);
+const taxSorted = [...(db.taxes || [])].sort((a, b) => (b.financialYear || '').localeCompare(a.financialYear || ''));
+const taxPrefill = (fy) => {
+    const out = { basic: 600000, hra: 250000, other: 350000, bonus: 100000, tds: 108302, sec80C: 150000 };
+    new Function('sortedTaxRecords', 'latestTaxRecord', 'selectedFy', 'salaryDetails', 'savings', 'set',
+        `const setTdsPaid = (v) => set.tds = v, setSec80C = (v) => set.sec80C = v, setBasicSalary = (v) => set.basic = v, setHra = (v) => set.hra = v, setOtherAllowances = (v) => set.other = v, setBonus = (v) => set.bonus = v;\n${taxEffect}`,
+    )(taxSorted, taxSorted[0], fy, db.salaryDetails, db.savings, out);
+    return out;
+};
+const taxCalcFn = new Function('basicSalary', 'hra', 'otherAllowances', 'bonus', 'tdsPaid', 'sec80C', 'sec80D', 'nps80CCD', 'homeLoanInterest', 'actualRentPaid', 'isMetroCity',
+    `const grossIncome =${taxCalc}\nreturn { grossIncome, hraExemption, totalOldDeductions, oldTaxableIncome, newTaxableIncome, oldTax, newTax, taxDifference, isNewRegimeBetter, oldRefundOrPayable, newRefundOrPayable };`);
+const taxGolden = { fys: taxSorted.map((t) => t.financialYear).concat(['2031-2032']), prefill: {}, calc: {}, cases: [] };
+for (const fy of taxGolden.fys) {
+    const pre = taxPrefill(fy);
+    taxGolden.prefill[fy] = pre;
+    taxGolden.calc[fy] = taxCalcFn(pre.basic, pre.hra, pre.other, pre.bonus, pre.tds, pre.sec80C, 25000, 50000, 0, 180000, true);
+}
+for (const c of [[600000, 250000, 350000, 100000, 108302, 150000, 25000, 50000, 0, 180000, true], [1500000, 600000, 300000, 200000, 250000, 150000, 75000, 50000, 200000, 360000, false],
+    [3000000, 900000, 600000, 500000, 700000, 100000, 0, 0, 300000, 120000, true], [450000, 100000, 50000, 0, 10000, 0, 0, 0, 0, 0, false], [1300000, 500000, 200000, 100000, 0, 150000, 50000, 50000, 0, 240000, true]]) {
+    taxGolden.cases.push({ in: c, out: taxCalcFn(...c) });
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

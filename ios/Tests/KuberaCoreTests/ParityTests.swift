@@ -596,4 +596,29 @@ extension ParityTests {
         }
         print("parity: salary — \(web["years"].array.count) years, \(checked) months compared, \(annual.count) annual packages")
     }
+
+    func testTaxesMatchTheWebApp() throws {
+        let db = try load("KUBERA_DB"), web = try load("KUBERA_GOLDEN")["taxes"]
+        for fy in web["fys"].array.map({ $0.text }) {
+            let i = TaxesPage.prefill(fy: fy, taxes: db["taxes"], salaryDetails: db["salaryDetails"], savings: db["savings"]), w = web["prefill"][fy]
+            for (name, a, b) in [("basic", i.basic, "basic"), ("hra", i.hra, "hra"), ("other", i.other, "other"), ("bonus", i.bonus, "bonus"), ("tds", i.tdsPaid, "tds"), ("80C", i.sec80C, "sec80C")] {
+                XCTAssertEqual(a, w[b].double, accuracy: 0.005, "prefill \(fy) \(name)")
+            }
+            let r = TaxesPage.calculate(i), c = web["calc"][fy]
+            XCTAssertEqual(r.oldTax, c["oldTax"].double, accuracy: 0.005, fy); XCTAssertEqual(r.newTax, c["newTax"].double, accuracy: 0.005, fy)
+            XCTAssertEqual(r.newIsBetter, c["isNewRegimeBetter"].isTrue, fy); XCTAssertEqual(r.hraExemption, c["hraExemption"].double, accuracy: 0.005, fy)
+        }
+        for c in web["cases"].array {
+            let v = c["in"].array.map { $0.double }
+            let r = TaxesPage.calculate(.init(basic: v[0], hra: v[1], other: v[2], bonus: v[3], tdsPaid: v[4], sec80C: v[5], sec80D: v[6], nps: v[7], homeLoanInterest: v[8], rent: v[9], metro: c["in"][10].isTrue)), o = c["out"]
+            XCTAssertEqual(r.gross, o["grossIncome"].double, accuracy: 0.005); XCTAssertEqual(r.oldDeductions, o["totalOldDeductions"].double, accuracy: 0.005)
+            XCTAssertEqual(r.oldTaxable, o["oldTaxableIncome"].double, accuracy: 0.005); XCTAssertEqual(r.newTaxable, o["newTaxableIncome"].double, accuracy: 0.005)
+            XCTAssertEqual(r.oldTax, o["oldTax"].double, accuracy: 0.005); XCTAssertEqual(r.newTax, o["newTax"].double, accuracy: 0.005)
+            XCTAssertEqual(r.difference, o["taxDifference"].double, accuracy: 0.005); XCTAssertEqual(r.newIsBetter, o["isNewRegimeBetter"].isTrue)
+            XCTAssertEqual(r.oldRefundOrPayable, o["oldRefundOrPayable"].double, accuracy: 0.005); XCTAssertEqual(r.newRefundOrPayable, o["newRefundOrPayable"].double, accuracy: 0.005)
+        }
+        let rows = TaxesPage.records(db["taxes"]), t = TaxesPage.totals(rows)
+        XCTAssertEqual(rows.map { $0.fy }, db["taxes"].array.map { $0["financialYear"].text }.sorted(by: >))
+        print("parity: taxes — \(rows.count) returns, \(web["fys"].array.count) prefills, \(web["cases"].array.count) regime cases; paid \(t.taxPaid), refunds received \(t.refundReceived)")
+    }
 }

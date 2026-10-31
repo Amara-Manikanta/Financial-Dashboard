@@ -14,6 +14,7 @@ enum NativeScreen: Hashable {
     case overlap
     case analyst
     case salary
+    case taxes
 }
 
 /// Any screen can open a page from the Mac that has not been rebuilt natively
@@ -49,6 +50,7 @@ struct NativeDestination: View {
         case .overlap: OverlapView(store: store)
         case .analyst: AnalystView(store: store)
         case .salary: SalaryView(store: store)
+        case .taxes: TaxesView(store: store)
         }
     }
 }

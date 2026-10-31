@@ -43,7 +43,7 @@ enum Pages {
         ]),
         PageGroup(title: "Income", pages: [
             AppPage(title: "Salary", path: "/salary", icon: "briefcase", native: .screen(.salary)),
-            AppPage(title: "Taxes", path: "/taxes", icon: "doc.text"),
+            AppPage(title: "Taxes", path: "/taxes", icon: "doc.text", native: .screen(.taxes)),
         ]),
         PageGroup(title: "Planning", pages: [
             AppPage(title: "Financial Goals", path: "/goals", icon: "target"),

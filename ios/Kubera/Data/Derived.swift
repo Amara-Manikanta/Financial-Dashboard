@@ -4,17 +4,17 @@ import Foundation
 struct RawData {
     var expenses = JSONValue.null, savings = JSONValue.null, salaryDetails = JSONValue.null, appData = JSONValue.null
     var metals = JSONValue.null, assets = JSONValue.null, loans = JSONValue.null, lents = JSONValue.null
-    var watchlist = JSONValue.null, ipoApplications = JSONValue.null
+    var watchlist = JSONValue.null, ipoApplications = JSONValue.null, taxes = JSONValue.null
 
     /// All collections at once; a failure in any one fails the load, so the screens
     /// never show half of a refresh.
     static func fetch(from api: API) async throws -> RawData {
         async let expenses = api.get("expenses"), savings = api.get("savings"), salary = api.get("salaryDetails")
         async let appData = api.get("appData"), metals = api.get("metals"), assets = api.get("assets")
-        async let loans = api.get("loans"), lents = api.get("lents"), watchlist = api.get("watchlist"), ipos = api.get("ipoApplications")
+        async let loans = api.get("loans"), lents = api.get("lents"), watchlist = api.get("watchlist"), ipos = api.get("ipoApplications"), taxes = api.get("taxes")
         return RawData(expenses: try await expenses, savings: try await savings, salaryDetails: try await salary, appData: try await appData,
                        metals: try await metals, assets: try await assets, loans: try await loans, lents: try await lents,
-                       watchlist: try await watchlist, ipoApplications: try await ipos)
+                       watchlist: try await watchlist, ipoApplications: try await ipos, taxes: try await taxes)
     }
 }
 
@@ -39,6 +39,7 @@ struct Derived {
     var savingsRaw = JSONValue.null
     var watchlistRaw = JSONValue.null
     var salaryRaw = JSONValue.null
+    var taxesRaw = JSONValue.null
     var appDataRaw = JSONValue.null
 
     static func compute(_ raw: RawData, asOf: Date = Date()) -> Derived {
@@ -66,6 +67,7 @@ struct Derived {
         d.savingsRaw = raw.savings
         d.watchlistRaw = raw.watchlist
         d.salaryRaw = raw.salaryDetails
+        d.taxesRaw = raw.taxes
         d.appDataRaw = raw.appData
         return d
     }
