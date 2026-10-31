@@ -50,7 +50,7 @@ enum Pages {
             AppPage(title: "Insurance Gap Analysis", path: "/insurance-analysis", icon: "shield.checkered", native: .screen(.insurance)),
             AppPage(title: "DocuSetu — Documents & Claims", path: "/docusetu", icon: "folder.badge.gearshape"),
             AppPage(title: "Cashflow Forecast", path: "/cashflow", icon: "calendar.badge.clock", native: .screen(.cashflow)),
-            AppPage(title: "Net Worth Over Time", path: "/net-worth", icon: "chart.xyaxis.line"),
+            AppPage(title: "Net Worth Over Time", path: "/net-worth", icon: "chart.xyaxis.line", native: .screen(.netWorthHistory)),
         ]),
         PageGroup(title: "Spending", pages: [
             AppPage(title: "All Expenses", path: "/expenses", icon: "creditcard", native: .tab(.expenses)),

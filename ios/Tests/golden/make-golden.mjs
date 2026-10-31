@@ -31,6 +31,7 @@ import { ALL_BENCHMARK_STOCKS } from '../../../src/utils/nifty50Data.js';
 import { analysePortfolio, symbolFor } from '../../../src/utils/stockAdvisor.js';
 import { detectRecurring, applyOverrides } from '../../../src/utils/recurring.js';
 import { buildForecast } from '../../../src/utils/cashflow.js';
+import { netWorthSeries, contributionByYear } from '../../../src/utils/netWorthHistory.js';
 import { recoveryRanking, freePositions, nearlyFree, recoveryTotals, cashlessHoldings } from '../../../src/utils/costRecovery.js';
 
 // Fixed-deposit interest depends on today's date; freeze it so the Swift side can be given the same instant.
@@ -362,10 +363,15 @@ for (const days of [30, 60, 90]) {
     cashflowGolden[days] = f;
 }
 
+// netWorthHistory.js, and the steps memo from NetWorthHistory.jsx.
+const nwSeries = netWorthSeries({ savings: db.savings, metals: db.metals, assets: db.assets, loans: db.loans, now: new RealDate(frozenMs) });
+const nwStepsBody = slice('src/pages/NetWorthHistory.jsx', 'const bigSteps = useMemo(() => {', '}, [series]);');
+const netWorthGolden = { series: nwSeries, byYear: contributionByYear(nwSeries.points), steps: new Function('series', nwStepsBody)(nwSeries) };
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, cashflow: cashflowGolden, overlapFilters,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters,
     months,
     stocks: {
         count: holdings.length,

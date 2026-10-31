@@ -41,6 +41,8 @@ struct Derived {
     var salaryRaw = JSONValue.null
     var taxesRaw = JSONValue.null
     var goalsRaw = JSONValue.null
+    var metalsRaw = JSONValue.null
+    var assetsRaw = JSONValue.null
     var expensesRaw = JSONValue.null
     var loansRaw = JSONValue.null
     var creditCardsRaw = JSONValue.null
@@ -74,6 +76,8 @@ struct Derived {
         d.salaryRaw = raw.salaryDetails
         d.taxesRaw = raw.taxes
         d.goalsRaw = raw.goals
+        d.metalsRaw = raw.metals
+        d.assetsRaw = raw.assets
         d.expensesRaw = raw.expenses
         d.loansRaw = raw.loans
         d.creditCardsRaw = raw.creditCards

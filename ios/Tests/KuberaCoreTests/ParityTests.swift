@@ -694,4 +694,23 @@ extension ParityTests {
         }
         print("parity: recurring — \(series.count) series; cashflow — \(rows) events over 30/60/90 days")
     }
+
+    func testNetWorthHistoryMatchesTheWebApp() throws {
+        let db = try load("KUBERA_DB"), golden = try load("KUBERA_GOLDEN"), web = golden["netWorthHistory"]
+        let s = NetWorthHistory.series(savings: db["savings"], metals: db["metals"], assets: db["assets"], loans: db["loans"], now: try frozenNow(golden))
+        let wp = web["series"]["points"].array
+        XCTAssertEqual(s.points.map { $0.month }, wp.map { $0["month"].text }, "months")
+        for (m, t) in zip(s.points, wp) {
+            for c in NetWorthHistory.components { XCTAssertEqual(m.values[c] ?? 0, t[c].double, accuracy: 0.005, "\(m.month) \(c)") }
+            XCTAssertEqual(m.debt, t["debt"].double, accuracy: 0.005, m.month); XCTAssertEqual(m.gross, t["gross"].double, accuracy: 0.005, m.month); XCTAssertEqual(m.net, t["net"].double, accuracy: 0.005, m.month)
+        }
+        let u = web["series"]["undated"]
+        XCTAssertEqual(s.undated.total, u["total"].double, accuracy: 0.005); XCTAssertEqual(s.undated.items.map { $0.name }, u["items"].array.map { $0["name"].text })
+        let years = NetWorthHistory.contributionByYear(s.points)
+        XCTAssertEqual(years.map { $0.year }, web["byYear"].array.map { $0["year"].text })
+        for (m, t) in zip(years, web["byYear"].array) { XCTAssertEqual(m.added, t["added"].double, accuracy: 0.005, m.year) }
+        let steps = NetWorthHistory.bigSteps(s.points)
+        XCTAssertEqual(steps.map { $0.month }, web["steps"].array.map { $0["month"].text })
+        print("parity: net worth history — \(s.points.count) months, \(years.count) years, \(steps.count) steps to check, \(s.undated.items.count) undated")
+    }
 }
