@@ -958,7 +958,7 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Savings | yes (accounts open the Mac page) | active accounts in order, totals, gratuity |
 | Investments (all accounts) | yes | accounts, totals, allocation slices in order |
 | Stocks | yes | every holding's value and cost |
-| Expenses (year, month, transactions) | yes | every month: spent, invested, income; the month page's Categories and Income tabs (`MonthCategories`, a port of `monthDetails` in ExpenseDetails.jsx) for all 120 months |
+| Expenses (year, month, transactions) | yes | every month: spent, invested, income (one rule everywhere — `utils/monthIncome.js`: every income-type row, i.e. Income main category or a known income category, plus the payslip only when no row is a salary; the Mac's month page, the Mac's Expenses list and the app all use it, so a refund filed under Income reads the same on every screen); the month page's Categories and Income tabs (`MonthCategories`, a port of `monthDetails` in ExpenseDetails.jsx) for all 120 months |
 | Loans & Lents (people, loans, EMI calculator) | yes | peer totals, per-debt balance, every loan's paid / pending / progress / due this month |
 | Capital Gains (tax by year, losses carried, open lots, every sale, fund sales) | yes | all 136 disposals, every ledger figure for 6 years, 127 open lots, fund classes |
 | Watchlist (sorting, filters, ranges, alerts) | yes | 25 entries, all three sort orders, risk/priority/sector/cap, alert counts |

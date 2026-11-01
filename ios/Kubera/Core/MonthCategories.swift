@@ -48,22 +48,10 @@ enum MonthCategories {
         return "Miscellaneous"
     }
 
-    /// `salary` is `salaryStats[year].months[month]` — the payslip, overridden by salary rows.
-    static func detail(node: JSONValue, salary configured: Double, map: [(main: String, subs: [String])]) -> Detail {
+    /// Every income-type row by category, plus the month's configured salary when no row is a salary — the rule in
+    /// `utils/monthIncome.js`, shared by the month page, the Expenses list and this app.
+    static func incomeParts(node: JSONValue, salary configured: Double) -> (order: [String], totals: [String: Double], sum: Double) {
         let categories = node["categories"].isNull ? node : node["categories"]
-        // Keys keep first-seen order, as a JavaScript object would.
-        var order: [String] = []
-        var totals: [String: Double] = [:], deductibles: [String: Double] = [:]
-        var mainOrder: [String] = []
-        var mainTotals: [String: Double] = [:], mainDeductibles: [String: Double] = [:]
-
-        for (cat, value) in categories.object.sorted(by: { $0.key < $1.key })
-        where !["salary received", "salary", "income", "transactions"].contains(cat) {
-            order.append(cat)
-            let n = value.jsNumber ?? .nan
-            totals[cat] = n; deductibles[cat] = n
-        }
-
         let rows = node["transactions"].array
         var incomeOrder: [String] = []
         var incomeTotals: [String: Double] = [:]
@@ -89,6 +77,30 @@ enum MonthCategories {
             incomeTotals["Salary"] = base
             incomeSum += base
         }
+        return (incomeOrder, incomeTotals, incomeSum)
+    }
+
+    /// The month's income as the Expenses list shows it.
+    static func incomeTotal(node: JSONValue, salary: Double) -> Double { incomeParts(node: node, salary: salary).sum }
+
+    /// `salary` is `salaryStats[year].months[month]` — the payslip, overridden by salary rows.
+    static func detail(node: JSONValue, salary configured: Double, map: [(main: String, subs: [String])]) -> Detail {
+        let categories = node["categories"].isNull ? node : node["categories"]
+        // Keys keep first-seen order, as a JavaScript object would.
+        var order: [String] = []
+        var totals: [String: Double] = [:], deductibles: [String: Double] = [:]
+        var mainOrder: [String] = []
+        var mainTotals: [String: Double] = [:], mainDeductibles: [String: Double] = [:]
+
+        for (cat, value) in categories.object.sorted(by: { $0.key < $1.key })
+        where !["salary received", "salary", "income", "transactions"].contains(cat) {
+            order.append(cat)
+            let n = value.jsNumber ?? .nan
+            totals[cat] = n; deductibles[cat] = n
+        }
+
+        let rows = node["transactions"].array
+        let (incomeOrder, incomeTotals, incomeSum) = incomeParts(node: node, salary: configured)
         let salary = incomeSum
         let income = incomeOrder.compactMap { name -> Income? in
             let amt = incomeTotals[name] ?? 0

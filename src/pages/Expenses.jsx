@@ -4,6 +4,7 @@ import { useFinance } from '../context/FinanceContext';
 import { Calendar, ChevronDown, ChevronUp, BarChart3, Plus, X, Upload, Loader2 } from 'lucide-react';
 import { processBankStatement, mergeTransactionsIntoExpenses } from '../utils/importUtils';
 import { expenseBuckets, kindFor, isDebit, defaultKindForCategory } from '../utils/transactionKind';
+import { monthIncome } from '../utils/monthIncome';
 import { ExpensesIcon } from '../utils/customIcons';
 
 const Expenses = () => {
@@ -134,6 +135,9 @@ const Expenses = () => {
         }
         return groups;
     }, [expenses, categoryKinds]);
+
+    // One month's income, counted as the month page counts it (every income-type row, not only salary).
+    const incomeOf = (year, monthName) => monthIncome(expenses?.[year]?.[monthName], salaryStats[year]?.months?.[monthName] || 0).total;
 
     const years = useMemo(() => {
         const expenseYears = Object.keys(expenseGroups);
@@ -307,7 +311,9 @@ const Expenses = () => {
                     const yearlyTotalInvested = expenseGroups[year]
                         ? Object.values(expenseGroups[year]).reduce((acc, month) => acc + month.invested, 0)
                         : 0;
-                    const yearlySalary = salaryStats[year]?.total || 0;
+                    const yearlySalary = expenses?.[year] && typeof expenses[year] === 'object'
+                        ? Object.keys(expenses[year]).reduce((acc, name) => acc + incomeOf(year, name), 0)
+                        : (salaryStats[year]?.total || 0);
 
                     return (
                         <div key={year} style={{ marginBottom: '2.5rem' }}>
@@ -380,7 +386,7 @@ const Expenses = () => {
                                     ) : Object.entries(expenseGroups[year])
                                         .sort(([a], [b]) => Number(a) - Number(b))
                                         .map(([index, data]) => {
-                                            const monthlySalary = salaryStats[year]?.months[data.name] || 0;
+                                            const monthlySalary = incomeOf(year, data.name);
                                             const balance = monthlySalary - data.total - data.invested;
                                             const isDeficit = balance < 0;
 

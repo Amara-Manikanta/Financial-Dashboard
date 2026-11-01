@@ -127,7 +127,7 @@ enum ExpenseLedger {
                 }
                 months.append(MonthSummary(
                     year: year, index: index, name: monthNames[index], spent: spent, invested: invested,
-                    income: income(year: yearKey, month: monthName, node: node, slips: slips),
+                    income: MonthCategories.incomeTotal(node: node, salary: configuredSalary(year: yearKey, month: monthName, node: node, slips: slips)),
                     spentCategories: spentCategories, investedCategories: investedCategories, transactions: rows))
             }
             months.sort { $0.index < $1.index }

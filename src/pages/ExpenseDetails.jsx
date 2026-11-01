@@ -7,6 +7,7 @@ import TransactionModal from '../components/TransactionModal';
 import ConfirmModal from '../components/ConfirmModal';
 import { countsAsSpending } from '../utils/payrollDeductions';
 import { expenseBuckets } from '../utils/transactionKind';
+import { monthIncome, isIncomeTx } from '../utils/monthIncome';
 import { tooltipTheme, crosshairCursor } from '../utils/chartTheme';
 
 const COLORS = ['#FF8C00', '#10B981', '#3B82F6', '#8B5CF6', '#EC4899', '#EF4444', '#F59E0B'];
@@ -420,19 +421,6 @@ const ExpenseDetails = () => {
         // Re-aggregate from transactions
         const activeTransactions = (monthData.transactions || []);
 
-        const isIncomeTx = (t) => {
-            if (!t) return false;
-            const cat = (t.category || '').toLowerCase();
-            const mainCat = (t.mainCategory || '').toLowerCase();
-            if (mainCat === 'income') return true;
-            const KNOWN_INCOME_CATS = [
-                'salary received', 'salary', 'income', 'bonus', 'freelance', 
-                'interest income', 'bank interest', 'dividend', 'stocks sell', 
-                'company claims', 'rental income', 'mutual fund redemption', 'other income'
-            ];
-            return KNOWN_INCOME_CATS.some(k => cat === k || cat.startsWith(k));
-        };
-
         const getMainCategory = (subCatName) => {
             const lowerSub = (subCatName || '').toLowerCase();
             if (isIncomeTx({ category: subCatName })) return 'Income';
@@ -469,38 +457,8 @@ const ExpenseDetails = () => {
             return 'Miscellaneous';
         };
 
-        // Calculate Income Breakdown across all income categories & sub-sections
-        const incomeTotals = {};
-        let calculatedIncomeTotal = 0;
-
-        activeTransactions.forEach(t => {
-            if (isIncomeTx(t)) {
-                const catName = t.category || 'Salary';
-                const amt = Number(t.amount) || 0;
-                incomeTotals[catName] = (incomeTotals[catName] || 0) + amt;
-                calculatedIncomeTotal += amt;
-            }
-        });
-
-        const findSalary = (obj) => {
-            if (!obj) return 0;
-            const key = Object.keys(obj).find(k => ['salary received', 'salary', 'income'].includes(k.toLowerCase()));
-            return key ? Number(obj[key]) : 0;
-        };
-
-        let baseConfiguredSalary = salaryStats[year]?.months[month] || 0;
-        if (baseConfiguredSalary === 0) {
-            baseConfiguredSalary = findSalary(categories);
-            if (baseConfiguredSalary === 0 && monthData['salary received']) {
-                baseConfiguredSalary = Number(monthData['salary received']);
-            }
-        }
-
-        const hasSalaryInTotals = Object.keys(incomeTotals).some(k => ['salary received', 'salary'].includes(k.toLowerCase()));
-        if (!hasSalaryInTotals && baseConfiguredSalary > 0) {
-            incomeTotals['Salary'] = baseConfiguredSalary;
-            calculatedIncomeTotal += baseConfiguredSalary;
-        }
+        // Income across every income-type row; the same rule the Expenses list uses (utils/monthIncome).
+        const { incomeTotals, total: calculatedIncomeTotal } = monthIncome(monthData, salaryStats[year]?.months[month] || 0);
 
         const salary = calculatedIncomeTotal;
 

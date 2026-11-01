@@ -12,6 +12,7 @@ import fs from 'fs';
 import { isDebit, kindFor, expenseBuckets, defaultKindForCategory } from '../../../src/utils/transactionKind.js';
 import { effectiveStockPosition } from '../../../src/utils/investmentSync.js';
 import { ownHoldings } from '../../../src/utils/holdingOwner.js';
+import { monthIncome, isIncomeTx } from '../../../src/utils/monthIncome.js';
 import { totalAccruedValue, totalPrincipal, depositAccrual, depositMaturity } from '../../../src/utils/fdAccrual.js';
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
 import { calculateNetWorth, calculateGratuity, gratuityForYear } from '../../../src/utils/financeCalculators.js';
@@ -80,7 +81,7 @@ for (const [year, byIndex] of Object.entries(groups)) {
         months.push({
             year: Number(year), index: Number(index),
             spent: g.total, invested: g.invested, count: g.count, investedCount: g.investedCount,
-            income: salaryStats[year]?.months?.[name] ?? salaryStats[year]?.months?.[Object.keys(db.expenses[year] || {}).find((m) => new Date(`${m} 1, ${year}`).getMonth() === Number(index))] ?? 0,
+            income: monthIncome(db.expenses[year]?.[name], salaryStats[year]?.months?.[name] ?? 0).total,
         });
     }
 }
@@ -486,13 +487,13 @@ const allTxGolden = { total: atAll.length, years: atYears, first: atAll.slice(0,
 
 // Monthly page categories: the monthDetails memo, cut off before the buckets.
 const monthCatSrc = slice('src/pages/ExpenseDetails.jsx', 'const monthData = expenses[year]?.[month] || {};', 'const buckets = expenseBuckets');
-const monthCatFn = new Function('expenses', 'year', 'month', 'salaryStats', 'mergedCategoryMap', 'countsAsSpending',
+const monthCatFn = new Function('expenses', 'year', 'month', 'salaryStats', 'mergedCategoryMap', 'countsAsSpending', 'monthIncome', 'isIncomeTx',
     'const monthData = expenses[year]?.[month] || {};' + monthCatSrc + '\nreturn { items, mainItems, incomeItems, salary };');
 const countsAsSpendingFn = (tx) => !tx || tx.deductFromSalary !== false;
 const monthCategoriesGolden = [];
 for (const year of Object.keys(db.expenses || {})) {
     for (const month of Object.keys(db.expenses[year] || {})) {
-        const r = monthCatFn(db.expenses, year, month, salaryStats, budgetMap, countsAsSpendingFn);
+        const r = monthCatFn(db.expenses, year, month, salaryStats, budgetMap, countsAsSpendingFn, monthIncome, isIncomeTx);
         const pick = (i) => ({ category: i.category, mainCategory: i.mainCategory || i.category, amount: i.amount, deductibleAmount: i.deductibleAmount });
         monthCategoriesGolden.push({ year, month, salary: r.salary, items: r.items.map(pick), mainItems: r.mainItems.map(pick),
             income: r.incomeItems.map((i) => ({ category: i.category, amount: i.amount, percentage: i.percentage })) });
