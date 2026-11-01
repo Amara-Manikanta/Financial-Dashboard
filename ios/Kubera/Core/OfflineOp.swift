@@ -10,6 +10,8 @@ enum AccountOp {
     case nested(listKey: String, depositId: String, subKey: String, DepositLedger.ListChange)
     case ledger(specId: String, parentIndex: Int?, AccountLedger.Change)
     case stock(holdingId: String, StockLedger.Change)
+    /// One row, by id, of a list inside any record — a person's transactions, a loan's payments.
+    case list(key: String, DepositLedger.ListChange)
     /// Plain fields of any record, with what each one held when the phone read it.
     case fields([String: Any], expected: [String: JSONValue])
 
@@ -29,6 +31,11 @@ enum AccountOp {
             switch StockLedger.updatedStocks(account: record, stockId: holdingId, change: c) {
             case .failure(let f): return .failure(DepositLedger.Failure(message: f.message))
             case .success(let stocks): return .success(["stocks": stocks])
+            }
+        case .list(let key, let c):
+            switch DepositLedger.apply(c, to: record[key].array, what: key == "payments" ? "payment" : "transaction") {
+            case .failure(let f): return .failure(f)
+            case .success(let rows): return .success([key: rows.map(RecordEditing.foundation)])
             }
         case .fields(let fields, let expected):
             for (key, old) in expected where record[key] != old {
@@ -132,6 +139,7 @@ enum OfflineCoding {
         case .nested(let l, let d, let s, let c): return ["k": "nested", "list": l, "dep": d, "sub": s, "c": listChange(c)]
         case .ledger(let spec, let p, let c): var o: [String: Any] = ["k": "ledger", "spec": spec, "c": ledgerChange(c)]; if let p { o["parent"] = p }; return o
         case .stock(let h, let c): return ["k": "stock", "holding": h, "c": stockChange(c)]
+        case .list(let k, let c): return ["k": "list", "key": k, "c": listChange(c)]
         case .fields(let f, let e): return ["k": "fields", "fields": f, "expected": e.mapValues(any)]
         }
     }
@@ -147,6 +155,8 @@ enum OfflineCoding {
             return .ledger(specId: spec, parentIndex: d["parent"] as? Int, ch)
         case "stock": guard let h = d["holding"] as? String, let ch = stockChange(c) else { return nil }
             return .stock(holdingId: h, ch)
+        case "list": guard let k = d["key"] as? String, let ch = listChange(c) else { return nil }
+            return .list(key: k, ch)
         case "fields": guard let f = d["fields"] as? [String: Any] else { return nil }
             return .fields(f, expected: (d["expected"] as? [String: Any] ?? [:]).mapValues(value))
         default: return nil

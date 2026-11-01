@@ -65,6 +65,11 @@ final class FinanceStore: ObservableObject {
         return await perform(collection: "savings", id: accountId, op: .stock(holdingId: id, change), stamp: true, label: "Stock transaction")
     }
 
+    /// Adds, changes or deletes one row (by id) of a list inside a person's or loan's record.
+    func saveListRow(collection: String, id: String, key: String, _ change: DepositLedger.ListChange, label: String) async -> String? {
+        await perform(collection: collection, id: id, op: .list(key: key, change), stamp: true, label: label)
+    }
+
     /// Changes one row of one list of a savings account (deposits, instalments, ledger rows…). Nil when saved.
     func saveAccount(_ accountId: String, _ op: AccountOp, label: String) async -> String? {
         await perform(collection: "savings", id: accountId, op: op, stamp: true, label: label)

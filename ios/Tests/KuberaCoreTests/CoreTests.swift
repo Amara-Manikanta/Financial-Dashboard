@@ -862,3 +862,38 @@ final class OfflineTests: XCTestCase {
         XCTAssertEqual((savings as! [Any]).count, 3)
     }
 }
+
+final class LoanLedgerTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    func testPersonTransactionIsOneRowAndKeepsWhatTheFormDoesNotShow() throws {
+        let person = json(#"{"id":"p","type":"lent","name":"venku","amount":1000,"transactions":[{"id":"1","type":"repayment","amount":100,"date":"2026-01-01","description":"EMI","extra":"keep"}]}"#)
+        var d = LoanLedger.LentDraft(); XCTAssertFalse(LoanLedger.lentProblems(d).isEmpty)
+        d.amount = "2,500"; d.date = "2026-02-01"; d.type = "additional"
+        let add = AccountOp.list(key: "transactions", .add(LoanLedger.lentRow(d, id: "9")))
+        let rows = try add.patch(for: person).get()["transactions"] as! [[String: Any]]
+        XCTAssertEqual(rows.count, 2); XCTAssertEqual(rows[1]["amount"] as? Double, 2500); XCTAssertEqual(rows[1]["type"] as? String, "additional")
+        let edited = LoanLedger.lentRow(LoanLedger.lentDraft(from: person["transactions"][0]), id: "x", base: person["transactions"][0])
+        XCTAssertEqual(edited["extra"].text, "keep"); XCTAssertEqual(edited["id"].text, "1")
+        XCTAssertThrowsError(try AccountOp.list(key: "transactions", .delete(id: "gone")).patch(for: person).get())
+    }
+
+    func testLoanPaymentStartsAsTheMacFormDoesAndRebasesOnTheMacsRecord() throws {
+        let loan = json(#"{"id":"l","name":"Phone EMI","lender":"Scapia","emiAmount":6533,"updatedAt":"x","payments":[{"id":"pay_1","amount":6533,"date":"2025-11-25","emiNumber":1}]}"#)
+        var d = LoanLedger.paymentDraft(newFor: loan)
+        XCTAssertEqual(d.amount, "6533"); XCTAssertEqual(d.emiNumber, "2"); XCTAssertEqual(d.card, "Scapia"); XCTAssertEqual(d.mode, "auto_debit")
+        d.date = "2025-12-25"
+        let row = LoanLedger.paymentRow(d, now: Date(timeIntervalSince1970: 1_800_000_000))
+        XCTAssertEqual(row["id"].text, "pay_1800000000000"); XCTAssertEqual(row["emiNumber"].double, 2); XCTAssertFalse(row["createdAt"].isNull)
+        let op = AccountOp.list(key: "payments", .add(row))
+        // Made on the phone; the Mac meanwhile recorded another payment — both survive.
+        let mac = json(#"{"id":"l","payments":[{"id":"pay_1"},{"id":"pay_mac","amount":1}]}"#)
+        XCTAssertEqual((try op.patch(for: mac).get()["payments"] as! [Any]).count, 3)
+        // It survives being written to disk while offline.
+        let o = OfflineOp(id: "1", created: Date(), label: "x", kind: .account(collection: "loans", id: "l", op))
+        let back = OfflineCoding.decode(try JSONSerialization.jsonObject(with: JSONSerialization.data(withJSONObject: OfflineCoding.encode(o))) as! [String: Any])
+        guard case .account(_, _, let b)? = back?.kind else { return XCTFail("lost") }
+        XCTAssertEqual((try b.patch(for: loan).get()["payments"] as! [Any]).count, 2)
+        d.amount = "0"; XCTAssertFalse(LoanLedger.paymentProblems(d).isEmpty)
+    }
+}

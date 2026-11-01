@@ -1062,6 +1062,12 @@ they reproduce the stored figures. Rows linked to an expense are locked. Not on 
 NAV, fund composition, policy document upload, the savings account's automatic daily-interest credit, PPF's
 "add yearly interest" helper, and mutual-fund creation (Invest page).
 
+**People and loans** (`LoanLedger`, `LoanSheets`, `LentDetailView`, `LoansView`): a person's page has a + (and a
+long-press "Add transaction" on the People list) for a repayment or lending/borrowing more; each loan card has
+**Record EMI payment**, pre-filled as the Mac's form is (today, the loan's EMI, the next instalment number, the lender
+as the card). Rows can be changed or deleted. Each is one row, by id, of `lents[].transactions` or `loans[].payments`
+(`AccountOp.list`), so it is rebuilt against the Mac's record when sent and works offline like every other change.
+
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
 (`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.

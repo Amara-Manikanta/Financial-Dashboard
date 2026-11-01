@@ -14,6 +14,13 @@ struct LoansView: View {
     @State private var section: Section = .people
     @State private var query = ""
     @State private var openLoans: Set<String> = []
+    @State private var paymentSheet: PaymentSheet?
+    @State private var lentSheet: LentQuickAdd?
+    @State private var deletingPayment: (loanId: String, paymentId: String, name: String)?
+    @State private var message: String?
+
+    private struct PaymentSheet: Identifiable { let id = UUID(); let loanId: String; let row: JSONValue? }
+    private struct LentQuickAdd: Identifiable { let id = UUID(); let lentId: String; let name: String; let isLent: Bool }
 
     // The calculator starts where the web one does.
     @State private var principal = 3_000_000.0
@@ -22,6 +29,7 @@ struct LoansView: View {
 
     var body: some View {
         KScreen(refresh: { await store.load() }) {
+            if let message { KNotice(message: message) { self.message = nil } }
             Picker("Section", selection: $section) {
                 ForEach(Section.allCases) { Text($0.rawValue).tag($0) }
             }
@@ -36,6 +44,15 @@ struct LoansView: View {
         .navigationTitle("Loans & Lents")
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: LentRoute.self) { LentDetailView(store: store, route: $0) }
+        .sheet(item: $paymentSheet) { p in
+            if let loan = store.data.loansRaw.array.first(where: { $0["id"].text == p.loanId }) { LoanPaymentSheet(store: store, loan: loan, editing: p.row) }
+        }
+        .sheet(item: $lentSheet) { l in LentTransactionSheet(store: store, lentId: l.lentId, name: l.name, isLent: l.isLent, editing: nil) }
+        .confirmationDialog("Delete this payment?", isPresented: Binding(get: { deletingPayment != nil }, set: { if !$0 { deletingPayment = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let d = deletingPayment { Task { message = await store.saveListRow(collection: "loans", id: d.loanId, key: "payments", .delete(id: d.paymentId), label: "Delete EMI payment · \(d.name)") } }
+            }
+        }
     }
 
     // MARK: People
@@ -69,7 +86,9 @@ struct LoansView: View {
                          valueCaption: debt.isLent ? "owed to you" : "you owe", chevron: true)
                 }
                 .buttonStyle(.plain)
+                .contextMenu { Button { lentSheet = LentQuickAdd(lentId: debt.id, name: debt.name, isLent: debt.isLent) } label: { Label("Add transaction", systemImage: "plus.circle") } }
             }
+            Text("Open a person to see and change their history, or long-press a row to add a transaction.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
     }
 
@@ -89,6 +108,7 @@ struct LoansView: View {
             KCard { Text("No loans or EMIs recorded.").font(Theme.footnote).foregroundStyle(Theme.muted) }
         }
         ForEach(page.loans) { loan in loanCard(loan).editable(store, "loans", id: loan.id, title: loan.name) }
+        Text("Tap Record EMI payment on a loan to add a payment. Open Payments to change or delete one.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
     }
 
     private func loanCard(_ loan: LoansPage.Loan) -> some View {
@@ -124,14 +144,26 @@ struct LoansView: View {
                     .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 6)
             }
 
+            Button { paymentSheet = PaymentSheet(loanId: loan.id, row: nil) } label: {
+                Label("Record EMI payment", systemImage: "plus.circle.fill").font(Theme.footnote.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 9)
+                    .background(Theme.accent.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous)).foregroundStyle(Theme.accent)
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 8)
+
             if !loan.payments.isEmpty {
                 DisclosureGroup(isExpanded: Binding(get: { openLoans.contains(loan.id) },
                                                     set: { if $0 { openLoans.insert(loan.id) } else { openLoans.remove(loan.id) } })) {
                     VStack(spacing: 0) {
                         ForEach(loan.payments) { payment in
-                            KRow(title: payment.number.isEmpty ? "Payment" : "EMI #\(payment.number)", subtitle: Fmt.date(payment.date),
-                                 value: Money.rupees(payment.amount), valueTone: .positive)
-                                .padding(.vertical, 8)
+                            let raw = store.data.loansRaw.array.first { $0["id"].text == loan.id }?["payments"].array.first { $0["id"].text == payment.id }
+                            Button { if let raw { paymentSheet = PaymentSheet(loanId: loan.id, row: raw) } } label: {
+                                KRow(title: payment.number.isEmpty ? "Payment" : "EMI #\(payment.number)", subtitle: Fmt.date(payment.date),
+                                     value: Money.rupees(payment.amount), valueTone: .positive)
+                                    .padding(.vertical, 8)
+                            }
+                            .buttonStyle(.plain)
+                            .contextMenu { Button(role: .destructive) { deletingPayment = (loan.id, payment.id, loan.name) } label: { Label("Delete", systemImage: "trash") } }
                         }
                     }
                     .padding(.top, 4)

@@ -13,6 +13,12 @@ struct LentDetailView: View {
     @ObservedObject var store: FinanceStore
     let route: LentRoute
 
+    @State private var sheet: LentSheet?
+    @State private var deleting: JSONValue?
+    @State private var message: String?
+
+    private struct LentSheet: Identifiable { let id = UUID(); let row: JSONValue? }
+
     var body: some View {
         let d = store.data.lentsRaw.array.first { $0["id"].text == route.id } ?? .null
         let isLent = d["type"].text == "lent"
@@ -20,25 +26,46 @@ struct LentDetailView: View {
             let x = JSDate.parse(a.element["date"])?.timeIntervalSince1970 ?? 0, y = JSDate.parse(b.element["date"])?.timeIntervalSince1970 ?? 0
             return x != y ? x > y : a.offset > b.offset
         }.map(\.element)
-        let lines = txs.enumerated().map { i, t -> Line in
-            let back = t["type"].text == "repayment"
-            return Line(id: i, title: t["description"].text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? t["type"].text.capitalized : t["description"].text.trimmingCharacters(in: .whitespacesAndNewlines),
-                        subtitle: "\(t["date"].text) · \(back ? "repayment" : "added")", value: "\(back ? "−" : "+")\(inr(t["amount"].double))", tone: back ? .positive : .neutral)
-        }
+        let rows = txs.enumerated().map { IndexedRow(id: $0.offset, value: $0.element) }
         KScreen(refresh: { await store.load() }) {
+            if let message { KNotice(message: message) { self.message = nil } }
             KCard(tint: isLent ? Theme.positive : Theme.negative) {
                 KStat(label: isLent ? "Owed to you" : "You owe", value: inr(LoansPage.outstanding(d)), size: .hero)
                 if d["description"].truthy { Text(d["description"].text).font(Theme.footnote).foregroundStyle(Theme.muted) }
                 KRow(title: "Opening amount", subtitle: String(d["created"].text.prefix(10)), value: inr(d["amount"].double))
             }
-            if !lines.isEmpty {
-                KSectionHeader(title: "History", detail: "\(lines.count)")
-                KList(items: lines) { l in KRow(title: l.title, subtitle: l.subtitle, value: l.value, valueTone: l.tone) }
+            HStack {
+                KSectionHeader(title: "History", detail: rows.isEmpty ? nil : "\(rows.count)")
+                Button { sheet = LentSheet(row: nil) } label: { Image(systemName: "plus.circle.fill").font(.system(size: 20)) }
+            }
+            if rows.isEmpty {
+                KCard { Text("No transactions yet. Tap + to record a repayment or more lending.").font(Theme.footnote).foregroundStyle(Theme.muted) }
+            } else {
+                KList(items: rows) { r in
+                    let t = r.value, back = t["type"].text == "repayment"
+                    let note = t["description"].text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    Button { sheet = LentSheet(row: t) } label: {
+                        KRow(title: note.isEmpty ? (back ? "Repayment" : "Added") : note, subtitle: "\(Fmt.date(t["date"].text)) · \(back ? "repayment" : "added")",
+                             value: "\(back ? "−" : "+")\(inr(t["amount"].double))", valueTone: back ? .positive : .neutral)
+                    }
+                    .buttonStyle(.plain)
+                    .contextMenu { Button(role: .destructive) { deleting = t } label: { Label("Delete", systemImage: "trash") } }
+                }
+                Text("Tap to change; long-press to delete.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
             }
         }
         .navigationTitle(d["name"].text)
-        .toolbar { EditRecordButton(store: store, collection: "lents", id: route.id, title: d["name"].text) }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { Button { sheet = LentSheet(row: nil) } label: { Image(systemName: "plus") } }
+            ToolbarItem(placement: .secondaryAction) { EditRecordButton(store: store, collection: "lents", id: route.id, title: d["name"].text) }
+        }
         .navigationBarTitleDisplayMode(.large)
+        .sheet(item: $sheet) { s in LentTransactionSheet(store: store, lentId: route.id, name: d["name"].text, isLent: isLent, editing: s.row) }
+        .confirmationDialog("Delete this transaction?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let t = deleting { Task { message = await store.saveListRow(collection: "lents", id: route.id, key: "transactions", .delete(id: t["id"].text), label: "Delete transaction · \(d["name"].text)") } }
+            }
+        }
     }
 }
 
