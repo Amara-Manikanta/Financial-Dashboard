@@ -4,7 +4,7 @@ struct LentRoute: Hashable { let id: String }
 struct AssetCategoryRoute: Hashable { let id: String }
 struct MetalRoute: Hashable { let key: String }
 
-private struct Line: Identifiable { let id: Int; let title: String; let subtitle: String; let value: String; let tone: Tone }
+private struct Line: Identifiable { let id: Int; let title: String; let subtitle: String; let value: String; let tone: Tone; var photo: String? = nil }
 private func assetValue(_ i: JSONValue) -> Double { [i["currentValue"], i["purchasePrice"], i["purchasedValue"]].map(\.double).first { $0 != 0 } ?? 0 }
 private func inr(_ v: Double) -> String { Money.rupees(v) }
 
@@ -86,15 +86,26 @@ struct MetalDetailView: View {
             if it["purity"].truthy { bits.append("\(it["purity"].text)K") }
             if it["location"].truthy { bits.append(it["location"].text) }
             if it["purchaseDate"].truthy { bits.append("bought \(it["purchaseDate"].text)") }
-            return Line(id: i, title: it["name"].text, subtitle: bits.joined(separator: " · "), value: inr(it["currentValue"].double), tone: .neutral)
+            return Line(id: i, title: it["name"].text, subtitle: bits.joined(separator: " · "), value: inr(it["currentValue"].double), tone: .neutral, photo: Gallery.photos(of: it).first { !$0.isEmpty })
         }
         KScreen(refresh: { await store.load() }) {
             KCard(tint: Theme.warning) {
                 KStat(label: "Current valuation", value: inr(total), size: .hero)
                 Text("\(items.count) positions\(weight > 0 ? " · \(String(format: "%g", (weight * 1000).rounded() / 1000)) g" : "")\(cost > 0 ? " · cost \(inr(cost))" : "")").font(Theme.footnote).foregroundStyle(Theme.muted)
             }
-            KList(items: lines) { l in KRow(title: l.title, subtitle: l.subtitle, value: l.value) }
-            Text("Photos, bills and edits are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+            KList(items: lines) { l in
+                HStack(spacing: 12) {
+                    // The item's first photo, fetched from the Mac; a placeholder stays when it has none or the file is missing.
+                    Group {
+                        if let path = l.photo { Photo(store: store, path: path, maxPixel: 160, failed: {}) }
+                        else { Color.white.opacity(0.05).overlay(Image(systemName: "photo").foregroundStyle(Theme.muted)) }
+                    }
+                    .frame(width: 52, height: 52)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                    KRow(title: l.title, subtitle: l.subtitle, value: l.value)
+                }
+            }
+            Text("Bills and edits are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle(route.key.replacingOccurrences(of: "_", with: " ").capitalized)
         .navigationBarTitleDisplayMode(.large)

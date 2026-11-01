@@ -66,7 +66,7 @@ struct GalleryView: View {
 }
 
 /// A picture from the Mac. Calls `failed` when the file is not there.
-private struct Photo: View {
+struct Photo: View {
     @ObservedObject var store: FinanceStore
     let path: String
     var fit = false
