@@ -1068,6 +1068,18 @@ long-press "Add transaction" on the People list) for a repayment or lending/borr
 as the card). Rows can be changed or deleted. Each is one row, by id, of `lents[].transactions` or `loans[].payments`
 (`AccountOp.list`), so it is rebuilt against the Mac's record when sent and works offline like every other change.
 
+**Assets** (`Rental`, `PropertyUnits`, `AssetEditing`/`AssetOp`, `AssetViews`, `AssetForms`): a category lists its items (add,
+edit, delete); an item opens to its page. Goods show the warranty status, service history (log, change, delete) and receipts
+(photo or PDF uploaded to the Mac's `db/documents`, viewable on the phone; uploading needs the Mac, everything else works
+offline). Property shows its tenancy, rent due vs received month by month with arrears (escalation by percent or fixed amount),
+bills by month with what the tenant repaid, deposit held, net return and yield; a property split into units shows the rent roll,
+occupancy and arrears and each unit (add, edit, delete, "self-occupied"), and entries belong to a unit or the building and can
+move between them. Rent, bill and cost entries ask who pays (you / tenant repays / tenant paid) as the Mac does. `Rental` and
+`PropertyUnits` are ports of `utils/rental.js` and `utils/propertyUnits.js`; the golden test runs real items plus hand-made ones
+(odd period spellings, part-recovered bills, every unit status, both escalation types) through the web code and compares
+every ledger row. Entries stay on the asset and do not count in monthly income or spending. Not on the phone: the item photo
+(`imageUrl`) and the ornament gallery's uploads.
+
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
 (`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.

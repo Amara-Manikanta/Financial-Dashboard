@@ -10,6 +10,8 @@ enum AccountOp {
     case nested(listKey: String, depositId: String, subKey: String, DepositLedger.ListChange)
     case ledger(specId: String, parentIndex: Int?, AccountLedger.Change)
     case stock(holdingId: String, StockLedger.Change)
+    /// A change to an asset category: an item, its entries, services or units.
+    case asset(AssetOp)
     /// One row, by id, of a list inside any record — a person's transactions, a loan's payments.
     case list(key: String, DepositLedger.ListChange)
     /// Plain fields of any record, with what each one held when the phone read it.
@@ -32,6 +34,8 @@ enum AccountOp {
             case .failure(let f): return .failure(DepositLedger.Failure(message: f.message))
             case .success(let stocks): return .success(["stocks": stocks])
             }
+        case .asset(let a):
+            return a.patch(for: record).mapError { DepositLedger.Failure(message: $0.message) }
         case .list(let key, let c):
             switch DepositLedger.apply(c, to: record[key].array, what: key == "payments" ? "payment" : "transaction") {
             case .failure(let f): return .failure(f)
@@ -139,6 +143,7 @@ enum OfflineCoding {
         case .nested(let l, let d, let s, let c): return ["k": "nested", "list": l, "dep": d, "sub": s, "c": listChange(c)]
         case .ledger(let spec, let p, let c): var o: [String: Any] = ["k": "ledger", "spec": spec, "c": ledgerChange(c)]; if let p { o["parent"] = p }; return o
         case .stock(let h, let c): return ["k": "stock", "holding": h, "c": stockChange(c)]
+        case .asset(let a): return ["k": "asset", "a": encodeAsset(a)]
         case .list(let k, let c): return ["k": "list", "key": k, "c": listChange(c)]
         case .fields(let f, let e): return ["k": "fields", "fields": f, "expected": e.mapValues(any)]
         }
@@ -155,10 +160,71 @@ enum OfflineCoding {
             return .ledger(specId: spec, parentIndex: d["parent"] as? Int, ch)
         case "stock": guard let h = d["holding"] as? String, let ch = stockChange(c) else { return nil }
             return .stock(holdingId: h, ch)
+        case "asset": return (d["a"] as? [String: Any]).flatMap(decodeAsset).map { .asset($0) }
         case "list": guard let k = d["key"] as? String, let ch = listChange(c) else { return nil }
             return .list(key: k, ch)
         case "fields": guard let f = d["fields"] as? [String: Any] else { return nil }
             return .fields(f, expected: (d["expected"] as? [String: Any] ?? [:]).mapValues(value))
+        default: return nil
+        }
+    }
+
+    // MARK: Asset changes
+
+    private static func assetList(_ e: AssetOp.ListEdit) -> [String: Any] {
+        switch e {
+        case .add(let r): return ["t": "add", "row": any(r)]
+        case .replace(let id, let r): return ["t": "replace", "id": id, "row": any(r)]
+        case .delete(let id): return ["t": "delete", "id": id]
+        }
+    }
+    private static func assetList(_ d: [String: Any]) -> AssetOp.ListEdit? {
+        switch d["t"] as? String {
+        case "add": return .add(value(d["row"] as Any))
+        case "replace": return (d["id"] as? String).map { .replace(id: $0, value(d["row"] as Any)) }
+        case "delete": return (d["id"] as? String).map { .delete(id: $0) }
+        default: return nil
+        }
+    }
+
+    static func encodeAsset(_ a: AssetOp) -> [String: Any] {
+        switch a {
+        case .addItem(let r): return ["a": "addItem", "row": any(r)]
+        case .deleteItem(let id): return ["a": "deleteItem", "item": id]
+        case .itemFields(let id, let set, let remove, let expected):
+            return ["a": "itemFields", "item": id, "set": set.mapValues(any), "remove": remove, "expected": expected.mapValues(any)]
+        case .entry(let id, let unit, let e):
+            var o: [String: Any] = ["a": "entry", "item": id]
+            if let unit { o["unit"] = unit }
+            switch e {
+            case .add(let r): o["e"] = ["t": "add", "row": any(r)]
+            case .delete(let rid): o["e"] = ["t": "delete", "id": rid]
+            case .replace(let r, let from): var x: [String: Any] = ["t": "replace", "row": any(r)]; if let from { x["from"] = from }; o["e"] = x
+            }
+            return o
+        case .sublist(let id, let key, let e): return ["a": "sublist", "item": id, "key": key, "e": assetList(e)]
+        case .unit(let id, let e): return ["a": "unit", "item": id, "e": assetList(e)]
+        }
+    }
+
+    static func decodeAsset(_ d: [String: Any]) -> AssetOp? {
+        let item = d["item"] as? String ?? ""
+        switch d["a"] as? String {
+        case "addItem": return .addItem(value(d["row"] as Any))
+        case "deleteItem": return .deleteItem(itemId: item)
+        case "itemFields":
+            return .itemFields(itemId: item, set: (d["set"] as? [String: Any] ?? [:]).mapValues(value), remove: d["remove"] as? [String] ?? [],
+                               expected: (d["expected"] as? [String: Any] ?? [:]).mapValues(value))
+        case "entry":
+            guard let e = d["e"] as? [String: Any] else { return nil }
+            switch e["t"] as? String {
+            case "add": return .entry(itemId: item, unit: d["unit"] as? String, .add(value(e["row"] as Any)))
+            case "delete": return (e["id"] as? String).map { .entry(itemId: item, unit: d["unit"] as? String, .delete(id: $0)) }
+            case "replace": return .entry(itemId: item, unit: d["unit"] as? String, .replace(value(e["row"] as Any), from: e["from"] as? String))
+            default: return nil
+            }
+        case "sublist": guard let key = d["key"] as? String, let e = (d["e"] as? [String: Any]).flatMap(assetList) else { return nil }; return .sublist(itemId: item, key: key, e)
+        case "unit": guard let e = (d["e"] as? [String: Any]).flatMap(assetList) else { return nil }; return .unit(itemId: item, e)
         default: return nil
         }
     }

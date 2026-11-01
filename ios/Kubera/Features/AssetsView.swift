@@ -37,7 +37,7 @@ struct AssetsView: View {
                 let c = cat.raw
                 let items = c["items"].array
                 NavigationLink(value: AssetCategoryRoute(id: c["id"].text)) {
-                    KRow(title: c["title"].text, subtitle: "\(items.count) items", value: inr(items.reduce(0) { $0 + value($1) }))
+                    KRow(title: assetCategoryTitle(c), subtitle: "\(items.count) items", value: inr(items.reduce(0) { $0 + value($1) }))
                 }.buttonStyle(.plain)
             }
         }

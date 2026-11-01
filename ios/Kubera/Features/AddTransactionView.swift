@@ -4,8 +4,11 @@ import SwiftUI
 /// and leaves everything as it was — a failed write must never look like a successful one.
 struct AddTransactionView: View {
     @ObservedObject var store: FinanceStore
+    /// The date the form opens on: today when the month being viewed is this month, otherwise the 1st of it (as the Mac's month page does).
+    var defaultDate = Date()
     @Environment(\.dismiss) private var dismiss
     @State private var draft = NewTransaction.Draft()
+    @State private var started = false
     @State private var saving = false
     @State private var failure: String?
     @State private var tried = false
@@ -22,7 +25,7 @@ struct AddTransactionView: View {
                     TextField("Amount", text: $draft.amount).keyboardType(.decimalPad)
                         .foregroundStyle(bad.contains(.amount) ? Theme.negative : .primary)
                     TextField("What was it for? (optional)", text: $draft.title)
-                    DatePicker("Date", selection: $draft.date, in: ...Date(), displayedComponents: .date)
+                    DatePicker("Date", selection: $draft.date, in: ...max(Date(), defaultDate), displayedComponents: .date)
                 }
                 Section("Category") {
                     Picker("Category", selection: $draft.category) {
@@ -43,6 +46,7 @@ struct AddTransactionView: View {
                 if let failure { Section { Label(failure, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Theme.negative).font(.footnote) } header: { Text("Not saved") } }
                 Section { Text("This adds one row. Away from your Mac it is kept on this phone and sent when the Mac is back.").font(.footnote).foregroundStyle(.secondary) }
             }
+            .onAppear { if !started { started = true; draft.date = defaultDate } }
             .navigationTitle("Add transaction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

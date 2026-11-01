@@ -1020,3 +1020,66 @@ final class AccountLedgerDataTests: XCTestCase {
         print("parity: account ledgers — \(checked) accounts reproduce their stored figures")
     }
 }
+
+final class RentalParityTests: XCTestCase {
+    func testRentBillsAndUnitsMatchTheWebApp() throws {
+        let golden = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: ProcessInfo.processInfo.environment["KUBERA_GOLDEN"] ?? "/dev/null")))
+        let web = golden["assets"]
+        let asOf = JSDate.parse(golden["asOf"].text)!
+        for p in web["periods"].array {
+            XCTAssertEqual(Rental.parsePeriod(p["in"].text), p["parsed"].isNull ? nil : p["parsed"].text, "period \(p["in"].text)")
+            XCTAssertEqual(Rental.formatPeriod(p["in"].text), p["shown"].text, "shown \(p["in"].text)")
+        }
+        let synth = JSONValue.object(["monthlyRent": .number(10000), "leaseStart": .string("2025-03-15"), "escalationType": .string("percent"), "escalationValue": .number(10), "escalationEveryMonths": .number(12)])
+        let fixed = JSONValue.object(["monthlyRent": .number(10000), "leaseStart": .string("2025-03-15"), "escalationType": .string("fixed"), "escalationValue": .number(500), "escalationEveryMonths": .number(6)])
+        for r in web["rents"].array {
+            XCTAssertEqual(Rental.expectedRent(synth, on: r["date"].text), r["percent"].double, accuracy: 1e-6, "percent \(r["date"].text)")
+            XCTAssertEqual(Rental.expectedRent(fixed, on: r["date"].text), r["fixed"].double, accuracy: 1e-6, "fixed \(r["date"].text)")
+        }
+        var ledgers = 0, properties = 0
+        for w in web["items"].array {
+            let item = w["item"], entries = item["transactions"].array, tag = "\(item["name"].text) (\(item["id"].text))"
+            // Kinds and the summary.
+            XCTAssertEqual(entries.map(Rental.kindOf), w["kinds"].array.map(\.text), "kinds \(tag)")
+            let s = Rental.summarise(entries), ws = w["summary"]
+            for (name, mine) in [("rentReceived", s.rentReceived), ("billsPaid", s.billsPaid), ("billsRecovered", s.billsRecovered), ("billsBorne", s.billsBorne), ("taxPaid", s.taxPaid),
+                                 ("maintenancePaid", s.maintenancePaid), ("maintenanceBilled", s.maintenanceBilled), ("maintenanceRecovered", s.maintenanceRecovered),
+                                 ("depositHeld", s.depositHeld), ("income", s.income), ("expense", s.expense), ("coveredByTenant", s.coveredByTenant), ("net", s.net)] {
+                XCTAssertEqual(mine, ws[name].double, accuracy: 1e-6, "\(name) \(tag)")
+            }
+            for (k, t) in ws["byKind"].object {
+                let m = s.byKind[k]!
+                XCTAssertEqual([m.total, m.net, m.recovered, Double(m.count)], [t["total"].double, t["net"].double, t["recovered"].double, t["count"].double], "byKind \(k) \(tag)")
+            }
+            // Bills.
+            let b = Rental.billLedger(entries)
+            XCTAssertEqual(b.rows.map { "\($0.month)|\($0.billed)|\($0.recovered)|\($0.tenantPaid)" }, w["bills"]["rows"].array.map { "\($0["month"].text)|\($0["billed"].double)|\($0["recovered"].double)|\($0["tenantPaid"].double)" }, "bills \(tag)")
+            XCTAssertEqual(b.unplaced.map { $0["id"].text }, w["bills"]["unplaced"].array.map { $0["id"].text }, "bills unplaced \(tag)")
+            // Rent ledger.
+            if !w["rent"].isNull {
+                let r = Rental.rentLedger(item["rental"], entries: entries, asOf: asOf)
+                XCTAssertEqual(r.rows.map { "\($0.month)|\(String(format: "%.6f", $0.due))|\($0.received)" }, w["rent"]["rows"].array.map { "\($0["month"].text)|\(String(format: "%.6f", $0["due"].double))|\($0["received"].double)" }, "rent \(tag)")
+                XCTAssertEqual(r.unplaced.map { "\($0.entry["id"].text)|\($0.outsideLease)" }, w["rent"]["unplaced"].array.map { "\($0["id"].text)|\($0["outsideLease"].isTrue)" }, "rent unplaced \(tag)")
+                ledgers += 1
+            }
+            // The property as a whole.
+            if !w["property"].isNull {
+                let p = PropertyUnits.summariseProperty(item, asOf: asOf), wp = w["property"]
+                for (name, mine) in [("monthlyRentRoll", p.monthlyRentRoll), ("rentReceived", p.rentReceived), ("billsBorne", p.billsBorne), ("taxPaid", p.taxPaid), ("maintenancePaid", p.maintenancePaid),
+                                     ("depositHeld", p.depositHeld), ("income", p.income), ("expense", p.expense), ("net", p.net), ("arrears", p.arrears)] {
+                    XCTAssertEqual(mine, wp[name].double, accuracy: 0.005, "\(name) \(tag)")
+                }
+                XCTAssertEqual(p.occupancyPct ?? -1, wp["occupancyPct"].isNull ? -1 : wp["occupancyPct"].double, accuracy: 1e-9, "occupancy \(tag)")
+                XCTAssertEqual(p.yieldOnValue ?? -1, wp["yieldOnValue"].isNull ? -1 : wp["yieldOnValue"].double, accuracy: 1e-9, "yield \(tag)")
+                XCTAssertEqual([p.total, p.letCount, p.vacant, p.selfOccupied, p.lettable].map(Double.init), ["total", "let", "vacant", "selfOccupied", "lettable"].map { wp["counts"][$0].double }, "counts \(tag)")
+                for (u, wu) in zip(p.units, wp["units"].array) {
+                    XCTAssertEqual(u.unit["id"].text, wu["id"].text); XCTAssertEqual(u.status.rawValue, wu["status"].text, "status \(tag)")
+                    XCTAssertEqual(u.arrears, wu["arrears"].double, accuracy: 0.005); XCTAssertEqual(u.currentRent, wu["currentRent"].double, accuracy: 0.005)
+                    XCTAssertEqual(Double(u.entryCount), wu["entryCount"].double)
+                }
+                properties += 1
+            }
+        }
+        print("parity: rent — \(web["items"].array.count) items, \(ledgers) rent ledgers, \(properties) properties")
+    }
+}

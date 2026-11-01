@@ -65,6 +65,31 @@ final class FinanceStore: ObservableObject {
         return await perform(collection: "savings", id: accountId, op: .stock(holdingId: id, change), stamp: true, label: "Stock transaction")
     }
 
+    /// A change to an asset category — an item, its entries, services, receipts or units.
+    func saveAsset(category: String, _ op: AssetOp, label: String) async -> String? {
+        await perform(collection: "assets", id: category, op: .asset(op), stamp: true, label: label)
+    }
+
+    /// Uploads a receipt or other paperwork to the Mac's `db/documents`. Needs the Mac: the file is stored there, so it cannot be queued.
+    func uploadDocument(_ data: Data, mimeType: String, fileName: String, label: String) async -> Result<String, UploadFailure> {
+        if data.count > 10 * 1024 * 1024 { return .failure(UploadFailure(message: "That file is larger than 10 MB.")) }
+        if mirror?.offline == true { return .failure(UploadFailure(message: "Uploading needs your Mac. Connect to it and try again.")) }
+        let body: [String: Any] = ["dataUrl": "data:\(mimeType);base64,\(data.base64EncodedString())", "name": label, "folder": "documents"]
+        do {
+            let r = try await api.send("POST", path: "api/upload", body: body, timeout: 120)
+            if (200...299).contains(r.status), r.body["url"].truthy { return .success(r.body["url"].text) }
+            return .failure(UploadFailure(message: r.body["error"].truthy ? r.body["error"].text : "Upload failed (\(r.status))."))
+        } catch { return .failure(UploadFailure(message: error.localizedDescription)) }
+    }
+
+    struct UploadFailure: Error { let message: String }
+
+    /// A file the Mac stores (a receipt), for viewing.
+    func documentData(_ path: String) async -> Data? {
+        if let d = try? await api.data(path: path) { return d }
+        return nil
+    }
+
     /// Adds, changes or deletes one row (by id) of a list inside a person's or loan's record.
     func saveListRow(collection: String, id: String, key: String, _ change: DepositLedger.ListChange, label: String) async -> String? {
         await perform(collection: collection, id: id, op: .list(key: key, change), stamp: true, label: label)

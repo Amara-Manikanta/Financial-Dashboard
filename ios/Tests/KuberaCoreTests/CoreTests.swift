@@ -897,3 +897,75 @@ final class LoanLedgerTests: XCTestCase {
         d.amount = "0"; XCTAssertFalse(LoanLedger.paymentProblems(d).isEmpty)
     }
 }
+
+final class AssetEditingTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+    private let category = #"{"id":"plots","type":"real_estate","items":[{"id":1790,"name":"House","currentValue":100,"transactions":[{"id":"t0","kind":"property_tax","amount":10}],"units":[{"id":"u1","name":"Shop 1","unitType":"shop","selfOccupied":false,"rental":{"monthlyRent":1000,"leaseStart":"2026-01-01"},"transactions":[]},{"id":"u2","name":"Shop 2","unitType":"shop","rental":null,"transactions":[]}]},{"id":"g1","name":"Mixer","services":[],"receipts":[]}]}"#
+
+    private func roundTrip(_ op: AssetOp) -> AssetOp? {
+        let o = OfflineOp(id: "1", created: Date(), label: "x", kind: .account(collection: "assets", id: "plots", .asset(op)))
+        let data = try! JSONSerialization.data(withJSONObject: OfflineCoding.encode(o))
+        guard case .account(_, _, .asset(let a))? = OfflineCoding.decode(try! JSONSerialization.jsonObject(with: data) as! [String: Any])?.kind else { return nil }
+        return a
+    }
+
+    func testItemFormKeepsWhatItDoesNotShowAndTheEditIsAnIntent() throws {
+        let cat = json(category), item = cat["items"][0]
+        var d = AssetEditing.itemDraft(from: item); d.currentValue = "250,000"; d.place = "Vizag"
+        let row = AssetEditing.itemRow(d, isRealEstate: true, id: "x", base: item)
+        XCTAssertEqual(row["transactions"].array.count, 1); XCTAssertEqual(row["units"].array.count, 2, "units survive an edit of the item")
+        XCTAssertEqual(row["id"], item["id"], "numeric ids stay numeric")
+        let edit = AssetEditing.itemEdit(itemId: "1790", old: item, new: row)
+        let patch = try edit.patch(for: cat).get()
+        XCTAssertEqual(((patch["items"] as! [[String: Any]])[0])["currentValue"] as? Double, 250000)
+        XCTAssertEqual((patch["items"] as! [Any]).count, 2)
+        // The Mac changed the value meanwhile: held, not overwritten.
+        let moved = json(category.replacingOccurrences(of: #""currentValue":100"#, with: #""currentValue":999"#))
+        XCTAssertThrowsError(try edit.patch(for: moved).get())
+        XCTAssertNotNil(roundTrip(edit))
+    }
+
+    func testEntriesLandInTheirUnitAndCanMoveBetweenUnits() throws {
+        let cat = json(category)
+        var d = AssetEditing.entryDraft(newFor: true, unit: "u1"); d.amount = "1,000"; d.period = "August 2026"; d.date = "2026-09-04"
+        XCTAssertTrue(AssetEditing.entryProblems(d).isEmpty)
+        let row = AssetEditing.entryRow(d, isRealEstate: true, id: "n1")
+        XCTAssertEqual(row["period"].text, "2026-08"); XCTAssertEqual(row["type"].text, "income"); XCTAssertTrue(row["borne"].isNull, "rent does not ask who pays")
+        let add = AssetOp.entry(itemId: "1790", unit: "u1", .add(row))
+        let after = try add.patch(for: cat).get()["items"] as! [[String: Any]]
+        XCTAssertEqual(((after[0]["units"] as! [[String: Any]])[0]["transactions"] as! [Any]).count, 1)
+        XCTAssertEqual((after[0]["transactions"] as! [Any]).count, 1, "the building's own entries are untouched")
+        // Move it to Shop 2 after it exists in Shop 1.
+        let held = json(String(data: try JSONSerialization.data(withJSONObject: ["id": "plots", "items": after]), encoding: .utf8)!)
+        let move = AssetOp.entry(itemId: "1790", unit: "u2", .replace(row, from: "u1"))
+        let moved = try move.patch(for: held).get()["items"] as! [[String: Any]]
+        let units = moved[0]["units"] as! [[String: Any]]
+        XCTAssertEqual((units[0]["transactions"] as! [Any]).count, 0); XCTAssertEqual((units[1]["transactions"] as! [Any]).count, 1)
+        XCTAssertThrowsError(try AssetOp.entry(itemId: "1790", unit: "u1", .delete(id: "nope")).patch(for: cat).get())
+        XCTAssertNotNil(roundTrip(move))
+        // An expense on a let property asks who pays; a part-recovered bill keeps the amount.
+        var bill = AssetEditing.entryDraft(newFor: true, unit: nil); bill.kind = "current_bill"; bill.amount = "3000"; bill.borne = "recovered"; bill.recoveredAmount = "1200"
+        let b = AssetEditing.entryRow(bill, isRealEstate: true, id: "b")
+        XCTAssertEqual(Rental.netCost(b), 1800); XCTAssertEqual(b["recoveredAmount"].double, 1200)
+        bill.kind = "rent"; XCTAssertTrue(AssetEditing.entryRow(bill, isRealEstate: true, id: "b")["recoveredAmount"].isNull, "a stale value cannot survive a change of kind")
+    }
+
+    func testServicesAndUnitsAndDeletes() throws {
+        let cat = json(category)
+        var s = AssetEditing.ServiceDraft(); XCTAssertFalse(AssetEditing.serviceProblems(s).isEmpty)
+        s.description = "Replaced pods"; s.cost = "0"; s.underWarranty = true
+        let add = AssetOp.sublist(itemId: "g1", key: "services", .add(AssetEditing.serviceRow(s, id: "s1")))
+        XCTAssertEqual((((try add.patch(for: cat).get()["items"] as! [[String: Any]])[1])["services"] as! [Any]).count, 1)
+        var u = AssetEditing.UnitDraft(); u.name = "Annex"; u.rental.monthlyRent = "3000"
+        let unitRow = AssetEditing.unitRow(u)
+        let addUnit = AssetOp.unit(itemId: "1790", .add(unitRow))
+        XCTAssertEqual((((try addUnit.patch(for: cat).get()["items"] as! [[String: Any]])[0])["units"] as! [Any]).count, 3)
+        XCTAssertEqual(unitRow["rental"]["monthlyRent"].double, 3000)
+        let del = AssetOp.unit(itemId: "1790", .delete(id: "u2"))
+        XCTAssertEqual((((try del.patch(for: cat).get()["items"] as! [[String: Any]])[0])["units"] as! [Any]).count, 1)
+        XCTAssertThrowsError(try AssetOp.unit(itemId: "1790", .delete(id: PropertyUnits.mainId)).patch(for: cat).get())
+        XCTAssertEqual((try AssetOp.deleteItem(itemId: "g1").patch(for: cat).get()["items"] as! [Any]).count, 1)
+        XCTAssertEqual((try AssetOp.addItem(json(#"{"id":"n","name":"New"}"#)).patch(for: cat).get()["items"] as! [Any]).count, 3)
+        for op in [add, addUnit, del, AssetOp.deleteItem(itemId: "g1"), AssetOp.addItem(json(#"{"id":"n"}"#))] { XCTAssertNotNil(roundTrip(op)) }
+    }
+}

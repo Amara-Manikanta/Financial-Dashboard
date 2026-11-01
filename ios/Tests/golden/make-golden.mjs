@@ -12,6 +12,8 @@ import fs from 'fs';
 import { isDebit, kindFor, expenseBuckets, defaultKindForCategory } from '../../../src/utils/transactionKind.js';
 import { effectiveStockPosition } from '../../../src/utils/investmentSync.js';
 import { ownHoldings } from '../../../src/utils/holdingOwner.js';
+import * as rentalJs from '../../../src/utils/rental.js';
+import * as unitsJs from '../../../src/utils/propertyUnits.js';
 import { monthIncome, isIncomeTx } from '../../../src/utils/monthIncome.js';
 import { totalAccruedValue, totalPrincipal, depositAccrual, depositMaturity } from '../../../src/utils/fdAccrual.js';
 import { readHolding as readSgbHolding } from '../../../src/utils/sgb.js';
@@ -511,10 +513,65 @@ for (const acct of db.savings.filter((x) => x.type === 'fixed_deposit')) {
     depositsGolden.push({ account: acct.id, amount: (acct.deposits || []).filter((d) => !d.isArchived).reduce((sum, d) => sum + (depositAccrual(d, new RealDate(frozenMs)).accruedValue || d.originalAmount || 0), 0) });
 }
 
+
+// Rent, bills and units: every real asset item, plus hand-made ones that reach the corners the real data does not
+// (odd period spellings, part-recovered bills, each unit status, escalation by percent and by fixed amount).
+const synthRental = (extra = {}) => ({ unitName: 'Shop A', tenantName: 'T', monthlyRent: 10000, rentDueDay: 5, advanceAmount: 50000, escalationType: 'percent', escalationValue: 10, escalationEveryMonths: 12, leaseStart: '2025-03-15', leaseEnd: '', terms: ['a'], ...extra });
+const synthEntries = [
+    { id: 'e1', date: '2025-04-06', kind: 'rent', type: 'income', amount: 10000, period: '2025-03' },
+    { id: 'e2', date: '2025-05-02', kind: 'rent', type: 'income', amount: 6000, period: 'April 2025' },
+    { id: 'e3', date: '2025-06-03', kind: 'rent', type: 'income', amount: 4000, period: '04/2025' },
+    { id: 'e4', date: '2025-07-01', kind: 'rent', type: 'income', amount: 10000, period: '' },
+    { id: 'e5', date: '2025-08-09', kind: 'rent', type: 'income', amount: 500, period: 'garbage' },
+    { id: 'e6', date: '2024-01-09', kind: 'rent', type: 'income', amount: 700, period: '2024-01' },
+    { id: 'e7', date: '2025-05-20', kind: 'current_bill', type: 'expense', amount: 3000, period: '2025-04', borne: 'recovered', recoveredAmount: 1200 },
+    { id: 'e8', date: '2025-06-20', kind: 'current_bill', type: 'expense', amount: 2500, period: '2025-05', borne: 'tenant' },
+    { id: 'e9', date: '2025-07-20', kind: 'current_bill', type: 'expense', amount: 2000, period: '2025-06', borne: 'recovered' },
+    { id: 'e10', date: '2025-07-21', kind: 'bill_recovered', type: 'income', amount: 800, period: '2025-06' },
+    { id: 'e11', date: '2025-08-01', kind: 'property_tax', type: 'expense', amount: 4500, period: '2025-08', borne: 'owner' },
+    { id: 'e12', date: '2025-08-02', kind: 'maintenance', type: 'expense', amount: 900, borne: 'recovered', recoveredAmount: '' },
+    { id: 'e13', date: '2025-03-15', kind: 'advance', type: 'income', amount: 50000 },
+    { id: 'e14', date: '2025-09-15', kind: 'advance_refund', type: 'expense', amount: 5000 },
+    { id: 'e15', date: '2025-10-01', type: 'expense', amount: 111 },
+    { id: 'e16', date: '2025-10-02', type: 'income', amount: 222 },
+    { id: 'e17', date: '2025-10-03', kind: 'resale', type: 'income', amount: 333 },
+];
+const synthItems = [
+    { id: 's1', name: 'Let shop', rental: synthRental(), transactions: synthEntries, currentValue: 5000000 },
+    { id: 's2', name: 'Fixed escalation', rental: synthRental({ escalationType: 'fixed', escalationValue: 500, escalationEveryMonths: 6, leaseEnd: '2026-02-20' }), transactions: synthEntries.slice(0, 6) },
+    { id: 's3', name: 'Building', currentValue: 9000000, transactions: [{ id: 'b1', date: '2025-05-01', kind: 'property_tax', type: 'expense', amount: 7000 }],
+      units: [
+        { id: 'u1', name: 'Shop 1', unitType: 'shop', selfOccupied: false, rental: synthRental({ leaseStart: '2025-06-01' }), transactions: synthEntries.slice(0, 9) },
+        { id: 'u2', name: 'Flat', unitType: 'flat', selfOccupied: true, rental: null, transactions: [] },
+        { id: 'u3', name: 'Room', unitType: 'room', selfOccupied: false, rental: null, transactions: [{ id: 'r1', date: '2025-05-01', kind: 'maintenance', type: 'expense', amount: 100 }] },
+      ] },
+    { id: 's4', name: 'Let whole + unit', rental: synthRental({ leaseStart: '2025-01-01', unitName: '' }), transactions: synthEntries.slice(0, 4), units: [{ id: 'u9', name: 'Annex', unitType: 'other', selfOccupied: false, rental: synthRental({ monthlyRent: 3000 }), transactions: [] }] },
+];
+const assetSamples = [...db.assets.flatMap((c) => (c.items || []).map((i) => ({ ...i, __cat: c.type }))), ...synthItems];
+const stripSummary = (x) => JSON.parse(JSON.stringify(x));
+const assetsGolden = {
+    periods: ['2025-03', '2025-3', '2025-03-15', 'March 2025', 'mar 2025', '03/2025', '3-2025', '2025/03', '2025 03', 'garbage', '', '2025-13', 'Sept 2024', 'Decmber 2023'].map((p) => ({ in: p, parsed: rentalJs.parsePeriod(p), shown: rentalJs.formatPeriod(p) })),
+    rents: [['2025-03-14', 0], ['2025-03-15', 0], ['2026-03-14', 0], ['2026-03-15', 0], ['2028-06-01', 0], ['2025-01-01', 0]].map(([d]) => ({ date: d,
+        percent: rentalJs.expectedRentOn(synthRental(), d), fixed: rentalJs.expectedRentOn(synthRental({ escalationType: 'fixed', escalationValue: 500, escalationEveryMonths: 6 }), d) })),
+    items: assetSamples.map((item) => {
+        const entries = item.transactions || [];
+        const bl = rentalJs.billLedger(entries);
+        const rl = item.rental ? rentalJs.rentLedger(item.rental, entries, new RealDate(frozenMs)) : null;
+        const ps = unitsJs.hasUnits(item) || item.rental ? unitsJs.summariseProperty(item, new RealDate(frozenMs)) : null;
+        return {
+            item, summary: stripSummary(rentalJs.summariseRental(entries)),
+            bills: { rows: stripSummary([...bl]), unplaced: stripSummary(bl.unplaced) },
+            rent: rl ? { rows: stripSummary([...rl]), unplaced: stripSummary(rl.unplaced || []) } : null,
+            property: ps ? { ...stripSummary({ ...ps, units: undefined }), units: ps.units.map((u) => ({ id: u.unit.id, status: u.status, arrears: u.arrears, currentRent: u.currentRent, entryCount: u.entryCount, income: u.summary.income, expense: u.summary.expense })) } : null,
+            kinds: entries.map((e) => rentalJs.kindOf(e)),
+        };
+    }),
+};
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden,
     months,
     stocks: {
         count: holdings.length,

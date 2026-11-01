@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ExpensesView: View {
     @ObservedObject var store: FinanceStore
-    @State private var adding = ProcessInfo.processInfo.arguments.contains("-addTransaction")
 
     var body: some View {
         NavigationStack {
@@ -30,8 +29,6 @@ struct ExpensesView: View {
                 }
             }
             .navigationTitle("Expenses")
-            .toolbar { ToolbarItem(placement: .primaryAction) { Button { adding = true } label: { Image(systemName: "plus") } } }
-            .sheet(isPresented: $adding) { AddTransactionView(store: store) }
             .navigationDestination(for: Int.self) { year in
                 if let summary = store.years.first(where: { $0.year == year }) { YearView(store: store, year: summary) }
             }
@@ -81,6 +78,14 @@ private struct MonthView: View {
     let month: MonthSummary
     @State private var query = ""
     @State private var tab = Tab.transactions
+    @State private var adding = ProcessInfo.processInfo.arguments.contains("-addTransaction")
+
+    /// Today if this is the current month, otherwise the 1st of it — where the Mac's month page opens its form.
+    private var defaultDate: Date {
+        let c = Calendar.current, now = Date()
+        if c.component(.year, from: now) == month.year && c.component(.month, from: now) - 1 == month.index { return now }
+        return c.date(from: DateComponents(year: month.year, month: month.index + 1, day: 1)) ?? now
+    }
 
     private enum Tab: String, CaseIterable { case transactions = "Transactions", categories = "Categories", income = "Income" }
 
@@ -155,6 +160,8 @@ private struct MonthView: View {
         .searchable(text: $query, prompt: "Search title or category")
         .navigationTitle("\(month.name) \(String(month.year))")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar { ToolbarItem(placement: .primaryAction) { Button { adding = true } label: { Image(systemName: "plus") } } }
+        .sheet(isPresented: $adding) { AddTransactionView(store: store, defaultDate: defaultDate) }
     }
 
     @ViewBuilder private func categories(_ d: MonthCategories.Detail) -> some View {

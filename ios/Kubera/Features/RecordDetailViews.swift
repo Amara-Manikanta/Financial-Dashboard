@@ -69,35 +69,6 @@ struct LentDetailView: View {
     }
 }
 
-/// One asset category (plots, apartments, other): every item with its cost, value and warranty.
-struct AssetCategoryView: View {
-    @ObservedObject var store: FinanceStore
-    let route: AssetCategoryRoute
-
-    var body: some View {
-        let cat = store.data.assetsRaw.array.first { $0["id"].text == route.id } ?? .null
-        let items = cat["items"].array
-        let total = items.reduce(0) { $0 + assetValue($1) }, cost = items.reduce(0) { $0 + $1["purchasePrice"].double }
-        let lines = items.enumerated().map { i, it -> Line in
-            let st = cat["type"].text == "real_estate" ? nil : Warranty.status(it)
-            let warranty = st.map { $0.state == .unknown ? "" : " · \($0.state.label.lowercased())" } ?? ""
-            return Line(id: i, title: it["name"].text, subtitle: "\(it["purchaseDate"].truthy ? "bought \(it["purchaseDate"].text)" : "undated")\(it["location"].truthy ? " · \(it["location"].text)" : "")\(warranty)",
-                        value: inr(assetValue(it)), tone: .neutral)
-        }
-        KScreen(refresh: { await store.load() }) {
-            KCard(tint: Theme.accent) {
-                KStat(label: "Total valuation", value: inr(total), size: .hero)
-                if cost > 0 { Text("cost \(inr(cost)) · \(Fmt.signed(total - cost))").font(Theme.footnote).foregroundStyle(Theme.muted) }
-            }
-            KList(items: lines) { l in KRow(title: l.title, subtitle: l.subtitle, value: l.value) }
-            Text("Photos, bills and service history are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
-        }
-        .navigationTitle(cat["title"].text)
-        .toolbar { EditRecordButton(store: store, collection: "assets", id: route.id, title: cat["title"].text) }
-        .navigationBarTitleDisplayMode(.large)
-    }
-}
-
 /// One metal: every item with its weight, purity, cost and value at the rate in force.
 struct MetalDetailView: View {
     @ObservedObject var store: FinanceStore
