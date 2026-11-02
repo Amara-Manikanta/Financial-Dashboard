@@ -156,8 +156,14 @@ struct DividendsView: View {
                         Spacer()
                         Text(inr(m.typicalTotal)).font(Theme.figure).foregroundStyle(.white)
                     }
-                    Text(m.payers.prefix(4).map { "\($0.name) \(Money.compact($0.averagePerYear))" }.joined(separator: " · ") + (m.payers.count > 4 ? " · +\(m.payers.count - 4) more" : ""))
-                        .font(Theme.footnote).foregroundStyle(Theme.muted).lineLimit(2)
+                    ForEach(m.payers, id: \.id) { p in
+                        HStack(alignment: .firstTextBaseline) {
+                            Text(p.name + (p.held ? "" : " (exited)")).lineLimit(1)
+                            Spacer()
+                            Text(Money.compact(p.averagePerYear))
+                        }
+                        .font(Theme.footnote).foregroundStyle(p.held ? Theme.muted : Theme.muted.opacity(0.6))
+                    }
                 }
             }
         }

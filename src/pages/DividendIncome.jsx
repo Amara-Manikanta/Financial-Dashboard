@@ -394,7 +394,7 @@ const DividendIncome = () => {
                                         <p style={{ margin: '0.3rem 0 0.4rem', fontSize: '0.65rem', color: '#71717a' }}>
                                             {m.payers.length} payer{m.payers.length === 1 ? '' : 's'} · {m.payments} payment{m.payments === 1 ? '' : 's'}
                                         </p>
-                                        {m.payers.slice(0, 3).map((p) => (
+                                        {m.payers.map((p) => (
                                             <div key={p.id} style={{ fontSize: '0.66rem', color: p.held ? '#a1a1aa' : '#52525b', display: 'flex', justifyContent: 'space-between', gap: '0.4rem' }}>
                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                                     {p.name}{!p.held && ' (exited)'}
@@ -402,11 +402,6 @@ const DividendIncome = () => {
                                                 <span style={{ fontFamily: 'monospace', flexShrink: 0 }}>{formatCurrency(p.averagePerYear)}</span>
                                             </div>
                                         ))}
-                                        {m.payers.length > 3 && (
-                                            <p style={{ margin: '0.25rem 0 0', fontSize: '0.62rem', color: '#52525b' }}>
-                                                +{m.payers.length - 3} more
-                                            </p>
-                                        )}
                                     </>
                                 )}
                             </div>
