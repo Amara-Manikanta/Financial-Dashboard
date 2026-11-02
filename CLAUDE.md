@@ -790,6 +790,30 @@ To test without a key or spend, point the SDK at a stub:
 `ANTHROPIC_API_KEY=stub ANTHROPIC_BASE_URL=http://127.0.0.1:4999` on the
 sandbox server, with a tiny HTTP server answering `/v1/messages`.
 
+### Daily research from outside (`strategy.js`, `researchImport.js`, `researchPrompt.js`, Research tab)
+
+The Analyst page's **Research** tab is a log of what an outside research run (Google Antigravity) said each day,
+not a source of truth and never an instruction. The loop: **Copy daily prompt** (built from the database — name,
+invested, average, quantity, stored price, gain %, sector, first buy, and the last call for each holding, using
+`effectiveStockPosition` so a manual average cost is honoured), run it in Antigravity, **paste the table it returns**,
+check the preview, **Save**.
+
+- `parseResearch` reads the markdown table (or tab-separated text copied from a rendered one) by header names, takes
+  the **first table only**, and normalises the call to BUY / ACCUMULATE / HOLD / REVIEW / SELL (STRONG BUY → BUY,
+  EXIT → SELL). A row with no readable call is reported in "Not read", never guessed.
+- `matchHoldings` pairs a row with a holding by shared words (`Adani Ports & SEZ` → `Adani Ports and Special
+  Economic Zone Limited`); at least two thirds of the shorter name, and one clear winner. An unclear row is left for
+  a person to pick (remembered in `localStorage` `kubera.research.aliases`) — a call filed under the wrong company is
+  worse than a question.
+- `server.js` stores one file per day in `db/strategy/YYYY-MM-DD.json` beside the database (gitignored with `db/`,
+  **never in db.json**; a sandbox writes beside its own database). Pasting again the same day replaces that day.
+  Routes: `GET/POST/DELETE /api/analyst/strategy`. The server trims and validates (call in the five words, ≤200 rows,
+  text capped) but does not interpret.
+- The page shows each holding's latest call with its age (a holding left out of today's paste keeps its call, marked
+  "Nd old"), what changed since the previous snapshot with direction, the history of changes, and a **deep-dive
+  prompt** for ticked stocks (default: calls that just moved, plus REVIEW / SELL).
+- Restart `npm run server` after pulling this (`server.js`, `strategy.js`).
+
 ### Testing it without touching real data
 
 `npm test` covers the engine, the ledger and the relay's parsing. For the page,
@@ -805,7 +829,7 @@ Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js`, `claudeNews.js`, `lanAccess.js`, `jsonServerLocal.mjs` | `npm run server` |
+| `server.js`, `strategy.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js`, `claudeNews.js`, `lanAccess.js`, `jsonServerLocal.mjs` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |

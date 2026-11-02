@@ -11,6 +11,7 @@ import AnalystBrief from '../components/AnalystBrief';
 import AnalystPrompt, { readPrompts, writePrompts } from '../components/AnalystPrompt';
 import AnalystCustom, { presetCustom } from '../components/AnalystCustom';
 import AnalystNews from '../components/AnalystNews';
+import AnalystResearch from '../components/AnalystResearch';
 import { fundFacts, dashboardFacts } from '../utils/portfolioFacts';
 import { spendingOverview } from '../utils/spendingAnalytics';
 import { allCardProfiles, cardTotals } from '../utils/creditCards';
@@ -552,6 +553,7 @@ const StockAnalyst = () => {
                                     { id: 'responses', label: 'AI responses', count: responses.length },
                                     { id: 'custom', label: 'Your prompt', count: '' },
                                     { id: 'news', label: 'News', count: '' },
+                                    { id: 'research', label: 'Research', count: '' },
                                     { id: 'prompt', label: 'Prompt', count: prompts.brief || prompts.ask ? 'edited' : '' },
                                 ].map((t) => (
                                     <button
@@ -567,7 +569,9 @@ const StockAnalyst = () => {
                                 ))}
                             </div>
 
-                            {view === 'news' ? (
+                            {view === 'research' ? (
+                                <AnalystResearch stocks={stocks} />
+                            ) : view === 'news' ? (
                                 <AnalystNews holdings={topHoldings} loadNews={loadNews} onAnalyse={analyseNews} />
                             ) : view === 'custom' ? (
                                 <AnalystCustom facts={customFacts} dashboard={dashboard} onResponse={recordResponse} focusFor={focusFor} newsFor={newsFor} />

@@ -1,0 +1,89 @@
+/**
+ * Daily research snapshots, kept as files beside the database
+ * (`db/strategy/YYYY-MM-DD.json`, gitignored with the rest of `db/`).
+ *
+ * One file per day: pasting again the same day replaces that day, so a
+ * corrected paste does not leave two. Never in db.json — what a model wrote
+ * about a stock is not a financial record, and a bad paste must not be able to
+ * touch one. The server stores what it is given after trimming it; it does not
+ * interpret calls (the client parses and matches them, `researchImport.js`).
+ */
+import fs from 'fs';
+import path from 'path';
+
+const CALLS = new Set(['BUY', 'ACCUMULATE', 'HOLD', 'REVIEW', 'SELL']);
+const KEEP_DAYS = 400;
+const MAX_ROWS = 200;
+const FILE = /^\d{4}-\d{2}-\d{2}\.json$/;
+
+let dir = null;
+
+export const configureStrategy = ({ strategyDir } = {}) => { dir = strategyDir || null; };
+
+const text = (v, max) => String(v ?? '').replace(/\u0000/g, '').slice(0, max);
+const num = (v) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : null);
+
+const validDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`))
+    && new Date(`${d}T00:00:00Z`).toISOString().slice(0, 10) === d;
+
+const cleanRow = (r) => {
+    if (!r || typeof r !== 'object' || !CALLS.has(r.call)) return null;
+    const name = text(r.name, 200).trim();
+    if (!name) return null;
+    return {
+        name,
+        holdingId: r.holdingId === null || r.holdingId === undefined ? null : text(r.holdingId, 80),
+        call: r.call,
+        reason: text(r.reason, 1500),
+        news: text(r.news, 1500),
+        trigger: text(r.trigger, 600),
+        price: num(r.price),
+        range: r.range && typeof r.range === 'object' ? { label: text(r.range.label, 12), pct: num(r.range.pct) } : null,
+    };
+};
+
+const fileFor = (date) => (dir && validDate(date) ? path.join(dir, `${date}.json`) : null);
+
+/** Stores (or replaces) one day. Returns the stored snapshot, or `{ error }`. */
+export const saveSnapshot = ({ date, rows, source } = {}) => {
+    if (!dir) return { error: 'Strategy storage is not configured' };
+    if (!validDate(date)) return { error: 'A date like 2026-11-02 is required' };
+    if (!Array.isArray(rows) || rows.length === 0) return { error: 'There are no rows to save' };
+    if (rows.length > MAX_ROWS) return { error: `Too many rows (${rows.length}); the limit is ${MAX_ROWS}` };
+    const clean = rows.map(cleanRow).filter(Boolean);
+    if (clean.length === 0) return { error: 'None of the rows had a BUY / ACCUMULATE / HOLD / REVIEW / SELL call' };
+
+    const snapshot = { date, pastedAt: new Date().toISOString(), source: text(source || 'pasted', 60), rows: clean };
+    fs.mkdirSync(dir, { recursive: true });
+    const file = fileFor(date);
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(snapshot, null, 1));
+    fs.renameSync(tmp, file);
+    prune();
+    return snapshot;
+};
+
+const prune = () => {
+    try {
+        const files = fs.readdirSync(dir).filter((f) => FILE.test(f)).sort();
+        files.slice(0, Math.max(0, files.length - KEEP_DAYS)).forEach((f) => fs.unlinkSync(path.join(dir, f)));
+    } catch { /* nothing to prune */ }
+};
+
+/** Snapshots oldest first; `limit` keeps the newest N. A damaged file is skipped, not fatal. */
+export const readSnapshots = ({ limit = 60 } = {}) => {
+    if (!dir || !fs.existsSync(dir)) return [];
+    const files = fs.readdirSync(dir).filter((f) => FILE.test(f)).sort();
+    const out = [];
+    files.slice(-Math.max(1, limit)).forEach((f) => {
+        try { out.push(JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'))); } catch { /* skip */ }
+    });
+    return out;
+};
+
+export const deleteSnapshot = (date) => {
+    const file = fileFor(date);
+    if (!file || !fs.existsSync(file)) return false;
+    fs.unlinkSync(file);
+    return true;
+};

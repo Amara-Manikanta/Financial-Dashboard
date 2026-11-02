@@ -6,6 +6,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import * as analystLLM from './analystLLM.js';
 import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest, heldStocksIn } from './news.js';
+import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot } from './strategy.js';
 import { configureArchive, archiveDigest, readArchive, fileFor, consolidatedCsv, syncConsolidatedCsv } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
@@ -31,6 +32,7 @@ const DB_FILE = process.env.DB_FILE
 configureNews({ usageFile: path.join(path.dirname(DB_FILE), '.newsapi-usage.json') });
 // Stored headlines live under db/ (gitignored), beside whichever database is in use.
 configureArchive({ archiveDir: path.join(path.dirname(DB_FILE), 'db', 'news') });
+configureStrategy({ strategyDir: path.join(path.dirname(DB_FILE), 'db', 'strategy') });
 syncConsolidatedCsv();
 const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
 startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
@@ -1157,6 +1159,39 @@ const handleAnalystLLMRoute = (req, res) => {
         sendJson(res, 404, { error: 'Unknown Claude route' });
         return;
     }
+    if (route === '/api/analyst/strategy') {
+        const params = new URL(req.url, 'http://localhost').searchParams;
+        if (req.method === 'GET') {
+            const limit = Math.min(400, Math.max(1, Number(params.get('limit')) || 60));
+            sendJson(res, 200, { snapshots: readSnapshots({ limit }) });
+            return;
+        }
+        if (req.method === 'DELETE') {
+            const ok = deleteSnapshot(params.get('date'));
+            sendJson(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'No snapshot for that date' });
+            return;
+        }
+        if (req.method === 'POST') {
+            const chunks = [];
+            let received = 0;
+            let aborted = false;
+            req.on('data', (chunk) => {
+                if (aborted) return;
+                received += chunk.length;
+                if (received > 1024 * 1024) { aborted = true; sendJson(res, 413, { error: 'Request too large' }); req.destroy(); return; }
+                chunks.push(chunk);
+            });
+            req.on('end', () => {
+                if (aborted) return;
+                let body;
+                try { body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}'); } catch { sendJson(res, 400, { error: 'Malformed JSON body' }); return; }
+                const payload = body && typeof body === 'object' && !Array.isArray(body) ? body : {};
+                const result = saveSnapshot(payload);
+                sendJson(res, result.error ? 400 : 200, result);
+            });
+            return;
+        }
+    }
     if (route === '/api/analyst/news/refresh-portfolio' && req.method === 'GET') {
         return handleRefreshPortfolioNewsStream(req, res);
     }
@@ -1339,7 +1374,7 @@ const proxy = http.createServer((req, res) => {
     }
     // Before the json-server proxy below, which would take a POST here for a
     // database write.
-    if (req.url.startsWith('/api/analyst/llm/') || req.url.startsWith('/api/analyst/news') || req.url.startsWith('/api/analyst/claude/')) {
+    if (req.url.startsWith('/api/analyst/llm/') || req.url.startsWith('/api/analyst/news') || req.url.startsWith('/api/analyst/claude/') || req.url.startsWith('/api/analyst/strategy')) {
         return handleAnalystLLMRoute(req, res);
     }
 
