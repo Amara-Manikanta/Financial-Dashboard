@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useFinance } from '../context/FinanceContext';
+import { useFinance, API_URL } from '../context/FinanceContext';
+import { callHistory } from '../utils/researchImport';
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, X, Save, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { formatDate } from '../utils/dateUtils';
@@ -35,6 +36,25 @@ const StockDetails = () => {
     const stock = useMemo(() => market?.stocks?.find(s => s.id.toString() === stockId), [market, stockId]);
 
     const transactions = useMemo(() => stock?.transactions || [], [stock]);
+
+    // What the outside research (Analyst → Research tab) has said about this holding, newest first.
+    const [researchSnapshots, setResearchSnapshots] = useState([]);
+    useEffect(() => {
+        let live = true;
+        fetch(`${API_URL}/api/analyst/strategy?limit=120`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+            if (live && d) setResearchSnapshots(d.snapshots || []);
+        }).catch(() => {});
+        return () => { live = false; };
+    }, []);
+    const researchRow = useMemo(() => {
+        const snaps = [...researchSnapshots].sort((a, b) => b.date.localeCompare(a.date));
+        for (const snap of snaps) {
+            const r = (snap.rows || []).find((x) => String(x.holdingId) === stockId);
+            if (r) return { ...r, date: snap.date };
+        }
+        return null;
+    }, [researchSnapshots, stockId]);
+    const researchChanges = useMemo(() => callHistory(researchSnapshots, stockId).filter((h) => h.changed).reverse().slice(0, 6), [researchSnapshots, stockId]);
 
     // What this stock's shares and average cost actually are: computed live
     // from its transaction history whenever one exists, rather than trusted
@@ -719,6 +739,24 @@ const StockDetails = () => {
             </div>
 
             {/* What the company does, then how it is doing — read-only, never touches db.json */}
+            {researchRow && (
+                <div style={{ marginTop: '2rem', padding: '1.25rem', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase', color: '#a1a1aa' }}>Research call</span>
+                        <span style={{ padding: '2px 10px', borderRadius: 6, fontSize: 12, fontWeight: 900, color: { BUY: '#10b981', ACCUMULATE: '#34d399', HOLD: '#a1a1aa', REVIEW: '#f59e0b', SELL: '#f43f5e' }[researchRow.call] || '#a1a1aa', border: '1px solid currentColor' }}>{researchRow.call}</span>
+                        {researchRow.confidence && <span style={{ fontSize: 11, color: '#71717a' }}>{researchRow.confidence} confidence</span>}
+                        <span style={{ fontSize: 11, color: '#71717a' }}>as of {formatDate(researchRow.date)}</span>
+                    </div>
+                    {researchRow.reason && <p style={{ marginTop: 10, fontSize: 13, color: '#d4d4d8', lineHeight: 1.5 }}>{researchRow.reason}</p>}
+                    {researchRow.news && <p style={{ marginTop: 8, fontSize: 12, color: '#a1a1aa', lineHeight: 1.5 }}><b>News:</b> {researchRow.news}</p>}
+                    {researchRow.trigger && <p style={{ marginTop: 8, fontSize: 12, color: '#a1a1aa', lineHeight: 1.5 }}><b>What would change this:</b> {researchRow.trigger}</p>}
+                    {researchChanges.length > 1 && (
+                        <p style={{ marginTop: 10, fontSize: 11, color: '#71717a' }}>History: {researchChanges.map((h) => `${formatDate(h.date)} ${h.call}`).join(' → ')}</p>
+                    )}
+                    <p style={{ marginTop: 10, fontSize: 10, color: '#52525b' }}>Outside research, a second opinion to read — not advice, and it never changes this holding.</p>
+                </div>
+            )}
+
             {stock.ticker && !stock.isArchived && (
                 <div style={{ marginTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <CompanyProfile
