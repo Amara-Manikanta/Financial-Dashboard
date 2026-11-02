@@ -7,7 +7,7 @@ import Foundation
 enum Dividends {
     private static func money(_ v: Double) -> Double { Money.round2(v) }
     private static let calendar = Calendar.current
-    private static let monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+    static let monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 
     private static func year(of value: JSONValue) -> Int? { JSDate.parse(value).map { calendar.component(.year, from: $0) } }
     private static func monthIndex(of value: JSONValue) -> Int? { JSDate.parse(value).map { calendar.component(.month, from: $0) - 1 } }

@@ -71,5 +71,6 @@ private struct PairedRoot: View {
             WebPageView(mac: mac, token: token, page: page, onUnauthorized: forget)
         }
         .task { await store.load() }
+        .onChange(of: store.loadedAt) { _, _ in Task { await DividendNotifier.shared.refresh(store: store) } }
     }
 }

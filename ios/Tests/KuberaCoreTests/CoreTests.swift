@@ -985,4 +985,21 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual(calls["s2"]?.date, "2026-11-02")      // left out of the later day: keeps its call, marked old
         XCTAssertEqual(calls["s2"]?.ageDays, 4)
     }
+
+    func testDividendRemindersSkipWhatAlreadyArrivedThisMonth() {
+        let stocks = [
+            json("{\"id\":\"a\",\"name\":\"Alpha\",\"shares\":10,\"transactions\":[{\"type\":\"dividend\",\"date\":\"2025-11-10\",\"amount\":50},{\"type\":\"dividend\",\"date\":\"2026-11-05\",\"amount\":60}]}"),
+            json("{\"id\":\"b\",\"name\":\"Beta\",\"shares\":5,\"transactions\":[{\"type\":\"dividend\",\"date\":\"2025-11-20\",\"amount\":30},{\"type\":\"dividend\",\"date\":\"2026-02-20\",\"amount\":30}]}"),
+            json("{\"id\":\"c\",\"name\":\"Gone\",\"shares\":0,\"transactions\":[{\"type\":\"dividend\",\"date\":\"2025-12-01\",\"amount\":30}]}"),
+        ]
+        let today = ISO8601DateFormatter().date(from: "2026-11-15T06:00:00Z")!
+        let plan = DividendReminders.plan(stocks: stocks, calendar: Dividends.calendarMonths(stocks), today: today)
+        // November: Alpha already paid this month, Beta has not.
+        XCTAssertEqual(plan.first?.month, 11)
+        XCTAssertTrue(plan.first?.body.contains("Beta") == true)
+        XCTAssertFalse(plan.first?.body.contains("Alpha") == true)
+        // December has only an exited stock, so no reminder; February has Beta.
+        XCTAssertNil(plan.first { $0.month == 12 })
+        XCTAssertEqual(plan.first { $0.month == 2 }?.year, 2027)
+    }
 }
