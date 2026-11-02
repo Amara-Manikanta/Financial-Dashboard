@@ -147,11 +147,13 @@ struct StocksView: View {
                         }
                         .buttonStyle(.plain)
                     }
-                    if let c = store.research[holding.id] {
+                    if store.research[holding.id] != nil || !holding.sector.isEmpty {
                         HStack(spacing: 8) {
-                            Text("RESEARCH").font(Theme.caption).tracking(1.0).foregroundStyle(Theme.muted)
-                            KBadge(text: c.call, tone: ResearchTone.of(c.call))
-                            if c.ageDays > 0 { Text("\(c.ageDays)d ago").font(Theme.footnote).foregroundStyle(Theme.muted) }
+                            if !holding.sector.isEmpty { KBadge(text: holding.sector, tone: .neutral) }
+                            if let c = store.research[holding.id] {
+                                KBadge(text: c.call, tone: ResearchTone.of(c.call))
+                                if c.ageDays > 0 { Text("\(c.ageDays)d ago").font(Theme.footnote).foregroundStyle(Theme.muted) }
+                            }
                             Spacer()
                         }
                         .padding(.top, 6)
