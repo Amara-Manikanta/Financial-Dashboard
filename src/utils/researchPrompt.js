@@ -52,7 +52,7 @@ const holdingsTable = (rows, { withLast }) => [
     ...rows.map((h) => `| ${h.name} | ${inr(h.invested)} | ${inr(h.avg)} | ${inr(h.qty, 4)} | ${h.price ? inr(h.price) : '—'} | ${h.gainPct === null ? '—' : h.gainPct.toFixed(1)} | ${h.sector} | ${h.since || '—'} |${withLast ? ` ${h.lastCall || '—'} |` : ''}`),
 ].join('\n');
 
-export const dailyPrompt = (rows, { today = new Date().toISOString().slice(0, 10) } = {}) => `You are researching my personal Indian stock portfolio as of ${today}. For each of the ${rows.length} holdings below, search for news from the last 30 days and check the current price and 52-week range. Do not guess: if you cannot verify a price, a date or a headline, say "not verified".
+export const dailyPrompt = (rows, { today = new Date().toISOString().slice(0, 10), saveTo = '' } = {}) => `You are researching my personal Indian stock portfolio as of ${today}. For each of the ${rows.length} holdings below, search for news from the last 30 days and check the current price and 52-week range. Do not guess: if you cannot verify a price, a date or a headline, say "not verified".
 
 Output ONE markdown table, exactly these columns in this order, one row per holding, in the same order as my list:
 
@@ -71,7 +71,11 @@ Rules for the cells:
 After the table, add a blank line and a short summary: the 5 holdings most exposed to bad news, the 5 best places to add money, and any holding whose news is missing or stale. Do not put another table in the summary.
 
 This is analysis for my own decisions, not a guarantee. State your confidence (high, medium, low) in the summary.
-
+${saveTo ? `
+Saving: also save the table (ONLY the table, no other text) as a markdown file at exactly this path, creating nothing else and changing no other file in the project:
+${saveTo.replace(/\/$/, '')}/research-${today}.md
+My app reads that file from there. Do not edit, move or delete anything else in the project.
+` : ''}
 My holdings (figures are from my own records; price now is my last stored quote and may be a day old):
 
 ${holdingsTable(rows, { withLast: true })}`;

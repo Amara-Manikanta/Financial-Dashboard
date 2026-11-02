@@ -17,8 +17,55 @@ const MAX_ROWS = 200;
 const FILE = /^\d{4}-\d{2}-\d{2}\.json$/;
 
 let dir = null;
+let inbox = null;
 
-export const configureStrategy = ({ strategyDir } = {}) => { dir = strategyDir || null; };
+export const configureStrategy = ({ strategyDir, inboxDir } = {}) => { dir = strategyDir || null; inbox = inboxDir || null; };
+
+// ── The drop folder ──────────────────────────────────────────────────────────
+// Antigravity can write a file into the project; the app picks it up from here.
+// A file is only ever read as text and handed to the same parser as a paste —
+// nothing in it is executed or saved without the person confirming the preview.
+
+const INBOX_FILE = /^[A-Za-z0-9][A-Za-z0-9._ -]{0,100}\.(md|txt|csv|tsv)$/;
+const MAX_INBOX_BYTES = 1024 * 1024;
+
+export const inboxDirectory = () => inbox;
+
+export const listInbox = () => {
+    if (!inbox) return [];
+    try {
+        return fs.readdirSync(inbox)
+            .filter((n) => INBOX_FILE.test(n))
+            .map((n) => { const st = fs.statSync(path.join(inbox, n)); return { name: n, size: st.size, modified: st.mtime.toISOString(), isFile: st.isFile() }; })
+            .filter((f) => f.isFile && f.size > 0 && f.size <= MAX_INBOX_BYTES)
+            .map(({ isFile, ...f }) => f)
+            .sort((a, b) => b.modified.localeCompare(a.modified));
+    } catch { return []; }
+};
+
+/** The text of one waiting file, or null. The name must be a plain file name in the folder. */
+export const readInboxFile = (name) => {
+    if (!inbox || !INBOX_FILE.test(String(name || ''))) return null;
+    const file = path.join(inbox, name);
+    try {
+        const st = fs.statSync(file);
+        if (!st.isFile() || st.size > MAX_INBOX_BYTES) return null;
+        return fs.readFileSync(file, 'utf8');
+    } catch { return null; }
+};
+
+/** Moves an imported file to `done/` so it is not offered again. A name clash gets a timestamp. */
+export const archiveInboxFile = (name) => {
+    if (!inbox || !INBOX_FILE.test(String(name || ''))) return false;
+    const from = path.join(inbox, name);
+    if (!fs.existsSync(from)) return false;
+    const doneDir = path.join(inbox, 'done');
+    fs.mkdirSync(doneDir, { recursive: true });
+    let to = path.join(doneDir, name);
+    if (fs.existsSync(to)) to = path.join(doneDir, `${Date.now()}-${name}`);
+    fs.renameSync(from, to);
+    return true;
+};
 
 const text = (v, max) => String(v ?? '').replace(/\u0000/g, '').slice(0, max);
 const num = (v) => (Number.isFinite(Number(v)) && v !== null && v !== '' ? Number(v) : null);

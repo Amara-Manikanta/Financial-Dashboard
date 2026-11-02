@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot } from './strategy.js';
+import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot, listInbox, readInboxFile, archiveInboxFile, inboxDirectory } from './strategy.js';
 
 const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'strategy-'));
 const row = (name, call = 'HOLD', extra = {}) => ({ name, call, holdingId: '1', reason: 'r', ...extra });
@@ -42,4 +42,27 @@ test('a path in the date cannot escape the folder; long text is cut; a damaged f
     assert.equal(deleteSnapshot('2026-11-02'), true);
     assert.equal(deleteSnapshot('2026-11-02'), false);
     assert.equal(deleteSnapshot('../x'), false);
+});
+
+test('the drop folder lists only plain research files, reads them as text, and archives what was imported', () => {
+    const inbox = tmp();
+    configureStrategy({ strategyDir: tmp(), inboxDir: inbox });
+    assert.equal(inboxDirectory(), inbox);
+    fs.writeFileSync(path.join(inbox, 'research-2026-11-03.md'), '| Stock | Recommendation |\n|---|---|\n| A | HOLD |');
+    fs.writeFileSync(path.join(inbox, 'notes.txt'), 'hello');
+    fs.writeFileSync(path.join(inbox, 'script.sh'), 'rm -rf /');
+    fs.writeFileSync(path.join(inbox, 'empty.md'), '');
+    fs.mkdirSync(path.join(inbox, 'folder.md'));
+    assert.deepEqual(listInbox().map((f) => f.name).sort(), ['notes.txt', 'research-2026-11-03.md']);
+    assert.match(readInboxFile('research-2026-11-03.md'), /HOLD/);
+    assert.equal(readInboxFile('script.sh'), null, 'not a research file type');
+    assert.equal(readInboxFile('../strategy.js'), null, 'a path cannot leave the folder');
+    assert.equal(readInboxFile('..%2Fx.md'), null);
+    assert.equal(archiveInboxFile('research-2026-11-03.md'), true);
+    assert.deepEqual(listInbox().map((f) => f.name), ['notes.txt']);
+    assert.ok(fs.existsSync(path.join(inbox, 'done', 'research-2026-11-03.md')));
+    fs.writeFileSync(path.join(inbox, 'research-2026-11-03.md'), 'again');
+    assert.equal(archiveInboxFile('research-2026-11-03.md'), true, 'a second file of the same name does not overwrite the first');
+    assert.equal(fs.readdirSync(path.join(inbox, 'done')).length, 2);
+    assert.equal(archiveInboxFile('missing.md'), false);
 });

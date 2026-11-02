@@ -6,7 +6,7 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import * as analystLLM from './analystLLM.js';
 import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest, heldStocksIn } from './news.js';
-import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot } from './strategy.js';
+import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot, listInbox, readInboxFile, archiveInboxFile, inboxDirectory } from './strategy.js';
 import { configureArchive, archiveDigest, readArchive, fileFor, consolidatedCsv, syncConsolidatedCsv } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
@@ -32,7 +32,7 @@ const DB_FILE = process.env.DB_FILE
 configureNews({ usageFile: path.join(path.dirname(DB_FILE), '.newsapi-usage.json') });
 // Stored headlines live under db/ (gitignored), beside whichever database is in use.
 configureArchive({ archiveDir: path.join(path.dirname(DB_FILE), 'db', 'news') });
-configureStrategy({ strategyDir: path.join(path.dirname(DB_FILE), 'db', 'strategy') });
+configureStrategy({ strategyDir: path.join(path.dirname(DB_FILE), 'db', 'strategy'), inboxDir: path.join(path.dirname(DB_FILE), 'db', 'research', 'inbox') });
 syncConsolidatedCsv();
 const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
 startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
@@ -1157,6 +1157,22 @@ const handleAnalystLLMRoute = (req, res) => {
             return;
         }
         sendJson(res, 404, { error: 'Unknown Claude route' });
+        return;
+    }
+    if (route === '/api/analyst/strategy/inbox' && req.method === 'GET') {
+        // Created on first ask so the agent has a folder to write into.
+        try { fs.mkdirSync(inboxDirectory(), { recursive: true }); } catch { /* reported by an empty list */ }
+        sendJson(res, 200, { dir: inboxDirectory(), files: listInbox() });
+        return;
+    }
+    if (route === '/api/analyst/strategy/inbox/file' && req.method === 'GET') {
+        const text = readInboxFile(new URL(req.url, 'http://localhost').searchParams.get('name'));
+        sendJson(res, text === null ? 404 : 200, text === null ? { error: 'No such file in the research folder' } : { text });
+        return;
+    }
+    if (route === '/api/analyst/strategy/inbox/done' && req.method === 'POST') {
+        const ok = archiveInboxFile(new URL(req.url, 'http://localhost').searchParams.get('name'));
+        sendJson(res, ok ? 200 : 404, ok ? { ok: true } : { error: 'No such file in the research folder' });
         return;
     }
     if (route === '/api/analyst/strategy') {

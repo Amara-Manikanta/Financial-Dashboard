@@ -812,6 +812,12 @@ check the preview, **Save**.
 - The page shows each holding's latest call with its age (a holding left out of today's paste keeps its call, marked
   "Nd old"), what changed since the previous snapshot with direction, the history of changes, and a **deep-dive
   prompt** for ticked stocks (default: calls that just moved, plus REVIEW / SELL).
+- **Drop folder.** `db/research/inbox/` (created on first ask; gitignored with `db/`). The daily prompt gives
+  Antigravity the absolute path and asks it to save only the table there as `research-YYYY-MM-DD.md`. The tab lists
+  waiting files (`.md .txt .csv .tsv`, ≤1 MB, plain names only — no paths, nothing else is read), **Read it** loads
+  one into the same preview a paste gets, and only **Save** stores it; the file then moves to `inbox/done/`. A file
+  is only ever read as text and parsed; nothing in it is executed, and nothing is saved without the preview.
+  Routes: `GET /api/analyst/strategy/inbox`, `…/inbox/file?name=`, `POST …/inbox/done?name=`.
 - Restart `npm run server` after pulling this (`server.js`, `strategy.js`).
 
 ### Testing it without touching real data

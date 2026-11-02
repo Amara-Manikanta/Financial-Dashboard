@@ -59,6 +59,8 @@ const AnalystResearch = ({ stocks }) => {
     const [note, setNote] = useState('');
     const [open, setOpen] = useState({});
     const [picked, setPicked] = useState({});
+    const [inbox, setInbox] = useState({ dir: '', files: [] });
+    const [fromFile, setFromFile] = useState('');
 
     const holdings = useMemo(() => (stocks || []).filter((s) => !s.isArchived && Number(s.shares) > 0), [stocks]);
     const holdingById = useMemo(() => new Map(holdings.map((h) => [String(h.id), h])), [holdings]);
@@ -74,6 +76,31 @@ const AnalystResearch = ({ stocks }) => {
         }
     }, []);
     useEffect(() => { load(); }, [load]);
+
+    // Files an outside agent has written into the project's research folder.
+    const loadInbox = useCallback(async () => {
+        try {
+            const r = await fetch(`${API_URL}/api/analyst/strategy/inbox`);
+            if (r.ok) setInbox(await r.json());
+        } catch { /* the snapshot load already reports an unreachable server */ }
+    }, []);
+    useEffect(() => {
+        loadInbox();
+        window.addEventListener('focus', loadInbox);
+        return () => window.removeEventListener('focus', loadInbox);
+    }, [loadInbox]);
+
+    const openFile = async (name) => {
+        setNote('');
+        try {
+            const r = await fetch(`${API_URL}/api/analyst/strategy/inbox/file?name=${encodeURIComponent(name)}`);
+            if (!r.ok) throw new Error('could not read that file');
+            const { text: body } = await r.json();
+            const m = /(\d{4}-\d{2}-\d{2})/.exec(name);
+            setText(body); setFromFile(name); setParsed(null);
+            if (m && m[1] <= localToday()) setDate(m[1]);
+        } catch (err) { setNote(`Not opened: ${err.message}`); }
+    };
 
     const latest = useMemo(() => latestCalls(snapshots, localToday()), [snapshots]);
     const lastCallMap = useMemo(() => new Map([...latest].map(([id, r]) => [id, { call: r.call, date: r.date }])), [latest]);
@@ -94,6 +121,9 @@ const AnalystResearch = ({ stocks }) => {
         const newest = snapshots.length ? snapshots[snapshots.length - 1].date : null;
         return table.filter((t) => t.call && (['REVIEW', 'SELL'].includes(t.call.call) || (t.lastChange && t.lastChange.date === newest)));
     }, [table, snapshots]);
+
+    // A file picked from the folder is read straight away; the preview still waits for Save.
+    useEffect(() => { if (fromFile && text) readTable(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [fromFile]);
 
     const readTable = () => {
         setNote('');
@@ -131,6 +161,10 @@ const AnalystResearch = ({ stocks }) => {
             });
             const body = await r.json().catch(() => ({}));
             if (!r.ok) throw new Error(body.error || `HTTP ${r.status}`);
+            if (fromFile) {
+                await fetch(`${API_URL}/api/analyst/strategy/inbox/done?name=${encodeURIComponent(fromFile)}`, { method: 'POST' }).catch(() => {});
+                setFromFile(''); loadInbox();
+            }
             setNote(`Saved ${rows.length} call${rows.length === 1 ? '' : 's'} for ${date}${rows.some((x) => !x.holdingId) ? ` (${rows.filter((x) => !x.holdingId).length} not matched to a holding)` : ''}.`);
             setParsed(null); setText('');
             await load();
@@ -146,7 +180,7 @@ const AnalystResearch = ({ stocks }) => {
         load();
     };
 
-    const copyDaily = async () => setNote((await copy(dailyPrompt(promptRows))) ? 'Daily prompt copied. Paste it into Antigravity.' : 'Could not copy.');
+    const copyDaily = async () => setNote((await copy(dailyPrompt(promptRows, { saveTo: inbox.dir }))) ? `Daily prompt copied${inbox.dir ? ' (it asks Antigravity to save the table into the research folder)' : ''}. Paste it into Antigravity.` : 'Could not copy.');
     const copyDeep = async () => {
         const ids = Object.keys(picked).filter((k) => picked[k]);
         const chosen = ids.length ? ids : flagged.map((t) => String(t.h.id));
@@ -176,17 +210,31 @@ const AnalystResearch = ({ stocks }) => {
             </div>
             {loadError && <p className="text-[11px] text-rose-400">{loadError}</p>}
 
+            {inbox.files.length > 0 && (
+                <div className="rounded-xl border border-sky-500/30 bg-sky-500/[0.06] p-3 space-y-2">
+                    <p className="text-[11px] font-black text-sky-300">{inbox.files.length} file{inbox.files.length === 1 ? '' : 's'} waiting in the research folder</p>
+                    {inbox.files.slice(0, 6).map((f) => (
+                        <div key={f.name} className="flex items-center gap-3 text-[11px]">
+                            <span className="text-gray-200 font-mono">{f.name}</span>
+                            <span className="text-gray-500">{new Date(f.modified).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                            <button type="button" onClick={() => openFile(f.name)} className="px-2 py-0.5 rounded-md border border-sky-500/40 text-sky-300 font-black hover:bg-sky-500/15">Read it</button>
+                        </div>
+                    ))}
+                    <p className="text-[10px] text-gray-500">Reading a file shows the same preview as a paste; nothing is saved until you press Save, and a saved file moves to done/.</p>
+                </div>
+            )}
+
             {/* Paste */}
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
                 <div className="flex flex-wrap items-center gap-3">
-                    <h3 className="text-[11px] font-black uppercase tracking-widest text-gray-400">Paste today's table</h3>
+                    <h3 className="text-[11px] font-black uppercase tracking-widest text-gray-400">{fromFile ? `From file: ${fromFile}` : "Paste today's table"}</h3>
                     <label className="text-[11px] text-gray-500 flex items-center gap-2">For
                         <input type="date" value={date} max={localToday()} onChange={(e) => setDate(e.target.value)} className="bg-black/40 border border-white/10 rounded-md px-2 py-1 text-[11px] text-white" />
                     </label>
                 </div>
                 <textarea
                     value={text}
-                    onChange={(e) => { setText(e.target.value); setParsed(null); }}
+                    onChange={(e) => { setText(e.target.value); setParsed(null); setFromFile(''); }}
                     rows={6}
                     placeholder="| Stock | Recommendation | Reason | … paste the whole table, header row included"
                     className="w-full rounded-lg bg-black/40 border border-white/10 p-3 text-[11px] font-mono text-gray-200 placeholder:text-gray-600 outline-none focus:border-indigo-500/50"

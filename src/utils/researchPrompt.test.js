@@ -44,3 +44,11 @@ test('the deep-dive prompt names each flagged stock and why', () => {
     assert.match(p, /Infosys Limited: call changed HOLD → REVIEW/);
     assert.match(p, /1 Indian stock below/);
 });
+
+test('the daily prompt names the file to write only when the app knows the folder', () => {
+    const rows = promptHoldings(stocks);
+    assert.doesNotMatch(dailyPrompt(rows, { today: '2026-11-02' }), /Saving:/);
+    const p = dailyPrompt(rows, { today: '2026-11-02', saveTo: '/Users/me/proj/db/research/inbox/' });
+    assert.match(p, /\/Users\/me\/proj\/db\/research\/inbox\/research-2026-11-02\.md/);
+    assert.match(p, /changing no other file/);
+});
