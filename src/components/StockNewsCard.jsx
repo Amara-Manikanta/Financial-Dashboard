@@ -55,8 +55,16 @@ const formatToParagraph = (points, whys) => {
     return text;
 };
 
-const NewsSentimentSummary = ({ stories, financials }) => {
-    const digest = useMemo(() => {
+const RESEARCH_STYLE = {
+    BUY: ['🟢', 'text-emerald-300', 'bg-emerald-500/10 border-emerald-500/20', 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'],
+    ACCUMULATE: ['🟢', 'text-emerald-300', 'bg-emerald-500/10 border-emerald-500/20', 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'],
+    HOLD: ['⚪', 'text-gray-300', 'bg-white/5 border-white/10', 'bg-white/10 text-gray-200 border-white/20'],
+    REVIEW: ['🟡', 'text-amber-300', 'bg-amber-500/10 border-amber-500/20', 'bg-amber-500/20 text-amber-300 border-amber-500/30'],
+    SELL: ['🔴', 'text-rose-300', 'bg-rose-500/10 border-rose-500/20', 'bg-rose-500/20 text-rose-300 border-rose-500/30'],
+};
+
+const NewsSentimentSummary = ({ stories, financials, researchCall }) => {
+    const baseDigest = useMemo(() => {
         const analysed = (stories || []).filter((s) => s.keyPoints?.length > 0);
         if (analysed.length === 0 && !financials) return null;
 
@@ -239,7 +247,21 @@ const NewsSentimentSummary = ({ stories, financials }) => {
         };
     }, [stories, financials]);
 
-    if (!digest) return null;
+    if (!baseDigest) return null;
+    let digest = baseDigest;
+
+    // The research call, when there is one, is the verdict; the automatic read is kept below it, labelled.
+    const auto = baseDigest;
+    const rs = researchCall && RESEARCH_STYLE[researchCall.call];
+    if (rs) {
+        digest = {
+            ...digest,
+            stanceIcon: rs[0], actionColor: rs[1], actionBg: rs[2], stanceBadge: rs[3],
+            stanceLabel: `Research: ${researchCall.call}`,
+            stanceAction: researchCall.confidence ? `${researchCall.confidence} confidence` : researchCall.call,
+            stanceRationale: `${researchCall.reason || 'No reason recorded.'} (Research of ${researchCall.date}.) Automatic read from headlines and fundamentals, for comparison: ${auto.stanceLabel}.`,
+        };
+    }
 
     return (
         <div className={`mt-4 rounded-xl border ${digest.actionBg} p-4 space-y-3.5`}>
@@ -392,7 +414,7 @@ const agoOf = (iso) => {
     return days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`;
 };
 
-const StockNewsCard = ({ symbol, name }) => {
+const StockNewsCard = ({ symbol, name, researchCall }) => {
     const [stories, setStories] = useState(null);
     const [financials, setFinancials] = useState(null);
     const [busy, setBusy] = useState('');
@@ -523,7 +545,7 @@ const StockNewsCard = ({ symbol, name }) => {
             </div>
             {note && <p className="text-[11.5px] text-gray-400 mt-2">{note}</p>}
 
-            <NewsSentimentSummary stories={stories} financials={financials} />
+            <NewsSentimentSummary stories={stories} financials={financials} researchCall={researchCall} />
 
             <ClaudeBriefPanel symbol={symbol} name={name} stories={stories} onStoriesChanged={load} />
 

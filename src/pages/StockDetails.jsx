@@ -770,6 +770,7 @@ const StockDetails = () => {
                     <StockNewsCard
                         symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
                         name={stock.name}
+                        researchCall={researchRow}
                     />
                 </div>
             )}

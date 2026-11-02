@@ -1638,7 +1638,7 @@ const StockMarketDetails = () => {
                                                         {OFFICIAL_SECTORS.find(s => s.name === stock.sector)?.icon || '📊'} {stock.sector}
                                                     </span>
                                                 )}
-                                                {stock.ticker && (
+                                                {stock.ticker && !researchCalls.has(String(stock.id)) && (
                                                     <span style={{ marginLeft: '0.375rem' }}>
                                                         <StockHealthBadge symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`} />
                                                     </span>
@@ -1951,7 +1951,7 @@ const StockMarketDetails = () => {
                                                                 {ownerLabel(ownerOf(stock), docuSetu?.familyMembers)}
                                                             </span>
                                                         )}
-                                                        {stock.ticker && (
+                                                        {stock.ticker && !researchCalls.has(String(stock.id)) && (
                                                             <StockHealthBadge symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`} />
                                                         )}
                                                         {isDividendPending && (
