@@ -833,6 +833,13 @@ check the preview, **Save**.
   file a call under the wrong company. Files still being written (touched <8 s ago) are skipped. The daily prompt
   asks for `research-YYYY-MM-DD-HHMM.md`; several files in one day import oldest first and the same-day replace rule
   means the newest stands. Intraday changes of mind are therefore not kept — only the day's last call is.
+- **Scheduled runs (`scheduledPrompt`, `holdings.md`).** A repeating prompt cannot carry today's date, prices or
+  "my last call" — they would be stale by the next run. So the server keeps `db/research/holdings.md` current
+  (`writeHoldingsFile`, every 2 min, rewritten only when the content changes) and the **Copy scheduled prompt**
+  button copies a prompt with no dates or figures: it names that file, tells the agent to read the date and time in
+  India itself, and to change a call only when something new has happened since "My last call" (so hourly runs do
+  not flap). It runs in NSE market hours only (9:15–15:30 IST), so the last run of the day is the day's stored
+  call. `GET /api/analyst/strategy/holdings-file` writes it on demand and returns the path.
 - Restart `npm run server` after pulling this (`server.js`, `strategy.js`, `researchAuto.js`).
 
 ### Testing it without touching real data

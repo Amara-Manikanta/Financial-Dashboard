@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { promptHoldings, dailyPrompt, weeklyPrompt, deepDivePrompt, sectorSummary } from './researchPrompt.js';
+import { promptHoldings, dailyPrompt, weeklyPrompt, deepDivePrompt, sectorSummary, scheduledPrompt, holdingsMarkdown } from './researchPrompt.js';
 import { parseResearch } from './researchImport.js';
 
 const stocks = [
@@ -67,4 +67,25 @@ test('the weekly prompt hands over weights and sector shares worked out here, an
     const sectors = sectorSummary(rows);
     assert.equal(Math.round(sectors.reduce((a, x) => a + x.pct, 0)), 100);
     assert.equal(sectors[0].sector, 'Information Technology');
+});
+
+test('the scheduled prompt carries no date or figures, points at the holdings file and asks for an importable table', () => {
+    const p = scheduledPrompt({ holdingsPath: '/x/db/research/holdings.md', saveTo: '/x/db/research/inbox/' });
+    assert.match(p, /\/x\/db\/research\/holdings\.md/);
+    assert.match(p, /research-YYYY-MM-DD-HHMM\.md/);
+    assert.match(p, /inbox\/research-YYYY/);
+    assert.doesNotMatch(p, /20\d\d-\d\d-\d\d(?!-HH)/);
+    assert.doesNotMatch(p, /Infosys/);
+    assert.match(p, /My last call/);
+    assert.match(p, /market hours/i);
+    const header = p.split('\n').find((l) => l.startsWith('| Stock |'));
+    assert.equal(parseResearch(`${header}\n|---|---|---|---|---|---|---|---|\n| Infosys Limited | 1,182.00 | Bottom: 27% | HOLD | HIGH | r | n | t |`).rows[0].call, 'HOLD');
+});
+
+test('the holdings file lists every holding with the time it was written', () => {
+    const md = holdingsMarkdown(promptHoldings(stocks, new Map([['1', { call: 'HOLD', date: '2026-11-02' }]])), { asOf: '2026-11-02 10:15' });
+    assert.match(md, /Written: 2026-11-02 10:15/);
+    assert.match(md, /Infosys Limited/);
+    assert.match(md, /Big One/);
+    assert.doesNotMatch(md, /Sold Out/);
 });

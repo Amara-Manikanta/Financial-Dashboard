@@ -4,7 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 import { configureStrategy, writeSettings, readSnapshots, listInbox } from './strategy.js';
-import { importWaiting } from './researchAuto.js';
+import { importWaiting, writeHoldingsFile, holdingsFilePath } from './researchAuto.js';
 
 const HEADER = '| Stock | Recommendation | Confidence | Reason |\n|---|---|---|---|\n';
 const setup = () => {
@@ -85,4 +85,19 @@ test('settings keep only known keys', () => {
     const s = writeSettings({ autoImport: true, evil: 'x', aliases: { 'A B': '5', bad: 7 } });
     assert.deepEqual(s, { autoImport: true, aliases: { 'a b': '5' } });
     assert.equal(writeSettings({ autoImport: 'yes' }).autoImport, true, 'a non-boolean leaves it as it was');
+});
+
+test('the holdings file lists current holdings only and is rewritten only when its content changes', () => {
+    const { inbox, dbFile } = setup();
+    const file = writeHoldingsFile({ dbFile, now: new Date('2026-11-02T04:45:00Z') });
+    assert.equal(file, holdingsFilePath());
+    assert.equal(path.dirname(file), path.dirname(inbox));
+    const body = fs.readFileSync(file, 'utf8');
+    assert.match(body, /Written: 2026-11-02 10:15/);
+    assert.match(body, /Infosys Limited/);
+    assert.doesNotMatch(body, /Archived Co|Family Co/);
+    const t = new Date(Date.now() - 600000);
+    fs.utimesSync(file, t, t);
+    writeHoldingsFile({ dbFile, now: new Date('2026-11-02T05:45:00Z') });
+    assert.equal(Math.round((Date.now() - fs.statSync(file).mtimeMs) / 60000), 10);
 });

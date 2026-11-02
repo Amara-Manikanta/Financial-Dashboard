@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardCopy, ClipboardPaste, Trash2, ArrowUp, ArrowDown, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
 import { CALLS, parseResearch, matchHoldings, compareCalls, latestCalls, callHistory, callRank } from '../utils/researchImport';
-import { promptHoldings, dailyPrompt, weeklyPrompt, deepDivePrompt } from '../utils/researchPrompt';
+import { promptHoldings, dailyPrompt, weeklyPrompt, deepDivePrompt, scheduledPrompt } from '../utils/researchPrompt';
 
 /**
  * Daily research from an outside run (Google Antigravity): copy the prompt, paste
@@ -204,6 +204,15 @@ const AnalystResearch = ({ stocks }) => {
 
     const copyDaily = async () => setNote((await copy(dailyPrompt(promptRows, { saveTo: inbox.dir }))) ? `Daily prompt copied${inbox.dir ? ' (it asks Antigravity to save the table into the research folder)' : ''}. Paste it into Antigravity.` : 'Could not copy.');
     const copyWeekly = async () => setNote((await copy(weeklyPrompt(promptRows, { saveTo: inbox.dir }))) ? 'Weekly review prompt copied. It asks for fundamentals and a portfolio write-up; run it once a week.' : 'Could not copy.');
+    const copyScheduled = async () => {
+        if (!inbox.dir) { setNote('The research folder is not known yet; restart npm run server.'); return; }
+        try {
+            const r = await fetch(`${API_URL}/api/analyst/strategy/holdings-file`);
+            const { path: holdingsPath } = await r.json();
+            if (!r.ok || !holdingsPath) throw new Error('no path');
+            setNote((await copy(scheduledPrompt({ holdingsPath, saveTo: inbox.dir }))) ? 'Scheduled prompt copied. It reads the holdings file, which the app keeps current, so you can paste it once into a repeating run.' : 'Could not copy.');
+        } catch { setNote('Could not prepare the holdings file. Is npm run server restarted?'); }
+    };
     const copyDeep = async () => {
         const ids = Object.keys(picked).filter((k) => picked[k]);
         const chosen = ids.length ? ids : flagged.map((t) => String(t.h.id));
@@ -229,6 +238,7 @@ const AnalystResearch = ({ stocks }) => {
             <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={copyDaily} className={`${btn} bg-indigo-500/15 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25`}><ClipboardCopy size={13} /> Copy daily prompt</button>
                 <button type="button" onClick={copyWeekly} className={`${btn} bg-violet-500/15 border-violet-500/30 text-violet-300 hover:bg-violet-500/25`}><ClipboardCopy size={13} /> Copy weekly review prompt</button>
+                <button type="button" onClick={copyScheduled} className={`${btn} bg-emerald-500/15 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/25`}><ClipboardCopy size={13} /> Copy scheduled prompt (hourly runs)</button>
                 <button type="button" onClick={copyDeep} className={`${btn} bg-white/5 border-white/10 text-gray-300 hover:bg-white/10`}><ClipboardCopy size={13} /> Copy deep-dive prompt{Object.values(picked).some(Boolean) ? ' (ticked)' : ` (${flagged.length} flagged)`}</button>
                 {note && <span className="text-[11px] text-gray-400">{note}</span>}
             </div>

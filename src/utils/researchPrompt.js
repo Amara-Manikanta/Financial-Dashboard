@@ -178,3 +178,64 @@ ${holdingsTable(rows, { withLast: true })}
 
 Why each was flagged:
 ${rows.map((h) => `- ${h.name}: ${reasons[h.id] || 'selected by me'}`).join('\n')}`;
+
+// ── For a run that repeats on a schedule ─────────────────────────────────────
+// A saved prompt cannot carry today's date or a snapshot of the holdings: both
+// would be stale by the next run. So the holdings live in a file the app keeps
+// current, and the prompt only says where to find it and to work out the date.
+
+/** The holdings file: the same table the daily prompt carries, with when it was written. */
+export const holdingsMarkdown = (rows, { asOf = '' } = {}) => `# My holdings — kept up to date by my finance app
+
+Written: ${asOf || 'unknown'} (India time). "Price now" is the app's last stored quote and may be a few minutes or a day old; always check a live price yourself. "Gain %" is against my average cost. "My last call" is the most recent call saved from an earlier run, with its date.
+
+${holdingsTable(rows, { withLast: true })}
+`;
+
+export const scheduledPrompt = ({ holdingsPath, saveTo }) => `Act as an independent Indian equity research analyst. This is a repeating run during NSE market hours; do not assume any date — read today's date and the current time in India from the system clock first, and use them everywhere below ("today").
+
+My holdings are in this file; read it now, it is refreshed by my app before each run:
+${holdingsPath}
+It lists every holding with my invested amount, average cost, quantity, last stored price, gain, sector, first-bought date and my last call. Use its figures; do not recompute them.
+
+THIS RUN covers only: news, price position, and one call per holding. No fundamentals deep-dives or portfolio-level analysis (I do those in a separate weekly run). My aim is long-term wealth creation (5 to 10 years) with sensible risk management. This is research opinion for my own decisions, not a guarantee.
+
+For each holding in the file:
+1. News: only news published in the 30 days up to today. Cover results, guidance, order wins, business developments, management changes, regulatory action, governance issues, and sector developments that affect it. Say whether a story is about the company or the whole sector. If there is nothing significant, write "No significant recent news found".
+2. Price: this is intraday, so give the last traded price with the time of the quote, the 52-week high and low, and the distance from each in %. Classify the position as Bottom, Middle or Top of the range.
+3. One call. Look at "My last call". Change it only if something new has happened since that call was made (new news, a results release, a real price move), and say what in the Reason. If nothing is new, repeat the call and say "no new information". Do not change a call just because the price moved a little within the day.
+
+Recommendation: exactly ONE word per stock. I already own every stock in the file, so the words mean:
+- BUY: add meaningfully now.
+- ACCUMULATE: add gradually, on dips or in small steps.
+- HOLD: keep the position as it is.
+- REVIEW: I should reassess — valuation, risk, uncertainty or too little evidence.
+- SELL: the fundamentals or risk justify exiting (all or most of it).
+Confidence: exactly one of HIGH, MEDIUM, LOW — how sure you are, given the quality of the evidence.
+
+OUTPUT FORMAT — the table must come FIRST, before any other text, with no other table above it. One markdown table, exactly these columns, one row per holding, in the file's order:
+
+| Stock | Price | 52-week position | Recommendation | Confidence | Reason | Key News (Date & Source) | What Would Change My View |
+
+- Stock: the holding's name exactly as in the file, nothing else in the cell.
+- Price: the price in ₹ only, e.g. 1,182.00
+- 52-week position: Bottom, Middle or Top plus the percentage of the range, e.g. Bottom: 27.0%
+- Recommendation / Confidence: only the single words described above.
+- Reason: 2 to 3 sentences connecting the recent news, the company's position and the price.
+- Key News: each story with its publication date, headline or topic, and the source's name AND URL.
+- What Would Change My View: one specific event, change in fundamentals or price level.
+
+After the table leave a blank line, then a short summary (no more tables): the 5 holdings most exposed to bad news and why; the 5 best candidates for additional money and why (not simply the biggest gainers or the ones nearest their 52-week low); any holding where news or data was missing or stale; and your overall confidence.
+
+Research and accuracy rules (these matter more than anything else):
+- Use only information available now. Never present older news as recent.
+- Never invent or estimate a price, a financial figure or a headline. If you cannot verify something, write "not verified" in that cell.
+- Cite a source for every news item, price and figure. Prefer company filings, NSE/BSE announcements and investor presentations, then credible financial publications.
+- Prices: use NSE as the main source or a reliable cross-check (state which). Allow for splits, bonuses and other corporate actions.
+- Separate verified facts from your own interpretation. Say when financial data is out of date or missing.
+- Do not treat a lack of bad news as a reason to BUY, and do not decide from the 52-week position alone.
+- No guaranteed predictions and no unsupported price targets.
+
+Saving: also save the table (ONLY the table, no other text) as a markdown file at this path, where YYYY-MM-DD is today's date and HHMM is the current time in India, 24-hour (for example 1115), so a run never overwrites an earlier one:
+${saveTo.replace(/\/$/, '')}/research-YYYY-MM-DD-HHMM.md
+Create nothing else and change no other file in the project; only read the holdings file and write that one file. My app reads it from there.`;

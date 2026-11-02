@@ -11,7 +11,9 @@
 import fs from 'fs';
 import path from 'path';
 import { parseResearch, matchHoldings } from './src/utils/researchImport.js';
-import { listInbox, readInboxFile, archiveInboxFile, saveSnapshot, readSettings, dateInName, inboxDirectory } from './strategy.js';
+import { listInbox, readInboxFile, archiveInboxFile, saveSnapshot, readSnapshots, readSettings, dateInName, inboxDirectory } from './strategy.js';
+import { promptHoldings, holdingsMarkdown } from './src/utils/researchPrompt.js';
+import { latestCalls } from './src/utils/researchImport.js';
 
 const SETTLE_MS = 8000;
 
@@ -64,6 +66,52 @@ export const startResearchImporter = ({ dbFile, everyMs = 30000 } = {}) => {
             out.results.filter((r) => r.status === 'imported').forEach((r) => console.log(`[research] imported ${r.name} → ${r.date} (${r.rows} calls)`));
         } catch (err) { console.error('[research] auto-import failed:', err.message); }
     }, everyMs);
+    timer.unref?.();
+    return timer;
+};
+
+// ── The holdings file a scheduled run reads ──────────────────────────────────
+
+const istParts = (d = new Date()) => {
+    const ist = new Date(d.getTime() + 5.5 * 3600000);
+    return { day: ist.toISOString().slice(0, 10), time: ist.toISOString().slice(11, 16) };
+};
+
+export const holdingsFilePath = () => (inboxDirectory() ? path.join(path.dirname(inboxDirectory()), 'holdings.md') : null);
+
+/**
+ * Rewrites db/research/holdings.md from the database and the saved calls, only when its
+ * content changed (the timestamp does not count), so the file's modified time means
+ * something. Returns the path, or null when storage is not configured.
+ */
+export const writeHoldingsFile = ({ dbFile, now = new Date() } = {}) => {
+    const file = holdingsFilePath();
+    if (!file) return null;
+    const db = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+    const account = (db.savings || []).find((s) => s.type === 'stock_market' && !s.isArchived);
+    const stocks = (account?.stocks || []).filter((s) => (s.owner || 'self') === 'self');
+    const { day, time } = istParts(now);
+    const calls = latestCalls(readSnapshots({ limit: 400 }), day);
+    const lastCalls = new Map([...calls].map(([id, r]) => [id, { call: r.call, date: r.date }]));
+    const rows = promptHoldings(stocks, lastCalls);
+    const body = holdingsMarkdown(rows, { asOf: `${day} ${time}` });
+    const stable = (t) => t.replace(/^Written: .*$/m, '');
+    let previous = '';
+    try { previous = fs.readFileSync(file, 'utf8'); } catch { /* first write */ }
+    if (stable(previous) !== stable(body)) {
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        const tmp = `${file}.tmp`;
+        fs.writeFileSync(tmp, body);
+        fs.renameSync(tmp, file);
+    }
+    return file;
+};
+
+export const startHoldingsWriter = ({ dbFile, everyMs = 120000 } = {}) => {
+    if (!inboxDirectory()) return null;
+    const run = () => { try { writeHoldingsFile({ dbFile }); } catch (err) { console.error('[research] holdings file failed:', err.message); } };
+    setTimeout(run, 5000).unref?.();
+    const timer = setInterval(run, everyMs);
     timer.unref?.();
     return timer;
 };

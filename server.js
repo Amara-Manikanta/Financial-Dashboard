@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 import * as analystLLM from './analystLLM.js';
 import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest, heldStocksIn } from './news.js';
 import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot, listInbox, readInboxFile, archiveInboxFile, inboxDirectory, readSettings, writeSettings } from './strategy.js';
-import { startResearchImporter } from './researchAuto.js';
+import { startResearchImporter, startHoldingsWriter, writeHoldingsFile } from './researchAuto.js';
 import { configureArchive, archiveDigest, readArchive, fileFor, consolidatedCsv, syncConsolidatedCsv } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
@@ -38,6 +38,7 @@ syncConsolidatedCsv();
 const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
 startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
 startResearchImporter({ dbFile: DB_FILE });
+startHoldingsWriter({ dbFile: DB_FILE });
 // Claude's switch and spend log sit beside the database too; briefs beside the news files.
 configureClaudeNews({
     stateFile: path.join(path.dirname(DB_FILE), '.claude-news.json'),
@@ -1174,6 +1175,10 @@ const handleAnalystLLMRoute = (req, res) => {
             });
             return;
         }
+    }
+    if (route === '/api/analyst/strategy/holdings-file' && req.method === 'GET') {
+        try { sendJson(res, 200, { path: writeHoldingsFile({ dbFile: DB_FILE }) }); } catch (err) { sendJson(res, 500, { error: err.message }); }
+        return;
     }
     if (route === '/api/analyst/strategy/inbox' && req.method === 'GET') {
         // Created on first ask so the agent has a folder to write into.
