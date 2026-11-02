@@ -43,6 +43,12 @@ struct StockRanges: View {
 /// One stock holding: its position, dividend record, news and every transaction, which can be
 /// added to, changed and removed. Each save replays the holding's shares, average cost and
 /// dividends from the whole history (`StockLedger`), as the Mac's stock page does.
+enum ResearchTone {
+    static func of(_ call: String) -> Tone {
+        switch call { case "BUY", "ACCUMULATE": return .positive; case "REVIEW": return .warning; case "SELL": return .negative; default: return .neutral }
+    }
+}
+
 struct HoldingView: View {
     @ObservedObject var store: FinanceStore
     let holdingId: String
@@ -61,6 +67,29 @@ struct HoldingView: View {
 
     var body: some View {
         if let holding { content(holding) } else { KScreen { KCard { Text("This holding is no longer active.").font(Theme.footnote).foregroundStyle(Theme.muted) } } }
+    }
+
+    @ViewBuilder private func researchCard(_ holding: Stocks.Holding) -> some View {
+        if let c = store.research[holding.id] {
+            KCard {
+                HStack(spacing: 8) {
+                    Text("RESEARCH CALL").font(Theme.caption).tracking(1.0).foregroundStyle(Theme.muted)
+                    Spacer()
+                    KBadge(text: c.call, tone: ResearchTone.of(c.call))
+                }
+                Text([c.confidence.isEmpty ? nil : "\(c.confidence.capitalized) confidence", "as of \(Fmt.date(c.date))"].compactMap { $0 }.joined(separator: " · "))
+                    .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 4)
+                if !c.reason.isEmpty { Text(c.reason).font(Theme.body).foregroundStyle(.white.opacity(0.9)).padding(.top, 8) }
+                if !c.news.isEmpty { Text("News: \(c.news)").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 6) }
+                if !c.trigger.isEmpty { Text("What would change this: \(c.trigger)").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 6) }
+                if c.changes.count > 1 {
+                    Text("History: " + c.changes.map { "\(Fmt.date($0.date)) \($0.call)" }.joined(separator: " → "))
+                        .font(Theme.footnote).foregroundStyle(Theme.muted.opacity(0.8)).padding(.top, 6)
+                }
+                Text("Outside research, a second opinion — not advice, and it never changes this holding.")
+                    .font(Theme.footnote).foregroundStyle(Theme.muted.opacity(0.6)).padding(.top, 6)
+            }
+        }
     }
 
     private func content(_ holding: Stocks.Holding) -> some View {
@@ -93,6 +122,8 @@ struct HoldingView: View {
             if holding.raw["quote"]["fiftyTwoWeekHigh"].double > 0 {
                 KCard { StockRanges(raw: holding.raw, price: holding.price) }
             }
+
+            researchCard(holding)
 
             fundamentalsCard(holding)
 

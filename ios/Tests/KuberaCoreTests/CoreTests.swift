@@ -968,4 +968,21 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual((try AssetOp.addItem(json(#"{"id":"n","name":"New"}"#)).patch(for: cat).get()["items"] as! [Any]).count, 3)
         for op in [add, addUnit, del, AssetOp.deleteItem(itemId: "g1"), AssetOp.addItem(json(#"{"id":"n"}"#))] { XCTAssertNotNil(roundTrip(op)) }
     }
+
+    func testResearchCallsKeepTheNewestPerHoldingAndItsChanges() {
+        let body = json("""
+        {"snapshots":[
+         {"date":"2026-11-02","rows":[{"holdingId":"s1","call":"HOLD","confidence":"HIGH","reason":"a"},{"holdingId":"s2","call":"BUY"}]},
+         {"date":"2026-11-04","rows":[{"holdingId":"s1","call":"BUY","confidence":"MEDIUM","reason":"b","news":"n","trigger":"t"},{"name":"No match","call":"SELL"}]}
+        ]}
+        """)
+        let calls = ResearchCall.parse(body, today: "2026-11-06")
+        XCTAssertEqual(calls.count, 2)
+        XCTAssertEqual(calls["s1"]?.call, "BUY")
+        XCTAssertEqual(calls["s1"]?.reason, "b")
+        XCTAssertEqual(calls["s1"]?.ageDays, 2)
+        XCTAssertEqual(calls["s1"]?.changes.map(\.call), ["BUY", "HOLD"])
+        XCTAssertEqual(calls["s2"]?.date, "2026-11-02")      // left out of the later day: keeps its call, marked old
+        XCTAssertEqual(calls["s2"]?.ageDays, 4)
+    }
 }

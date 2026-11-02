@@ -14,6 +14,8 @@ final class FinanceStore: ObservableObject {
     @Published private(set) var isLoading = false
     @Published private(set) var loadedAt: Date?
     @Published var errorMessage: String?
+    /// Latest outside-research call per holding id (read-only; from the Mac's Research tab).
+    @Published private(set) var research: [String: ResearchCall] = [:]
 
     // The screens read these; each is one field of `data`.
     var years: [YearSummary] { data.years }
@@ -31,6 +33,13 @@ final class FinanceStore: ObservableObject {
     var freeHoldings: FreeHoldingsPage.Page { data.freeHoldings }
 
     /// Reads that are not part of the database: a stock's fundamentals check and ten years of the Nifty.
+    /// The research calls are optional: an older Mac without the route simply leaves them empty.
+    func loadResearch() async {
+        guard let body = try? await api.get(path: "api/analyst/strategy", query: [URLQueryItem(name: "limit", value: "120")]) else { return }
+        let f = DateFormatter(); f.dateFormat = "yyyy-MM-dd"; f.locale = Locale(identifier: "en_US_POSIX")
+        research = ResearchCall.parse(body, today: f.string(from: Date()))
+    }
+
     func fundamentals(for symbol: String) async -> JSONValue? {
         guard let json = try? await api.get(path: "api/stock-financials", query: [URLQueryItem(name: "symbol", value: symbol)]),
               !json["signal"].isNull else { return nil }
@@ -407,6 +416,7 @@ final class FinanceStore: ObservableObject {
             data = await Task.detached(priority: .userInitiated) { Derived.compute(raw) }.value
             loadedAt = Date()
             if mirror?.offline == false { mirror?.markSynced() }
+            await loadResearch()
         } catch APIError.unauthorized {
             onUnauthorized()
         } catch {

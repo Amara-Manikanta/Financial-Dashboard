@@ -115,6 +115,7 @@ struct StocksView: View {
                                  captionTone: Tone.of(holding.gain))
                         }
                         .buttonStyle(.plain)
+                        if let c = store.research[holding.id] { KBadge(text: c.call, tone: ResearchTone.of(c.call)) }
                         Button {
                             withAnimation(.easeInOut(duration: 0.2)) { if expanded.contains(holding.id) { expanded.remove(holding.id) } else { expanded.insert(holding.id) } }
                         } label: {
