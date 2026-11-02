@@ -115,7 +115,6 @@ struct StocksView: View {
                                  captionTone: Tone.of(holding.gain))
                         }
                         .buttonStyle(.plain)
-                        if let c = store.research[holding.id] { KBadge(text: c.call, tone: ResearchTone.of(c.call)) }
                         Button {
                             withAnimation(.easeInOut(duration: 0.2)) { if expanded.contains(holding.id) { expanded.remove(holding.id) } else { expanded.insert(holding.id) } }
                         } label: {
@@ -123,6 +122,15 @@ struct StocksView: View {
                                 .rotationEffect(.degrees(expanded.contains(holding.id) ? 180 : 0)).frame(width: 32, height: 32)
                         }
                         .buttonStyle(.plain)
+                    }
+                    if let c = store.research[holding.id] {
+                        HStack(spacing: 8) {
+                            Text("RESEARCH").font(Theme.caption).tracking(1.0).foregroundStyle(Theme.muted)
+                            KBadge(text: c.call, tone: ResearchTone.of(c.call))
+                            if c.ageDays > 0 { Text("\(c.ageDays)d ago").font(Theme.footnote).foregroundStyle(Theme.muted) }
+                            Spacer()
+                        }
+                        .padding(.top, 6)
                     }
                     if expanded.contains(holding.id) { details(holding).padding(.top, 8) }
                 }
