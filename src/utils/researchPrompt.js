@@ -117,8 +117,8 @@ After the table leave a blank line, then a short summary (no more tables): the 5
 ${SHARED_RULES(today, from)}
 ${saveTo ? `
 Saving: also save the table (ONLY the table, no other text) as a markdown file at exactly this path, creating nothing else and changing no other file in the project:
-${saveTo.replace(/\/$/, '')}/research-${today}.md
-My app reads that file from there. Do not edit, move or delete anything else in the project.
+${saveTo.replace(/\/$/, '')}/research-${today}-HHMM.md
+Replace HHMM with the current time in India, 24-hour (for example 1530), so a run never overwrites an earlier one. My app reads the file from there. Do not edit, move or delete anything else in the project.
 ` : ''}
 My holdings (figures come from my own records; "Price now" is my last stored quote and may be a day old; "Gain %" is against my average cost):
 

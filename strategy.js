@@ -135,3 +135,40 @@ export const deleteSnapshot = (date) => {
     fs.unlinkSync(file);
     return true;
 };
+
+// ── Settings: auto-import and remembered name matches ───────────────────────
+// Kept beside the inbox (db/research/settings.json) so a sandbox has its own.
+
+const settingsFile = () => (inbox ? path.join(path.dirname(inbox), 'settings.json') : null);
+
+export const readSettings = () => {
+    const file = settingsFile();
+    const base = { autoImport: false, aliases: {} };
+    if (!file) return base;
+    try {
+        const raw = JSON.parse(fs.readFileSync(file, 'utf8'));
+        return { autoImport: raw.autoImport === true, aliases: raw.aliases && typeof raw.aliases === 'object' && !Array.isArray(raw.aliases) ? raw.aliases : {} };
+    } catch { return base; }
+};
+
+/** Merges a change into the settings. Only known keys are kept; aliases are capped. */
+export const writeSettings = (change = {}) => {
+    const file = settingsFile();
+    if (!file) return { error: 'Strategy storage is not configured' };
+    const cur = readSettings();
+    const next = { autoImport: typeof change.autoImport === 'boolean' ? change.autoImport : cur.autoImport, aliases: { ...cur.aliases } };
+    if (change.aliases && typeof change.aliases === 'object') {
+        Object.entries(change.aliases).slice(0, 500).forEach(([k, v]) => { if (typeof v === 'string' && v.length < 80 && String(k).length < 200) next.aliases[String(k).toLowerCase()] = v; });
+    }
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    const tmp = `${file}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(next, null, 1));
+    fs.renameSync(tmp, file);
+    return next;
+};
+
+/** The first YYYY-MM-DD in a file name, if it is a real day. */
+export const dateInName = (name) => {
+    const m = /(\d{4}-\d{2}-\d{2})/.exec(String(name || ''));
+    return m && validDate(m[1]) ? m[1] : null;
+};

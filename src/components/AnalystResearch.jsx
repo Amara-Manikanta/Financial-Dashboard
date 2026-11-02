@@ -61,6 +61,7 @@ const AnalystResearch = ({ stocks }) => {
     const [picked, setPicked] = useState({});
     const [inbox, setInbox] = useState({ dir: '', files: [] });
     const [fromFile, setFromFile] = useState('');
+    const [auto, setAuto] = useState(false);
 
     const holdings = useMemo(() => (stocks || []).filter((s) => !s.isArchived && Number(s.shares) > 0), [stocks]);
     const holdingById = useMemo(() => new Map(holdings.map((h) => [String(h.id), h])), [holdings]);
@@ -89,6 +90,26 @@ const AnalystResearch = ({ stocks }) => {
         window.addEventListener('focus', loadInbox);
         return () => window.removeEventListener('focus', loadInbox);
     }, [loadInbox]);
+
+    // Auto-import lives on the server so it works with this tab closed. Name matches already
+    // resolved here are sent too, so an unattended run uses them.
+    useEffect(() => {
+        fetch(`${API_URL}/api/analyst/strategy/settings`).then((r) => (r.ok ? r.json() : null)).then((st) => {
+            if (!st) return;
+            setAuto(!!st.autoImport);
+            const local = readAliases();
+            const missing = Object.keys(local).filter((k) => !(k in (st.aliases || {})));
+            if (missing.length) fetch(`${API_URL}/api/analyst/strategy/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aliases: local }) }).catch(() => {});
+        }).catch(() => {});
+    }, []);
+    const toggleAuto = async (on) => {
+        setAuto(on);
+        try {
+            const r = await fetch(`${API_URL}/api/analyst/strategy/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ autoImport: on, aliases: readAliases() }) });
+            if (!r.ok) throw new Error();
+            setNote(on ? 'Auto-import is on: new files in the research folder are imported within a minute.' : 'Auto-import is off.');
+        } catch { setAuto(!on); setNote('Could not change auto-import (is the server running the latest code?).'); }
+    };
 
     const openFile = async (name) => {
         setNote('');
@@ -141,6 +162,7 @@ const AnalystResearch = ({ stocks }) => {
             if (holdingId) {
                 const next = { ...aliases, [String(p.rows[index].name).toLowerCase()]: holdingId };
                 setAliases(next); writeAliases(next);
+                fetch(`${API_URL}/api/analyst/strategy/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ aliases: next }) }).catch(() => {});
             }
             const prior = [...snapshots].filter((s) => s.date < date).pop();
             return { ...p, rows: compareCalls(prior ? prior.rows : [], rows.map(({ previousCall, change, ...r }) => r)) };
@@ -212,9 +234,17 @@ const AnalystResearch = ({ stocks }) => {
             </div>
             {loadError && <p className="text-[11px] text-rose-400">{loadError}</p>}
 
+            <label className="flex items-start gap-2 text-[11px] text-gray-300 cursor-pointer max-w-2xl">
+                <input type="checkbox" checked={auto} onChange={(e) => toggleAuto(e.target.checked)} className="mt-0.5" />
+                <span>
+                    <span className="font-black text-white">Import new files automatically</span>
+                    <span className="text-gray-500"> — for a run that repeats (every hour, say). A file is imported only when every row clearly names one of your holdings; anything unclear stays in the folder below for you. Several files in one day: the newest stands.</span>
+                </span>
+            </label>
+
             {inbox.files.length > 0 && (
                 <div className="rounded-xl border border-sky-500/30 bg-sky-500/[0.06] p-3 space-y-2">
-                    <p className="text-[11px] font-black text-sky-300">{inbox.files.length} file{inbox.files.length === 1 ? '' : 's'} waiting in the research folder</p>
+                    <p className="text-[11px] font-black text-sky-300">{inbox.files.length} file{inbox.files.length === 1 ? '' : 's'} waiting in the research folder{auto ? ' (the automatic import could not place these — open one to see why)' : ''}</p>
                     {inbox.files.slice(0, 6).map((f) => (
                         <div key={f.name} className="flex items-center gap-3 text-[11px]">
                             <span className="text-gray-200 font-mono">{f.name}</span>

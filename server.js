@@ -6,7 +6,8 @@ import { spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import * as analystLLM from './analystLLM.js';
 import { newsFor, configureNews, newsApiUsage, startNewsCollector, analyseLatest, heldStocksIn } from './news.js';
-import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot, listInbox, readInboxFile, archiveInboxFile, inboxDirectory } from './strategy.js';
+import { configureStrategy, saveSnapshot, readSnapshots, deleteSnapshot, listInbox, readInboxFile, archiveInboxFile, inboxDirectory, readSettings, writeSettings } from './strategy.js';
+import { startResearchImporter } from './researchAuto.js';
 import { configureArchive, archiveDigest, readArchive, fileFor, consolidatedCsv, syncConsolidatedCsv } from './newsArchive.js';
 import { inspectWrite, verifySnapshot, countRecords } from './dbGuard.js';
 import * as sqliteReads from './sqliteReads.js';
@@ -36,6 +37,7 @@ configureStrategy({ strategyDir: path.join(path.dirname(DB_FILE), 'db', 'strateg
 syncConsolidatedCsv();
 const NEWS_COLLECT_HOURS = process.env.NEWS_COLLECT_HOURS === undefined ? 6 : Number(process.env.NEWS_COLLECT_HOURS);
 startNewsCollector({ dbFile: DB_FILE, hours: NEWS_COLLECT_HOURS });
+startResearchImporter({ dbFile: DB_FILE });
 // Claude's switch and spend log sit beside the database too; briefs beside the news files.
 configureClaudeNews({
     stateFile: path.join(path.dirname(DB_FILE), '.claude-news.json'),
@@ -1158,6 +1160,20 @@ const handleAnalystLLMRoute = (req, res) => {
         }
         sendJson(res, 404, { error: 'Unknown Claude route' });
         return;
+    }
+    if (route === '/api/analyst/strategy/settings') {
+        if (req.method === 'GET') { sendJson(res, 200, readSettings()); return; }
+        if (req.method === 'POST') {
+            let raw = '';
+            req.on('data', (c) => { raw += c; if (raw.length > 100000) req.destroy(); });
+            req.on('end', () => {
+                let body = {};
+                try { body = JSON.parse(raw || '{}'); } catch { sendJson(res, 400, { error: 'Malformed JSON body' }); return; }
+                const out = writeSettings(body && typeof body === 'object' && !Array.isArray(body) ? body : {});
+                sendJson(res, out.error ? 400 : 200, out);
+            });
+            return;
+        }
     }
     if (route === '/api/analyst/strategy/inbox' && req.method === 'GET') {
         // Created on first ask so the agent has a folder to write into.

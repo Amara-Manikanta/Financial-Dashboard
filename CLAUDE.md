@@ -826,7 +826,14 @@ check the preview, **Save**.
   one into the same preview a paste gets, and only **Save** stores it; the file then moves to `inbox/done/`. A file
   is only ever read as text and parsed; nothing in it is executed, and nothing is saved without the preview.
   Routes: `GET /api/analyst/strategy/inbox`, `…/inbox/file?name=`, `POST …/inbox/done?name=`.
-- Restart `npm run server` after pulling this (`server.js`, `strategy.js`).
+- **Auto-import (`researchAuto.js`, off by default).** A checkbox on the tab (stored in `db/research/settings.json`
+  with remembered name matches) makes the server check the inbox every 30 s, so a run that repeats (hourly) needs no
+  clicks and works with the tab closed. A file is imported only if **every** row matches a holding clearly and every row
+  has a readable call; anything else stays in the inbox with the banner showing it — an unattended run must never
+  file a call under the wrong company. Files still being written (touched <8 s ago) are skipped. The daily prompt
+  asks for `research-YYYY-MM-DD-HHMM.md`; several files in one day import oldest first and the same-day replace rule
+  means the newest stands. Intraday changes of mind are therefore not kept — only the day's last call is.
+- Restart `npm run server` after pulling this (`server.js`, `strategy.js`, `researchAuto.js`).
 
 ### Testing it without touching real data
 
@@ -843,7 +850,7 @@ Changes that need a restart, and which silently appear to do nothing otherwise:
 
 | Changed | Restart |
 | --- | --- |
-| `server.js`, `strategy.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js`, `claudeNews.js`, `lanAccess.js`, `jsonServerLocal.mjs` | `npm run server` |
+| `server.js`, `strategy.js`, `researchAuto.js`, `dbGuard.js`, `sqliteReads.js`, `analystLLM.js`, `news.js`, `newsArchive.js`, `claudeNews.js`, `lanAccess.js`, `jsonServerLocal.mjs` | `npm run server` |
 | `postcss.config.js`, `tailwind.config.js` | `npm run dev` |
 | `vite.config.js` | `npm run dev` |
 | A new icon imported from `lucide-react` | `npm run dev` — Vite's pre-bundled dep chunk does not pick it up, which surfaces as `X is not defined` at runtime while `npm run build` passes |

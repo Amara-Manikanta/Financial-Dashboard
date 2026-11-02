@@ -52,7 +52,8 @@ test('the daily prompt names the file to write only when the app knows the folde
     const rows = promptHoldings(stocks);
     assert.doesNotMatch(dailyPrompt(rows, { today: '2026-11-02' }), /Saving:/);
     const p = dailyPrompt(rows, { today: '2026-11-02', saveTo: '/Users/me/proj/db/research/inbox/' });
-    assert.match(p, /\/Users\/me\/proj\/db\/research\/inbox\/research-2026-11-02\.md/);
+    assert.match(p, /\/Users\/me\/proj\/db\/research\/inbox\/research-2026-11-02-HHMM\.md/);
+    assert.match(p, /current time in India/);
     assert.match(p, /changing no other file/);
 });
 
