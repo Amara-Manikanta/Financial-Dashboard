@@ -15,6 +15,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import StockAnalyticsPanels from '../components/StockAnalyticsPanels';
 import BenchmarkPanel from '../components/BenchmarkPanel';
 import { StockHealthBadge } from '../components/StockFinancialsCard';
+import { latestCalls } from '../utils/researchImport';
 import { ownerOf, ownerLabel, isOwnHolding, ownHoldings, SELF_OWNER } from '../utils/holdingOwner';
 import { tooltipTheme } from '../utils/chartTheme';
 
@@ -241,6 +242,21 @@ const StockMarketDetails = () => {
         if (viewingOthers && !stocks.some(stock => ownerOf(stock) === ownerFilter)) setOwnerFilter(SELF_OWNER);
         if (viewingAll && !hasOtherOwners) setOwnerFilter(SELF_OWNER);
     }, [stocks, ownerFilter, viewingOthers, viewingAll, hasOtherOwners]);
+
+    // The latest outside-research call per holding (saved from the Analyst's Research tab).
+    const [researchSnapshots, setResearchSnapshots] = useState([]);
+    useEffect(() => {
+        let live = true;
+        fetch(`${API_URL}/api/analyst/strategy?limit=60`).then((r) => (r.ok ? r.json() : null)).then((d) => {
+            if (live && d) setResearchSnapshots(Array.isArray(d) ? d : d.snapshots || []);
+        }).catch(() => {});
+        return () => { live = false; };
+    }, []);
+    const researchCalls = useMemo(() => {
+        const now = new Date();
+        return latestCalls(researchSnapshots, `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`);
+    }, [researchSnapshots]);
+    const CALL_TONE = { BUY: '#10b981', ACCUMULATE: '#34d399', HOLD: '#a1a1aa', REVIEW: '#f59e0b', SELL: '#f43f5e' };
 
     // Filter and Separating Stocks
     const filteredStocks = useMemo(() => {
@@ -1871,6 +1887,7 @@ const StockMarketDetails = () => {
                                         <th style={styles.th('right')}>Current Value</th>
                                         <th style={styles.th('right')}>Unrealised P/L</th>
                                         <th style={styles.th('right')}>Unrealised %</th>
+                                        <th style={styles.th('center')}>Research call</th>
 
                                         {/* Custom Columns Headers */}
                                         {customColumns.map((col, idx) => (
@@ -2011,6 +2028,19 @@ const StockMarketDetails = () => {
                                                 </td>
                                                 <td style={styles.td('right', true, isProfit ? 'var(--color-success)' : 'var(--color-danger)', false, isDividendPending)}>
                                                     <span style={{ fontFamily: 'monospace' }}>{stock.unrealisedPercent.toFixed(2)}%</span>
+                                                </td>
+                                                <td style={styles.td('center', false, 'var(--text-secondary)', false, isDividendPending)}>
+                                                    {(() => {
+                                                        const c = researchCalls.get(String(stock.id));
+                                                        if (!c) return <span style={{ opacity: 0.4 }}>—</span>;
+                                                        const tone = CALL_TONE[c.call] || '#a1a1aa';
+                                                        return (
+                                                            <span title={`${c.call}${c.confidence ? ` · ${c.confidence}` : ''} — ${c.date}${c.reason ? `\n${c.reason}` : ''}`}
+                                                                style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 6, fontSize: 10, fontWeight: 900, color: tone, background: `${tone}22`, border: `1px solid ${tone}55` }}>
+                                                                {c.call}{c.ageDays > 0 ? <span style={{ opacity: 0.6, fontWeight: 600 }}> {c.ageDays}d</span> : null}
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </td>
 
                                                 {/* Custom Columns Cells */}
