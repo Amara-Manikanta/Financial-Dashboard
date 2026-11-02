@@ -1669,6 +1669,26 @@ const StockMarketDetails = () => {
                                                 )}
                                             </div>
 
+                                            {/* Latest outside-research call, with what it said */}
+                                            {(() => {
+                                                const c = researchCalls.get(String(stock.id));
+                                                if (!c) return null;
+                                                const tone = CALL_TONE[c.call] || '#a1a1aa';
+                                                const clamp = { display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' };
+                                                return (
+                                                    <div title={[c.reason, c.news && `News: ${c.news}`, c.trigger && `What would change this: ${c.trigger}`].filter(Boolean).join('\n\n')}
+                                                        style={{ marginBottom: '1rem', padding: '0.5rem 0.75rem', borderRadius: '0.75rem', background: `${tone}12`, border: `1px solid ${tone}33` }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 10, fontWeight: 800 }}>
+                                                            <span style={{ color: tone, fontWeight: 900, fontSize: 11 }}>{c.call}</span>
+                                                            {c.confidence && <span style={{ color: '#71717a' }}>{c.confidence}</span>}
+                                                            {c.range?.label && <span style={{ color: '#71717a' }}>{c.range.label}{c.range.pct != null ? ` ${c.range.pct}%` : ''} of 52w</span>}
+                                                            <span style={{ marginLeft: 'auto', color: '#52525b' }}>{c.ageDays > 0 ? `${c.ageDays}d ago` : 'today'}</span>
+                                                        </div>
+                                                        {c.reason && <p style={{ ...clamp, margin: '4px 0 0', fontSize: 11, lineHeight: 1.45, color: '#d4d4d8', fontWeight: 400 }}>{c.reason}</p>}
+                                                    </div>
+                                                );
+                                            })()}
+
                                             {/* Values */}
                                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                                                 <div>
