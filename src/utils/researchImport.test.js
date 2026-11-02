@@ -113,3 +113,9 @@ test('the newest call per holding survives a day it was left out; history shows 
     assert.deepEqual(callHistory(snaps, '1').map((h) => [h.date, h.call, h.changed]),
         [['2026-11-01', 'HOLD', true], ['2026-11-02', 'HOLD', false], ['2026-11-04', 'SELL', true]]);
 });
+
+test('confidence is read when the column is there and left blank when it is not', () => {
+    const withConf = parseResearch('| Stock | Recommendation | Confidence | Reason |\n|---|---|---|---|\n| A Ltd | HOLD | **medium** | r |');
+    assert.equal(withConf.rows[0].confidence, 'MEDIUM');
+    assert.equal(parseResearch('| Stock | Recommendation | Reason |\n|---|---|---|\n| A Ltd | HOLD | r |').rows[0].confidence, '');
+});

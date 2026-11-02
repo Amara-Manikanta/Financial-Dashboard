@@ -55,6 +55,7 @@ const isSeparator = (cells) => cells.length > 0 && cells.every((c) => /^:?-{2,}:
 const HEADERS = [
     ['name', /(stock|company|holding|name|scrip|security)/i],
     ['call', /(recommend|call|action|verdict|rating|view$)/i],
+    ['confidence', /(confidence|conviction)/i],
     ['reason', /(reason|rationale|why|thesis)/i],
     ['news', /(news|headline|catalyst|source)/i],
     ['trigger', /(change|trigger|watch|invalidat)/i],
@@ -131,6 +132,7 @@ export const parseResearch = (text) => {
         rows.push({
             name,
             call,
+            confidence: (/\b(HIGH|MEDIUM|LOW)\b/i.exec(clean(cells[idx.confidence] ?? '')) || [''])[0].toUpperCase(),
             reason: clean(cells[idx.reason] ?? '').replace(/\n/g, ' '),
             news: clean(cells[idx.news] ?? '').replace(/\n/g, ' '),
             trigger: clean(cells[idx.trigger] ?? '').replace(/\n/g, ' '),

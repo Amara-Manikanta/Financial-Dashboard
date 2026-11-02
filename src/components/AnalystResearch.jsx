@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ClipboardCopy, ClipboardPaste, Trash2, ArrowUp, ArrowDown, Check, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import { API_URL } from '../context/FinanceContext';
 import { CALLS, parseResearch, matchHoldings, compareCalls, latestCalls, callHistory, callRank } from '../utils/researchImport';
-import { promptHoldings, dailyPrompt, deepDivePrompt } from '../utils/researchPrompt';
+import { promptHoldings, dailyPrompt, weeklyPrompt, deepDivePrompt } from '../utils/researchPrompt';
 
 /**
  * Daily research from an outside run (Google Antigravity): copy the prompt, paste
@@ -181,6 +181,7 @@ const AnalystResearch = ({ stocks }) => {
     };
 
     const copyDaily = async () => setNote((await copy(dailyPrompt(promptRows, { saveTo: inbox.dir }))) ? `Daily prompt copied${inbox.dir ? ' (it asks Antigravity to save the table into the research folder)' : ''}. Paste it into Antigravity.` : 'Could not copy.');
+    const copyWeekly = async () => setNote((await copy(weeklyPrompt(promptRows, { saveTo: inbox.dir }))) ? 'Weekly review prompt copied. It asks for fundamentals and a portfolio write-up; run it once a week.' : 'Could not copy.');
     const copyDeep = async () => {
         const ids = Object.keys(picked).filter((k) => picked[k]);
         const chosen = ids.length ? ids : flagged.map((t) => String(t.h.id));
@@ -205,6 +206,7 @@ const AnalystResearch = ({ stocks }) => {
 
             <div className="flex flex-wrap items-center gap-2">
                 <button type="button" onClick={copyDaily} className={`${btn} bg-indigo-500/15 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/25`}><ClipboardCopy size={13} /> Copy daily prompt</button>
+                <button type="button" onClick={copyWeekly} className={`${btn} bg-violet-500/15 border-violet-500/30 text-violet-300 hover:bg-violet-500/25`}><ClipboardCopy size={13} /> Copy weekly review prompt</button>
                 <button type="button" onClick={copyDeep} className={`${btn} bg-white/5 border-white/10 text-gray-300 hover:bg-white/10`}><ClipboardCopy size={13} /> Copy deep-dive prompt{Object.values(picked).some(Boolean) ? ' (ticked)' : ` (${flagged.length} flagged)`}</button>
                 {note && <span className="text-[11px] text-gray-400">{note}</span>}
             </div>
@@ -267,7 +269,7 @@ const AnalystResearch = ({ stocks }) => {
                                                         </div>
                                                     )}
                                             </td>
-                                            <td className="pr-3"><CallBadge call={r.call} /></td>
+                                            <td className="pr-3"><CallBadge call={r.call} />{r.confidence && <span className="ml-1.5 text-[9px] text-gray-500">{r.confidence}</span>}</td>
                                             <td className="pr-3 whitespace-nowrap"><Change change={r.change} previousCall={r.previousCall} /></td>
                                             <td className="text-gray-400 max-w-xl">{r.reason}</td>
                                         </tr>
@@ -308,7 +310,7 @@ const AnalystResearch = ({ stocks }) => {
                                                     <input type="checkbox" checked={isPicked} onChange={(e) => setPicked((p) => ({ ...p, [id]: e.target.checked }))} title="Include in the deep-dive prompt" />
                                                 </td>
                                                 <td className="py-1.5 pr-3 text-white font-bold">{h.name}</td>
-                                                <td className="pr-3">{call ? <CallBadge call={call.call} /> : <span className="text-gray-600">no call yet</span>}</td>
+                                                <td className="pr-3">{call ? <><CallBadge call={call.call} />{call.confidence && <span className="ml-1.5 text-[9px] text-gray-500">{call.confidence}</span>}</> : <span className="text-gray-600">no call yet</span>}</td>
                                                 <td className="pr-3 text-gray-400">{lastChange ? <span>{before.call} → {lastChange.call} <span className="text-gray-600">· {lastChange.date}</span></span> : (call ? 'unchanged' : '')}</td>
                                                 <td className={`pr-3 ${call && call.ageDays > 1 ? 'text-amber-400' : 'text-gray-500'}`}>{call ? (call.ageDays === 0 ? 'today' : `${call.ageDays}d old`) : ''}</td>
                                                 <td className="text-gray-600">{isOpen ? <ChevronDown size={13} /> : <ChevronRight size={13} />}</td>

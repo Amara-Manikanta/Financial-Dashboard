@@ -66,3 +66,9 @@ test('the drop folder lists only plain research files, reads them as text, and a
     assert.equal(fs.readdirSync(path.join(inbox, 'done')).length, 2);
     assert.equal(archiveInboxFile('missing.md'), false);
 });
+
+test('confidence is kept only as HIGH, MEDIUM or LOW', () => {
+    configureStrategy({ strategyDir: tmp() });
+    const snap = saveSnapshot({ date: '2026-11-02', rows: [row('A', 'HOLD', { confidence: 'HIGH' }), row('B', 'HOLD', { confidence: 'very sure' })] });
+    assert.deepEqual(snap.rows.map((r) => r.confidence), ['HIGH', '']);
+});

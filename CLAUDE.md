@@ -809,6 +809,14 @@ check the preview, **Save**.
   **never in db.json**; a sandbox writes beside its own database). Pasting again the same day replaces that day.
   Routes: `GET/POST/DELETE /api/analyst/strategy`. The server trims and validates (call in the five words, ≤200 rows,
   text capped) but does not interpret.
+- **Two prompts.** *Daily* (news, price position, one call + confidence per holding; the date window is filled in
+  from today) and *weekly review* (fundamentals table first, then portfolio sections A–E and a final rating, with
+  each holding's weight and the sector split computed here, not left to the model). Both put the importable table
+  first. Calls are defined for someone who **already owns** the stock (BUY = add meaningfully, ACCUMULATE = add
+  gradually). The importer also reads a `Confidence` column (HIGH / MEDIUM / LOW). Figures in the prompts use
+  `effectiveStockPosition`, i.e. the app's own average cost — **`manualAvgCost` is set on nearly every holding and
+  differs from the transaction replay on several (Wipro 96.82 vs 197.44, Adani Power 37.99 vs 6.77, Infosys,
+  Adani Enterprises)**; check those two overrides against the broker before trusting gain %.
 - The page shows each holding's latest call with its age (a holding left out of today's paste keeps its call, marked
   "Nd old"), what changed since the previous snapshot with direction, the history of changes, and a **deep-dive
   prompt** for ticked stocks (default: calls that just moved, plus REVIEW / SELL).

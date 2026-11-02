@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { promptHoldings, dailyPrompt, deepDivePrompt } from './researchPrompt.js';
+import { promptHoldings, dailyPrompt, weeklyPrompt, deepDivePrompt, sectorSummary } from './researchPrompt.js';
 import { parseResearch } from './researchImport.js';
 
 const stocks = [
@@ -25,17 +25,20 @@ test('holdings carry worked-out figures and exclude sold-out and archived ones, 
 test('the daily prompt asks for the exact table the importer reads, and lists every holding', () => {
     const rows = promptHoldings(stocks);
     const p = dailyPrompt(rows, { today: '2026-11-02' });
-    assert.match(p, /as of 2026-11-02/);
-    assert.match(p, /\| Stock \| Price \| 52-week position \| Recommendation \| Reason \| Key News \(Date & Source\) \| What Would Change My View \|/);
-    assert.match(p, /exactly ONE of BUY, ACCUMULATE, HOLD, REVIEW, SELL/);
+    assert.match(p, /as of 2 November 2026/);
+    assert.match(p, /\| Stock \| Price \| 52-week position \| Recommendation \| Confidence \| Reason \| Key News \(Date & Source\) \| What Would Change My View \|/);
+    assert.match(p, /exactly ONE word per stock/);
+    assert.match(p, /3 October 2026|3 October/);
+    assert.match(p, /must come FIRST/);
     rows.forEach((r) => assert.ok(p.includes(`| ${r.name} |`)));
     // A reply in the requested shape reads back cleanly.
-    const reply = '| Stock | Price | 52-week position | Recommendation | Reason | Key News (Date & Source) | What Would Change My View |\n|---|---|---|---|---|---|---|\n| Infosys Limited | 1,182.00 | Bottom: 27.0% | ACCUMULATE | Cheap. | Guidance cut (24 Oct, NDTV https://x) | Below 980 |';
+    const reply = '| Stock | Price | 52-week position | Recommendation | Confidence | Reason | Key News (Date & Source) | What Would Change My View |\n|---|---|---|---|---|---|---|---|\n| Infosys Limited | 1,182.00 | Bottom: 27.0% | ACCUMULATE | MEDIUM | Cheap. | Guidance cut (24 Oct, NDTV https://x) | Below 980 |';
     const parsed = parseResearch(reply);
     assert.equal(parsed.rows.length, 1);
     assert.equal(parsed.rows[0].price, 1182);
     assert.deepEqual(parsed.rows[0].range, { label: 'Bottom', pct: 27 });
     assert.equal(parsed.rows[0].call, 'ACCUMULATE');
+    assert.equal(parsed.rows[0].confidence, 'MEDIUM');
 });
 
 test('the deep-dive prompt names each flagged stock and why', () => {
@@ -51,4 +54,16 @@ test('the daily prompt names the file to write only when the app knows the folde
     const p = dailyPrompt(rows, { today: '2026-11-02', saveTo: '/Users/me/proj/db/research/inbox/' });
     assert.match(p, /\/Users\/me\/proj\/db\/research\/inbox\/research-2026-11-02\.md/);
     assert.match(p, /changing no other file/);
+});
+
+test('the weekly prompt hands over weights and sector shares worked out here, and asks for an importable table first', () => {
+    const rows = promptHoldings(stocks);
+    const p = weeklyPrompt(rows, { today: '2026-11-02', saveTo: '/x/inbox' });
+    assert.match(p, /Weight %/);
+    assert.match(p, /Value by sector/);
+    assert.match(p, /\/x\/inbox\/research-2026-11-02-weekly\.md/);
+    assert.match(p, /PART 2/);
+    const sectors = sectorSummary(rows);
+    assert.equal(Math.round(sectors.reduce((a, x) => a + x.pct, 0)), 100);
+    assert.equal(sectors[0].sector, 'Information Technology');
 });

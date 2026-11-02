@@ -81,6 +81,7 @@ const cleanRow = (r) => {
         name,
         holdingId: r.holdingId === null || r.holdingId === undefined ? null : text(r.holdingId, 80),
         call: r.call,
+        confidence: ['HIGH', 'MEDIUM', 'LOW'].includes(r.confidence) ? r.confidence : '',
         reason: text(r.reason, 1500),
         news: text(r.news, 1500),
         trigger: text(r.trigger, 600),
