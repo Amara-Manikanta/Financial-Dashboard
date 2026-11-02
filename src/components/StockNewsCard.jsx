@@ -415,6 +415,8 @@ const agoOf = (iso) => {
 };
 
 const StockNewsCard = ({ symbol, name, researchCall }) => {
+    // Sentiment is the point; the headlines behind it are one click away.
+    const [showStories, setShowStories] = useState(false);
     const [stories, setStories] = useState(null);
     const [financials, setFinancials] = useState(null);
     const [busy, setBusy] = useState('');
@@ -554,7 +556,13 @@ const StockNewsCard = ({ symbol, name, researchCall }) => {
                 <p className="text-[12px] text-gray-500 mt-4">No news stored yet. Fetch latest, or wait for the server's six-hourly collection.</p>
             )}
 
-            <ul className="mt-4 space-y-3">
+            {totalStories > 0 && (
+                <button type="button" onClick={() => setShowStories((v) => !v)} className="mt-4 text-[11px] font-black text-indigo-300 hover:text-indigo-200">
+                    {showStories ? 'Hide headlines' : `Show the ${totalStories} headlines behind this`}
+                </button>
+            )}
+
+            <ul className={`mt-4 space-y-3 ${showStories ? '' : 'hidden'}`}>
                 {shown.map((s) => (
                     <li key={s.id} className="border-t border-white/5 pt-3 first:border-0 first:pt-0">
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10.5px] text-gray-500 font-bold">
@@ -597,7 +605,7 @@ const StockNewsCard = ({ symbol, name, researchCall }) => {
                     </li>
                 ))}
             </ul>
-            {totalStories > pageSize && (
+            {showStories && totalStories > pageSize && (
                 <div className="mt-4 pt-3 border-t border-white/5 flex flex-wrap items-center justify-between gap-2">
                     <span className="text-[11px] text-gray-500 font-bold">
                         Showing {((safePage - 1) * pageSize) + 1}–{Math.min(safePage * pageSize, totalStories)} of {totalStories} headlines
