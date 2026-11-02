@@ -64,6 +64,13 @@ struct InvestView: View {
 struct StocksView: View {
     @ObservedObject var store: FinanceStore
     @State private var expanded: Set<String> = []
+    @State private var query = ""
+    @State private var callFilter = "all"
+    @State private var sectorFilter = "all"
+    @State private var resultFilter = "all"
+    @State private var sort = "value"
+
+    private var filtersActive: Bool { callFilter != "all" || sectorFilter != "all" || resultFilter != "all" || sort != "value" }
 
     /// What a row hides until it is opened: where the price sits in its ranges, the day's move,
     /// cost, weight in the stock portfolio and sector.
@@ -89,7 +96,24 @@ struct StocksView: View {
         }
     }
 
-    private var holdings: [Stocks.Holding] { store.portfolio.holdings.sorted { $0.value > $1.value } }
+    private var allHoldings: [Stocks.Holding] { store.portfolio.holdings }
+    private var sectors: [String] { Array(Set(allHoldings.map(\.sector).filter { !$0.isEmpty })).sorted() }
+
+    private var holdings: [Stocks.Holding] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        let list = allHoldings.filter { h in
+            (q.isEmpty || h.name.lowercased().contains(q) || h.ticker.lowercased().contains(q) || h.sector.lowercased().contains(q))
+            && (callFilter == "all" || (callFilter == "none" ? store.research[h.id] == nil : store.research[h.id]?.call == callFilter))
+            && (sectorFilter == "all" || h.sector == sectorFilter)
+            && (resultFilter == "all" || (resultFilter == "gain" ? h.gain >= 0 : h.gain < 0))
+        }
+        switch sort {
+        case "gain": return list.sorted { $0.gainPercent > $1.gainPercent }
+        case "loss": return list.sorted { $0.gainPercent < $1.gainPercent }
+        case "name": return list.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        default: return list.sorted { $0.value > $1.value }
+        }
+    }
 
     var body: some View {
         KScreen(refresh: { await store.load() }) {
@@ -104,7 +128,7 @@ struct StocksView: View {
                 }
                 .padding(.top, 10)
             }
-            KSectionHeader(title: "Stocks", detail: "\(holdings.count) holdings")
+            KSectionHeader(title: "Stocks", detail: holdings.count == allHoldings.count ? "\(holdings.count) holdings" : "\(holdings.count) of \(allHoldings.count)")
             KList(items: holdings) { holding in
                 VStack(spacing: 0) {
                     HStack(spacing: 8) {
@@ -135,12 +159,42 @@ struct StocksView: View {
                     if expanded.contains(holding.id) { details(holding).padding(.top, 8) }
                 }
             }
-            if holdings.isEmpty && store.loadedAt != nil {
+            if holdings.isEmpty && store.loadedAt != nil && !allHoldings.isEmpty {
+                KCard { Text("No stock matches this search and filter.").font(Theme.footnote).foregroundStyle(Theme.muted) }
+            }
+            if allHoldings.isEmpty && store.loadedAt != nil {
                 KCard { Text("No active stock holdings.").font(Theme.footnote).foregroundStyle(Theme.muted) }
             }
         }
         .navigationTitle("Stocks")
         .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $query, prompt: "Search name, ticker or sector")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Picker("Research call", selection: $callFilter) {
+                        Text("Any call").tag("all")
+                        ForEach(["BUY", "ACCUMULATE", "HOLD", "REVIEW", "SELL"], id: \.self) { Text($0.capitalized).tag($0) }
+                        Text("No call yet").tag("none")
+                    }
+                    Picker("Sector", selection: $sectorFilter) {
+                        Text("All sectors").tag("all")
+                        ForEach(sectors, id: \.self) { Text($0).tag($0) }
+                    }
+                    Picker("Result", selection: $resultFilter) {
+                        Text("Gain and loss").tag("all"); Text("In profit").tag("gain"); Text("In loss").tag("loss")
+                    }
+                    Picker("Sort by", selection: $sort) {
+                        Text("Value").tag("value"); Text("Best return").tag("gain"); Text("Worst return").tag("loss"); Text("Name").tag("name")
+                    }
+                    if filtersActive || !query.isEmpty {
+                        Button("Clear filters", role: .destructive) { callFilter = "all"; sectorFilter = "all"; resultFilter = "all"; sort = "value"; query = "" }
+                    }
+                } label: {
+                    Image(systemName: filtersActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                }
+            }
+        }
         .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
         .navigationDestination(for: String.self) { id in
             if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(store: store, holdingId: holding.id) }
