@@ -127,6 +127,8 @@ struct HoldingView: View {
 
             fundamentalsCard(holding)
 
+            priceLevelCard(holding)
+
             dividendCard(holding, years: dividends)
 
             if !holding.ticker.isEmpty {
@@ -276,6 +278,37 @@ struct HoldingView: View {
         }
     }
 
+    /// Where the money went in, by the price paid — the Mac's "Invested by price level".
+    @ViewBuilder private func priceLevelCard(_ holding: Stocks.Holding) -> some View {
+        let bands = PriceLevels.bands(holding.raw["transactions"].array, avgCost: holding.avgCost)
+        if !bands.isEmpty {
+            let biggest = bands.max { $0.amount < $1.amount }
+            KSectionHeader(title: "Invested by price level", detail: bands.count == 1 ? "one price" : "\(bands.count) bands")
+            KCard {
+                HStack(spacing: 14) {
+                    Label("Below your \(Money.rupees(holding.avgCost)) average", systemImage: "square.fill").foregroundStyle(Theme.positive)
+                    Label("Above it", systemImage: "square.fill").foregroundStyle(Theme.warning)
+                }
+                .font(Theme.footnote).labelStyle(SwatchLabelStyle())
+                Chart(bands) { b in
+                    BarMark(x: .value("Price", b.label), y: .value("Invested", b.amount))
+                        .foregroundStyle(b.belowAverage ? Theme.positive : Theme.warning)
+                        .annotation(position: .top) {
+                            Text(Money.compact(b.amount)).font(.system(size: 9, weight: .semibold)).foregroundStyle(Theme.muted)
+                        }
+                }
+                .chartYAxis { AxisMarks(position: .leading) { AxisGridLine().foregroundStyle(Theme.muted.opacity(0.15)); AxisValueLabel().foregroundStyle(Theme.muted) } }
+                .chartXAxis { AxisMarks { AxisValueLabel(orientation: bands.count > 4 ? .vertical : .horizontal).foregroundStyle(Theme.muted) } }
+                .frame(height: 190)
+                .padding(.top, 8)
+                if let biggest {
+                    Text("Most money went in at ₹\(biggest.label): \(Money.rupees(biggest.amount)) across \(biggest.count) buy\(biggest.count == 1 ? "" : "s") (\(Fmt.shares(biggest.shares)) shares). Price now \(Money.rupees(holding.price)).")
+                        .font(Theme.footnote).foregroundStyle(Theme.muted)
+                }
+            }
+        }
+    }
+
     @ViewBuilder private func dividendCard(_ holding: Stocks.Holding, years: [YearAmount]) -> some View {
         let rows = holding.raw["transactions"].array.filter { $0["type"].text == "dividend" }
         let all = Stocks.replay(holding.raw["transactions"].array).dividends
@@ -407,5 +440,12 @@ private struct StockTransactionSheet: View {
         let failure = await store.saveStockTransaction(holding: holdingId, change: change)
         saving = false
         if let failure { message = failure } else { dismiss() }
+    }
+}
+
+/// A small coloured square before the words, so the legend is not carried by colour alone.
+private struct SwatchLabelStyle: LabelStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        HStack(spacing: 5) { configuration.icon.font(.system(size: 9)); configuration.title.foregroundStyle(Theme.muted) }
     }
 }

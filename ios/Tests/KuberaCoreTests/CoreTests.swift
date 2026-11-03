@@ -1002,4 +1002,25 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertNil(plan.first { $0.month == 12 })
         XCTAssertEqual(plan.first { $0.month == 2 }?.year, 2027)
     }
+
+    func testPriceLevelsGroupBuysByPricePaid() {
+        let txs = [
+            json("{\"type\":\"buy\",\"price\":100,\"quantity\":10}"),
+            json("{\"type\":\"buy\",\"price\":200,\"quantity\":5}"),
+            json("{\"type\":\"ipo\",\"price\":150,\"quantity\":2}"),
+            json("{\"type\":\"sell\",\"price\":900,\"quantity\":3}"),       // a sale commits no money
+            json("{\"type\":\"bonus\",\"quantity\":4}"),                      // a bonus costs none
+        ]
+        let bands = PriceLevels.bands(txs, avgCost: 130)
+        XCTAssertEqual(bands.reduce(0) { $0 + $1.amount }, 100 * 10 + 200 * 5 + 150 * 2)
+        XCTAssertEqual(bands.reduce(0) { $0 + $1.count }, 3)
+        XCTAssertTrue(bands.first!.belowAverage)
+        XCTAssertFalse(bands.last!.belowAverage)
+        // One price only: a single band, not nothing.
+        let one = PriceLevels.bands([json("{\"type\":\"buy\",\"price\":50,\"quantity\":3}"), json("{\"type\":\"buy\",\"price\":50,\"quantity\":2}")], avgCost: 50)
+        XCTAssertEqual(one.count, 1)
+        XCTAssertEqual(one[0].amount, 250)
+        XCTAssertEqual(one[0].count, 2)
+        XCTAssertTrue(PriceLevels.bands([json("{\"type\":\"sell\",\"price\":9,\"quantity\":1}")], avgCost: 1).isEmpty)
+    }
 }

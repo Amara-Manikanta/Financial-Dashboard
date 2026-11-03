@@ -70,11 +70,15 @@ const StockDetails = () => {
     const priceDistribution = useMemo(() => {
         const buys = transactions.filter((t) => (t.type === 'buy' || t.type === 'ipo') && Number(t.price) > 0 && Number(t.quantity) > 0)
             .map((t) => ({ price: Number(t.price), quantity: Number(t.quantity), amount: Number(t.price) * Number(t.quantity) }));
-        if (buys.length < 2) return [];
+        if (buys.length < 1) return [];
         const prices = buys.map((b) => b.price);
         const min = Math.min(...prices);
         const max = Math.max(...prices);
-        if (!(max > min)) return [];
+        // Everything bought at one price: a single bar, so the chart still says so rather than disappearing.
+        if (!(max > min)) {
+            const amount = buys.reduce((a, b) => a + b.amount, 0);
+            return [{ from: min, to: min, amount, shares: buys.reduce((a, b) => a + b.quantity, 0), count: buys.length, label: min.toFixed(2), belowAverage: min < position.avgCost }];
+        }
         const bands = Math.max(3, Math.min(10, buys.length));
         const width = (max - min) / bands;
         const buckets = Array.from({ length: bands }, (_, i) => ({ from: min + i * width, to: min + (i + 1) * width, amount: 0, shares: 0, count: 0 }));
