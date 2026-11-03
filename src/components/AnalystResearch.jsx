@@ -210,7 +210,7 @@ const AnalystResearch = ({ stocks }) => {
             const r = await fetch(`${API_URL}/api/analyst/strategy/holdings-file`);
             const { path: holdingsPath } = await r.json();
             if (!r.ok || !holdingsPath) throw new Error('no path');
-            setNote((await copy(scheduledPrompt({ holdingsPath, saveTo: inbox.dir }))) ? 'Scheduled prompt copied. It reads the holdings file, which the app keeps current, so you can paste it once into a repeating run.' : 'Could not copy.');
+            setNote((await copy(scheduledPrompt({ holdingsPath, saveTo: inbox.dir, rows: promptRows }))) ? 'Scheduled prompt copied, with your portfolio figures in it. Paste it once into the repeating run; copy it again only after you buy or sell.' : 'Could not copy.');
         } catch { setNote('Could not prepare the holdings file. Is npm run server restarted?'); }
     };
     const copyDeep = async () => {

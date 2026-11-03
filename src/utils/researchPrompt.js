@@ -192,13 +192,29 @@ Written: ${asOf || 'unknown'} (India time). "Price now" is the app's last stored
 ${holdingsTable(rows, { withLast: true })}
 `;
 
-export const scheduledPrompt = ({ holdingsPath, saveTo }) => `Act as an independent Indian equity research analyst. This is a repeating run during NSE market hours; do not assume any date — read today's date and the current time in India from the system clock first, and use them everywhere below ("today").
+/** Your existing portfolio, written into the prompt itself: the figures change only when you trade, so a pasted copy stays right between runs. */
+const portfolioBlock = (rows) => {
+    if (!rows?.length) return '';
+    const withW = withWeights(rows);
+    const total = withW.reduce((a, r) => a + r.invested, 0);
+    const value = withW.reduce((a, r) => a + r.value, 0);
+    return `YOUR EXISTING PORTFOLIO (as of the moment this prompt was copied; the holdings file below has the live prices):
+Total invested ₹${inr(total)} · current value ₹${inr(value)} across ${withW.length} holdings. Weight is each holding's share of current value.
+
+${holdingsTable(withW, { withWeight: true })}
+
+When you give a call, consider each holding in this portfolio context: its weight, its invested amount, its gain or loss against my average cost, and whether it is already a large share of the portfolio. A large position with weak news argues for REVIEW or SELL more than a small one does.
+
+`;
+};
+
+export const scheduledPrompt = ({ holdingsPath, saveTo, rows }) => `Act as an independent Indian equity research analyst. This is a repeating run during NSE market hours; do not assume any date — read today's date and the current time in India from the system clock first, and use them everywhere below ("today").
 
 My holdings are in this file; read it now, it is refreshed by my app before each run:
 ${holdingsPath}
 It lists every holding with my invested amount, average cost, quantity, last stored price, gain, sector, first-bought date and my last call. Use its figures; do not recompute them.
 
-THIS RUN covers only: news, price position, and one call per holding. No fundamentals deep-dives or portfolio-level analysis (I do those in a separate weekly run). My aim is long-term wealth creation (5 to 10 years) with sensible risk management. This is research opinion for my own decisions, not a guarantee.
+${portfolioBlock(rows)}THIS RUN covers only: news, price position, and one call per holding. No fundamentals deep-dives or portfolio-level analysis (I do those in a separate weekly run). My aim is long-term wealth creation (5 to 10 years) with sensible risk management. This is research opinion for my own decisions, not a guarantee.
 
 For each holding in the file:
 1. News: only news published in the 30 days up to today. Cover results, guidance, order wins, business developments, management changes, regulatory action, governance issues, and sector developments that affect it. Say whether a story is about the company or the whole sector. If there is nothing significant, write "No significant recent news found".
