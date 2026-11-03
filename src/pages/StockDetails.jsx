@@ -38,32 +38,6 @@ const StockDetails = () => {
 
     const transactions = useMemo(() => stock?.transactions || [], [stock]);
 
-    // How the money put into this stock is spread across the prices it was paid at — the same view the
-    // mutual-fund page gives for NAV. Buys and IPO allotments only: a sale returns money, a bonus costs none.
-    const priceDistribution = useMemo(() => {
-        const buys = transactions.filter((t) => (t.type === 'buy' || t.type === 'ipo') && Number(t.price) > 0 && Number(t.quantity) > 0)
-            .map((t) => ({ price: Number(t.price), quantity: Number(t.quantity), amount: Number(t.price) * Number(t.quantity) }));
-        if (buys.length < 2) return [];
-        const prices = buys.map((b) => b.price);
-        const min = Math.min(...prices);
-        const max = Math.max(...prices);
-        if (!(max > min)) return [];
-        const bands = Math.max(3, Math.min(10, buys.length));
-        const width = (max - min) / bands;
-        const buckets = Array.from({ length: bands }, (_, i) => ({ from: min + i * width, to: min + (i + 1) * width, amount: 0, shares: 0, count: 0 }));
-        buys.forEach((b) => {
-            const i = Math.min(bands - 1, Math.floor((b.price - min) / width));
-            buckets[i].amount += b.amount;
-            buckets[i].shares += b.quantity;
-            buckets[i].count += 1;
-        });
-        return buckets.filter((b) => b.count > 0).map((b) => ({
-            ...b,
-            label: `${b.from.toFixed(0)}–${b.to.toFixed(0)}`,
-            belowAverage: (b.from + b.to) / 2 < position.avgCost,
-        }));
-    }, [transactions, position]);
-
     // What the outside research (Analyst → Research tab) has said about this holding, newest first.
     const [researchSnapshots, setResearchSnapshots] = useState([]);
     useEffect(() => {
@@ -90,6 +64,33 @@ const StockDetails = () => {
     // (avgCost here, avgPrice on the two write handlers below) — see
     // effectiveStockPosition for the full history of how that drifted.
     const position = useMemo(() => effectiveStockPosition(stock), [stock]);
+
+    // How the money put into this stock is spread across the prices it was paid at — the same view the
+    // mutual-fund page gives for NAV. Buys and IPO allotments only: a sale returns money, a bonus costs none.
+    const priceDistribution = useMemo(() => {
+        const buys = transactions.filter((t) => (t.type === 'buy' || t.type === 'ipo') && Number(t.price) > 0 && Number(t.quantity) > 0)
+            .map((t) => ({ price: Number(t.price), quantity: Number(t.quantity), amount: Number(t.price) * Number(t.quantity) }));
+        if (buys.length < 2) return [];
+        const prices = buys.map((b) => b.price);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        if (!(max > min)) return [];
+        const bands = Math.max(3, Math.min(10, buys.length));
+        const width = (max - min) / bands;
+        const buckets = Array.from({ length: bands }, (_, i) => ({ from: min + i * width, to: min + (i + 1) * width, amount: 0, shares: 0, count: 0 }));
+        buys.forEach((b) => {
+            const i = Math.min(bands - 1, Math.floor((b.price - min) / width));
+            buckets[i].amount += b.amount;
+            buckets[i].shares += b.quantity;
+            buckets[i].count += 1;
+        });
+        return buckets.filter((b) => b.count > 0).map((b) => ({
+            ...b,
+            label: `${b.from.toFixed(0)}–${b.to.toFixed(0)}`,
+            belowAverage: (b.from + b.to) / 2 < position.avgCost,
+        }));
+    }, [transactions, position]);
+
 
     // The same holding under FIFO, which is what a broker statement shows and
     // what capital gains is assessed on. Only worth surfacing once a partial
