@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance, API_URL } from '../context/FinanceContext';
 import { callHistory } from '../utils/researchImport';
+import { BarChart3 } from 'lucide-react';
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, X, Save, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { formatDate } from '../utils/dateUtils';
@@ -36,6 +37,32 @@ const StockDetails = () => {
     const stock = useMemo(() => market?.stocks?.find(s => s.id.toString() === stockId), [market, stockId]);
 
     const transactions = useMemo(() => stock?.transactions || [], [stock]);
+
+    // How the money put into this stock is spread across the prices it was paid at — the same view the
+    // mutual-fund page gives for NAV. Buys and IPO allotments only: a sale returns money, a bonus costs none.
+    const priceDistribution = useMemo(() => {
+        const buys = transactions.filter((t) => (t.type === 'buy' || t.type === 'ipo') && Number(t.price) > 0 && Number(t.quantity) > 0)
+            .map((t) => ({ price: Number(t.price), quantity: Number(t.quantity), amount: Number(t.price) * Number(t.quantity) }));
+        if (buys.length < 2) return [];
+        const prices = buys.map((b) => b.price);
+        const min = Math.min(...prices);
+        const max = Math.max(...prices);
+        if (!(max > min)) return [];
+        const bands = Math.max(3, Math.min(10, buys.length));
+        const width = (max - min) / bands;
+        const buckets = Array.from({ length: bands }, (_, i) => ({ from: min + i * width, to: min + (i + 1) * width, amount: 0, shares: 0, count: 0 }));
+        buys.forEach((b) => {
+            const i = Math.min(bands - 1, Math.floor((b.price - min) / width));
+            buckets[i].amount += b.amount;
+            buckets[i].shares += b.quantity;
+            buckets[i].count += 1;
+        });
+        return buckets.filter((b) => b.count > 0).map((b) => ({
+            ...b,
+            label: `${b.from.toFixed(0)}–${b.to.toFixed(0)}`,
+            belowAverage: (b.from + b.to) / 2 < position.avgCost,
+        }));
+    }, [transactions, position]);
 
     // What the outside research (Analyst → Research tab) has said about this holding, newest first.
     const [researchSnapshots, setResearchSnapshots] = useState([]);
@@ -739,6 +766,39 @@ const StockDetails = () => {
             </div>
 
             {/* What the company does, then how it is doing — read-only, never touches db.json */}
+            {priceDistribution.length > 0 && (
+                <div style={{ marginTop: '2rem', padding: '1.25rem', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                        <BarChart3 size={18} style={{ color: '#34d399' }} />
+                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: 'white' }}>Invested by price level</h3>
+                    </div>
+                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#71717a', marginBottom: 12 }}>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#34d399', marginRight: 6 }} />Bought below your {position.avgCost.toFixed(2)} average</span>
+                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#fbbf24', marginRight: 6 }} />Bought above it</span>
+                        {stock.currentPrice > 0 && <span>Price now {Number(stock.currentPrice).toFixed(2)}</span>}
+                    </div>
+                    <ResponsiveContainer width="100%" height={240}>
+                        <BarChart data={priceDistribution} margin={{ top: 4, right: 4, left: -12, bottom: 4 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fill: '#71717a', fontSize: 10 }} interval={0} angle={-30} textAnchor="end" height={52} />
+                            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(v) => (v >= 1000 ? `${Math.round(v / 1000)}k` : v)} />
+                            <Tooltip
+                                cursor={false}
+                                position={{ y: 0 }}
+                                allowEscapeViewBox={{ x: false, y: true }}
+                                {...tooltipTheme}
+                                separator=" "
+                                formatter={(value, _n, item) => [`${formatCurrency(value)} · ${item.payload.shares} shares · ${item.payload.count} buy${item.payload.count > 1 ? 's' : ''}`, 'Invested']}
+                                labelFormatter={(l) => `Price ₹${l}`}
+                            />
+                            <Bar dataKey="amount" radius={[4, 4, 0, 0]}>
+                                {priceDistribution.map((b, i) => <Cell key={i} fill={b.belowAverage ? '#34d399' : '#fbbf24'} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
             {researchRow && (
                 <div style={{ marginTop: '2rem', padding: '1.25rem', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
