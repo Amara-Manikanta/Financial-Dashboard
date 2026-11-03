@@ -27,12 +27,13 @@ enum Pages {
         PageGroup(title: "Overview", pages: [
             AppPage(title: "Dashboard & net worth", path: "/", icon: "house", native: .tab(.home)),
             AppPage(title: "Savings", path: "/savings", icon: "banknote", native: .screen(.savings)),
-            AppPage(title: "Investments (all accounts)", path: "/investments", icon: "chart.line.uptrend.xyaxis"),
+            AppPage(title: "Investments (all accounts)", path: "/investments", icon: "chart.line.uptrend.xyaxis", native: .tab(.invest)),
             AppPage(title: "Stocks", path: "/savings/stock-market/3", icon: "chart.bar.xaxis", native: .screen(.stocks)),
             AppPage(title: "Loans & Lents", path: "/lents-loans", icon: "arrow.up.right.circle", native: .screen(.loans)),
         ]),
         PageGroup(title: "Investing", pages: [
             AppPage(title: "Stock Analyst", path: "/investments/analyst", icon: "sparkles", native: .screen(.analyst)),
+            AppPage(title: "Research calls", path: "/investments/analyst#research", icon: "text.magnifyingglass", native: .screen(.research)),
             AppPage(title: "Watchlist", path: "/investments/watchlist", icon: "eye", native: .screen(.watchlist)),
             AppPage(title: "IPO Applications", path: "/investments/ipos", icon: "ticket", native: .screen(.ipos)),
             AppPage(title: "Returns (XIRR)", path: "/investments/returns", icon: "gauge.with.dots.needle.67percent", native: .screen(.returns)),

@@ -61,6 +61,36 @@ final class FinanceStore: ObservableObject {
         return await perform(collection: collection, id: id, op: .fields(fields, expected: expected), stamp: stampUpdated, label: label)
     }
 
+    /// Sets the category budget limits. Needs the Mac: it is a settings change, loaded fresh and sent under its version,
+    /// so a phone cannot overwrite limits changed on the Mac since. Nil when saved, otherwise why not.
+    func saveBudgetLimits(_ limits: [String: Double]) async -> String? {
+        if mirror?.offline == true { return "Changing budget limits needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.appDataWithVersion()
+            var merged: [String: Any] = [:]
+            for (k, v) in current.value["categoryBudgets"].object where limits[k] == nil && v.double > 0 { merged[k] = v.double }
+            for (k, v) in limits where v > 0 { merged[k] = v }
+            if let failure = await api.patchAppData(fields: ["categoryBudgets": merged], version: current.version) { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
+    /// Collections whose records stand alone, so deleting one cannot leave another page pointing at nothing.
+    static let deletable: Set<String> = ["goals", "watchlist", "ipoApplications"]
+
+    /// Deletes one standalone record, re-reading it first so the version it is removed under is current. Needs the Mac.
+    func deleteRecord(_ collection: String, id: String) async -> String? {
+        guard Self.deletable.contains(collection) else { return "This kind of record is deleted on the Mac." }
+        if mirror?.offline == true { return "Deleting needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.record(collection, id: id)
+            if let failure = await api.deleteRecord(collection, id: id, version: current.version) { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
     /// The stock-market account that holds a holding, so its transactions can be changed.
     func stockAccountId(holding id: String) -> String? {
         data.savingsRaw.array.first { $0["type"].text == "stock_market" && $0["stocks"].array.contains { $0["id"].text == id } }?["id"].text

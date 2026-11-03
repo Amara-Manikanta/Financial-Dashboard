@@ -16,6 +16,7 @@ struct RecordEditorView: View {
     @State private var loading = true
     @State private var saving = false
     @State private var message: String?
+    @State private var confirmDelete = false
 
     private var fields: [RecordEditing.Field] { RecordEditing.fields(of: record, collection: collection) }
     private var patch: [String: Any] { RecordEditing.patch(fields: fields, edits: edits, record: record) }
@@ -32,6 +33,11 @@ struct RecordEditorView: View {
                         FieldRows(fields: fields, edits: $edits, problems: problems)
                     } footer: {
                         Text("Only the fields you change are sent. Figures the Mac works out, links between records and photos stay as they are.")
+                    }
+                    if FinanceStore.deletable.contains(collection) {
+                        Section {
+                            Button(role: .destructive) { confirmDelete = true } label: { Label("Delete this record", systemImage: "trash") }
+                        } footer: { Text("Removes it from your Mac. It can only be brought back from a backup there.") }
                     }
                     let lists = RecordEditing.nestedLists(of: record, collection: collection)
                     if !lists.isEmpty {
@@ -70,6 +76,12 @@ struct RecordEditorView: View {
             }
             .task { await load() }
             .interactiveDismissDisabled(!patch.isEmpty)
+            .confirmationDialog("Delete \(title)?", isPresented: $confirmDelete, titleVisibility: .visible) {
+                Button("Delete", role: .destructive) { Task {
+                    saving = true
+                    if let failure = await store.deleteRecord(collection, id: id) { message = failure; saving = false } else { saving = false; dismiss() }
+                } }
+            } message: { Text("This removes it from your Mac.") }
         }
     }
 

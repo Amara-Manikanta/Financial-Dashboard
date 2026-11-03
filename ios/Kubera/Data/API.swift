@@ -106,6 +106,65 @@ struct API {
         return (try JSONValue.parse(data), http.value(forHTTPHeaderField: "X-DB-Version"))
     }
 
+
+    /// `appData` (budgets, rates, overrides) and its version, for a save that must not overwrite a newer one.
+    func appDataWithVersion() async throws -> (value: JSONValue, version: String?) {
+        if mirror?.offline == true { throw APIError.unreachable }
+        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent("appData"))
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.cachePolicy = .reloadIgnoringLocalCacheData
+        request.timeoutInterval = 20
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await URLSession.shared.data(for: request) } catch { throw APIError.unreachable }
+        guard let http = response as? HTTPURLResponse else { throw APIError.unreachable }
+        if http.statusCode == 401 { throw APIError.unauthorized }
+        guard http.statusCode == 200 else { throw APIError.server(http.statusCode) }
+        return (try JSONValue.parse(data), http.value(forHTTPHeaderField: "X-DB-Version"))
+    }
+
+    /// Changes only the given top-level keys of `appData`, under the version they were based on. Nil when saved.
+    func patchAppData(fields: [String: Any], version: String?) async -> String? {
+        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent("appData"))
+        request.httpMethod = "PATCH"
+        guard let json = try? JSONSerialization.data(withJSONObject: fields) else { return "That change could not be encoded." }
+        request.httpBody = json
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let version { request.setValue(version, forHTTPHeaderField: "If-Match") }
+        request.timeoutInterval = 20
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await URLSession.shared.data(for: request) } catch { return APIError.unreachable.errorDescription }
+        guard let http = response as? HTTPURLResponse else { return APIError.unreachable.errorDescription }
+        let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        switch http.statusCode {
+        case 200...299: return nil
+        case 401: return APIError.unauthorized.errorDescription
+        case 409: return "Settings were changed on your Mac since you opened this, so nothing was saved. Reopen it and make your change again."
+        default: return (info?["reason"] as? String) ?? (info?["error"] as? String) ?? "Your Mac refused the change (\(http.statusCode)); nothing was changed."
+        }
+    }
+
+
+    /// Deletes one record under the version it was read at, so a record changed on the Mac since is not removed. Nil when deleted.
+    func deleteRecord(_ collection: String, id: String, version: String?) async -> String? {
+        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent(collection).appendingPathComponent(id))
+        request.httpMethod = "DELETE"
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        if let version { request.setValue(version, forHTTPHeaderField: "If-Match") }
+        request.timeoutInterval = 20
+        let (data, response): (Data, URLResponse)
+        do { (data, response) = try await URLSession.shared.data(for: request) } catch { return APIError.unreachable.errorDescription }
+        guard let http = response as? HTTPURLResponse else { return APIError.unreachable.errorDescription }
+        let info = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+        switch http.statusCode {
+        case 200...299: return nil
+        case 401: return APIError.unauthorized.errorDescription
+        case 404: return "That record is already gone from your Mac."
+        case 409: return "This was changed on your Mac since you opened it, so it was not deleted. Reopen it to see the change."
+        default: return (info?["reason"] as? String) ?? (info?["error"] as? String) ?? "Your Mac refused the delete (\(http.statusCode)); nothing was removed."
+        }
+    }
+
     /// Changes only the given fields of one record. Nil when saved, otherwise why nothing changed.
     func patchRecord(_ collection: String, id: String, fields: [String: Any], version: String?) async -> String? {
         switch await patchRecordOutcome(collection, id: id, fields: fields, version: version) {

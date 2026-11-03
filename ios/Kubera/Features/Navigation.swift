@@ -8,6 +8,7 @@ enum NativeScreen: Hashable, CaseIterable {
     case capitalGains
     case watchlist
     case ipos
+    case research
     case returns
     case dividends
     case freeHoldings
@@ -72,6 +73,7 @@ struct NativeDestination: View {
         case .capitalGains: CapitalGainsView(store: store)
         case .watchlist: WatchlistView(store: store)
         case .ipos: IpoView(store: store)
+        case .research: ResearchView(store: store)
         case .returns: ReturnsView(store: store)
         case .dividends: DividendsView(store: store)
         case .freeHoldings: FreeHoldingsView(store: store)

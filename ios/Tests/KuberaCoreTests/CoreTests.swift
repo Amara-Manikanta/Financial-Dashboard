@@ -984,6 +984,9 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual(calls["s1"]?.changes.map(\.call), ["BUY", "HOLD"])
         XCTAssertEqual(calls["s2"]?.date, "2026-11-02")      // left out of the later day: keeps its call, marked old
         XCTAssertEqual(calls["s2"]?.ageDays, 4)
+        XCTAssertEqual(calls["s1"]?.previous?.call, "HOLD")      // it was HOLD until the 4th
+        XCTAssertEqual(calls["s1"]?.since, "2026-11-04")
+        XCTAssertNil(calls["s2"]?.previous)
     }
 
     func testDividendRemindersSkipWhatAlreadyArrivedThisMonth() {

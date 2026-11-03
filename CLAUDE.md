@@ -1035,6 +1035,7 @@ risk each serve a page of their own as well as the analyst. To add a screen: `Na
 | Grocery Analytics, Grocery Builder (read-only) | yes | 522 line items, four filter sets with their option lists; every category's item list |
 | All Transactions | yes | 8,165 rows newest first, ten filter sets, the regret tally |
 | Data Health, Warranties, Assets, Precious Metals | yes | Data Health's 9 checks and Warranties' 20 items; Assets and Metals reuse verified valuations |
+| Research calls (every holding's latest call, filter by call, what changed, reason/news/trigger) | yes, read-only | `ResearchCall.parse`: newest per holding, previous call and when it changed, ageing of a call left out of a later day |
 | Profile (this iPhone only) | yes | not a port: password, backups, Claude key and iPhone pairing deliberately stay on the Mac |
 | Account detail (fund, deposits, PF, PPF, NPS, SGB, savings account, policy, emergency fund) | yes, read-only ledgers | every account's value equals the verified valuation; 496 ledger rows build without error |
 | Person/debt, asset category, metal and card detail pages | yes, read-only | card history reuses the parity-tested card profile; the rest read stored rows and verified valuations |
@@ -1132,6 +1133,19 @@ move between them. Rent, bill and cost entries ask who pays (you / tenant repays
 every ledger row. Entries stay on the asset and do not count in monthly income or spending. Not on the phone: the item photo
 (`imageUrl`) and the ornament gallery's uploads.
 
+**Settings and deleting** (`FinanceStore.saveBudgetLimits`, `deleteRecord`): **Budget Limits → Edit limits** changes the
+monthly limits, and **Edit → Delete this record** removes a goal, a watchlist entry or an IPO application. Both are **online-only**
+(never queued): they need the Mac, say so when offline, and are sent under the version they were read at. Budget limits
+`PATCH /appData { categoryBudgets }` carrying `If-Match` from a fresh `GET /appData` — only that one key, merged with the
+Mac's own current limits, so a phone cannot overwrite other settings or newer limits (a stale version is refused with 409).
+Deleting re-reads the record for its version and sends `DELETE /<collection>/<id>` with it. Only collections in
+`FinanceStore.deletable` can be deleted from the phone; accounts, loans, people and cards link to other records and stay Mac-only.
+Verified on an isolated copy: fresh version saves/deletes, stale version is refused, other `appData` keys and the live database are untouched.
+
+**Research calls** (`ResearchCall`, `ResearchView`): each holding's latest outside-research call from the Mac's Research tab
+(`GET /api/analyst/strategy`), shown as a badge on the Stocks list, a card on the stock page and a Research screen (More → Investing)
+with filters by call. Read-only: tables are pasted or imported on the Mac. A holding left out of a later day keeps its call, aged.
+
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
 (`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.
@@ -1165,7 +1179,7 @@ untouched — checked by hash).
 
 ### Not done yet
 
-- Writes to mutual-fund/NPS/SGB ledgers, demergers and mergers, `metals`, `appData` settings, and creating or deleting whole records.
+- Demergers and mergers, `metals` item writes, `appData` settings other than budget limits (manual rates, overrides, employments), mutual-fund creation and NAV refresh, DocuSetu, and creating or deleting records other than goals / watchlist / IPOs.
 - Savings and Investments account pages (a fund, a deposit, a policy) still
   open the Mac's page; so does everything below Investments in the More list.
 - The web layout for phones has 8 known rough spots (a few fixed-width dropdowns

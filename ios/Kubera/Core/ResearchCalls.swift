@@ -4,6 +4,7 @@ import Foundation
 /// (`GET /api/analyst/strategy`). A port of `latestCalls` / `callHistory` in `researchImport.js`.
 /// It is a second opinion to read — never an instruction, and nothing here writes.
 struct ResearchCall: Equatable {
+    let name: String
     let call: String
     let confidence: String
     let date: String
@@ -35,16 +36,23 @@ struct ResearchCall: Equatable {
             }
         }
         return latest.mapValues { entry in
-            ResearchCall(call: entry.row["call"].text, confidence: entry.row["confidence"].text, date: entry.date,
+            ResearchCall(name: entry.row["name"].text, call: entry.row["call"].text, confidence: entry.row["confidence"].text, date: entry.date,
                          reason: entry.row["reason"].text, news: entry.row["news"].text, trigger: entry.row["trigger"].text,
                          ageDays: daysBetween(entry.date, today), changes: [])
         }.reduce(into: [:]) { out, pair in
             let h = history[pair.key] ?? []
-            out[pair.key] = ResearchCall(call: pair.value.call, confidence: pair.value.confidence, date: pair.value.date,
+            out[pair.key] = ResearchCall(name: pair.value.name, call: pair.value.call, confidence: pair.value.confidence, date: pair.value.date,
                                          reason: pair.value.reason, news: pair.value.news, trigger: pair.value.trigger,
                                          ageDays: pair.value.ageDays, changes: Array(h.reversed().prefix(6)))
         }
     }
+
+    /// The call before the current one, when it changed: `("2026-11-04", "HOLD")` means it was HOLD until then.
+    var previous: (date: String, call: String)? { changes.count > 1 ? changes[1] : nil }
+    /// When the call became what it is now.
+    var since: String? { changes.first?.date }
+
+    static let rank: [String: Int] = ["SELL": 0, "REVIEW": 1, "BUY": 2, "ACCUMULATE": 3, "HOLD": 4]
 
     static func daysBetween(_ from: String, _ to: String) -> Int {
         let f = DateFormatter()
