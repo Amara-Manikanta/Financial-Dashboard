@@ -1083,3 +1083,31 @@ final class RentalParityTests: XCTestCase {
         print("parity: rent — \(web["items"].array.count) items, \(ledgers) rent ledgers, \(properties) properties")
     }
 }
+
+
+/// The PPF page's financial years, interest chart, totals and "Add Interest" figure against the Mac page's own code.
+final class PPFParityTests: XCTestCase {
+    func testPPFPageMatchesTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["ppf"].array
+        XCTAssertFalse(web.isEmpty, "the golden has no PPF account")
+        for expected in web {
+            let account = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            let page = PPF.page(account)
+            XCTAssertEqual(page.totalInterest, expected["totalInterest"].double, accuracy: 0.001, "total interest")
+            XCTAssertEqual(page.balance, expected["totalBalance"].double, accuracy: 0.001, "balance")
+            XCTAssertEqual(page.years, expected["years"].array.map(\.text), "financial years")
+            XCTAssertEqual(page.chart.map(\.year), expected["chart"].array.map { $0["year"].text }, "chart years")
+            XCTAssertEqual(page.chart.map(\.amount), expected["chart"].array.map { $0["amount"].double }, "chart amounts")
+            for (offset, d) in expected["details"].array.enumerated() {
+                XCTAssertEqual(PPF.financialYear(account["details"].array[offset]["date"]), d["fy"].text, "FY of \(d["date"].text)")
+            }
+            for (fy, value) in expected["interestByYear"].object {
+                XCTAssertEqual(PPF.yearlyInterest(fy: fy, details: account["details"].array), value.double, accuracy: 0.001, "Add Interest for \(fy)")
+            }
+            XCTAssertEqual(expected["interestByYear"].object.count, 12)
+        }
+    }
+}

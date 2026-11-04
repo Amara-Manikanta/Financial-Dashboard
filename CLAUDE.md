@@ -1142,6 +1142,14 @@ Deleting re-reads the record for its version and sends `DELETE /<collection>/<id
 `FinanceStore.deletable` can be deleted from the phone; accounts, loans, people and cards link to other records and stay Mac-only.
 Verified on an isolated copy: fresh version saves/deletes, stale version is refused, other `appData` keys and the live database are untouched.
 
+**PPF** (`PPF`, `PPFView`): the account page matches the Mac's `PPFDetails.jsx` — portfolio balance and accumulated interest, the
+yearly-interest chart, **Add interest** (a financial year's interest at 7.1% on the balance on the 5th of each month, rounded down per
+month, filed on 31 March and updating that year's interest entry if there is one), financial-year tabs, and entries with contribution,
+yield and running balance. Entries are added, changed and deleted through the same version-checked, offline-capable ledger writes as
+other accounts. `PPF` is a port of the page's own functions and is parity-tested against them for every financial year 2016-17 to
+2027-28 (`PPFParityTests`); dates are read in local time like the web's `new Date(...)`, so a day on the 5th falls the same side on
+both. The result is an estimate: it comes within a few tens of rupees of the figures the bank credited (e.g. 14,952 against 14,989).
+
 **Research calls** (`ResearchCall`, `ResearchView`): each holding's latest outside-research call from the Mac's Research tab
 (`GET /api/analyst/strategy`), shown as a badge on the Stocks list, a card on the stock page and a Research screen (More → Investing)
 with filters by call. Read-only: tables are pasted or imported on the Mac. A holding left out of a later day keeps its call, aged.

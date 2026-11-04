@@ -1045,4 +1045,34 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual(buys[0].date, points[1].date)
         XCTAssertNil(PriceHistory.stats([points[0]]))
     }
+
+    func testPPFPageFiguresAndInterestFiling() {
+        func e(_ date: String, _ type: String, amount: Double = 0, interest: Double = 0, id: String) -> String {
+            "{\"id\":\"\(id)\",\"date\":\"\(date)\",\"type\":\"\(type)\",\"amount\":\(amount),\"interestEarned\":\(interest)}"
+        }
+        let account = json("{\"id\":\"p\",\"type\":\"ppf\",\"details\":[" + [
+            e("2024-04-02", "investment", amount: 1000, id: "a"), e("2024-09-20", "investment", amount: 500, id: "b"),
+            e("2025-03-31", "interest", interest: 70, id: "c"), e("2025-04-01", "investment", amount: 200, id: "d"),
+        ].joined(separator: ",") + "]}")
+        let page = PPF.page(account)
+        XCTAssertEqual(page.balance, 1770)
+        XCTAssertEqual(page.totalInterest, 70)
+        XCTAssertEqual(page.years, ["All", "2025-26", "2024-25"])               // All first, then newest year first
+        XCTAssertEqual(page.chart.map(\.year), ["2024-25", "2025-26"])          // oldest first on the chart
+        XCTAssertEqual(PPF.financialYear(json("\"2025-03-31\"")), "2024-25")
+        XCTAssertEqual(PPF.financialYear(json("\"2025-04-01\"")), "2025-26")
+        XCTAssertEqual(PPF.entries(account, year: "2024-25").count, 3)
+        XCTAssertEqual(PPF.entries(account, year: "All").first?.date, "2025-04-01")   // newest first
+        XCTAssertEqual(PPF.interestDate(fy: "2024-25"), "2025-03-31")
+        XCTAssertEqual(PPF.offeredYears(now: ISO8601DateFormatter().date(from: "2026-11-04T00:00:00Z")!).first, "2021-22")
+        XCTAssertEqual(PPF.offeredYears(now: ISO8601DateFormatter().date(from: "2026-11-04T00:00:00Z")!).last, "2027-28")
+        // Interest already filed for that date is updated in place; otherwise a new interest row is added.
+        let details = account["details"].array
+        if case .replace(let index, _, let row) = PPF.interestChange(fy: "2024-25", details: details, amount: 99, newId: "n") {
+            XCTAssertEqual(index, 2); XCTAssertEqual(row["interestEarned"].double, 99); XCTAssertEqual(row["id"].text, "c")
+        } else { XCTFail("expected an update of the existing interest row") }
+        if case .add(let row) = PPF.interestChange(fy: "2025-26", details: details, amount: 5, newId: "n") {
+            XCTAssertEqual(row["date"].text, "2026-03-31"); XCTAssertEqual(row["type"].text, "interest"); XCTAssertEqual(row["amount"].double, 0)
+        } else { XCTFail("expected a new interest row") }
+    }
 }

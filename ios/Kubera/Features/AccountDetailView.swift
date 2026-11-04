@@ -15,6 +15,7 @@ struct AccountDetailView: View {
         // Deposits have their own pages: bank filter and totals, a card each, instalments and interest.
         if raw["type"].text == "fixed_deposit" { FixedDepositsView(store: store, accountId: route.id) }
         else if raw["type"].text == "recurring_deposit" { RecurringDepositsView(store: store, accountId: route.id) }
+        else if raw["type"].text == "ppf" { PPFView(store: store, accountId: route.id) }
         else { generic(raw, p) }
     }
 

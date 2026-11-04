@@ -568,10 +568,32 @@ const assetsGolden = {
     }),
 };
 
+
+// PPFDetails.jsx: financial years, the "Add Interest" calculation and the page's memos, cut from the source and run
+// for every PPF account on record, for each financial year from 2016-17 to 2027-28.
+const ppfFns = slice('src/pages/PPFDetails.jsx', 'const getFinancialYear = (dateStr) => {', 'const handleSaveTx');
+const ppfTotalInterestBody = slice('src/pages/PPFDetails.jsx', 'const totalInterest = useMemo(() => {', '}, [ppfDetails]);');
+const ppfTotalBalanceBody = slice('src/pages/PPFDetails.jsx', 'const totalBalance = useMemo(() => {', '}, [ppfDetails]);');
+const ppfYearlyBody = slice('src/pages/PPFDetails.jsx', 'const yearlyInterest = useMemo(() => {', '}, [ppfDetails]);');
+const ppfChartBody = slice('src/pages/PPFDetails.jsx', 'const ppfInterestChartData = useMemo(() => {', '}, [yearlyInterest]);');
+const ppfYearsBody = slice('src/pages/PPFDetails.jsx', 'const years = useMemo(() => {', '}, [ppfDetails]);');
+const ppfGolden = db.savings.filter((a) => a.type === 'ppf').map((ppf) => {
+    const ppfDetails = ppf.details || [];
+    const fns = new Function('ppf', `const getFinancialYear = (dateStr) => {${ppfFns}\nreturn { getFinancialYear, calculateYearlyInterest, recalculateBalances };`)(ppf);
+    const totalInterest = new Function('ppfDetails', ppfTotalInterestBody)(ppfDetails);
+    const totalBalance = new Function('ppfDetails', 'recalculateBalances', ppfTotalBalanceBody)(ppfDetails, fns.recalculateBalances);
+    const yearlyInterest = new Function('ppfDetails', 'getFinancialYear', ppfYearlyBody)(ppfDetails, fns.getFinancialYear);
+    const chart = new Function('yearlyInterest', ppfChartBody)(yearlyInterest);
+    const years = new Function('ppfDetails', 'getFinancialYear', ppfYearsBody)(ppfDetails, fns.getFinancialYear);
+    const interestByYear = {};
+    for (let y = 2016; y <= 2027; y += 1) { const fy = `${y}-${String(y + 1).slice(-2)}`; interestByYear[fy] = fns.calculateYearlyInterest(fy); }
+    return { id: ppf.id, totalInterest, totalBalance, chart, years, interestByYear, details: ppfDetails.map((d) => ({ date: d.date, fy: fns.getFinancialYear(d.date) })) };
+});
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden,
     months,
     stocks: {
         count: holdings.length,
