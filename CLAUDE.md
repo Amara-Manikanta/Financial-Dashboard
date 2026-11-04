@@ -1111,8 +1111,8 @@ adds a whole account (`POST /savings`, one record). Each save loads the account 
 no longer matches what the phone read is refused) and PATCHes the list together with what the Mac's page
 recomputes: fund `amount` (units × NAV), PPF running balances, PF EPF/EPS balances, NPS units / invested / share,
 premiums paid. A test replays every PPF, PF, fund, NPS and savings account through these recomputes and checks
-they reproduce the stored figures. Rows linked to an expense are locked. Not on the phone: refreshing a fund's
-fund composition, policy document upload, the savings account's automatic daily-interest credit, PPF's
+they reproduce the stored figures. Rows linked to an expense are locked. Not on the phone: fund composition, policy
+document upload, the savings account's automatic daily-interest credit, PPF's
 "add yearly interest" helper, and mutual-fund creation (Invest page).
 
 **People and loans** (`LoanLedger`, `LoanSheets`, `LentDetailView`, `LoansView`): a person's page has a + (and a
