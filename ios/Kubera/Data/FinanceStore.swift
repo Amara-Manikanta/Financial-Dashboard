@@ -97,6 +97,31 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Fetches a fund's latest NAV from mfapi.in (as the Mac's Refresh NAV does) and saves it with the fund's new value.
+    /// Needs the internet; the change itself is saved like any record change. Returns the NAV, or why not.
+    func refreshFundNav(_ accountId: String) async -> Result<Double, FundNavFailure> {
+        let fund = data.savingsRaw.array.first { $0["id"].text == accountId } ?? .null
+        let code = fund["schemeCode"].text
+        guard !code.isEmpty else { return .failure(FundNavFailure(message: "Scheme code not found. Add it in the fund's details first.")) }
+        guard let url = URL(string: "https://api.mfapi.in/mf/\(code)") else { return .failure(FundNavFailure(message: "That scheme code is not valid.")) }
+        do {
+            var request = URLRequest(url: url); request.timeoutInterval = 20
+            let (body, response) = try await URLSession.shared.data(for: request)
+            guard (response as? HTTPURLResponse)?.statusCode == 200 else { return .failure(FundNavFailure(message: "The NAV service did not answer.")) }
+            let json = try JSONValue.parse(body)
+            guard let raw = json["data"].array.first?["nav"].jsNumber, raw.isFinite, raw > 0 else { return .failure(FundNavFailure(message: "The NAV service returned nothing usable.")) }
+            let nav = (raw * 10000).rounded() / 10000
+            var next = fund.object; next["currentNav"] = .number(nav)
+            let amount = Valuation.currentValue(.object(next))
+            if let failure = await saveRecord("savings", id: accountId, fields: ["currentNav": nav, "amount": amount], original: fund, stampUpdated: !fund["updatedAt"].isNull, label: "Refresh NAV · \(fund["title"].text)") {
+                return .failure(FundNavFailure(message: failure))
+            }
+            return .success(nav)
+        } catch { return .failure(FundNavFailure(message: "Could not reach the NAV service. Check the internet connection.")) }
+    }
+
+    struct FundNavFailure: Error { let message: String }
+
     /// The stock-market account that holds a holding, so its transactions can be changed.
     func stockAccountId(holding id: String) -> String? {
         data.savingsRaw.array.first { $0["type"].text == "stock_market" && $0["stocks"].array.contains { $0["id"].text == id } }?["id"].text

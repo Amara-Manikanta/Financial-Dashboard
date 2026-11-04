@@ -628,10 +628,42 @@ const pfGolden = db.savings.filter((a) => a.type === 'pf').map((pf) => {
     };
 });
 
+
+// MutualFundDetails.jsx: the page's memos, cut from the source and run for every mutual fund on record (archived ones
+// too), with a spread of planned amounts and target NAVs for the two calculators.
+const mfPage = (name, end = '\n    }, [') => slice('src/pages/MutualFundDetails.jsx', `const ${name} = useMemo(() => {`, end);
+const mfGetFY = slice('src/pages/MutualFundDetails.jsx', 'const getFinancialYear = (dateStr) => {', '\n    };');
+const mfBodies = Object.fromEntries(['fundCalcs', 'navProjection', 'targetProjection', 'navDistribution', 'yearlyPLChartData', 'availableYears', 'filteredTransactions'].map((n) => [n, mfPage(n)]));
+const mfGolden = db.savings.filter((a) => a.type === 'mutual_fund').map((fund) => {
+    const currentNav = fund.currentNav || 0;
+    const getFinancialYear = new Function(`const getFinancialYear = (dateStr) => {${mfGetFY}\n};\nreturn getFinancialYear;`)();
+    const run = (name, args) => new Function(...Object.keys(args), mfBodies[name])(...Object.values(args));
+    const calcs = run('fundCalcs', { fund, currentNav, calculateItemCurrentValue, calculateItemInvestedValue });
+    const projections = [];
+    for (const plannedAmount of ['', '0', '5000', '100000']) {
+        const navProjection = run('navProjection', { plannedAmount, currentNav, total_units_held: calcs.total_units_held, avgNav: calcs.avgNav });
+        for (const targetNav of ['', '0', String(Math.round(calcs.avgNav * 0.8 * 100) / 100), String(Math.round(currentNav * 1.5 * 100) / 100)]) {
+            projections.push({ plannedAmount, targetNav, navProjection, targetProjection: run('targetProjection', { targetNav, navProjection, total_units_held: calcs.total_units_held, avgNav: calcs.avgNav }) });
+        }
+    }
+    const years = run('availableYears', { transactionsWithCalcs: calcs.transactionsWithCalcs, getFinancialYear });
+    const byYear = {};
+    for (const selectedYear of years) {
+        const rows = run('filteredTransactions', { transactionsWithCalcs: calcs.transactionsWithCalcs, selectedYear, getFinancialYear });
+        byYear[selectedYear] = rows.map((r) => calcs.transactionsWithCalcs.indexOf(r));
+    }
+    return {
+        id: fund.id, title: fund.title, calcs: { ...calcs, transactionsWithCalcs: calcs.transactionsWithCalcs.map((t) => ({ isSell: t.isSell, displayAmount: t.displayAmount, displayUnits: t.displayUnits, displayValue: t.displayValue, displayPL: t.displayPL })) },
+        projections, years, byYear,
+        bands: run('navDistribution', { fund, avgNav: calcs.avgNav }),
+        yearly: run('yearlyPLChartData', { transactionsWithCalcs: calcs.transactionsWithCalcs, getFinancialYear }),
+    };
+});
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, mutualFunds: mfGolden,
     months,
     stocks: {
         count: holdings.length,

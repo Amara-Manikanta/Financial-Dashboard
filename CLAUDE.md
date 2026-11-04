@@ -1112,7 +1112,7 @@ no longer matches what the phone read is refused) and PATCHes the list together 
 recomputes: fund `amount` (units × NAV), PPF running balances, PF EPF/EPS balances, NPS units / invested / share,
 premiums paid. A test replays every PPF, PF, fund, NPS and savings account through these recomputes and checks
 they reproduce the stored figures. Rows linked to an expense are locked. Not on the phone: refreshing a fund's
-NAV, fund composition, policy document upload, the savings account's automatic daily-interest credit, PPF's
+fund composition, policy document upload, the savings account's automatic daily-interest credit, PPF's
 "add yearly interest" helper, and mutual-fund creation (Invest page).
 
 **People and loans** (`LoanLedger`, `LoanSheets`, `LentDetailView`, `LoansView`): a person's page has a + (and a
@@ -1156,6 +1156,16 @@ or the year has no interest, the scheme's entries (contribution split, VPF, inte
 `PF` is a port of the page's own memos and is parity-tested against them for both tabs and every year (`PFParityTests`),
 including the missing-month flags at a frozen date. The UAN shows in the header and is changed from the pencil.
 
+**Mutual funds** (`FundPage`, `FundView`): a fund's page is laid out as the Mac's `MutualFundDetails.jsx` — net invested, current value,
+total / unrealised / realised profit, units, average cost and NAV; the two calculators ("If I invest more today", "If the NAV
+reaches…", the second counting the first); invested by NAV level; yearly profit and loss; financial-year tabs; and each transaction
+with its value and gain (a sale shows the profit it booked). Transactions are added, changed and deleted through the same
+version-checked, offline-capable ledger writes as other accounts. `FundPage` is a port of the page's own memos and is parity-tested
+for every fund (archived too) against them, including the calculators across several amounts and target NAVs (`FundPageParityTests`).
+**Refresh NAV** fetches the latest NAV from mfapi.in by the fund's scheme code (as the Mac does), then saves the NAV and the fund's new
+value like any record change — so with the Mac out of reach it is kept on the phone and sent when it is back. Not on the phone: the
+fund composition panels (entered on the Mac; no fund has any yet).
+
 **Research calls** (`ResearchCall`, `ResearchView`): each holding's latest outside-research call from the Mac's Research tab
 (`GET /api/analyst/strategy`), shown as a badge on the Stocks list, a card on the stock page and a Research screen (More → Investing)
 with filters by call. Read-only: tables are pasted or imported on the Mac. A holding left out of a later day keeps its call, aged.
@@ -1198,7 +1208,7 @@ untouched — checked by hash).
 
 ### Not done yet
 
-- Demergers and mergers, `metals` item writes, `appData` settings other than budget limits (manual rates, overrides, employments), mutual-fund creation and NAV refresh, DocuSetu, and creating or deleting records other than goals / watchlist / IPOs.
+- Demergers and mergers, `metals` item writes, `appData` settings other than budget limits (manual rates, overrides, employments), mutual-fund creation, DocuSetu, and creating or deleting records other than goals / watchlist / IPOs.
 - Savings and Investments account pages (a fund, a deposit, a policy) still
   open the Mac's page; so does everything below Investments in the More list.
 - The web layout for phones has 8 known rough spots (a few fixed-width dropdowns

@@ -1174,3 +1174,79 @@ final class PFParityTests: XCTestCase {
         }
     }
 }
+
+
+/// Each mutual fund's page figures — unit accounting, both calculators, NAV bands, yearly P/L and the year filter — against the Mac page's own code.
+final class FundPageParityTests: XCTestCase {
+    func testFundPagesMatchTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["mutualFunds"].array
+        XCTAssertFalse(web.isEmpty, "the golden has no mutual fund")
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let now = try XCTUnwrap(f.date(from: try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["asOf"].text), "golden has no asOf")
+        for expected in web {
+            let fund = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            let tag = expected["title"].text
+            let page = FundPage.page(fund, asOf: now)
+            let c = expected["calcs"]
+            XCTAssertEqual(page.currentValue, c["currentTotalValue"].double, accuracy: 0.01, "\(tag) value")
+            XCTAssertEqual(page.costHeld, c["total_cost_held"].double, accuracy: 0.01, "\(tag) cost")
+            XCTAssertEqual(page.unrealised, c["total_unrealised_profit"].double, accuracy: 0.01, "\(tag) unrealised")
+            XCTAssertEqual(page.realised, c["total_realised_profit"].double, accuracy: 0.01, "\(tag) realised")
+            XCTAssertEqual(page.totalProfit, c["total_profit"].double, accuracy: 0.01, "\(tag) total profit")
+            XCTAssertEqual(page.unitsHeld, c["total_units_held"].double, accuracy: 0.0001, "\(tag) units")
+            XCTAssertEqual(page.avgNav, c["avgNav"].double, accuracy: 0.0001, "\(tag) avg NAV")
+            let webRows = c["transactionsWithCalcs"].array
+            XCTAssertEqual(page.rows.count, webRows.count, "\(tag) rows")
+            for (mine, web) in zip(page.rows, webRows) {
+                XCTAssertEqual(mine.isSell, web["isSell"].truthy, "\(tag) sell flag")
+                XCTAssertEqual(mine.amount, web["displayAmount"].double, accuracy: 0.001, "\(tag) amount")
+                XCTAssertEqual(mine.units, web["displayUnits"].double, accuracy: 0.0001, "\(tag) units row")
+                XCTAssertEqual(mine.value, web["displayValue"].double, accuracy: 0.01, "\(tag) row value")
+                XCTAssertEqual(mine.profit, web["displayPL"].double, accuracy: 0.01, "\(tag) row P/L")
+            }
+            XCTAssertEqual(page.years, expected["years"].array.map(\.text), "\(tag) years")
+            for (year, indices) in expected["byYear"].object {
+                XCTAssertEqual(FundPage.rows(page, year: year).map { page.rows.firstIndex(of: $0) ?? -1 }, indices.array.map { Int($0.double) }, "\(tag) rows for \(year)")
+            }
+            XCTAssertEqual(page.yearly.map(\.year), expected["yearly"].array.map { $0["year"].text }, "\(tag) yearly years")
+            for (mine, web) in zip(page.yearly, expected["yearly"].array) {
+                XCTAssertEqual(mine.realized, web["realizedPL"].double, accuracy: 0.001, "\(tag) realised \(mine.year)")
+                XCTAssertEqual(mine.unrealized, web["unrealizedPL"].double, accuracy: 0.001, "\(tag) unrealised \(mine.year)")
+                XCTAssertEqual(mine.total, web["totalPL"].double, accuracy: 0.001, "\(tag) total \(mine.year)")
+            }
+            XCTAssertEqual(page.bands.count, expected["bands"].array.count, "\(tag) bands")
+            for (mine, web) in zip(page.bands, expected["bands"].array) {
+                XCTAssertEqual(mine.from, web["from"].double, accuracy: 1e-9, "\(tag) band from")
+                XCTAssertEqual(mine.amount, web["amount"].double, accuracy: 0.001, "\(tag) band amount")
+                XCTAssertEqual(mine.units, web["units"].double, accuracy: 0.0001, "\(tag) band units")
+                XCTAssertEqual(mine.count, Int(web["count"].double), "\(tag) band count")
+                XCTAssertEqual(mine.belowAverage, web["belowAverage"].truthy, "\(tag) band side")
+                XCTAssertEqual(mine.label, web["label"].text, "\(tag) band label")
+            }
+            for p in expected["projections"].array {
+                let planned = FundPage.investMore(page, amount: Double(p["plannedAmount"].text) ?? 0)
+                let more = p["navProjection"]
+                XCTAssertEqual(planned == nil, more.isNull, "\(tag) planned nil-ness")
+                if let planned, !more.isNull {
+                    XCTAssertEqual(planned.unitsGained, more["unitsGained"].double, accuracy: 1e-6, "\(tag) units gained")
+                    XCTAssertEqual(planned.newUnits, more["newUnits"].double, accuracy: 1e-6, "\(tag) new units")
+                    XCTAssertEqual(planned.newAvgNav, more["newAvgNav"].double, accuracy: 1e-6, "\(tag) new avg")
+                    XCTAssertEqual(planned.change, more["change"].double, accuracy: 1e-6, "\(tag) change")
+                }
+                let target = FundPage.atTarget(page, target: Double(p["targetNav"].text) ?? 0, planned: planned)
+                let t = p["targetProjection"]
+                XCTAssertEqual(target == nil, t.isNull, "\(tag) target nil-ness for \(p["plannedAmount"].text)/\(p["targetNav"].text)")
+                if let target, !t.isNull {
+                    XCTAssertEqual(target.value, t["value"].double, accuracy: 0.01, "\(tag) target value")
+                    XCTAssertEqual(target.profit, t["profit"].double, accuracy: 0.01, "\(tag) target profit")
+                    XCTAssertEqual(target.percent, t["percent"].double, accuracy: 1e-6, "\(tag) target percent")
+                    XCTAssertEqual(target.breakEven, t["breakEven"].double, accuracy: 1e-6, "\(tag) break-even")
+                    XCTAssertEqual(target.includesPlanned, t["includesPlanned"].truthy, "\(tag) includes planned")
+                }
+            }
+        }
+    }
+}
