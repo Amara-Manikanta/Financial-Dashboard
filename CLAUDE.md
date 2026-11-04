@@ -1146,6 +1146,11 @@ Verified on an isolated copy: fresh version saves/deletes, stale version is refu
 (`GET /api/analyst/strategy`), shown as a badge on the Stocks list, a card on the stock page and a Research screen (More → Investing)
 with filters by call. Read-only: tables are pasted or imported on the Mac. A holding left out of a later day keeps its call, aged.
 
+**Price history** (`PriceHistory`, `StockPriceChart.jsx`): each stock's page has a daily-close line chart (1M / 3M / 6M / 1Y / 5Y) with
+your average cost as a dashed line and the days you bought as dots at the price paid. Data is `GET /api/history?symbol=&range=`
+(Yahoo daily closes), cached 10 minutes in `server.js` (restart `npm run server` to get the cache); nothing is stored. The phone
+reads it through the gateway like any other GET, so the last range viewed also opens offline.
+
 **News** (`StockNewsView`, from a holding's page): the Mac's stored stories for that stock, its
 Claude brief when Claude reading is on, and buttons that ask the Mac to fetch fresh headlines
 (`fresh=1`) or analyse five unread stories. Nothing is kept on the phone.

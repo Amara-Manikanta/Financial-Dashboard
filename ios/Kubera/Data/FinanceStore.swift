@@ -40,6 +40,12 @@ final class FinanceStore: ObservableObject {
         research = ResearchCall.parse(body, today: f.string(from: Date()))
     }
 
+    /// Daily closes for a stock over a range (`1mo`…`5y`), from the Mac. Kept on the phone like every other read, so it also opens offline.
+    func priceHistory(symbol: String, range: String) async throws -> [PriceHistory.Point] {
+        let body = try await api.get(path: "api/history", query: [URLQueryItem(name: "symbol", value: symbol), URLQueryItem(name: "range", value: range)])
+        return PriceHistory.series(body)
+    }
+
     func fundamentals(for symbol: String) async -> JSONValue? {
         guard let json = try? await api.get(path: "api/stock-financials", query: [URLQueryItem(name: "symbol", value: symbol)]),
               !json["signal"].isNull else { return nil }

@@ -1026,4 +1026,23 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual(one[0].count, 2)
         XCTAssertTrue(PriceLevels.bands([json("{\"type\":\"sell\",\"price\":9,\"quantity\":1}")], avgCost: 1).isEmpty)
     }
+
+    func testPriceHistorySeriesStatsAndBuyDots() {
+        let body = json("{\"closes\":{\"2026-10-05\":110,\"2026-10-01\":100,\"2026-10-03\":\"bad\",\"2026-10-09\":90}}")
+        let points = PriceHistory.series(body)
+        XCTAssertEqual(points.map(\.day), ["2026-10-01", "2026-10-05", "2026-10-09"])    // oldest first, bad value dropped
+        let stats = PriceHistory.stats(points)!
+        XCTAssertEqual(stats.high, 110); XCTAssertEqual(stats.low, 90)
+        XCTAssertEqual(stats.changePercent, -10, accuracy: 0.0001)
+        let txs = [
+            json("{\"type\":\"buy\",\"date\":\"2026-10-03\",\"price\":101,\"quantity\":2}"),   // a weekend-style gap: lands on the 5th
+            json("{\"type\":\"sell\",\"date\":\"2026-10-05\",\"price\":120,\"quantity\":1}"),   // a sale is no dot
+            json("{\"type\":\"buy\",\"date\":\"2025-01-01\",\"price\":50,\"quantity\":1}"),    // before the range
+        ]
+        let buys = PriceHistory.buys(txs, in: points)
+        XCTAssertEqual(buys.count, 1)
+        XCTAssertEqual(buys[0].price, 101)
+        XCTAssertEqual(buys[0].date, points[1].date)
+        XCTAssertNil(PriceHistory.stats([points[0]]))
+    }
 }

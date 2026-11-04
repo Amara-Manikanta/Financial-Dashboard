@@ -58,6 +58,9 @@ struct HoldingView: View {
     @State private var message: String?
     @State private var fundamentals: JSONValue?
     @State private var fundamentalsDone = false
+    @State private var range = "1y"
+    @State private var history: [PriceHistory.Point]?
+    @State private var historyError: String?
 
     private struct SheetRoute: Identifiable { let id = UUID(); let tx: JSONValue? }
 
@@ -126,6 +129,8 @@ struct HoldingView: View {
             researchCard(holding)
 
             fundamentalsCard(holding)
+
+            priceHistoryCard(holding)
 
             priceLevelCard(holding)
 
@@ -275,6 +280,62 @@ struct HoldingView: View {
         return (0..<5).reversed().map { offset in
             let year = String(current - offset)
             return YearAmount(year: year, amount: stored[year] ?? replayed[year] ?? 0)
+        }
+    }
+
+    /// The stock's daily closes over a range, with your average cost and the days you bought.
+    @ViewBuilder private func priceHistoryCard(_ holding: Stocks.Holding) -> some View {
+        if !holding.ticker.isEmpty {
+            let points = history ?? []
+            let stats = PriceHistory.stats(points)
+            let buys = PriceHistory.buys(holding.raw["transactions"].array, in: points)
+            let tone: Color = (stats?.changePercent ?? 0) >= 0 ? Theme.positive : Theme.negative
+            KSectionHeader(title: "Price history", detail: stats.map { String(format: "%+.1f%%", $0.changePercent) })
+            KCard {
+                Picker("Range", selection: $range) {
+                    ForEach(PriceHistory.ranges, id: \.id) { Text($0.label).tag($0.id) }
+                }
+                .pickerStyle(.segmented)
+                if let historyError {
+                    Text("Could not load the price history (\(historyError)).").font(Theme.footnote).foregroundStyle(Theme.negative).padding(.top, 8)
+                } else if history == nil {
+                    ProgressView().frame(maxWidth: .infinity).padding(.vertical, 40)
+                } else if points.count < 2 {
+                    Text("Not enough price history for this stock in this range.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 8)
+                } else if let stats {
+                    HStack(alignment: .top) {
+                        KStat(label: "High", value: Money.rupees(stats.high))
+                        Spacer()
+                        KStat(label: "Low", value: Money.rupees(stats.low))
+                        Spacer()
+                        KStat(label: "Last close", value: Money.rupees(stats.last))
+                    }
+                    .padding(.top, 10)
+                    Chart {
+                        ForEach(points) { p in
+                            LineMark(x: .value("Day", p.date), y: .value("Close", p.close)).foregroundStyle(tone).interpolationMethod(.monotone)
+                        }
+                        if holding.avgCost > 0 {
+                            RuleMark(y: .value("Average", holding.avgCost)).foregroundStyle(Theme.warning).lineStyle(StrokeStyle(lineWidth: 1, dash: [5, 4]))
+                        }
+                        ForEach(buys) { b in
+                            PointMark(x: .value("Day", b.date), y: .value("Paid", b.price)).foregroundStyle(Theme.accent).symbolSize(36)
+                        }
+                    }
+                    .chartYScale(domain: .automatic(includesZero: false))
+                    .chartYAxis { AxisMarks(position: .leading) { AxisGridLine().foregroundStyle(Theme.muted.opacity(0.15)); AxisValueLabel().foregroundStyle(Theme.muted) } }
+                    .chartXAxis { AxisMarks { AxisValueLabel(format: .dateTime.month(.abbreviated).year(.twoDigits)).foregroundStyle(Theme.muted) } }
+                    .frame(height: 200)
+                    .padding(.top, 8)
+                    Text("Daily closing price. The dashed line is your average cost (\(Money.rupees(holding.avgCost))); dots are the days you bought, at the price you paid.")
+                        .font(Theme.footnote).foregroundStyle(Theme.muted)
+                }
+            }
+            .task(id: "\(holding.ticker)|\(range)") {
+                history = nil; historyError = nil
+                do { history = try await store.priceHistory(symbol: StockNewsView.symbol(for: holding.ticker), range: range) }
+                catch { historyError = error.localizedDescription }
+            }
         }
     }
 
