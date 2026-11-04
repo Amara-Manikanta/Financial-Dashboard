@@ -618,6 +618,10 @@ const handleQuoteRequest = async (req, res) => {
  * GET /api/history?symbol=^NSEI&range=5y
  *   -> { symbol, closes: { "2021-09-02": 17234.15, ... } }
  */
+// Daily closes change once a day, and a stock page asks on every visit and every range switch.
+const historyCache = new Map();
+const HISTORY_CACHE_MS = 10 * 60 * 1000;
+
 const handleHistoryRequest = async (req, res) => {
     const url = new URL(req.url, `http://localhost:${PROXY_PORT}`);
     const symbol = (url.searchParams.get('symbol') || '').trim();
@@ -633,6 +637,13 @@ const handleHistoryRequest = async (req, res) => {
     if (!/^(1mo|3mo|6mo|1y|2y|5y|10y|max)$/.test(range)) {
         res.writeHead(400);
         return res.end(JSON.stringify({ error: 'unsupported range' }));
+    }
+
+    const cacheKey = `${symbol}|${range}`;
+    const hit = historyCache.get(cacheKey);
+    if (hit && Date.now() - hit.at < HISTORY_CACHE_MS) {
+        res.writeHead(200);
+        return res.end(hit.body);
     }
 
     try {
@@ -659,8 +670,10 @@ const handleHistoryRequest = async (req, res) => {
 
         if (Object.keys(byDate).length === 0) throw new Error('no closes returned');
 
+        const body = JSON.stringify({ symbol, range, closes: byDate });
+        historyCache.set(cacheKey, { at: Date.now(), body });
         res.writeHead(200);
-        res.end(JSON.stringify({ symbol, range, closes: byDate }));
+        res.end(body);
     } catch (err) {
         res.writeHead(502);
         res.end(JSON.stringify({ error: `could not fetch history for ${symbol}: ${err.message}` }));

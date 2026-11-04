@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useFinance, API_URL } from '../context/FinanceContext';
 import { callHistory } from '../utils/researchImport';
 import { BarChart3 } from 'lucide-react';
+import StockPriceChart from '../components/StockPriceChart';
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, X, Save, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { formatDate } from '../utils/dateUtils';
@@ -771,6 +772,14 @@ const StockDetails = () => {
             </div>
 
             {/* What the company does, then how it is doing — read-only, never touches db.json */}
+            {stock.ticker && (
+                <StockPriceChart
+                    symbol={stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`}
+                    avgCost={position.avgCost}
+                    transactions={transactions}
+                />
+            )}
+
             {priceDistribution.length > 0 && (
                 <div style={{ marginTop: '2rem', padding: '1.25rem', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
