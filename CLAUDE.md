@@ -1156,6 +1156,14 @@ or the year has no interest, the scheme's entries (contribution split, VPF, inte
 `PF` is a port of the page's own memos and is parity-tested against them for both tabs and every year (`PFParityTests`),
 including the missing-month flags at a frozen date. The UAN shows in the header and is changed from the pencil.
 
+**Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
+monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
+percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or
+"Matured Nd ago" / "Maturing Today" / "Ongoing") with progress through the term by date, interest earned, still to pay, TDS and
+remarks. A matured deposit's card is green and one within about two months of maturity is amber ("Maturing Soon"). A deposit's own
+page also charts its instalment history. `RDPage` is a port of the page's own memos and card arithmetic and is parity-tested against
+them at a frozen date (`RDPageParityTests`).
+
 **Mutual funds** (`FundPage`, `FundView`): a fund's page is laid out as the Mac's `MutualFundDetails.jsx` — net invested, current value,
 total / unrealised / realised profit, units, average cost and NAV; the two calculators ("If I invest more today", "If the NAV
 reaches…", the second counting the first); invested by NAV level; yearly profit and loss; financial-year tabs; and each transaction

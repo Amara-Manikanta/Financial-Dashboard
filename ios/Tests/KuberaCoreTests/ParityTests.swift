@@ -1250,3 +1250,41 @@ final class FundPageParityTests: XCTestCase {
         }
     }
 }
+
+
+/// The recurring-deposit account page — totals, paid-vs-target chart, and each card's figures and dates — against the Mac page's own code.
+final class RDPageParityTests: XCTestCase {
+    func testRecurringDepositPageMatchesTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let golden = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let now = try XCTUnwrap(f.date(from: golden["asOf"].text), "golden has no asOf")
+        let web = golden["recurringDeposits"].array
+        XCTAssertFalse(web.isEmpty, "the golden has no recurring-deposit account")
+        for expected in web {
+            let account = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            let page = RDPage.page(account, now: now)
+            XCTAssertEqual(page.totals.installment, expected["totalInstallment"].double, accuracy: 0.001, "monthly total")
+            XCTAssertEqual(page.totals.maturity, expected["totalMaturity"].double, accuracy: 0.001, "maturity total")
+            XCTAssertEqual(page.totals.paid, expected["totalCurrentValue"].double, accuracy: 0.001, "paid total")
+            XCTAssertEqual(page.totals.progress, expected["overallProgress"].double, accuracy: 1e-9, "overall progress")
+            XCTAssertEqual(page.chart.map(\.name), expected["chart"].array.map { $0["name"].text }, "chart names")
+            XCTAssertEqual(page.chart.map(\.paid), expected["chart"].array.map { $0["paid"].double }, "chart paid")
+            XCTAssertEqual(page.chart.map(\.maturity), expected["chart"].array.map { $0["maturity"].double }, "chart maturity")
+            XCTAssertEqual(page.cards.map(\.id), expected["cards"].array.map { $0["id"].text }, "card order")
+            for (mine, web) in zip(page.cards, expected["cards"].array) {
+                let tag = mine.name
+                XCTAssertEqual(mine.paid, web["currentPaid"].double, accuracy: 0.001, "\(tag) paid")
+                XCTAssertEqual(mine.interest, web["totalInterestEarned"].double, accuracy: 0.001, "\(tag) interest")
+                XCTAssertEqual(mine.tds, web["totalTds"].double, accuracy: 0.001, "\(tag) tds")
+                XCTAssertEqual(mine.progressPercent, web["progressPct"].double, accuracy: 1e-6, "\(tag) progress")
+                XCTAssertEqual(mine.daysText, web["daysText"].text, "\(tag) days text")
+                XCTAssertEqual(mine.matured, web["isMatured"].truthy, "\(tag) matured")
+                XCTAssertEqual(mine.nearing, web["isNearingMaturity"].truthy, "\(tag) nearing")
+                XCTAssertEqual(mine.remarks ?? "", web["remarksText"].isNull ? "" : web["remarksText"].text, "\(tag) remarks")
+            }
+        }
+    }
+}

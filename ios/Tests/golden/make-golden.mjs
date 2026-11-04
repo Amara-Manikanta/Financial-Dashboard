@@ -660,10 +660,32 @@ const mfGolden = db.savings.filter((a) => a.type === 'mutual_fund').map((fund) =
     };
 });
 
+
+// RecurringDepositDetails.jsx: its date helpers, each card's figures and the account memos, cut from the source and run
+// for every recurring-deposit account at the frozen date.
+const rdHelpers = slice('src/pages/RecurringDepositDetails.jsx', 'const calculateProgress = (', 'const RecurringDepositDetails = () => {');
+const rdCardBody = slice('src/pages/RecurringDepositDetails.jsx', 'const maturityDate = rd.endDate ? new Date(rd.endDate) : null;', "const remarksText = rd.remarks || (rd.installments && rd.installments.find(i => i.remarks)?.remarks) || null;", true);
+const rdMemo = (name) => slice('src/pages/RecurringDepositDetails.jsx', `const ${name} = useMemo(() => {`, '\n    }, [');
+const rdFns = new Function(`const calculateProgress = (${rdHelpers}\nreturn { calculateProgress, getDaysRemainingText };`)();
+const rdGolden = db.savings.filter((a) => a.type === 'recurring_deposit').map((account) => {
+    const memo = (name) => new Function('account', rdMemo(name))(account);
+    const totalMaturity = memo('totalMaturity');
+    const totalCurrentValue = memo('totalCurrentValue');
+    const cards = [...(account.recurringDeposits || [])].sort((a, b) => new Date(a.endDate) - new Date(b.endDate)).map((rd) => {
+        const c = new Function('rd', 'calculateProgress', 'getDaysRemainingText', `const maturityDate = rd.endDate ? new Date(rd.endDate) : null;${rdCardBody}\nreturn { isMatured: !!isMatured, isNearingMaturity: !!isNearingMaturity, currentPaid, totalInterestEarned, totalTds, progressPct, daysText, remarksText };`)(rd, rdFns.calculateProgress, rdFns.getDaysRemainingText);
+        return { id: String(rd.id), ...c };
+    });
+    return {
+        id: account.id, totalInstallment: memo('totalInstallment'), totalMaturity, totalCurrentValue,
+        overallProgress: new Function('totalCurrentValue', 'totalMaturity', rdMemo('overallProgress'))(totalCurrentValue, totalMaturity),
+        chart: memo('rdChartData'), cards,
+    };
+});
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, mutualFunds: mfGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden,
     months,
     stocks: {
         count: holdings.length,
