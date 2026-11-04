@@ -1111,3 +1111,66 @@ final class PPFParityTests: XCTestCase {
         }
     }
 }
+
+
+/// The PF page's balances, totals, charts, year flags and entry lists against the Mac page's own code.
+final class PFParityTests: XCTestCase {
+    func testPFPageMatchesTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["pf"].array
+        XCTAssertFalse(web.isEmpty, "the golden has no PF account")
+        for expected in web {
+            let account = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            let now = Date(timeIntervalSince1970: expected["now"].double / 1000)
+            let page = PF.page(account, now: now)
+            let t = expected["totals"]
+            XCTAssertEqual(page.totals.openingBalance, expected["openingBalance"].double, accuracy: 0.001, "opening")
+            XCTAssertEqual(page.totals.epfBalance, t["epfBalance"].double, accuracy: 0.001, "EPF balance")
+            XCTAssertEqual(page.totals.epsBalance, t["epsBalance"].double, accuracy: 0.001, "EPS balance")
+            XCTAssertEqual(page.totals.epfInterest, t["epfInterest"].double, accuracy: 0.001, "interest")
+            XCTAssertEqual(page.totals.employee, t["employee"].double, accuracy: 0.001, "employee")
+            XCTAssertEqual(page.totals.employer, t["employer"].double, accuracy: 0.001, "employer")
+            XCTAssertEqual(page.totals.vpf, t["vpf"].double, accuracy: 0.001, "vpf")
+            XCTAssertEqual(page.totals.eps, t["eps"].double, accuracy: 0.001, "eps")
+            XCTAssertEqual(page.years, expected["years"].array.map(\.text), "years")
+
+            XCTAssertEqual(page.epfChart.map(\.year), expected["epfChart"].array.map { $0["year"].text }, "epf chart years")
+            for (mine, web) in zip(page.epfChart, expected["epfChart"].array) {
+                XCTAssertEqual(mine.employee, web["employeeInterest"].double, accuracy: 0.001, "emp interest \(mine.year)")
+                XCTAssertEqual(mine.employer, web["employerInterest"].double, accuracy: 0.001, "emr interest \(mine.year)")
+                XCTAssertEqual(mine.total, web["total"].double, accuracy: 0.001, "interest total \(mine.year)")
+            }
+            XCTAssertEqual(page.epsChart.map(\.year), expected["epsChart"].array.map { $0["year"].text }, "eps chart years")
+            XCTAssertEqual(page.epsChart.map(\.amount), expected["epsChart"].array.map { $0["amount"].double }, "eps chart amounts")
+
+            XCTAssertEqual(page.trend.map(\.year), expected["trend"].array.map { $0["year"].text }, "trend years")
+            for (mine, web) in zip(page.trend, expected["trend"].array) {
+                XCTAssertEqual(mine.employee, web["employeeContribution"].double, accuracy: 0.001, "trend emp \(mine.year)")
+                XCTAssertEqual(mine.employer, web["employerContribution"].double, accuracy: 0.001, "trend emr \(mine.year)")
+                XCTAssertEqual(mine.eps, web["epsContribution"].double, accuracy: 0.001, "trend eps \(mine.year)")
+                XCTAssertEqual(mine.vpf, web["vpfContribution"].double, accuracy: 0.001, "trend vpf \(mine.year)")
+                XCTAssertEqual(mine.totalEmployer, web["totalEmployer"].double, accuracy: 0.001, "trend total employer \(mine.year)")
+                XCTAssertEqual(mine.total, web["totalContribution"].double, accuracy: 0.001, "trend total \(mine.year)")
+            }
+
+            XCTAssertEqual(Set(page.status.keys), Set(expected["status"].object.keys), "status years")
+            for (fy, web) in expected["status"].object {
+                let mine = try XCTUnwrap(page.status[fy], fy)
+                XCTAssertEqual(mine.expected, Int(web["totalExpected"].double), "expected \(fy)")
+                XCTAssertEqual(mine.recorded, Int(web["totalRecorded"].double), "recorded \(fy)")
+                XCTAssertEqual(mine.missingMonths, web["missingMonths"].array.map(\.text), "missing \(fy)")
+                XCTAssertEqual(mine.hasInterest, web["hasInterest"].truthy, "interest flag \(fy)")
+                XCTAssertEqual(mine.ongoing, web["isOngoing"].truthy, "ongoing \(fy)")
+                XCTAssertEqual(mine.warns, web["missingCount"].double > 0 || !web["hasInterest"].truthy, "warning dot \(fy)")
+            }
+
+            for (key, indices) in expected["entries"].object {
+                let parts = key.split(separator: "|", maxSplits: 1).map(String.init)
+                let scheme: PF.Scheme = parts[0] == "EPF" ? .epf : .eps
+                XCTAssertEqual(PF.entries(account, scheme: scheme, year: parts[1]).map(\.index), indices.array.map { Int($0.double) }, "entries \(key)")
+            }
+        }
+    }
+}

@@ -1150,6 +1150,12 @@ other accounts. `PPF` is a port of the page's own functions and is parity-tested
 2027-28 (`PPFParityTests`); dates are read in local time like the web's `new Date(...)`, so a day on the 5th falls the same side on
 both. The result is an estimate: it comes within a few tens of rupees of the figures the bank credited (e.g. 14,952 against 14,989).
 
+**PF** (`PF`, `PFView`): laid out as the Mac's `PFDetails.jsx` — combined EPF + EPS value, an EPF / EPS switch with each scheme's
+totals and yearly chart (interest split employee vs employer), financial-year tabs with a red dot when a month has no contribution
+or the year has no interest, the scheme's entries (contribution split, VPF, interest split) and the yearly contribution trend.
+`PF` is a port of the page's own memos and is parity-tested against them for both tabs and every year (`PFParityTests`),
+including the missing-month flags at a frozen date. The UAN shows in the header and is changed from the pencil.
+
 **Research calls** (`ResearchCall`, `ResearchView`): each holding's latest outside-research call from the Mac's Research tab
 (`GET /api/analyst/strategy`), shown as a badge on the Stocks list, a card on the stock page and a Research screen (More → Investing)
 with filters by call. Read-only: tables are pasted or imported on the Mac. A holding left out of a later day keeps its call, aged.

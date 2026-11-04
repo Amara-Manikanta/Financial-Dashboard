@@ -590,10 +590,48 @@ const ppfGolden = db.savings.filter((a) => a.type === 'ppf').map((ppf) => {
     return { id: ppf.id, totalInterest, totalBalance, chart, years, interestByYear, details: ppfDetails.map((d) => ({ date: d.date, fy: fns.getFinancialYear(d.date) })) };
 });
 
+
+// PFDetails.jsx: its financial-year and balance functions and every memo behind the page, cut from the source and run
+// for each PF account on record, on both scheme tabs and every financial year.
+const pfFns = slice('src/pages/PFDetails.jsx', 'const getFinancialYear = (dateStr) => {', 'const handleSaveUan');
+const pfMemo = (name) => slice('src/pages/PFDetails.jsx', `const ${name} = useMemo(() => {`, '\n    }, [');
+const pfBodies = Object.fromEntries(['years', 'filteredDetails', 'openingBalance', 'totalEpfInterest', 'totalEmployeeContrib', 'totalEmployerContrib', 'totalVpfContrib',
+    'totalEpsContrib', 'totalEpfBalance', 'totalEpsBalance', 'yearlyEpfInterestSplit', 'epfChartData', 'yearlyEpsContrib', 'epsChartData', 'yearlyContributionData', 'getYearlyStatus']
+    .map((name) => [name, name === 'openingBalance' ? null : pfMemo(name)]));
+const pfGolden = db.savings.filter((a) => a.type === 'pf').map((pf) => {
+    const details = pf.details || [];
+    const fns = new Function('pf', `const getFinancialYear = (dateStr) => {${pfFns}\nreturn { getFinancialYear, recalculateBalances };`)(pf);
+    const run = (name, args) => new Function(...Object.keys(args), pfBodies[name])(...Object.values(args));
+    const years = run('years', { details, getFinancialYear: fns.getFinancialYear });
+    const openingBalance = Number(pf?.amount || 0);
+    const yearlyEpfInterestSplit = run('yearlyEpfInterestSplit', { details, getFinancialYear: fns.getFinancialYear });
+    const yearlyEpsContrib = run('yearlyEpsContrib', { details, getFinancialYear: fns.getFinancialYear });
+    const entries = {};
+    for (const tab of ['EPF', 'EPS']) {
+        for (const selectedYear of years) {
+            const rows = run('filteredDetails', { details, selectedYear, activeTab: tab, getFinancialYear: fns.getFinancialYear });
+            entries[`${tab}|${selectedYear}`] = rows.map((r) => details.indexOf(r));
+        }
+    }
+    return {
+        id: pf.id, years, openingBalance, entries,
+        totals: {
+            epfInterest: run('totalEpfInterest', { details }), employee: run('totalEmployeeContrib', { details }), employer: run('totalEmployerContrib', { details }),
+            vpf: run('totalVpfContrib', { details }), eps: run('totalEpsContrib', { details }),
+            epfBalance: run('totalEpfBalance', { details, pf, openingBalance, recalculateBalances: fns.recalculateBalances }),
+            epsBalance: run('totalEpsBalance', { details, pf, recalculateBalances: fns.recalculateBalances }),
+        },
+        epfChart: run('epfChartData', { yearlyEpfInterestSplit }), epsChart: run('epsChartData', { yearlyEpsContrib }),
+        trend: run('yearlyContributionData', { details, getFinancialYear: fns.getFinancialYear }),
+        status: run('getYearlyStatus', { details, getFinancialYear: fns.getFinancialYear }),
+        now: frozenMs,
+    };
+});
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden,
     months,
     stocks: {
         count: holdings.length,
