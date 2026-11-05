@@ -1172,4 +1172,24 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertNotNil(HoldingEditing.deleteBlock(json("{\"transactions\":[{\"expenseId\":\"e1\"}]}")))
         XCTAssertNil(HoldingEditing.deleteBlock(json("{\"transactions\":[{\"id\":\"t\"}]}")))
     }
+
+    func testPriceMergeChangesOnlyMatchedPricesAndNamesTheRest() {
+        let stocks = [json("{\"id\":\"1\",\"name\":\"Infosys\",\"ticker\":\"INFY\",\"currentPrice\":100,\"shares\":5}"),
+                      json("{\"id\":\"2\",\"name\":\"Gone Co\",\"ticker\":\"GONE\",\"currentPrice\":7}"),
+                      json("{\"id\":\"3\",\"name\":\"No Quote\",\"ticker\":\"NOQ.BO\",\"currentPrice\":9}"),
+                      json("{\"id\":\"4\",\"name\":\"Old\",\"ticker\":\"OLD\",\"isArchived\":true,\"currentPrice\":3}"),
+                      json("{\"id\":\"5\",\"name\":\"No ticker\",\"currentPrice\":1}")]
+        XCTAssertEqual(PriceRefresh.symbols(stocks), ["INFY.NS", "GONE.NS", "NOQ.BO"])
+        let quotes = json("{\"INFY.NS\":{\"price\":1234.5,\"fiftyTwoWeekHigh\":1800},\"GONE.NS\":{\"price\":0}}")
+        let stale = json("[{\"symbol\":\"GONE.NS\",\"ageDays\":400}]")
+        let r = PriceRefresh.merge(stocks, quotes: quotes, stale: stale, fetchedAt: "2026-11-05T10:00:00.000Z")
+        XCTAssertEqual(r.outcome, PriceRefresh.Outcome(updated: 1, total: 3, missing: ["No Quote"], stale: ["Gone Co (GONE.NS)"]))
+        let l = r.list.compactMap { $0 as? [String: Any] }
+        XCTAssertEqual(l[0]["currentPrice"] as? Double, 1234.5)
+        XCTAssertEqual((l[0]["quote"] as? [String: Any])?["fetchedAt"] as? String, "2026-11-05T10:00:00.000Z")
+        XCTAssertEqual((l[0]["shares"] as? NSNumber)?.intValue, 5)         // everything else about the holding is kept
+        XCTAssertEqual((l[1]["currentPrice"] as? NSNumber)?.intValue, 7)   // a zero price changes nothing
+        XCTAssertEqual((l[3]["currentPrice"] as? NSNumber)?.intValue, 3)   // archived is left alone
+        XCTAssertTrue(PriceRefresh.summary(holdings: r.outcome, watchlist: nil).contains("1/3 holdings"))
+    }
 }

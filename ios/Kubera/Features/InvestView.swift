@@ -70,6 +70,7 @@ struct StocksView: View {
     @State private var resultFilter = "all"
     @State private var sort = "value"
     @State private var addingHolding = false
+    @State private var refreshingPrices = false
     @State private var deletingHolding: Stocks.Holding?
     @State private var message: String?
     @State private var showArchived = false
@@ -160,7 +161,10 @@ struct StocksView: View {
                 }
                 .padding(.top, 10)
             }
-            if let message { KNotice(message: message) { self.message = nil } }
+            if let message {
+                if message.hasPrefix("Prices updated") { Label(message, systemImage: "checkmark.circle.fill").font(Theme.footnote.weight(.semibold)).foregroundStyle(Theme.positive).padding(.horizontal, 4) }
+                else { KNotice(message: message) { self.message = nil } }
+            }
             KSectionHeader(title: "Stocks", detail: holdings.count == allHoldings.count ? "\(holdings.count) holdings" : "\(holdings.count) of \(allHoldings.count)")
             KList(items: holdings) { holding in
                 VStack(spacing: 0) {
@@ -210,7 +214,14 @@ struct StocksView: View {
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: "Search name, ticker or sector")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { Button { addingHolding = true } label: { Image(systemName: "plus") } }
+            ToolbarItem(placement: .primaryAction) {
+                HStack(spacing: 14) {
+                    Button { Task { refreshingPrices = true; message = nil; message = await store.refreshPrices(); refreshingPrices = false } } label: {
+                        if refreshingPrices { ProgressView() } else { Image(systemName: "arrow.clockwise") }
+                    }.disabled(refreshingPrices)
+                    Button { addingHolding = true } label: { Image(systemName: "plus") }
+                }
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Menu {
                     Picker("Research call", selection: $callFilter) {

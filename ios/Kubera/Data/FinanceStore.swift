@@ -156,6 +156,42 @@ final class FinanceStore: ObservableObject {
         return await saveRecord("savings", id: account["id"].text, fields: ["stocks": next], original: account, stampUpdated: !account["updatedAt"].isNull, label: label)
     }
 
+    /// Fetches live prices through the Mac and saves them on the holdings and the watchlist, as the Mac's Refresh prices does. The account
+    /// is read fresh with its version just before saving, so a holding added meanwhile is not overwritten. Needs the Mac; returns one sentence.
+    func refreshPrices() async -> String {
+        if mirror?.offline == true { return "Refreshing prices needs your Mac. Connect to it and try again." }
+        let account = data.savingsRaw.array.first { $0["type"].text == "stock_market" && !$0["isArchived"].truthy }
+        let watch = data.watchlistRaw.array
+        let symbols = (account.map { PriceRefresh.symbols($0["stocks"].array) } ?? []) + PriceRefresh.symbols(watch)
+        guard !symbols.isEmpty else { return "Nothing to refresh — no holdings and no watchlist entries." }
+        do {
+            let quoted = try await api.get(path: "api/quote", query: [URLQueryItem(name: "symbols", value: Array(Set(symbols)).sorted().joined(separator: ","))])
+            let now = ISO8601DateFormatter.withMillis.string(from: Date())
+            var holdingsOutcome: PriceRefresh.Outcome?
+            if let account {
+                let fresh = try await api.record("savings", id: account["id"].text)
+                let merged = PriceRefresh.merge(fresh.value["stocks"].array, quotes: quoted["quotes"], stale: quoted["stale"], fetchedAt: now)
+                holdingsOutcome = merged.outcome
+                if merged.outcome.updated > 0 {
+                    if let failure = await api.patchRecord("savings", id: account["id"].text, fields: ["stocks": merged.list, "pricesUpdatedAt": now], version: fresh.version) { return failure }
+                }
+            }
+            var watchOutcome: PriceRefresh.Outcome?
+            if !watch.isEmpty {
+                let merged = PriceRefresh.merge(watch, quotes: quoted["quotes"], stale: quoted["stale"], fetchedAt: now)
+                watchOutcome = merged.outcome
+                for (entry, updated) in zip(watch, merged.list) {
+                    guard let u = updated as? [String: Any], u["currentPrice"] as? Double != entry["currentPrice"].jsNumber || entry["quote"]["fetchedAt"].text != ((u["quote"] as? [String: Any])?["fetchedAt"] as? String ?? "") else { continue }
+                    guard !entry["id"].text.isEmpty, let q = u["quote"], let p = u["currentPrice"] else { continue }
+                    _ = await api.patchRecord("watchlist", id: entry["id"].text, fields: ["currentPrice": p, "quote": q], version: nil)
+                }
+            }
+            if (holdingsOutcome?.updated ?? 0) + (watchOutcome?.updated ?? 0) == 0 { return "No prices were returned, so nothing was changed." }
+            await load()
+            return PriceRefresh.summary(holdings: holdingsOutcome, watchlist: watchOutcome)
+        } catch { return error.localizedDescription }
+    }
+
     /// The stock-market account that holds a holding, so its transactions can be changed.
     func stockAccountId(holding id: String) -> String? {
         data.savingsRaw.array.first { $0["type"].text == "stock_market" && $0["stocks"].array.contains { $0["id"].text == id } }?["id"].text

@@ -1149,6 +1149,11 @@ version-checked record save (the list goes only if the Mac still holds exactly t
 purchase logged from the Expenses page** (`expenseId` / `adoptedByExpense` / `investmentData`) and points to the Mac, so no expense is left pointing at nothing.
 Verified on an isolated copy: add / archive / delete succeed, a stale version is refused, the live account is untouched.
 
+**Refresh prices** (`PriceRefresh`, `FinanceStore.refreshPrices`): the ↻ on the Stocks screen fetches live quotes from the Mac's own `/api/quote`, then
+saves only `currentPrice` and `quote` of each priced holding into the stock account read fresh with its version (so a holding added meanwhile is not
+overwritten) plus `pricesUpdatedAt`, and the same for each watchlist entry — as the Mac's refresh does. A holding with no quote keeps its old price and
+is named; a delisted ticker is named as such. Needs the Mac. The Mac's news-and-AI step after the prices is not on the phone.
+
 **Single card** (`CardDetailView`, `CardBaseline`, `CardBaselineSheet`): a card's page lists its own transactions (newest first; tap to change or
 delete through the same sheets as All Transactions, locks included), + adds one with the card already chosen, and the **Carry-forward baseline**
 row sets the month and opening balance the Mac counts from (a blank opening balance keeps the saved one; turning it off clears both). The

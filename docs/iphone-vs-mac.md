@@ -14,7 +14,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Dashboard | ✅ | — | — | — | Investment ledger quick-add (Mac `handleSaveTransaction`) |
 | Savings | ✅ | ✅ account | 🟡 pencil | ❌ | Archive / unarchive / delete an account; archived list |
 | Investments | ✅ | 🟡 | 🟡 | ❌ | Archive / delete an account, archived list; mutual-fund creation |
-| Stocks (StockMarketDetails) | ✅ + search/filter, archived list | ✅ | ✅ archive/restore | ✅ | Custom columns, "Refresh all prices & news" |
+| Stocks (StockMarketDetails) | ✅ + search/filter, archived list | ✅ | ✅ archive/restore | ✅ | Custom columns, the news-and-AI half of "Refresh prices & news" (prices refresh from the phone) |
 | Stock page | ✅ | ✅ tx | ✅ tx | ✅ tx | — |
 | Loans & Lents | ✅ | ✅ loan, person (new) | ✅ | ❌ | Delete a loan or a person |
 | Person page | ✅ | ✅ tx | ✅ tx | ✅ tx | Delete the person |
