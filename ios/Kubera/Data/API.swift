@@ -167,9 +167,12 @@ struct API {
 
 
     /// The whole `metals` object with its version, so one category can be saved on top of exactly what was read.
-    func metalsWithVersion() async throws -> (value: JSONValue, version: String?) {
+    func metalsWithVersion() async throws -> (value: JSONValue, version: String?) { try await collectionWithVersion("metals") }
+
+    /// A whole collection and the version it is at, for a save that must not overwrite a newer one.
+    func collectionWithVersion(_ name: String) async throws -> (value: JSONValue, version: String?) {
         if mirror?.offline == true { throw APIError.unreachable }
-        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent("metals"))
+        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent(name))
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.cachePolicy = .reloadIgnoringLocalCacheData
         request.timeoutInterval = 20
@@ -183,9 +186,14 @@ struct API {
 
     /// Saves one metals category (its whole list) under the version it was based on. Nil when saved.
     func patchMetals(category: String, items: [Any], version: String?) async -> String? {
-        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent("metals"))
+        await patchCollection("metals", fields: [category: items], version: version, label: "metals")
+    }
+
+    /// Changes only the given top-level keys of a collection, under the version they were based on. Nil when saved.
+    func patchCollection(_ name: String, fields: [String: Any], version: String?, label: String) async -> String? {
+        var request = URLRequest(url: base.appendingPathComponent("_api").appendingPathComponent(name))
         request.httpMethod = "PATCH"
-        guard let json = try? JSONSerialization.data(withJSONObject: [category: items]) else { return "That change could not be encoded." }
+        guard let json = try? JSONSerialization.data(withJSONObject: fields) else { return "That change could not be encoded." }
         request.httpBody = json
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
@@ -198,7 +206,7 @@ struct API {
         switch http.statusCode {
         case 200...299: return nil
         case 401: return APIError.unauthorized.errorDescription
-        case 409: return "Your metals were changed on the Mac since you opened this, so nothing was saved. Reopen it and make your change again."
+        case 409: return "Your \(label) were changed on the Mac since you opened this, so nothing was saved. Reopen it and make your change again."
         default: return (info?["reason"] as? String) ?? (info?["error"] as? String) ?? "Your Mac refused the change (\(http.statusCode)); nothing was changed."
         }
     }

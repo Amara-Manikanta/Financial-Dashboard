@@ -1239,6 +1239,13 @@ stale is refused with 409, other settings untouched — checked on the sandbox).
 Mac's `handleSave` stores it), with **Copy the previous month** as the Mac's button does (only when the previous month is recorded). Custom
 salary fields and deleting a payslip stay on the Mac.
 
+**New expense year** (`YearEditing`, `FinanceStore.addYear`): the calendar button on the Expenses screen initialises a year as the Mac's "Initialize Year"
+does — all twelve months, every category in `appData.categories` at 0, no transactions. Online-only: `expenses` is read with its version, the year is
+checked against what is there now (2000–2100, not already present) and **only that one year** is `PATCH`ed under the version, so the other years are
+never rewritten (stale → 409; verified on the sandbox, live data untouched). When testing a whole-collection write by hand, **read the response body** —
+json-server echoes the 2 MB collection back and the proxy holds its mutation slot until that reply is fully drained, so a client that ignores the body
+makes every later write look hung. Bank-statement import (Excel parsing) stays on the Mac.
+
 **Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
 monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
 percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or

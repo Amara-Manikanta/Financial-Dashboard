@@ -3,6 +3,7 @@ import Charts
 
 struct ExpensesView: View {
     @ObservedObject var store: FinanceStore
+    @State private var newYear = false
 
     var body: some View {
         NavigationStack {
@@ -30,6 +31,8 @@ struct ExpensesView: View {
                 }
             }
             .navigationTitle("Expenses")
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { newYear = true } label: { Label("New year", systemImage: "calendar.badge.plus") } } }
+            .sheet(isPresented: $newYear) { NewYearSheet(store: store) }
             .navigationDestination(for: Int.self) { year in
                 if let summary = store.years.first(where: { $0.year == year }) { YearView(store: store, year: summary) }
             }
@@ -290,6 +293,21 @@ private struct MonthView: View {
                 HStack { Text("Total wallet value").font(Theme.footnote.weight(.bold)).foregroundStyle(Theme.positive); Spacer()
                     Text(Money.rupees(x.wallets.reduce(0) { $0 + $1.balance })).font(Theme.figure).foregroundStyle(.white) }.padding(.top, 6)
             }
+        }
+    }
+}
+
+
+/// Initialise a new expense year (the Mac's "Initialize Year").
+private struct NewYearSheet: View {
+    @ObservedObject var store: FinanceStore
+    @State private var year = String(Calendar.current.component(.year, from: Date()) + 1)
+
+    var body: some View {
+        FormSheet(title: "Initialize year", problems: [YearEditing.validate(year, existing: Set(store.years.map { String($0.year) })).problem].compactMap { $0 }, touched: true, save: {
+            await store.addYear(year)
+        }) {
+            Section { NumberRow(label: "Year", text: $year) } footer: { Text("Creates all twelve months with every category at zero, ready for transactions. Saved on your Mac, so it needs to be reachable.") }
         }
     }
 }

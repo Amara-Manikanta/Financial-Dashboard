@@ -1331,3 +1331,22 @@ final class PayslipEditingTests: XCTestCase {
         XCTAssertEqual(PayslipEditing.unrecorded([jan, feb, mar]), ["February", "March"])
     }
 }
+
+final class YearEditingTests: XCTestCase {
+    func testYearIsValidatedLikeTheMac() {
+        XCTAssertNotNil(YearEditing.validate("1999", existing: []).problem)
+        XCTAssertNotNil(YearEditing.validate("2101", existing: []).problem)
+        XCTAssertNotNil(YearEditing.validate("abc", existing: []).problem)
+        XCTAssertEqual(YearEditing.validate("2026", existing: ["2026"]).problem, "Year 2026 already exists.")
+        XCTAssertEqual(YearEditing.validate(" 2027 ", existing: ["2026"]).year, "2027")
+    }
+
+    func testNewYearHasTwelveEmptyMonthsWithEveryCategoryAtZero() {
+        let y = YearEditing.newYear(categories: ["groceries", "salary"])
+        XCTAssertEqual(y.count, 12)
+        let jan = y["January"] as! [String: Any]
+        XCTAssertEqual((jan["transactions"] as! [Any]).count, 0)
+        XCTAssertEqual((jan["categories"] as! [String: Any]).count, 2)
+        XCTAssertEqual((jan["categories"] as! [String: Any])["groceries"] as? Int, 0)
+    }
+}

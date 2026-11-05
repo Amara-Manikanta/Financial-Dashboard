@@ -97,6 +97,22 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Initialises a new expense year (twelve empty months). Needs the Mac: the year is checked against the expenses as they are there now and
+    /// only that one year is sent, under the collection's version, so nothing else in `expenses` can be overwritten.
+    func addYear(_ text: String) async -> String? {
+        if mirror?.offline == true { return "Starting a new year needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.collectionWithVersion("expenses")
+            let check = YearEditing.validate(text, existing: Set(current.value.object.keys))
+            guard let year = check.year else { return check.problem }
+            let appData = try await api.appDataWithVersion()
+            let categories = appData.value["categories"].array.map(\.text)
+            if let failure = await api.patchCollection("expenses", fields: [year: YearEditing.newYear(categories: categories)], version: current.version, label: "expenses") { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
     /// Saves the insurance profile (age, dependents, income, liabilities). Needs the Mac: it is a settings change, loaded fresh and sent
     /// under its version, and only the `insuranceProfile` key is written so other settings are untouched.
     func saveInsuranceProfile(_ fields: [String: Any]) async -> String? {

@@ -38,7 +38,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 
 | Mac page | View | Add | Edit | Delete | Missing |
 | --- | --- | --- | --- | --- | --- |
-| Expenses (years) | ✅ | ❌ | — | — | Initialize a new year; import a bank statement |
+| Expenses (years) | ✅ | ✅ initialize a year | — | — | Import a bank statement (Excel parsing stays on the Mac) |
 | Month page | ✅ (velocity, card & wallet summaries added; parity-tested all 120 months) | ✅ tx | ✅ tx | ✅ tx | Financial tasks (fixed placeholder list on the Mac) |
 | All transactions | ✅ | ✅ | ✅ | ✅ | Export |
 | Spending analysis | ✅ | — | — | — | — |
@@ -86,5 +86,5 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 5. ~~Stocks list: add / archive / delete a holding~~ — done; savings & investment accounts archive / delete — done.
 6. ~~Budget categories~~ add done (rename / delete stay on the Mac); Grocery builder add/delete — done (rename and linking stay on the Mac).
 7. ~~Account pages on the generic layout~~ — NPS, SGB, savings account, emergency fund and policy are done. savings account, emergency fund, policy (with documents).
-8. ~~Insurance profile and policies~~ — done. Salary employments and new payslips — done. Still to do: new expense year; statement import.
+8. ~~Insurance profile and policies~~ — done. Salary employments and new payslips — done. New expense year — done. Still to do: statement import (stays on the Mac).
 9. Deleting loans, people, cards and tax years (they link to other records, so each needs its own check).
