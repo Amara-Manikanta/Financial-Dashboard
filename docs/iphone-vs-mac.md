@@ -16,8 +16,8 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Investments | ✅ + archived list | 🟡 | ✅ | ✅ archive / restore / delete | Mutual-fund creation |
 | Stocks (StockMarketDetails) | ✅ + search/filter, archived list | ✅ | ✅ archive/restore | ✅ | Custom columns, the news-and-AI half of "Refresh prices & news" (prices refresh from the phone) |
 | Stock page | ✅ | ✅ tx | ✅ tx | ✅ tx | — |
-| Loans & Lents | ✅ | ✅ loan, person (new) | ✅ | ❌ | Delete a loan or a person |
-| Person page | ✅ | ✅ tx | ✅ tx | ✅ tx | Delete the person |
+| Loans & Lents | ✅ | ✅ loan, person (new) | ✅ | ✅ loan; person unless a goal is funded from them | — |
+| Person page | ✅ | ✅ tx | ✅ tx | ✅ tx, person | — |
 
 ## Accounts
 
@@ -43,7 +43,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | All transactions | ✅ | ✅ | ✅ | ✅ | Export |
 | Spending analysis | ✅ | — | — | — | — |
 | Money flow | ✅ | — | 🟡 | — | Classifying categories |
-| Cards list | ✅ | ✅ card (new) | ✅ | ❌ | Delete a card |
+| Cards list | ✅ | ✅ card (new) | ✅ | ✅ only a card with no history | Deleting a card that has transactions (Mac only) |
 | Single card | ✅ history, own transactions | ✅ tx | ✅ tx, baseline | ✅ tx | Statement import; monthly-history records (none exist in your data) |
 | Card intelligence | ✅ | — | — | — | — |
 | Budget limits | ✅ | ✅ main & sub categories | ✅ limits | ❌ | Rename / delete categories (they rewrite past transactions) |
@@ -61,7 +61,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | IPO applications | ✅ | ✅ (new) | ✅ | ✅ | — |
 | Returns, Capital gains, Dividends, Free holdings, Nifty overlap | ✅ | — | — | — | — |
 | Salary | ✅ | ✅ payslip (with copy previous month), employment | ✅ month, employment | ✅ employment | Custom salary fields; deleting a payslip |
-| Taxes | ✅ | ✅ (new) | ✅ | ❌ | Delete a tax year |
+| Taxes | ✅ | ✅ (new) | ✅ | ✅ | — |
 | Goals | ✅ | ✅ (new) | ✅ | ✅ | — |
 | Insurance analysis | ✅ | ✅ policy | ✅ profile, policy details | ✅ policy (archive / delete) | Scanning a policy PDF |
 | Cashflow, Net worth history | ✅ | — | — | — | — |
@@ -87,4 +87,4 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 6. ~~Budget categories~~ add done (rename / delete stay on the Mac); Grocery builder add/delete — done (rename and linking stay on the Mac).
 7. ~~Account pages on the generic layout~~ — NPS, SGB, savings account, emergency fund and policy are done. savings account, emergency fund, policy (with documents).
 8. ~~Insurance profile and policies~~ — done. Salary employments and new payslips — done. New expense year — done. Still to do: statement import (stays on the Mac).
-9. Deleting loans, people, cards and tax years (they link to other records, so each needs its own check).
+9. ~~Deleting loans, people, cards and tax years~~ — done, each with its own check (`RecordDeletion`).

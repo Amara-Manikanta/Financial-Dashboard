@@ -81,7 +81,7 @@ struct RecordEditorView: View {
                     saving = true
                     if let failure = await store.deleteRecord(collection, id: id) { message = failure; saving = false } else { saving = false; dismiss() }
                 } }
-            } message: { Text("This removes it from your Mac.") }
+            } message: { Text(RecordDeletion.warning(collection: collection, record: record, expenses: store.data.expensesRaw)) }
         }
     }
 

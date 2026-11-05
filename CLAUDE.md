@@ -1246,6 +1246,13 @@ never rewritten (stale → 409; verified on the sandbox, live data untouched). W
 json-server echoes the 2 MB collection back and the proxy holds its mutation slot until that reply is fully drained, so a client that ignores the body
 makes every later write look hung. Bank-statement import (Excel parsing) stays on the Mac.
 
+**Deleting a loan, person, card or tax year** (`RecordDeletion`, via the record editor's **Delete this record**): each has its own check, and all are
+online-only, re-read the record for its version and `DELETE` under it. A **tax year** stands alone. A **person** is refused while a goal's
+`fundingSources` uses them. A **card** is refused if any expense or EMI payment names it in `creditCardName` (matched as the Cards pages do), because
+that history would point at nothing — your real cards all have thousands of rows, so those are deleted on the Mac. A **loan** is deleted with its payments;
+the EMI expenses already logged (`emiOrderId`) stay in Expenses, and the confirmation says how many. Verified on the sandbox: stale → 409, fresh → 200,
+live data untouched.
+
 **Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
 monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
 percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or

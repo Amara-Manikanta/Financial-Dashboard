@@ -154,7 +154,7 @@ final class FinanceStore: ObservableObject {
     }
 
     /// Collections whose records stand alone, so deleting one cannot leave another page pointing at nothing.
-    static let deletable: Set<String> = ["goals", "watchlist", "ipoApplications"]
+    static let deletable: Set<String> = Set(["goals", "watchlist", "ipoApplications"]).union(RecordDeletion.collections)
 
     /// Deletes one standalone record, re-reading it first so the version it is removed under is current. Needs the Mac.
     func deleteRecord(_ collection: String, id: String) async -> String? {
@@ -162,6 +162,8 @@ final class FinanceStore: ObservableObject {
         if mirror?.offline == true { return "Deleting needs your Mac. Connect to it and try again." }
         do {
             let current = try await api.record(collection, id: id)
+            if RecordDeletion.collections.contains(collection),
+               let why = RecordDeletion.block(collection: collection, record: current.value, goals: data.goalsRaw, expenses: data.expensesRaw, loans: data.loansRaw) { return why }
             if let failure = await api.deleteRecord(collection, id: id, version: current.version) { return failure }
             await load()
             return nil

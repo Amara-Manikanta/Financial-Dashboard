@@ -1350,3 +1350,28 @@ final class YearEditingTests: XCTestCase {
         XCTAssertEqual((jan["categories"] as! [String: Any])["groceries"] as? Int, 0)
     }
 }
+
+final class RecordDeletionTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    func testAPersonWhoFundsAGoalCannotBeDeleted() {
+        let goals = json(#"[{"name":"House","fundingSources":[{"category":"lent","itemId":"7"},{"category":"mutual_fund","itemId":"9"}]}]"#)
+        XCTAssertNotNil(RecordDeletion.block(collection: "lents", record: json(#"{"id":"7"}"#), goals: goals, expenses: .null, loans: .null))
+        XCTAssertNil(RecordDeletion.block(collection: "lents", record: json(#"{"id":"9"}"#), goals: goals, expenses: .null, loans: .null), "a fund with the same id is not this person")
+    }
+
+    func testACardWithHistoryIsRefusedAndAnUnusedOneIsNot() {
+        let expenses = json(#"{"2026":{"January":{"transactions":[{"creditCardName":"HPCL","amount":5}]}}}"#)
+        let loans = json(#"[{"payments":[{"creditCardName":"Scapia Credit Card"}]}]"#)
+        XCTAssertNotNil(RecordDeletion.block(collection: "creditCards", record: json(#"{"id":"1","name":"HPCL"}"#), goals: .null, expenses: expenses, loans: loans))
+        XCTAssertNotNil(RecordDeletion.block(collection: "creditCards", record: json(#"{"id":"2","name":"Scapia Credit Card"}"#), goals: .null, expenses: expenses, loans: loans))
+        XCTAssertNil(RecordDeletion.block(collection: "creditCards", record: json(#"{"id":"3","name":"Brand New Card"}"#), goals: .null, expenses: expenses, loans: loans))
+    }
+
+    func testLoansAndTaxYearsAreDeletableAndLoanWarningCountsKeptExpenses() {
+        XCTAssertNil(RecordDeletion.block(collection: "taxes", record: json(#"{"id":"1"}"#), goals: .null, expenses: .null, loans: .null))
+        let expenses = json(#"{"2026":{"January":{"transactions":[{"emiOrderId":"loan_1"},{"emiOrderId":"loan_1"},{"emiOrderId":"other"}]}}}"#)
+        let w = RecordDeletion.warning(collection: "loans", record: json(#"{"id":"loan_1","payments":[{},{}]}"#), expenses: expenses)
+        XCTAssertTrue(w.contains("2 recorded payments")); XCTAssertTrue(w.contains("2 EMI expenses already logged stay"))
+    }
+}
