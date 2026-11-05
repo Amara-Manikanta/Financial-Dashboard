@@ -11,8 +11,13 @@ enum PriceRefresh {
 
     static func symbol(_ ticker: String) -> String { ticker.contains(".") ? ticker : ticker + ".NS" }
 
-    /// Entries that can be priced: a ticker, and not archived.
-    static func refreshable(_ entries: [JSONValue]) -> [JSONValue] { entries.filter { $0["ticker"].truthy && !$0["isArchived"].truthy } }
+    /// Whether an entry is worth a quote: a ticker, not archived, and — for a holding — still held. A sold-out holding has no position to
+    /// value. A watchlist entry has no shares at all, so it is always wanted.
+    static func wantsPrice(_ e: JSONValue) -> Bool {
+        e["ticker"].truthy && !e["isArchived"].truthy && (e.object["shares"] == nil || e["shares"].double > 0)
+    }
+
+    static func refreshable(_ entries: [JSONValue]) -> [JSONValue] { entries.filter(wantsPrice) }
 
     static func symbols(_ entries: [JSONValue]) -> [String] { refreshable(entries).map { symbol($0["ticker"].text) } }
 
@@ -22,7 +27,7 @@ enum PriceRefresh {
         var out = Outcome()
         let staleSymbols = Set(stale.array.map { $0["symbol"].text })
         let list: [Any] = entries.map { e in
-            guard e["ticker"].truthy, !e["isArchived"].truthy else { return RecordEditing.foundation(e) }
+            guard wantsPrice(e) else { return RecordEditing.foundation(e) }
             out.total += 1
             let sym = symbol(e["ticker"].text)
             let q = quotes[sym]

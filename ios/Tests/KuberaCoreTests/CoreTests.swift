@@ -1180,6 +1180,8 @@ final class AssetEditingTests: XCTestCase {
                       json("{\"id\":\"4\",\"name\":\"Old\",\"ticker\":\"OLD\",\"isArchived\":true,\"currentPrice\":3}"),
                       json("{\"id\":\"5\",\"name\":\"No ticker\",\"currentPrice\":1}")]
         XCTAssertEqual(PriceRefresh.symbols(stocks), ["INFY.NS", "GONE.NS", "NOQ.BO"])
+        // Sold out (shares 0) is not asked for; a watchlist entry (no shares field) always is.
+        XCTAssertEqual(PriceRefresh.symbols([json("{\"name\":\"Sold\",\"ticker\":\"SOLD\",\"shares\":0}"), json("{\"name\":\"Watch\",\"ticker\":\"WCH\"}")]), ["WCH.NS"])
         let quotes = json("{\"INFY.NS\":{\"price\":1234.5,\"fiftyTwoWeekHigh\":1800},\"GONE.NS\":{\"price\":0}}")
         let stale = json("[{\"symbol\":\"GONE.NS\",\"ageDays\":400}]")
         let r = PriceRefresh.merge(stocks, quotes: quotes, stale: stale, fetchedAt: "2026-11-05T10:00:00.000Z")

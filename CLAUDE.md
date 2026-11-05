@@ -1154,7 +1154,7 @@ history kept) or **Delete**. Delete is refused for the stock account, an account
 page, each with the reason; otherwise it re-reads the record for its version and removes it. Both go through the version-checked record paths.
 
 **Refresh prices** (`PriceRefresh`, `FinanceStore.refreshPrices`): the ↻ on the Stocks screen fetches live quotes from the Mac's own `/api/quote`, then
-saves only `currentPrice` and `quote` of each priced holding into the stock account read fresh with its version (so a holding added meanwhile is not
+saves only `currentPrice` and `quote` of each priced holding (**only holdings still held** — archived and sold-out ones are not asked for, on the phone and on the Mac, as the headline collector already did) into the stock account read fresh with its version (so a holding added meanwhile is not
 overwritten) plus `pricesUpdatedAt`, and the same for each watchlist entry — as the Mac's refresh does. A holding with no quote keeps its old price and
 is named; a delisted ticker is named as such. Needs the Mac. The Mac's news-and-AI step after the prices is not on the phone.
 

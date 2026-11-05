@@ -2716,7 +2716,9 @@ export function FinanceProvider({ children }) {
             // 500 for every ticker, and because each failure fell back to the
             // stored price, a total outage looked exactly like a successful
             // refresh. Failures are now named and surfaced.
-            const refreshable = initialMarket.stocks.filter(s => s && s.ticker && !s.isArchived);
+            // Only what is still held: an archived or sold-out holding has no position to value, so asking for its quote is a wasted
+            // request (and one more symbol that can fail and be reported as "no quote").
+            const refreshable = initialMarket.stocks.filter(s => s && s.ticker && !s.isArchived && Number(s.shares) > 0);
             const symbolFor = (stock) => (stock.ticker.includes('.') ? stock.ticker : `${stock.ticker}.NS`);
             const symbols = refreshable.map(symbolFor);
 
