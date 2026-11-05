@@ -1192,4 +1192,13 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual((l[3]["currentPrice"] as? NSNumber)?.intValue, 3)   // archived is left alone
         XCTAssertTrue(PriceRefresh.summary(holdings: r.outcome, watchlist: nil).contains("1/3 holdings"))
     }
+
+    func testAccountDeleteChecks() {
+        let goals = json("[{\"name\":\"House\",\"fundingSources\":[{\"itemId\":\"7\"}]}]")
+        XCTAssertNotNil(AccountManagement.deleteBlock(account: json("{\"id\":\"1\",\"type\":\"stock_market\"}"), goals: goals))     // the stock account
+        XCTAssertNotNil(AccountManagement.deleteBlock(account: json("{\"id\":\"7\",\"type\":\"mutual_fund\"}"), goals: goals))     // funds a goal
+        XCTAssertNotNil(AccountManagement.deleteBlock(account: json("{\"id\":\"8\",\"type\":\"mutual_fund\",\"transactions\":[{\"expenseId\":\"e\"}]}"), goals: goals))
+        XCTAssertNil(AccountManagement.deleteBlock(account: json("{\"id\":\"9\",\"type\":\"mutual_fund\",\"transactions\":[{\"id\":\"t\"}]}"), goals: goals))
+        XCTAssertEqual(AccountManagement.archiveFields(true)["isArchived"] as? Bool, true)
+    }
 }

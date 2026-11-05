@@ -82,6 +82,24 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Archives or restores a whole savings or investment account (it keeps its history and leaves the main lists).
+    func setAccountArchived(_ account: JSONValue, _ archived: Bool) async -> String? {
+        await saveRecord("savings", id: account["id"].text, fields: AccountManagement.archiveFields(archived), original: account, stampUpdated: !account["updatedAt"].isNull,
+                         label: "\(archived ? "Archive" : "Restore") \(account["title"].text)")
+    }
+
+    /// Deletes a whole account after the checks in `AccountManagement.deleteBlock`. Needs the Mac; re-reads the record for its version first.
+    func deleteAccount(_ account: JSONValue) async -> String? {
+        if let block = AccountManagement.deleteBlock(account: account, goals: data.goalsRaw) { return block }
+        if mirror?.offline == true { return "Deleting needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.record("savings", id: account["id"].text)
+            if let failure = await api.deleteRecord("savings", id: account["id"].text, version: current.version) { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
     /// Collections whose records stand alone, so deleting one cannot leave another page pointing at nothing.
     static let deletable: Set<String> = ["goals", "watchlist", "ipoApplications"]
 

@@ -5,6 +5,7 @@ struct SavingsView: View {
     @ObservedObject var store: FinanceStore
     @Environment(\.openWebPage) private var openWebPage
     @State private var showArchived = false
+    @State private var accountMessage: String?
     @State private var addingAccount = false
 
     private var summary: SavingsPage.Summary { store.savings }
@@ -18,6 +19,7 @@ struct SavingsView: View {
 
     var body: some View {
         KScreen(refresh: { await store.load() }) {
+            if let accountMessage { KNotice(message: accountMessage) { self.accountMessage = nil } }
             KCard(tint: Theme.accent) {
                 KStat(label: "Total savings valuation", value: Money.rupees(summary.totalValue), size: .hero)
                 Text("Combined value of all savings accounts & deposits").font(Theme.footnote).foregroundStyle(Theme.muted)
@@ -60,6 +62,10 @@ struct SavingsView: View {
     private struct GratuityLine: Identifiable { let amount: Double; var id: String { "gratuity" } }
 
     @ViewBuilder private func accountRow(_ account: SavingsPage.Account) -> some View {
+        accountRowBody(account).accountMenu(store, account.id, message: $accountMessage)
+    }
+
+    @ViewBuilder private func accountRowBody(_ account: SavingsPage.Account) -> some View {
         let caption: String? = {
             guard account.showsReturn else { return nil }
             return account.earnsInterest

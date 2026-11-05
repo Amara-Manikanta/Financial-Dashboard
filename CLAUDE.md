@@ -1149,6 +1149,10 @@ version-checked record save (the list goes only if the Mac still holds exactly t
 purchase logged from the Expenses page** (`expenseId` / `adoptedByExpense` / `investmentData`) and points to the Mac, so no expense is left pointing at nothing.
 Verified on an isolated copy: add / archive / delete succeed, a stale version is refused, the live account is untouched.
 
+**Accounts** (`AccountManagement`, `AccountMenu`): long-press an account on the Savings or Investments list for **Archive / Restore** (flips `isArchived`,
+history kept) or **Delete**. Delete is refused for the stock account, an account a goal is funded from, and one holding rows logged from the Expenses
+page, each with the reason; otherwise it re-reads the record for its version and removes it. Both go through the version-checked record paths.
+
 **Refresh prices** (`PriceRefresh`, `FinanceStore.refreshPrices`): the ↻ on the Stocks screen fetches live quotes from the Mac's own `/api/quote`, then
 saves only `currentPrice` and `quote` of each priced holding into the stock account read fresh with its version (so a holding added meanwhile is not
 overwritten) plus `pricesUpdatedAt`, and the same for each watchlist entry — as the Mac's refresh does. A holding with no quote keeps its old price and

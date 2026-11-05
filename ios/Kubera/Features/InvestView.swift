@@ -7,12 +7,14 @@ struct InvestView: View {
     @ObservedObject var store: FinanceStore
     @Environment(\.openWebPage) private var openWebPage
     @State private var showArchived = false
+    @State private var accountMessage: String?
 
     private var summary: InvestmentsPage.Summary { store.investments }
 
     var body: some View {
         NavigationStack {
             KScreen(refresh: { await store.load() }) {
+            if let accountMessage { KNotice(message: accountMessage) { self.accountMessage = nil } }
                 if let message = store.errorMessage { KNotice(message: message) { Task { await store.load() } } }
 
                 KCard(tint: Theme.accent) {
@@ -47,6 +49,10 @@ struct InvestView: View {
     }
 
     @ViewBuilder private func accountRow(_ account: SavingsPage.Account) -> some View {
+        accountRowBody(account).accountMenu(store, account.id, message: $accountMessage)
+    }
+
+    @ViewBuilder private func accountRowBody(_ account: SavingsPage.Account) -> some View {
         let row = KRow(title: account.title, subtitle: account.typeLabel.capitalized, value: Money.rupees(account.value),
                        valueCaption: "\(Fmt.signed(account.gain)) · \(Fmt.percent(account.gainPercent))",
                        captionTone: Tone.of(account.gain), chevron: true)
