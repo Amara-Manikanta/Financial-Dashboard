@@ -800,6 +800,33 @@ final class AccountLedgerTests: XCTestCase {
     }
 }
 
+final class PolicyLedgerTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    func testPolicyUsesTheMacsStatusesAndOnlyToPayIsOutstanding() throws {
+        let specs = AccountLedger.lists(for: "Policy")
+        XCTAssertEqual(specs.map(\.key), ["premiums", "claims", "benefits", "documents"])
+        XCTAssertEqual(specs[0].fields.first { $0.key == "status" }?.kind, .choice(["Paid", "To Pay", "Received", "Received Back"]))
+        XCTAssertEqual(specs[1].fields.first { $0.key == "status" }?.kind, .choice(["Filed", "Under Review", "Approved", "Settled", "Rejected"]))
+        XCTAssertEqual(specs[2].fields.first { $0.key == "status" }?.kind, .choice(["Expected", "Received"]))
+        let acct = json(#"{"policyDetails":{"premiumAmount":100,"premiumPayingTerm":3},"premiums":[{"status":"Paid","amount":100},{"status":"To Pay","amount":100,"dueDate":"2020-01-01"},{"status":"To Pay","amount":50,"dueDate":"2099-01-01"}]}"#)
+        let c = PolicyPage.calcs(acct, today: "2026-11-05")
+        XCTAssertEqual(c.totalPaid, 100); XCTAssertEqual(c.totalToBePaid, 300); XCTAssertEqual(c.remainingToBePaid, 200)
+        XCTAssertEqual(c.overdue, 1); XCTAssertEqual(c.upcoming, 1); XCTAssertEqual(c.pendingAmount, 150); XCTAssertEqual(c.nextDue, "2020-01-01")
+    }
+
+    func testDocumentsAreAddedAndRemovedWithoutTouchingTheRest() throws {
+        let acct = json(#"{"id":"p","type":"Policy","amount":10,"premiums":[{"status":"Paid","amount":10}],"documents":[{"url":"/api/documents/a.pdf","name":"a.pdf"}]}"#)
+        let spec = AccountLedger.lists(for: "Policy")[3]
+        let row = json(#"{"url":"/api/documents/b.pdf","name":"b.pdf"}"#)
+        let added = try AccountLedger.patch(account: acct, spec: spec, change: .add(row)).get()
+        XCTAssertEqual((added["documents"] as? [[String: Any]])?.count, 2)
+        XCTAssertNil(added["premiums"]); XCTAssertNil(added["amount"])
+        let removed = try AccountLedger.patch(account: acct, spec: spec, change: .delete(index: 0, expected: acct["documents"].array[0])).get()
+        XCTAssertEqual((removed["documents"] as? [[String: Any]])?.count, 0)
+    }
+}
+
 final class OfflineTests: XCTestCase {
     private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
 

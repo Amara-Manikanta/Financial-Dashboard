@@ -45,11 +45,19 @@ enum AccountLedger {
             return [ListSpec(key: "transactions", title: "Transactions", fields: [f("date", "Date", .date, required: true), f("type", "Type", .choice(["deposit", "withdraw", "interest", "monnies_redeemed"]), required: true),
                 f("amount", "Amount ₹", .number, required: true), f("remarks", "Remarks")])]
         case "policy", "Policy":
+            // Statuses and kinds are the Mac's own (PolicyPremiumModal / PolicyRecordModal): the page counts only "To Pay" as outstanding.
             return [ListSpec(key: "premiums", title: "Premiums", fields: [f("dueDate", "Due date", .date, required: true), f("paidDate", "Paid date", .date), f("amount", "Amount ₹", .number, required: true),
-                        f("status", "Status", .choice(["Paid", "Pending", "Overdue", "Received Back"]), required: true), f("receiptNo", "Receipt no")]),
-                    ListSpec(key: "claims", title: "Claims", fields: [f("title", "Title", .text, required: true), f("category", "Category"), f("date", "Date", .date), f("amount", "Claimed ₹", .number),
-                        f("status", "Status", .choice(["Open", "Submitted", "Settled", "Rejected"])), f("settledDate", "Settled on", .date), f("settledAmount", "Settled ₹", .number), f("reference", "Reference"), f("notes", "Notes")]),
-                    ListSpec(key: "benefits", title: "Benefits", fields: [f("title", "Title", .text, required: true), f("date", "Date", .date), f("amount", "Amount ₹", .number), f("notes", "Notes")])]
+                        f("status", "Status", .choice(["Paid", "To Pay", "Received", "Received Back"]), required: true), f("receiptNo", "Receipt no")]),
+                    ListSpec(key: "claims", title: "Claims", fields: [f("title", "Claim", .text, required: true),
+                        f("category", "Type", .choice(["Hospitalisation", "OPD / Consultation", "Medicines & Pharmacy", "Dental & Spectacles", "Health Checkup & Diagnostics", "Accident", "Death", "Own Damage", "Theft", "Other"])),
+                        f("status", "Status", .choice(["Filed", "Under Review", "Approved", "Settled", "Rejected"])), f("date", "Claim date", .date), f("amount", "Claimed ₹", .number),
+                        f("settledDate", "Settled on", .date), f("settledAmount", "Settled ₹", .number), f("reference", "Claim no / remarks"), f("notes", "Notes")]),
+                    ListSpec(key: "benefits", title: "Benefits", fields: [f("title", "Benefit", .text, required: true),
+                        f("category", "Type", .choice(["Survival Benefit", "Maturity", "Bonus", "Rider Payout", "Other"])),
+                        f("status", "Status", .choice(["Expected", "Received"])), f("date", "Due / expected", .date), f("amount", "Amount ₹", .number),
+                        f("settledDate", "Received on", .date), f("settledAmount", "Received ₹", .number), f("reference", "Reference / remarks"), f("notes", "Notes")]),
+                    // Uploaded paperwork: rows are added by the upload flow, never by a form.
+                    ListSpec(key: "documents", title: "Documents", fields: [])]
         case "sgb":
             return [ListSpec(key: "holdings", title: "Holdings", fields: [f("issueName", "Issue", .text, required: true), f("issueDate", "Issued", .date), f("maturityDate", "Matures", .date),
                         f("units", "Units (grams)", .number, required: true), f("purchasePrice", "Issue price ₹", .number), f("currentPrice", "Current price ₹", .number)], amountKeys: ["currentPrice"]),

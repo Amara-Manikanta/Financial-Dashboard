@@ -646,6 +646,16 @@ const savingsAccountGolden = db.savings.filter((a) => a.type === 'savings_accoun
         cases: cases.map(([y, m, t]) => ({ year: y, month: m, type: t, ids: sorted(y, m, t).map((tx) => account.transactions.indexOf(tx)), totals: totals(y, m, t) })),
     };
 });
+
+// Policy page: the page's own policyCalcs memo, at the frozen date.
+const policyCalcsBody = slice('src/pages/PolicyDetails.jsx', 'const policyCalcs = useMemo(() => {', '\n    }, [policy]);');
+const policyGolden = { today: new RealDate(frozenMs).toISOString().split('T')[0], items: db.savings.filter((a) => a.type === 'policy' || a.type === 'Policy').map((policy) => {
+    const r = new Function('policy', policyCalcsBody)(policy);
+    return { id: policy.id, totalPaid: r.totalPaid, amountReceivedBack: r.amountReceivedBack, currentValue: r.currentValue, totalAmountToBePaid: r.totalAmountToBePaid,
+        remainingAmountToBePaid: r.remainingAmountToBePaid, pendingAmount: r.pendingAmount ?? 0, overdue: (r.overdue || []).length, upcoming: (r.upcoming || []).length,
+        nextDue: r.nextDue?.dueDate ?? null, benefitsReceived: r.benefitsReceived ?? 0, benefitsExpected: r.benefitsExpected ?? 0, claimsSettled: r.claimsSettled ?? 0,
+        claimsOpen: (r.claimsOpen || []).length, claimsOpenAmount: r.claimsOpenAmount ?? 0 };
+}) };
 const pfGolden = db.savings.filter((a) => a.type === 'pf').map((pf) => {
     const details = pf.details || [];
     const fns = new Function('pf', `const getFinancialYear = (dateStr) => {${pfFns}\nreturn { getFinancialYear, recalculateBalances };`)(pf);
@@ -749,7 +759,7 @@ for (const year of Object.keys(db.expenses || {})) {
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, nps: npsGolden, sgb: sgbGolden, savingsAccount: savingsAccountGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, nps: npsGolden, sgb: sgbGolden, savingsAccount: savingsAccountGolden, policy: policyGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
     months,
     stocks: {
         count: holdings.length,

@@ -22,6 +22,7 @@ struct AccountDetailView: View {
         else if raw["type"].text == "sgb" { SGBView(store: store, accountId: route.id) }
         else if raw["type"].text == "liquid" { EmergencyFundView(store: store, accountId: route.id) }
         else if raw["type"].text == "savings_account" { SavingsAccountView(store: store, accountId: route.id) }
+        else if ["policy", "Policy"].contains(raw["type"].text) { PolicyView(store: store, accountId: route.id) }
         else { generic(raw, p) }
     }
 

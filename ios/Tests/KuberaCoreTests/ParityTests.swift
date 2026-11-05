@@ -1402,3 +1402,30 @@ final class SavingsAccountParityTests: XCTestCase {
         }
     }
 }
+
+
+/// The policy page's totals, pending premiums, benefits and claims against the Mac page's own `policyCalcs`.
+final class PolicyParityTests: XCTestCase {
+    func testPolicyPageMatchesTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["policy"]
+        XCTAssertFalse(web["items"].array.isEmpty, "the golden has no policy")
+        for expected in web["items"].array {
+            let account = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            let c = PolicyPage.calcs(account, today: web["today"].text), id = expected["id"].text
+            XCTAssertEqual(c.totalPaid, expected["totalPaid"].double, accuracy: 0.001, "paid \(id)")
+            XCTAssertEqual(c.amountReceivedBack, expected["amountReceivedBack"].double, accuracy: 0.001, "received back \(id)")
+            XCTAssertEqual(c.currentValue, expected["currentValue"].double, accuracy: 0.001, "value \(id)")
+            XCTAssertEqual(c.totalToBePaid, expected["totalAmountToBePaid"].double, accuracy: 0.001, "to be paid \(id)")
+            XCTAssertEqual(c.remainingToBePaid, expected["remainingAmountToBePaid"].double, accuracy: 0.001, "remaining \(id)")
+            XCTAssertEqual(c.pendingAmount, expected["pendingAmount"].double, accuracy: 0.001, "pending \(id)")
+            XCTAssertEqual(c.overdue, Int(expected["overdue"].double)); XCTAssertEqual(c.upcoming, Int(expected["upcoming"].double))
+            XCTAssertEqual(c.nextDue, expected["nextDue"].isNull ? nil : expected["nextDue"].text, "next due \(id)")
+            XCTAssertEqual(c.benefitsReceived, expected["benefitsReceived"].double, accuracy: 0.001); XCTAssertEqual(c.benefitsExpected, expected["benefitsExpected"].double, accuracy: 0.001)
+            XCTAssertEqual(c.claimsSettled, expected["claimsSettled"].double, accuracy: 0.001, "settled \(id)")
+            XCTAssertEqual(c.claimsOpenCount, Int(expected["claimsOpen"].double)); XCTAssertEqual(c.claimsOpenAmount, expected["claimsOpenAmount"].double, accuracy: 0.001)
+        }
+    }
+}

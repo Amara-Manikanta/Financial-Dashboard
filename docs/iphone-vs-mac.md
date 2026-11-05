@@ -32,7 +32,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Gold bonds (SGB) | ✅ | ✅ holding, interest | ✅ | ✅ | — |
 | Savings account | ✅ filters, totals, earnings by year | ✅ | ✅ | ✅ | Automatic daily-interest credit; editing linked RDs (shown read-only) |
 | Emergency fund | ✅ | ✅ | ✅ | ✅ | — |
-| Policy | 🟡 generic page | ✅ premiums | ✅ | ✅ | Documents & receipts (upload/view), Mac layout |
+| Policy | ✅ | ✅ premiums, benefits, claims, documents | ✅ | ✅ | — (uploading a document needs the Mac) |
 
 ## Spending
 
@@ -85,6 +85,6 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 4. ~~Single card~~ — done (statement import stays on the Mac).
 5. ~~Stocks list: add / archive / delete a holding~~ — done; savings & investment accounts archive / delete — done.
 6. ~~Budget categories~~ add done (rename / delete stay on the Mac); Grocery builder add/delete — done (rename and linking stay on the Mac).
-7. Account pages still on the generic layout (NPS, SGB, savings account, emergency fund done): savings account, emergency fund, policy (with documents).
+7. ~~Account pages on the generic layout~~ — NPS, SGB, savings account, emergency fund and policy are done. savings account, emergency fund, policy (with documents).
 8. Insurance profile and policies; salary employments; new expense year; statement import.
 9. Deleting loans, people, cards and tax years (they link to other records, so each needs its own check).

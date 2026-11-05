@@ -1216,6 +1216,14 @@ the years, filtered rows, totals and earnings against the page's own memos for s
 when the page opens; **the phone does not**, so interest appears on the phone only after the Mac has opened the account. The emergency fund
 (`type: liquid`) shows the balance and deposits/withdrawals oldest first, as the Mac does.
 
+**Policies** (`PolicyPage`, `PolicyView`): laid out as the Mac's `PolicyDetails.jsx` — plan, number and term, contract / remaining / paid /
+received-back / current value, payout schedule and benefit points, a pending or overdue premium alert, premium history, benefits and claims
+with their summaries, and documents & receipts (photo or PDF uploaded to `db/documents`, viewable on the phone; uploading needs the Mac,
+everything else works offline). **Statuses are the Mac's own** — premiums `Paid / To Pay / Received / Received Back`, claims
+`Filed / Under Review / Approved / Settled / Rejected`, benefits `Expected / Received` — because the page counts only `To Pay` as outstanding;
+the phone used to offer `Pending` / `Overdue`, which the Mac never reads, so a premium entered there would have vanished from the alert.
+`PolicyParityTests` checks every policy's totals, pending/overdue split, benefits and claims against the page's own `policyCalcs`.
+
 **Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
 monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
 percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or
