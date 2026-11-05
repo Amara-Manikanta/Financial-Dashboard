@@ -18,6 +18,7 @@ struct PolicyView: View {
     @State private var importing = false
     @State private var photoItem: PhotosPickerItem?
     @State private var busy = false
+    @State private var editingDetails = false
 
     private struct SheetRoute: Identifiable { let id = UUID(); let spec: Int; let index: Int?; let row: JSONValue? }
     private struct Deletion { let spec: Int; let index: Int; let row: JSONValue; let what: String }
@@ -146,7 +147,8 @@ struct PolicyView: View {
         }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.large)
-        .toolbar { EditRecordButton(store: store, collection: "savings", id: accountId, title: title) }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { Button { editingDetails = true } label: { Image(systemName: "pencil") } } }
+        .sheet(isPresented: $editingDetails) { PolicySheet(store: store, editing: account) }
         .sheet(item: $sheet) { r in LedgerRowSheet(store: store, accountId: accountId, type: "policy", spec: specs[r.spec], parentIndex: nil, index: r.index, editing: r.row) }
         .sheet(item: Binding(get: { viewing.map { ViewerRoute(doc: $0) } }, set: { if $0 == nil { viewing = nil } })) { DocumentViewer(store: store, receipt: $0.doc) }
         .photosPicker(isPresented: $picking, selection: $photoItem, matching: .images)

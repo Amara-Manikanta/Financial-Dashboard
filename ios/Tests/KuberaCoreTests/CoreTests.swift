@@ -1256,3 +1256,38 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual(GroceryEditing.deletingCategory("Milk Products", from: d), [:])
     }
 }
+
+final class InsuranceEditingTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    func testProfileFollowsJavaScriptNumberOrFallback() {
+        let p = InsuranceEditing.profileFields(age: "", dependents: "", income: "1,800,000", liabilities: "abc")
+        XCTAssertEqual(p["age"] as? Double, 30); XCTAssertEqual(p["dependents"] as? Double, 0)
+        XCTAssertEqual(p["annualIncome"] as? Double, 1_800_000); XCTAssertEqual(p["liabilities"] as? Double, 0)
+    }
+
+    func testEditingKeepsEverythingTheFormDoesNotShow() {
+        let policy = json(#"{"id":"p","type":"Policy","title":"Old","amount":1,"premiums":[{"status":"Paid","amount":5}],"documents":[{"url":"/x.pdf"}],"policyDetails":{"planName":"Old","taxBenefit":"80C","planDetails":"Survival","premiumPayingTerm":15,"policyTerm":"Whole Life (100 Years)","insurer":"LIC","sumAssured":500000,"benefitPoints":["a"]}}"#)
+        var f = InsuranceEditing.form(from: policy)
+        XCTAssertEqual(f.policyTerm, "Whole Life (100 Years)"); XCTAssertEqual(f.premiumPayingTerm, "15"); XCTAssertEqual(f.sumAssured, "500000")
+        f.planName = "New"; f.sumAssured = "600000"; f.benefitPoints = ["a", "  ", "b "]
+        let r = InsuranceEditing.fields(f, editing: policy, now: "2026-11-05T00:00:00.000Z")
+        XCTAssertEqual(r["title"] as? String, "New"); XCTAssertEqual(r["amount"] as? Double, 600000)
+        XCTAssertNil(r["premiums"]); XCTAssertNil(r["documents"])   // untouched fields are not in the patch at all
+        let d = r["policyDetails"] as! [String: Any]
+        XCTAssertEqual(d["taxBenefit"] as? String, "80C"); XCTAssertEqual(d["planDetails"] as? String, "Survival")
+        XCTAssertEqual(d["policyTerm"] as? String, "Whole Life (100 Years)"); XCTAssertEqual(d["premiumPayingTerm"] as? Double, 15)
+        XCTAssertEqual(d["benefitPoints"] as? [String], ["a", "b"]); XCTAssertEqual(d["status"] as? String, "Active")
+        XCTAssertEqual(d["maturityDate"] as? String, d["expiryDate"] as? String)
+    }
+
+    func testNewPolicyUsesTheMacsDefaultsAndBlanksVehicleForNonVehicles() {
+        var f = InsuranceEditing.Form(); f.category = "health"; f.planName = "Family floater"; f.sumAssured = "1000000"; f.vehicleNo = "KA01"
+        XCTAssertTrue(InsuranceEditing.problems(f).isEmpty)
+        let r = InsuranceEditing.newPolicy(f, id: "pol_1", now: "t")
+        XCTAssertEqual(r["type"] as? String, "Policy"); XCTAssertEqual(r["id"] as? String, "pol_1")
+        let d = r["policyDetails"] as! [String: Any]
+        XCTAssertEqual(d["insurer"] as? String, "General Insurance"); XCTAssertEqual(d["policyNumber"] as? String, "POL-UNSPECIFIED"); XCTAssertEqual(d["vehicleNo"] as? String, "")
+        XCTAssertFalse(InsuranceEditing.problems(InsuranceEditing.Form()).isEmpty)
+    }
+}

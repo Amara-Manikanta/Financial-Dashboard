@@ -82,6 +82,28 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Saves the insurance profile (age, dependents, income, liabilities). Needs the Mac: it is a settings change, loaded fresh and sent
+    /// under its version, and only the `insuranceProfile` key is written so other settings are untouched.
+    func saveInsuranceProfile(_ fields: [String: Any]) async -> String? {
+        if mirror?.offline == true { return "Changing the insurance profile needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.appDataWithVersion()
+            if let failure = await api.patchAppData(fields: ["insuranceProfile": fields], version: current.version) { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
+    /// Adds a policy (works offline like any new account) or changes one's own details, keeping everything else on the record.
+    func savePolicy(_ form: InsuranceEditing.Form, editing: JSONValue?) async -> String? {
+        let now = ISO8601DateFormatter.withMillis.string(from: Date())
+        if let editing, !editing.isNull {
+            var fields = InsuranceEditing.fields(form, editing: editing, now: now); fields["updatedAt"] = nil
+            return await saveRecord("savings", id: editing["id"].text, fields: fields, original: editing, stampUpdated: true, label: "Change policy \(form.planName)")
+        }
+        return await createAccount(InsuranceEditing.newPolicy(form, id: "pol_\(Int(Date().timeIntervalSince1970 * 1000))", now: now))
+    }
+
     /// Archives or restores a whole savings or investment account (it keeps its history and leaves the main lists).
     func setAccountArchived(_ account: JSONValue, _ archived: Bool) async -> String? {
         await saveRecord("savings", id: account["id"].text, fields: AccountManagement.archiveFields(archived), original: account, stampUpdated: !account["updatedAt"].isNull,

@@ -63,7 +63,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Salary | ✅ | ❌ new month | ✅ month | ❌ | Employments, custom salary fields |
 | Taxes | ✅ | ✅ (new) | ✅ | ❌ | Delete a tax year |
 | Goals | ✅ | ✅ (new) | ✅ | ✅ | — |
-| Insurance analysis | ✅ | ❌ | ❌ | ❌ | Financial & family profile, add/delete policies |
+| Insurance analysis | ✅ | ✅ policy | ✅ profile, policy details | ✅ policy (archive / delete) | Scanning a policy PDF |
 | Cashflow, Net worth history | ✅ | — | — | — | — |
 
 ## Gold, silver, assets
@@ -86,5 +86,5 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 5. ~~Stocks list: add / archive / delete a holding~~ — done; savings & investment accounts archive / delete — done.
 6. ~~Budget categories~~ add done (rename / delete stay on the Mac); Grocery builder add/delete — done (rename and linking stay on the Mac).
 7. ~~Account pages on the generic layout~~ — NPS, SGB, savings account, emergency fund and policy are done. savings account, emergency fund, policy (with documents).
-8. Insurance profile and policies; salary employments; new expense year; statement import.
+8. ~~Insurance profile and policies~~ — done. Still to do: salary employments; new expense year; statement import.
 9. Deleting loans, people, cards and tax years (they link to other records, so each needs its own check).

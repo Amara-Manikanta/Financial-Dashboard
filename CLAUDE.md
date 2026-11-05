@@ -1224,6 +1224,13 @@ everything else works offline). **Statuses are the Mac's own** — premiums `Pai
 the phone used to offer `Pending` / `Overdue`, which the Mac never reads, so a premium entered there would have vanished from the alert.
 `PolicyParityTests` checks every policy's totals, pending/overdue split, benefits and claims against the page's own `policyCalcs`.
 
+**Insurance analysis editing** (`InsuranceEditing`, `InsuranceProfileSheet`, `PolicySheet`): **Edit** beside the profile sentence changes age, dependents,
+income and liabilities (`PATCH /appData { insuranceProfile }` under `appData`'s version, online-only, so a stale phone is refused and other settings are
+untouched); **+** adds a policy (`POST /savings`, offline-capable like any new account) and the pencil on a policy's page changes its own details. Rows
+open the policy page, and long-press archives or deletes through the same checks as the account lists. A policy edit sends only `title`, `amount` and
+`policyDetails` — merged over the existing details, as the Mac's `PolicyScannerModal` spreads the old record first — so premiums, benefits, claims
+and documents are never in the patch. Not on the phone: scanning a policy PDF into the form.
+
 **Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
 monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
 percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or
