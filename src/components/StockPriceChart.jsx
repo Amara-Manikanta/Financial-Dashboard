@@ -67,19 +67,18 @@ const StockPriceChart = ({ symbol, avgCost, transactions = [] }) => {
     const stroke = up ? '#34d399' : '#f87171';
 
     return (
-        <div style={{ marginTop: '2rem', padding: '1.25rem', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 10 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <TrendingUp size={18} style={{ color: stroke }} />
-                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: 'white' }}>Price history</h3>
+        <div className="mt-8 p-5 rounded-2xl border border-white/10 bg-white/[0.02]">
+            <div className="flex items-center justify-between gap-3 flex-wrap mb-2.5">
+                <div className="flex items-center gap-2">
+                    <TrendingUp size={18} className={up ? 'text-emerald-400' : 'text-rose-400'} />
+                    <h3 className="m-0 text-base font-black text-white">Price history</h3>
                 </div>
-                <div style={{ display: 'flex', gap: 6 }}>
+                <div className="flex gap-1.5">
                     {RANGES.map((r) => (
                         <button key={r.id} type="button" onClick={() => setRange(r.id)}
-                            style={{ padding: '4px 10px', borderRadius: 8, fontSize: 11, fontWeight: 900, cursor: 'pointer',
-                                border: `1px solid ${range === r.id ? 'rgba(129,140,248,0.6)' : 'rgba(255,255,255,0.1)'}`,
-                                background: range === r.id ? 'rgba(99,102,241,0.2)' : 'rgba(255,255,255,0.04)',
-                                color: range === r.id ? '#c7d2fe' : '#a1a1aa' }}>
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-black cursor-pointer border ${range === r.id
+                                ? 'border-indigo-400/60 bg-indigo-500/20 text-indigo-200'
+                                : 'border-white/10 bg-white/[0.04] text-zinc-400'}`}>
                             {r.label}
                         </button>
                     ))}
@@ -87,21 +86,21 @@ const StockPriceChart = ({ symbol, avgCost, transactions = [] }) => {
             </div>
 
             {stats && (
-                <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', fontSize: 12, color: '#a1a1aa', marginBottom: 10 }}>
-                    <span style={{ color: stroke, fontWeight: 900 }}>{stats.change >= 0 ? '+' : ''}{stats.change.toFixed(1)}% over the range</span>
+                <div className="flex gap-4 flex-wrap text-xs text-zinc-400 mb-2.5">
+                    <span className={`font-black ${up ? 'text-emerald-400' : 'text-rose-400'}`}>{stats.change >= 0 ? '+' : ''}{stats.change.toFixed(1)}% over the range</span>
                     <span>High {money(stats.high)}</span>
                     <span>Low {money(stats.low)}</span>
                     <span>Last close {money(stats.last)}</span>
-                    {avgCost > 0 && <span style={{ color: '#fbbf24' }}>Your average {money(avgCost)}</span>}
+                    {avgCost > 0 && <span className="text-amber-400">Your average {money(avgCost)}</span>}
                 </div>
             )}
 
             {error ? (
-                <p style={{ fontSize: 12, color: '#f87171', margin: '1rem 0' }}>Could not load the price history ({error}).</p>
+                <p className="text-xs text-rose-400 my-4">Could not load the price history ({error}).</p>
             ) : !closes ? (
-                <p style={{ fontSize: 12, color: '#71717a', margin: '1rem 0' }}>Loading…</p>
+                <p className="text-xs text-zinc-500 my-4">Loading…</p>
             ) : series.length < 2 ? (
-                <p style={{ fontSize: 12, color: '#71717a', margin: '1rem 0' }}>Not enough price history for this stock in this range.</p>
+                <p className="text-xs text-zinc-500 my-4">Not enough price history for this stock in this range.</p>
             ) : (
                 <ResponsiveContainer width="100%" height={260}>
                     <LineChart data={series} margin={{ top: 8, right: 12, left: -8, bottom: 4 }}>
@@ -109,13 +108,14 @@ const StockPriceChart = ({ symbol, avgCost, transactions = [] }) => {
                         <XAxis dataKey="date" tick={{ fill: '#71717a', fontSize: 10 }} tickFormatter={(d) => day(d)} minTickGap={48} />
                         <YAxis domain={['auto', 'auto']} tick={{ fill: '#71717a', fontSize: 10 }} width={56} tickFormatter={(v) => Number(v).toFixed(0)} />
                         <Tooltip {...tooltipTheme} separator=" " formatter={(v) => [money(v), 'Close']} labelFormatter={(d) => day(d)} />
-                        {avgCost > 0 && <ReferenceLine y={avgCost} stroke="#fbbf24" strokeDasharray="5 4" />}
+                        {/* extendDomain: a purchase or an average outside the closes' range widens the axis rather than disappearing. */}
+                        {avgCost > 0 && <ReferenceLine y={avgCost} stroke="#fbbf24" strokeDasharray="5 4" ifOverflow="extendDomain" />}
                         <Line type="monotone" dataKey="close" stroke={stroke} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
-                        {buys.map((b, i) => <ReferenceDot key={i} x={b.x} y={b.y} r={4} fill="#818cf8" stroke="#0a0a0c" />)}
+                        {buys.map((b, i) => <ReferenceDot key={i} x={b.x} y={b.y} r={4} fill="#818cf8" stroke="#0a0a0c" ifOverflow="extendDomain" />)}
                     </LineChart>
                 </ResponsiveContainer>
             )}
-            <p style={{ margin: '8px 0 0', fontSize: 10, color: '#52525b' }}>
+            <p className="mt-2 mb-0 text-[10px] text-zinc-600">
                 Daily closing price (Yahoo). The dashed line is your average cost; purple dots are the days you bought, at the price you paid.
             </p>
         </div>

@@ -101,3 +101,20 @@ test('the holdings file lists current holdings only and is rewritten only when i
     writeHoldingsFile({ dbFile, now: new Date('2026-11-02T05:45:00Z') });
     assert.equal(Math.round((Date.now() - fs.statSync(file).mtimeMs) / 60000), 10);
 });
+
+test('the holdings file follows the database and the saved calls, and is left alone when neither changed', () => {
+    const { dbFile } = setup();
+    const file = writeHoldingsFile({ dbFile, now: new Date('2026-11-02T04:45:00Z') });
+    const first = fs.statSync(file).mtimeMs;
+    // Nothing changed: no rewrite.
+    writeHoldingsFile({ dbFile, now: new Date('2026-11-02T04:50:00Z') });
+    assert.equal(fs.statSync(file).mtimeMs, first);
+    // The database changed (a new price): the file follows.
+    const db = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+    db.savings[0].stocks[0].currentPrice = 1234.5;
+    fs.writeFileSync(dbFile, JSON.stringify(db));
+    const later = new Date(Date.now() + 5000);
+    fs.utimesSync(dbFile, later, later);
+    writeHoldingsFile({ dbFile, now: new Date('2026-11-02T04:55:00Z') });
+    assert.match(fs.readFileSync(file, 'utf8'), /1,234\.5/);
+});

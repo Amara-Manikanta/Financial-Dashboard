@@ -1082,4 +1082,13 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertTrue(DividendReminders.opensDividends(identifier: DividendReminders.Reminder(year: 2026, month: 11, title: "", body: "").id, userInfo: [:]))
         XCTAssertFalse(DividendReminders.opensDividends(identifier: "something.else", userInfo: [:]))
     }
+
+    func testReplanKeepsAPendingLateReminderWhileRemindersAreOn() {
+        let id = DividendReminders.Reminder(year: 2026, month: 11, title: "", body: "").id
+        let pending = [id, id + DividendReminders.lateSuffix, "other.app.thing"]
+        // On: this month's late one stays so it can fire; the regular one is replaced; others are never touched.
+        XCTAssertEqual(DividendReminders.idsToRemove(pending: pending, enabled: true), [id])
+        // Off: everything of ours goes, late included.
+        XCTAssertEqual(Set(DividendReminders.idsToRemove(pending: pending, enabled: false)), Set([id, id + DividendReminders.lateSuffix]))
+    }
 }

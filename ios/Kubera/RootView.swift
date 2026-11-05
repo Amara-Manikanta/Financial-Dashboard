@@ -73,8 +73,8 @@ private struct PairedRoot: View {
         }
         .task { await store.load() }
         // A tapped notification asks for a screen; every screen opens from the More tab's stack.
-        .onChange(of: link.screen) { _, s in if s != nil { tab = .more } }
-        .onAppear { if link.screen != nil { tab = .more } }
+        .onChange(of: link.screen) { _, _ in if link.isFresh { tab = .more } }
+        .onAppear { if link.isFresh { tab = .more } }
         .onChange(of: store.loadedAt) { _, _ in Task { await DividendNotifier.shared.refresh(store: store) } }
     }
 }

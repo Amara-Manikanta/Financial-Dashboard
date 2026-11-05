@@ -11,7 +11,7 @@
 import fs from 'fs';
 import path from 'path';
 import { parseResearch, matchHoldings } from './src/utils/researchImport.js';
-import { listInbox, readInboxFile, archiveInboxFile, saveSnapshot, readSnapshots, readSettings, dateInName, inboxDirectory } from './strategy.js';
+import { listInbox, readInboxFile, archiveInboxFile, saveSnapshot, readSnapshots, snapshotsSignature, readSettings, dateInName, inboxDirectory } from './strategy.js';
 import { promptHoldings, holdingsMarkdown } from './src/utils/researchPrompt.js';
 import { latestCalls } from './src/utils/researchImport.js';
 
@@ -84,9 +84,16 @@ export const holdingsFilePath = () => (inboxDirectory() ? path.join(path.dirname
  * content changed (the timestamp does not count), so the file's modified time means
  * something. Returns the path, or null when storage is not configured.
  */
-export const writeHoldingsFile = ({ dbFile, now = new Date() } = {}) => {
+let lastInputs = '';
+
+export const writeHoldingsFile = ({ dbFile, now = new Date(), force = false } = {}) => {
     const file = holdingsFilePath();
     if (!file) return null;
+    // The file only depends on the database and the saved calls, so when neither has been touched there is nothing to read:
+    // the timer would otherwise parse the whole database and every saved day every two minutes for no change.
+    const inputs = `${file}|${fs.statSync(dbFile).mtimeMs}|${snapshotsSignature()}|${istParts(now).day}`;
+    if (!force && inputs === lastInputs && fs.existsSync(file)) return file;
+    lastInputs = inputs;
     const db = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
     const account = (db.savings || []).find((s) => s.type === 'stock_market' && !s.isArchived);
     const stocks = (account?.stocks || []).filter((s) => (s.owner || 'self') === 'self');

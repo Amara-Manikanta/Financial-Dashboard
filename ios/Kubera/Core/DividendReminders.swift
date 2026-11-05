@@ -12,6 +12,13 @@ enum DividendReminders {
     }
 
     static let idPrefix = "kubera.dividends."
+    static let lateSuffix = ".late"
+
+    /// Which scheduled dividend reminders a re-plan should delete. A "late" reminder (this month's, sent a minute after the app
+    /// noticed 9:00 had passed) is kept while reminders are on: deleting it on the next refresh would cancel it before it fires.
+    static func idsToRemove(pending: [String], enabled: Bool) -> [String] {
+        pending.filter { $0.hasPrefix(idPrefix) && !(enabled && $0.hasSuffix(lateSuffix)) }
+    }
 
     /// Whether a notification is a dividend reminder, and so should open the Dividend Income page when tapped. Matched on the id
     /// as well as the payload, so a reminder scheduled by an earlier version of the app (which carried no payload) still does.

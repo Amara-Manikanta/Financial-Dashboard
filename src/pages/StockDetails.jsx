@@ -4,6 +4,8 @@ import { useFinance, API_URL } from '../context/FinanceContext';
 import { callHistory } from '../utils/researchImport';
 import { BarChart3 } from 'lucide-react';
 import StockPriceChart from '../components/StockPriceChart';
+
+const RESEARCH_TONE = { BUY: 'text-emerald-500', ACCUMULATE: 'text-emerald-400', HOLD: 'text-zinc-400', REVIEW: 'text-amber-400', SELL: 'text-rose-400' };
 import { ArrowLeft, TrendingUp, Plus, Edit2, Trash2, X, Save, TrendingDown } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import { formatDate } from '../utils/dateUtils';
@@ -781,14 +783,14 @@ const StockDetails = () => {
             )}
 
             {priceDistribution.length > 0 && (
-                <div style={{ marginTop: '2rem', padding: '1.25rem', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                        <BarChart3 size={18} style={{ color: '#34d399' }} />
-                        <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 900, color: 'white' }}>Invested by price level</h3>
+                <div className="mt-8 p-5 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <div className="flex items-center gap-2 mb-1.5">
+                        <BarChart3 size={18} className="text-emerald-400" />
+                        <h3 className="m-0 text-base font-black text-white">Invested by price level</h3>
                     </div>
-                    <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12, color: '#71717a', marginBottom: 12 }}>
-                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#34d399', marginRight: 6 }} />Bought below your {position.avgCost.toFixed(2)} average</span>
-                        <span><span style={{ display: 'inline-block', width: 10, height: 10, borderRadius: 2, background: '#fbbf24', marginRight: 6 }} />Bought above it</span>
+                    <div className="flex gap-4 flex-wrap text-xs text-zinc-500 mb-3">
+                        <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-emerald-400 mr-1.5" />Bought below your {position.avgCost.toFixed(2)} average</span>
+                        <span><span className="inline-block w-2.5 h-2.5 rounded-sm bg-amber-400 mr-1.5" />Bought above it</span>
                         {stock.currentPrice > 0 && <span>Price now {Number(stock.currentPrice).toFixed(2)}</span>}
                     </div>
                     <ResponsiveContainer width="100%" height={240}>
@@ -814,20 +816,20 @@ const StockDetails = () => {
             )}
 
             {researchRow && (
-                <div style={{ marginTop: '2rem', padding: '1.25rem', borderRadius: 16, border: '1px solid rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.02)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: 1, textTransform: 'uppercase', color: '#a1a1aa' }}>Research call</span>
-                        <span style={{ padding: '2px 10px', borderRadius: 6, fontSize: 12, fontWeight: 900, color: { BUY: '#10b981', ACCUMULATE: '#34d399', HOLD: '#a1a1aa', REVIEW: '#f59e0b', SELL: '#f43f5e' }[researchRow.call] || '#a1a1aa', border: '1px solid currentColor' }}>{researchRow.call}</span>
-                        {researchRow.confidence && <span style={{ fontSize: 11, color: '#71717a' }}>{researchRow.confidence} confidence</span>}
-                        <span style={{ fontSize: 11, color: '#71717a' }}>as of {formatDate(researchRow.date)}</span>
+                <div className="mt-8 p-5 rounded-2xl border border-white/10 bg-white/[0.02]">
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className="text-[11px] font-black tracking-wider uppercase text-zinc-400">Research call</span>
+                        <span className={`px-2.5 py-0.5 rounded-md text-xs font-black border border-current ${RESEARCH_TONE[researchRow.call] || 'text-zinc-400'}`}>{researchRow.call}</span>
+                        {researchRow.confidence && <span className="text-[11px] text-zinc-500">{researchRow.confidence} confidence</span>}
+                        <span className="text-[11px] text-zinc-500">as of {formatDate(researchRow.date)}</span>
                     </div>
-                    {researchRow.reason && <p style={{ marginTop: 10, fontSize: 13, color: '#d4d4d8', lineHeight: 1.5 }}>{researchRow.reason}</p>}
-                    {researchRow.news && <p style={{ marginTop: 8, fontSize: 12, color: '#a1a1aa', lineHeight: 1.5 }}><b>News:</b> {researchRow.news}</p>}
-                    {researchRow.trigger && <p style={{ marginTop: 8, fontSize: 12, color: '#a1a1aa', lineHeight: 1.5 }}><b>What would change this:</b> {researchRow.trigger}</p>}
+                    {researchRow.reason && <p className="mt-2.5 mb-0 text-[13px] text-zinc-300 leading-normal">{researchRow.reason}</p>}
+                    {researchRow.news && <p className="mt-2 mb-0 text-xs text-zinc-400 leading-normal"><b>News:</b> {researchRow.news}</p>}
+                    {researchRow.trigger && <p className="mt-2 mb-0 text-xs text-zinc-400 leading-normal"><b>What would change this:</b> {researchRow.trigger}</p>}
                     {researchChanges.length > 1 && (
-                        <p style={{ marginTop: 10, fontSize: 11, color: '#71717a' }}>History: {researchChanges.map((h) => `${formatDate(h.date)} ${h.call}`).join(' → ')}</p>
+                        <p className="mt-2.5 mb-0 text-[11px] text-zinc-500">History: {researchChanges.map((h) => `${formatDate(h.date)} ${h.call}`).join(' → ')}</p>
                     )}
-                    <p style={{ marginTop: 10, fontSize: 10, color: '#52525b' }}>Outside research, a second opinion to read — not advice, and it never changes this holding.</p>
+                    <p className="mt-2.5 mb-0 text-[10px] text-zinc-600">Outside research, a second opinion to read — not advice, and it never changes this holding.</p>
                 </div>
             )}
 

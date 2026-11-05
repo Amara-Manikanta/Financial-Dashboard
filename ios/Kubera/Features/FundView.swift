@@ -10,8 +10,6 @@ struct FundView: View {
     let accountId: String
 
     @State private var year = "All"
-    @State private var planned = ""
-    @State private var target = ""
     @State private var sheet: SheetRoute?
     @State private var deleting: FundPage.Tx?
     @State private var message: String?
@@ -36,8 +34,6 @@ struct FundView: View {
         let title = [raw["title"], raw["name"]].first { $0.truthy }?.text ?? "Mutual fund"
         let selected = page.years.contains(year) ? year : "All"
         let rows = FundPage.rows(page, year: selected)
-        let more = FundPage.investMore(page, amount: number(planned))
-        let atTarget = FundPage.atTarget(page, target: number(target), planned: more)
 
         KScreen(refresh: { await store.load() }) {
             if let message { KNotice(message: message) { self.message = nil } }
@@ -55,7 +51,7 @@ struct FundView: View {
             .padding(.horizontal, 4)
 
             stats(page)
-            calculators(page, more: more, atTarget: atTarget)
+            FundCalculators(page: page)
             bandsCard(page)
             yearlyCard(page)
 
@@ -133,52 +129,6 @@ struct FundView: View {
         }
     }
 
-    // MARK: What-if calculators
-
-    @ViewBuilder private func calculators(_ p: FundPage.Page, more: FundPage.MoreToday?, atTarget: FundPage.AtTarget?) -> some View {
-        KSectionHeader(title: "If I invest more today", detail: "nothing is saved")
-        KCard {
-            field("Amount to invest ₹", $planned)
-            if let m = more {
-                HStack(alignment: .top) {
-                    KStat(label: "Units you'd get", value: String(format: "%.3f", m.unitsGained))
-                    Spacer()
-                    KStat(label: "Units after", value: String(format: "%.3f", m.newUnits))
-                }.padding(.top, 8)
-                KStat(label: "New average NAV", value: String(format: "%.4f", m.newAvgNav), tone: m.change <= 0 ? .positive : .warning,
-                      caption: m.change == 0 ? "unchanged" : String(format: "%@%.4f vs %.4f now", m.change < 0 ? "−" : "+", abs(m.change), p.avgNav)).padding(.top, 6)
-                Text(m.change < 0 ? "Today's NAV is below your average of \(String(format: "%.4f", p.avgNav)), so this pulls it down."
-                                  : "Today's NAV is above your average of \(String(format: "%.4f", p.avgNav)), so this pushes it up.")
-                    .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 4)
-            } else {
-                Text("Enter an amount to see the effect on your average.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 6)
-            }
-        }
-        KSectionHeader(title: "If the NAV reaches…", detail: more != nil ? "counts the amount above" : nil)
-        KCard {
-            field("Target NAV ₹", $target)
-            if let t = atTarget {
-                HStack(alignment: .top) {
-                    KStat(label: "Position then", value: Money.rupees(t.value))
-                    Spacer()
-                    KStat(label: "Profit / loss", value: signed(t.profit), tone: t.profit >= 0 ? .positive : .negative, caption: Fmt.percent(t.percent))
-                }.padding(.top, 8)
-                Text("On \(String(format: "%.3f", t.units)) units that cost \(Money.rupees(t.cost)). Break-even NAV \(String(format: "%.4f", t.breakEven)).")
-                    .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 4)
-            } else {
-                Text("Enter a NAV to see the profit or loss at that level.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 6)
-            }
-        }
-    }
-
-    private func field(_ label: String, _ text: Binding<String>) -> some View {
-        HStack {
-            Text(label).font(Theme.footnote).foregroundStyle(Theme.muted)
-            Spacer()
-            TextField("0", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing).font(Theme.figure).frame(maxWidth: 140)
-        }
-    }
-
     // MARK: Charts
 
     @ViewBuilder private func bandsCard(_ p: FundPage.Page) -> some View {
@@ -250,6 +200,66 @@ struct FundView: View {
                 Text(t.isSell ? "Profit \(signed(t.profit))" : "Now \(Money.rupees(t.value))").font(Theme.footnote).foregroundStyle(Theme.muted)
                 Text(signed(t.profit)).font(Theme.footnote.weight(.bold)).foregroundStyle(t.profit >= 0 ? up : down)
             }
+        }
+    }
+}
+
+/// The two "what if" calculators. Their own view, so typing a figure redraws only these cards — not the whole fund page,
+/// which is worked out from the account and only changes when the account does.
+private struct FundCalculators: View {
+    let page: FundPage.Page
+    @State private var planned = ""
+    @State private var target = ""
+
+    private func number(_ s: String) -> Double { Double(s.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: "")) ?? 0 }
+    private func signed(_ v: Double) -> String { (v >= 0 ? "+" : "−") + Money.rupees(abs(v)) }
+
+    var body: some View {
+        let p = page
+        let more = FundPage.investMore(p, amount: number(planned))
+        let atTarget = FundPage.atTarget(p, target: number(target), planned: more)
+        return VStack(alignment: .leading, spacing: Theme.sectionSpacing) {
+        KSectionHeader(title: "If I invest more today", detail: "nothing is saved")
+        KCard {
+            field("Amount to invest ₹", $planned)
+            if let m = more {
+                HStack(alignment: .top) {
+                    KStat(label: "Units you'd get", value: String(format: "%.3f", m.unitsGained))
+                    Spacer()
+                    KStat(label: "Units after", value: String(format: "%.3f", m.newUnits))
+                }.padding(.top, 8)
+                KStat(label: "New average NAV", value: String(format: "%.4f", m.newAvgNav), tone: m.change <= 0 ? .positive : .warning,
+                      caption: m.change == 0 ? "unchanged" : String(format: "%@%.4f vs %.4f now", m.change < 0 ? "−" : "+", abs(m.change), p.avgNav)).padding(.top, 6)
+                Text(m.change < 0 ? "Today's NAV is below your average of \(String(format: "%.4f", p.avgNav)), so this pulls it down."
+                                  : "Today's NAV is above your average of \(String(format: "%.4f", p.avgNav)), so this pushes it up.")
+                    .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 4)
+            } else {
+                Text("Enter an amount to see the effect on your average.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 6)
+            }
+        }
+        KSectionHeader(title: "If the NAV reaches…", detail: more != nil ? "counts the amount above" : nil)
+        KCard {
+            field("Target NAV ₹", $target)
+            if let t = atTarget {
+                HStack(alignment: .top) {
+                    KStat(label: "Position then", value: Money.rupees(t.value))
+                    Spacer()
+                    KStat(label: "Profit / loss", value: signed(t.profit), tone: t.profit >= 0 ? .positive : .negative, caption: Fmt.percent(t.percent))
+                }.padding(.top, 8)
+                Text("On \(String(format: "%.3f", t.units)) units that cost \(Money.rupees(t.cost)). Break-even NAV \(String(format: "%.4f", t.breakEven)).")
+                    .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 4)
+            } else {
+                Text("Enter a NAV to see the profit or loss at that level.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.top, 6)
+            }
+        }
+        }
+    }
+
+    private func field(_ label: String, _ text: Binding<String>) -> some View {
+        HStack {
+            Text(label).font(Theme.footnote).foregroundStyle(Theme.muted)
+            Spacer()
+            TextField("0", text: text).keyboardType(.decimalPad).multilineTextAlignment(.trailing).font(Theme.figure).frame(maxWidth: 140)
         }
     }
 }

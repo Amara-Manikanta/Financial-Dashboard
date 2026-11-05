@@ -477,7 +477,8 @@ final class FinanceStore: ObservableObject {
             data = await Task.detached(priority: .userInitiated) { Derived.compute(raw) }.value
             loadedAt = Date()
             if mirror?.offline == false { mirror?.markSynced() }
-            await loadResearch()
+            // Optional and slow-tolerant: never holds up the core load or the loading flag.
+            Task { await loadResearch() }
         } catch APIError.unauthorized {
             onUnauthorized()
         } catch {

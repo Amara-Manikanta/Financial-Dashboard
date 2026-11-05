@@ -6,11 +6,19 @@ import UserNotifications
 @MainActor
 final class DeepLink: ObservableObject {
     static let shared = DeepLink()
-    @Published var screen: NativeScreen?
+    @Published private(set) var screen: NativeScreen?
+    private var requestedAt = Date.distantPast
+    /// A request that nobody opened this long ago is dropped: a tap made while the phone was not paired must not open a page days later.
+    private static let lifetime: TimeInterval = 120
+
+    func request(_ screen: NativeScreen) { requestedAt = Date(); self.screen = screen }
+
+    /// Whether there is a request still worth honouring.
+    var isFresh: Bool { screen != nil && Date().timeIntervalSince(requestedAt) <= Self.lifetime }
 
     func consume() -> NativeScreen? {
         defer { screen = nil }
-        return screen
+        return isFresh ? screen : nil
     }
 }
 
@@ -24,7 +32,7 @@ final class NotificationRouter: NSObject, UNUserNotificationCenterDelegate {
     func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
         let n = response.notification.request
         guard DividendReminders.opensDividends(identifier: n.identifier, userInfo: n.content.userInfo) else { return }
-        await MainActor.run { DeepLink.shared.screen = .dividends }
+        await MainActor.run { DeepLink.shared.request(.dividends) }
     }
 
     func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {

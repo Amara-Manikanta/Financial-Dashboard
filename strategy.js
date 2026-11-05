@@ -129,6 +129,13 @@ export const readSnapshots = ({ limit = 60 } = {}) => {
     return out;
 };
 
+/** Changes whenever a saved day is added, replaced or removed — from file names and modified times alone, without reading any of them. */
+export const snapshotsSignature = () => {
+    if (!dir || !fs.existsSync(dir)) return '';
+    return fs.readdirSync(dir).filter((f) => FILE.test(f)).sort()
+        .map((f) => { try { return `${f}:${fs.statSync(path.join(dir, f)).mtimeMs}`; } catch { return f; } }).join('|');
+};
+
 export const deleteSnapshot = (date) => {
     const file = fileFor(date);
     if (!file || !fs.existsSync(file)) return false;

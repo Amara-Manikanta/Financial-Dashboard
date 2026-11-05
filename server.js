@@ -671,6 +671,11 @@ const handleHistoryRequest = async (req, res) => {
         if (Object.keys(byDate).length === 0) throw new Error('no closes returned');
 
         const body = JSON.stringify({ symbol, range, closes: byDate });
+        // Drop what has expired once the cache is large, so it is bounded by what was asked for lately, not ever.
+        if (historyCache.size >= 100) {
+            for (const [k, v] of historyCache) if (Date.now() - v.at >= HISTORY_CACHE_MS) historyCache.delete(k);
+            if (historyCache.size >= 100) historyCache.delete(historyCache.keys().next().value);
+        }
         historyCache.set(cacheKey, { at: Date.now(), body });
         res.writeHead(200);
         res.end(body);
@@ -1190,7 +1195,7 @@ const handleAnalystLLMRoute = (req, res) => {
         }
     }
     if (route === '/api/analyst/strategy/holdings-file' && req.method === 'GET') {
-        try { sendJson(res, 200, { path: writeHoldingsFile({ dbFile: DB_FILE }) }); } catch (err) { sendJson(res, 500, { error: err.message }); }
+        try { sendJson(res, 200, { path: writeHoldingsFile({ dbFile: DB_FILE, force: true }) }); } catch (err) { sendJson(res, 500, { error: err.message }); }
         return;
     }
     if (route === '/api/analyst/strategy/inbox' && req.method === 'GET') {
