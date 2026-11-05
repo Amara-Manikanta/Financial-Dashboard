@@ -172,6 +172,26 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Saves one grocery list (`groceryCategories`, `groceryBrands` or `groceryFlavours`) under the settings' version — read fresh, only that key sent.
+    /// `change` is given the list as the Mac holds it now and returns the new one (or why not). Needs the Mac.
+    func saveGrocery(key: String, change: ([String: [String]]) -> GroceryEditing.Result) async -> String? {
+        guard ["groceryCategories", "groceryBrands", "groceryFlavours"].contains(key) else { return "That list is not editable here." }
+        if mirror?.offline == true { return "Changing the grocery lists needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.appDataWithVersion()
+            let base: [String: [String]] = key == "groceryCategories"
+                ? Dictionary(uniqueKeysWithValues: GroceryMaster.categories(appData: current.value).map { ($0.category, $0.items) })
+                : current.value[key].object.mapValues { $0.array.map(\.text) }
+            switch change(base) {
+            case .refused(let why): return why
+            case .saved(let next):
+                if let failure = await api.patchAppData(fields: [key: next], version: current.version) { return failure }
+                await load()
+                return nil
+            }
+        } catch { return error.localizedDescription }
+    }
+
     /// Sets the manual gold and silver rates per gram (0 clears one, so the live feed is used again). Needs the Mac.
     func saveManualRates(gold: Double, silver: Double) async -> String? {
         if mirror?.offline == true { return "Changing rates needs your Mac. Connect to it and try again." }

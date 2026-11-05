@@ -1216,4 +1216,16 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual(CategoryEditing.adding(main: "travel", sub: nil, custom: [:], existing: existing), .refused("That main category already exists."))
         XCTAssertEqual(CategoryEditing.adding(main: " ", sub: nil, custom: [:], existing: existing), .refused("Enter a category name."))
     }
+
+    func testGroceryListEditingRules() {
+        let d: [String: [String]] = ["Milk Products": ["Milk", "Paneer"]]
+        XCTAssertEqual(GroceryEditing.adding(" Curd ", to: "Milk Products", in: d, noun: "item"), .saved(["Milk Products": ["Curd", "Milk", "Paneer"]]))   // trimmed and kept sorted
+        XCTAssertEqual(GroceryEditing.adding("milk", to: "Milk Products", in: d, noun: "item"), .refused("That item already exists in Milk Products."))
+        XCTAssertEqual(GroceryEditing.adding("", to: "Milk Products", in: d, noun: "item"), .refused("Enter a name."))
+        XCTAssertEqual(GroceryEditing.adding("Amul", to: "Dairy", in: [:], noun: "brand"), .saved(["Dairy": ["Amul"]]))                               // a category with no list yet
+        XCTAssertEqual(GroceryEditing.removing("Milk", from: "Milk Products", in: d), ["Milk Products": ["Paneer"]])
+        XCTAssertEqual(GroceryEditing.addingCategory("Pets", to: d), .saved(["Milk Products": ["Milk", "Paneer"], "Pets": []]))
+        XCTAssertEqual(GroceryEditing.addingCategory("milk products", to: d), .refused("That category already exists."))
+        XCTAssertEqual(GroceryEditing.deletingCategory("Milk Products", from: d), [:])
+    }
 }

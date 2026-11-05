@@ -1149,6 +1149,11 @@ version-checked record save (the list goes only if the Mac still holds exactly t
 purchase logged from the Expenses page** (`expenseId` / `adoptedByExpense` / `investmentData`) and points to the Mac, so no expense is left pointing at nothing.
 Verified on an isolated copy: add / archive / delete succeed, a stale version is refused, the live account is untouched.
 
+**Grocery builder** (`GroceryEditing`, `FinanceStore.saveGrocery`): + adds an item, brand or variant (by tab), a long-press deletes one, and the category menu
+adds or deletes a whole category. Names are trimmed, may not be empty or repeat, and lists stay sorted. The list is read from `appData` with its version
+and only that key (`groceryCategories` / `groceryBrands` / `groceryFlavours`) is written back, so a stale phone is refused. Renaming, moving an item
+and linking brands/variants to items stay on the Mac.
+
 **Categories** (`CategoryEditing`, `NewCategorySheet`, `FinanceStore.addCategory`): Budget Limits → **Add category** adds a main category or a
 sub-category. Only the additions go to `appData.customCategoryMap` (the Mac merges them with the built-ins by union), read and sent under `appData`'s
 version, so a stale phone is refused. Renaming or deleting a category rewrites past transactions and stays on the Mac.

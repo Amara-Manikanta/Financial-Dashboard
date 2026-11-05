@@ -49,7 +49,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Budget limits | ✅ | ✅ main & sub categories | ✅ limits | ❌ | Rename / delete categories (they rewrite past transactions) |
 | Recurring | ✅ | — | 🟡 | — | Overrides (cancel / ignore / watch) |
 | Fuel, Grocery analytics | ✅ | — | — | — | — |
-| Grocery builder | 🟡 read-only | ❌ | ❌ | ❌ | Add / rename / delete categories and items |
+| Grocery builder | ✅ | ✅ category, item, brand, variant | — | ✅ | Rename, move an item, link brands to items |
 | Data health | ✅ | — | — | — | — |
 
 ## Investing, income, planning
@@ -84,7 +84,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 3. Precious metals: items and manual rates done; photos and bills remain.
 4. ~~Single card~~ — done (statement import stays on the Mac).
 5. ~~Stocks list: add / archive / delete a holding~~ — done; savings & investment accounts archive / delete — done.
-6. ~~Budget categories~~ add done (rename / delete stay on the Mac); Grocery builder editing remains.
+6. ~~Budget categories~~ add done (rename / delete stay on the Mac); Grocery builder add/delete — done (rename and linking stay on the Mac).
 7. Account pages still on the generic layout: NPS, SGB, savings account, emergency fund, policy (with documents).
 8. Insurance profile and policies; salary employments; new expense year; statement import.
 9. Deleting loans, people, cards and tax years (they link to other records, so each needs its own check).
