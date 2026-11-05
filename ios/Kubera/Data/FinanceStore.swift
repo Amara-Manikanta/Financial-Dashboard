@@ -155,6 +155,23 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Adds a main category or a sub-category. Needs the Mac: `appData` is read with its version and only `customCategoryMap` is sent back,
+    /// so a stale phone cannot overwrite settings changed meanwhile. Nil when saved, otherwise why not.
+    func addCategory(main: String, sub: String?) async -> String? {
+        if mirror?.offline == true { return "Adding a category needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.appDataWithVersion()
+            let custom = current.value["customCategoryMap"].object.mapValues { $0.array.map(\.text) }
+            switch CategoryEditing.adding(main: main, sub: sub, custom: custom, existing: Budgets.categoryMap(appData: current.value)) {
+            case .refused(let why): return why
+            case .saved(let next):
+                if let failure = await api.patchAppData(fields: ["customCategoryMap": next], version: current.version) { return failure }
+                await load()
+                return nil
+            }
+        } catch { return error.localizedDescription }
+    }
+
     /// Sets the manual gold and silver rates per gram (0 clears one, so the live feed is used again). Needs the Mac.
     func saveManualRates(gold: Double, silver: Double) async -> String? {
         if mirror?.offline == true { return "Changing rates needs your Mac. Connect to it and try again." }

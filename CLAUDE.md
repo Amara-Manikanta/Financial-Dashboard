@@ -1149,6 +1149,10 @@ version-checked record save (the list goes only if the Mac still holds exactly t
 purchase logged from the Expenses page** (`expenseId` / `adoptedByExpense` / `investmentData`) and points to the Mac, so no expense is left pointing at nothing.
 Verified on an isolated copy: add / archive / delete succeed, a stale version is refused, the live account is untouched.
 
+**Categories** (`CategoryEditing`, `NewCategorySheet`, `FinanceStore.addCategory`): Budget Limits → **Add category** adds a main category or a
+sub-category. Only the additions go to `appData.customCategoryMap` (the Mac merges them with the built-ins by union), read and sent under `appData`'s
+version, so a stale phone is refused. Renaming or deleting a category rewrites past transactions and stays on the Mac.
+
 **Accounts** (`AccountManagement`, `AccountMenu`): long-press an account on the Savings or Investments list for **Archive / Restore** (flips `isArchived`,
 history kept) or **Delete**. Delete is refused for the stock account, an account a goal is funded from, and one holding rows logged from the Expenses
 page, each with the reason; otherwise it re-reads the record for its version and removes it. Both go through the version-checked record paths.

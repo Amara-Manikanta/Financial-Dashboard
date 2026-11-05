@@ -1203,4 +1203,17 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertNil(AccountManagement.deleteBlock(account: json("{\"id\":\"9\",\"type\":\"mutual_fund\",\"transactions\":[{\"id\":\"t\"}]}"), goals: goals))
         XCTAssertEqual(AccountManagement.archiveFields(true)["isArchived"] as? Bool, true)
     }
+
+    func testAddingCategoriesFollowsTheMacsRules() {
+        let existing: [(main: String, subs: [String])] = [("Food", ["Groceries", "Snacks"]), ("Travel", ["Trip"])]
+        // A sub under a built-in main stores just that addition.
+        XCTAssertEqual(CategoryEditing.adding(main: "Food", sub: " Coffee ", custom: [:], existing: existing), .saved(["Food": ["Coffee"]]))
+        // Existing additions are kept; names compare without case.
+        XCTAssertEqual(CategoryEditing.adding(main: "Food", sub: "Tea", custom: ["Food": ["Coffee"]], existing: existing), .saved(["Food": ["Coffee", "Tea"]]))
+        XCTAssertEqual(CategoryEditing.adding(main: "Food", sub: "snacks", custom: [:], existing: existing), .refused("That sub-category already exists in Food."))
+        // A new main starts empty; an existing one is refused.
+        XCTAssertEqual(CategoryEditing.adding(main: "Pets", sub: nil, custom: [:], existing: existing), .saved(["Pets": []]))
+        XCTAssertEqual(CategoryEditing.adding(main: "travel", sub: nil, custom: [:], existing: existing), .refused("That main category already exists."))
+        XCTAssertEqual(CategoryEditing.adding(main: " ", sub: nil, custom: [:], existing: existing), .refused("Enter a category name."))
+    }
 }

@@ -7,6 +7,7 @@ struct BudgetsView: View {
     @State private var month: String?
     @State private var open: Set<String> = []
     @State private var editing = false
+    @State private var addingCategory = false
 
     private func inr(_ v: Double) -> String { Money.rupees(v) }
     private static let monthOrder = SalaryPage.months
@@ -31,6 +32,7 @@ struct BudgetsView: View {
                 Menu { ForEach(months, id: \.self) { mm in Button(mm) { month = mm } } } label: { chip(m) }
                 Spacer()
                 Button { editing = true } label: { chip("Edit limits") }.buttonStyle(.plain)
+                Button { addingCategory = true } label: { chip("Add category") }.buttonStyle(.plain)
             }
             KCard(tint: st.over > 0 ? Theme.negative : Theme.accent) {
                 KStat(label: "Spent in \(m)", value: inr(st.totalActual), size: .hero)
@@ -70,6 +72,7 @@ struct BudgetsView: View {
         }
         .navigationTitle("Budget Limits")
         .sheet(isPresented: $editing) { BudgetLimitsEditor(store: store) }
+        .sheet(isPresented: $addingCategory) { NewCategorySheet(store: store) }
         .navigationBarTitleDisplayMode(.large)
     }
 
@@ -144,5 +147,29 @@ struct BudgetLimitsEditor: View {
         LabeledContent(label) {
             TextField("No limit", text: Binding(get: { value(key) }, set: { text[key] = $0 })).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
         }
+    }
+}
+
+
+/// A new main category, or a sub-category under an existing one. Saved to the Mac as `customCategoryMap`, under the settings' version.
+struct NewCategorySheet: View {
+    @ObservedObject var store: FinanceStore
+    @State private var isSub = true
+    @State private var main = ""
+    @State private var name = ""
+
+    private var mains: [String] { Budgets.categoryMap(appData: store.data.appDataRaw).map(\.main) }
+
+    var body: some View {
+        FormSheet(title: "Add category", problems: name.trimmingCharacters(in: .whitespaces).isEmpty ? ["Enter a name."] : [], touched: !name.isEmpty, save: {
+            await store.addCategory(main: isSub ? (main.isEmpty ? (mains.first ?? "") : main) : name, sub: isSub ? name : nil)
+        }) {
+            Section {
+                Picker("Add", selection: $isSub) { Text("Sub-category").tag(true); Text("Main category").tag(false) }.pickerStyle(.segmented)
+                if isSub { Picker("Under", selection: $main) { ForEach(mains, id: \.self) { Text($0).tag($0) } } }
+                TextRow(label: isSub ? "Sub-category" : "Main category", text: $name)
+            } footer: { Text("It appears in every category list on this phone and on the Mac. Renaming or deleting categories changes past transactions, so that stays on the Mac.") }
+        }
+        .onAppear { if main.isEmpty { main = mains.first ?? "" } }
     }
 }
