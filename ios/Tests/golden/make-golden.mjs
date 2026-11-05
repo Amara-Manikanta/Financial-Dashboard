@@ -629,6 +629,23 @@ const sgbGolden = db.savings.filter((a) => a.type === 'sgb').map((sgb) => {
         interest: (sgb.interestTransactions || []).reduce((s, i) => s + (Number(i.amount) || 0), 0),
     };
 });
+
+// Savings account page: filters, years, totals and the earnings distribution, cut out of the page.
+const saMemo = (name) => slice('src/pages/SavingsAccountDetails.jsx', `const ${name} = useMemo(() => {`, '\n    }, [');
+const saSorted = saMemo('sortedTransactions'), saYears = saMemo('years'), saSummary = saMemo('interestSummary');
+const saTotals = slice('src/pages/SavingsAccountDetails.jsx', '// Calculate stats details...', 'const glassCardStyle');
+const savingsAccountGolden = db.savings.filter((a) => a.type === 'savings_account').map((account) => {
+    const sorted = (selectedYear, selectedMonth, selectedType) => new Function('account', 'selectedYear', 'selectedMonth', 'selectedType', saSorted)(account, selectedYear, selectedMonth, selectedType);
+    const yrs = new Function('account', saYears)(account);
+    const summary = new Function('account', saSummary)(account);
+    const totals = (selectedYear, selectedMonth, selectedType) => new Function('account', 'sortedTransactions', `${saTotals}\nreturn { totalDeposits, totalInterest, totalWithdrawals, totalMonnies, lifetimeInterest };`)(account, sorted(selectedYear, selectedMonth, selectedType));
+    const cases = [['All', 'All', 'All'], [yrs[1] || 'All', 'All', 'All'], ['All', '3', 'All'], ['All', 'All', 'interest'], [yrs[1] || 'All', '9', 'deposit'], ['All', 'All', 'withdraw']];
+    return {
+        id: account.id, years: yrs,
+        summary: Object.entries(summary).sort((a, b) => b[0] - a[0]).map(([year, d]) => ({ year, total: d.total, months: Object.entries(d.months) })),
+        cases: cases.map(([y, m, t]) => ({ year: y, month: m, type: t, ids: sorted(y, m, t).map((tx) => account.transactions.indexOf(tx)), totals: totals(y, m, t) })),
+    };
+});
 const pfGolden = db.savings.filter((a) => a.type === 'pf').map((pf) => {
     const details = pf.details || [];
     const fns = new Function('pf', `const getFinancialYear = (dateStr) => {${pfFns}\nreturn { getFinancialYear, recalculateBalances };`)(pf);
@@ -732,7 +749,7 @@ for (const year of Object.keys(db.expenses || {})) {
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, nps: npsGolden, sgb: sgbGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, nps: npsGolden, sgb: sgbGolden, savingsAccount: savingsAccountGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
     months,
     stocks: {
         count: holdings.length,

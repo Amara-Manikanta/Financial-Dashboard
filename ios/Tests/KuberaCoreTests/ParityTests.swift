@@ -1370,3 +1370,35 @@ final class SGBParityTests: XCTestCase {
         }
     }
 }
+
+
+/// The savings-account page's filters, totals and earnings distribution against the Mac page's own code.
+final class SavingsAccountParityTests: XCTestCase {
+    func testSavingsAccountPageMatchesTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["savingsAccount"].array
+        XCTAssertFalse(web.isEmpty, "the golden has no savings account")
+        for expected in web {
+            let account = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            XCTAssertEqual(SavingsAccountPage.years(account), expected["years"].array.map(\.text), "years")
+            let e = SavingsAccountPage.earnings(account)
+            XCTAssertEqual(e.map(\.year), expected["summary"].array.map { $0["year"].text }, "earnings years")
+            for (mine, web) in zip(e, expected["summary"].array) {
+                XCTAssertEqual(mine.total, web["total"].double, accuracy: 0.001, "earnings \(mine.year)")
+                XCTAssertEqual(mine.months.map(\.name), web["months"].array.map { $0.array[0].text }, "months \(mine.year)")
+                XCTAssertEqual(mine.months.map(\.amount).reduce(0, +), web["months"].array.map { $0.array[1].double }.reduce(0, +), accuracy: 0.001)
+            }
+            for c in expected["cases"].array {
+                let month = c["month"].text == "All" ? nil : Int(c["month"].text)
+                let rows = SavingsAccountPage.rows(account, year: c["year"].text, month: month, type: c["type"].text)
+                XCTAssertEqual(rows.map(\.index), c["ids"].array.map { Int($0.double) }, "rows \(c["year"].text)/\(c["month"].text)/\(c["type"].text)")
+                let t = SavingsAccountPage.totals(account, shown: rows), w = c["totals"]
+                XCTAssertEqual(t.deposits, w["totalDeposits"].double, accuracy: 0.001); XCTAssertEqual(t.interest, w["totalInterest"].double, accuracy: 0.001)
+                XCTAssertEqual(t.withdrawals, w["totalWithdrawals"].double, accuracy: 0.001); XCTAssertEqual(t.monnies, w["totalMonnies"].double, accuracy: 0.001)
+                XCTAssertEqual(t.lifetimeInterest, w["lifetimeInterest"].double, accuracy: 0.001)
+            }
+        }
+    }
+}
