@@ -18,6 +18,7 @@ struct AccountDetailView: View {
         else if raw["type"].text == "ppf" { PPFView(store: store, accountId: route.id) }
         else if raw["type"].text == "pf" { PFView(store: store, accountId: route.id) }
         else if raw["type"].text == "mutual_fund" { FundView(store: store, accountId: route.id) }
+        else if raw["type"].text == "nps" { NPSView(store: store, accountId: route.id) }
         else { generic(raw, p) }
     }
 

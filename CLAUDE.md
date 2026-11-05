@@ -1199,6 +1199,11 @@ or the year has no interest, the scheme's entries (contribution split, VPF, inte
 `PF` is a port of the page's own memos and is parity-tested against them for both tabs and every year (`PFParityTests`),
 including the missing-month flags at a frozen date. The UAN shows in the header and is changed from the pencil.
 
+**NPS** (`NPSPage`, `NPSView`): laid out as the Mac's `NPSDetails.jsx` — invested, current value, profit, accumulated units, XIRR, the allocation
+donut, a card per scheme (share, NAV, units, invested, current) and the statements newest first with an All Schemes / per-scheme filter. Schemes and
+statements use the same version-checked, offline-capable ledger writes as other accounts (`Add Statement` first asks which scheme). `NPSPage` is
+parity-tested against the page's own `getSchemeCalculations` / `processAndSyncHoldings` and FinanceContext's NPS value and invested cases (`NPSParityTests`).
+
 **Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
 monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
 percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or

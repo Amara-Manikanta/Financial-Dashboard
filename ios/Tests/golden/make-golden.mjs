@@ -598,6 +598,24 @@ const pfMemo = (name) => slice('src/pages/PFDetails.jsx', `const ${name} = useMe
 const pfBodies = Object.fromEntries(['years', 'filteredDetails', 'openingBalance', 'totalEpfInterest', 'totalEmployeeContrib', 'totalEmployerContrib', 'totalVpfContrib',
     'totalEpsContrib', 'totalEpfBalance', 'totalEpsBalance', 'yearlyEpfInterestSplit', 'epfChartData', 'yearlyEpsContrib', 'epsChartData', 'yearlyContributionData', 'getYearlyStatus']
     .map((name) => [name, name === 'openingBalance' ? null : pfMemo(name)]));
+
+// NPS page: scheme maths, allocation, pie, statements and the account totals, cut out of the page and the context.
+const npsSrc = slice('src/pages/NPSDetails.jsx', 'const getSchemeCalculations = (h) => {', 'const NPSDetails = () => {');
+const npsFns = new Function(`const getSchemeCalculations = (h) => {${npsSrc}\nreturn { getSchemeCalculations, processAndSyncHoldings };`)();
+const ctxSrc = fs.readFileSync('src/context/FinanceContext.jsx', 'utf8');
+const npsCurrentBody = ctxSrc.slice(ctxSrc.indexOf("case 'nps':", ctxSrc.indexOf('const calculateItemCurrentValue')) + "case 'nps':".length, ctxSrc.indexOf("case 'sgb':", ctxSrc.indexOf('const calculateItemCurrentValue')));
+const npsInvestedBody = ctxSrc.slice(ctxSrc.indexOf("case 'nps': {", ctxSrc.indexOf('const calculateItemInvestedValue')) + "case 'nps': {".length, ctxSrc.indexOf('\n            }', ctxSrc.indexOf("case 'nps': {", ctxSrc.indexOf('const calculateItemInvestedValue'))));
+const npsCurrentFn = new Function('item', npsCurrentBody);
+const npsInvestedFn = new Function('item', npsInvestedBody);
+const npsGolden = db.savings.filter((a) => a.type === 'nps').map((nps) => {
+    const { holdings } = npsFns.processAndSyncHoldings(nps.holdings || []);
+    return {
+        id: nps.id,
+        schemes: (nps.holdings || []).map((h, i) => ({ ...npsFns.getSchemeCalculations(h), percentage: holdings[i].percentage })),
+        totalUnits: (nps.holdings || []).reduce((s, h) => s + npsFns.getSchemeCalculations(h).units, 0),
+        current: npsCurrentFn(nps), invested: npsInvestedFn(nps),
+    };
+});
 const pfGolden = db.savings.filter((a) => a.type === 'pf').map((pf) => {
     const details = pf.details || [];
     const fns = new Function('pf', `const getFinancialYear = (dateStr) => {${pfFns}\nreturn { getFinancialYear, recalculateBalances };`)(pf);
@@ -701,7 +719,7 @@ for (const year of Object.keys(db.expenses || {})) {
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, nps: npsGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
     months,
     stocks: {
         count: holdings.length,

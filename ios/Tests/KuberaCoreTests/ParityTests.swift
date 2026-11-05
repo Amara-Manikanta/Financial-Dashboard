@@ -1317,3 +1317,30 @@ final class MonthExtrasParityTests: XCTestCase {
         }
     }
 }
+
+
+/// The NPS page's scheme figures, allocation, units and account totals against the Mac page's own code.
+final class NPSParityTests: XCTestCase {
+    func testNPSPageMatchesTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["nps"].array
+        XCTAssertFalse(web.isEmpty, "the golden has no NPS account")
+        for expected in web {
+            let account = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            let page = NPSPage.page(account)
+            XCTAssertEqual(page.current, expected["current"].double, accuracy: 0.001, "current value")
+            XCTAssertEqual(page.invested, expected["invested"].double, accuracy: 0.001, "invested")
+            XCTAssertEqual(page.totalUnits, expected["totalUnits"].double, accuracy: 0.0001, "units")
+            XCTAssertEqual(page.schemes.count, expected["schemes"].array.count)
+            for (mine, web) in zip(page.schemes, expected["schemes"].array) {
+                XCTAssertEqual(mine.units, web["units"].double, accuracy: 0.0001, "units \(mine.name)")
+                XCTAssertEqual(mine.invested, web["amount"].double, accuracy: 0.001, "invested \(mine.name)")
+                XCTAssertEqual(mine.nav, web["nav"].double, accuracy: 0.0001, "nav \(mine.name)")
+                XCTAssertEqual(mine.current, web["current"].double, accuracy: 0.001, "current \(mine.name)")
+                XCTAssertEqual(mine.percentage, web["percentage"].double, accuracy: 0.0001, "share \(mine.name)")
+            }
+        }
+    }
+}

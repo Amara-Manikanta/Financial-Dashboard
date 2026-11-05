@@ -28,7 +28,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | PPF | ✅ | ✅ + Add interest | ✅ | ✅ | — |
 | PF | ✅ | ✅ | ✅ (UAN via pencil) | ✅ | — |
 | Mutual fund | ✅ | ✅ tx | ✅ tx, Refresh NAV | ✅ tx | Composition panels; archive toggle is in the pencil |
-| NPS | 🟡 generic page | ✅ | ✅ | ✅ | Allocation chart, scheme holdings and statements layout |
+| NPS | ✅ | ✅ scheme, statement | ✅ | ✅ | — |
 | Gold bonds (SGB) | 🟡 generic page | ✅ | ✅ | ✅ | Mac layout (holdings cards, interest schedule) |
 | Savings account | 🟡 generic page | ✅ | ✅ | ✅ | Earnings distribution chart; linked RDs |
 | Emergency fund | 🟡 generic page | ✅ | ✅ | ✅ | Mac layout |
@@ -85,6 +85,6 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 4. ~~Single card~~ — done (statement import stays on the Mac).
 5. ~~Stocks list: add / archive / delete a holding~~ — done; savings & investment accounts archive / delete — done.
 6. ~~Budget categories~~ add done (rename / delete stay on the Mac); Grocery builder add/delete — done (rename and linking stay on the Mac).
-7. Account pages still on the generic layout: NPS, SGB, savings account, emergency fund, policy (with documents).
+7. Account pages still on the generic layout (NPS done): SGB, savings account, emergency fund, policy (with documents).
 8. Insurance profile and policies; salary employments; new expense year; statement import.
 9. Deleting loans, people, cards and tax years (they link to other records, so each needs its own check).
