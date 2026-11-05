@@ -32,7 +32,7 @@ struct MetalsView: View {
                     KRow(title: k.title, subtitle: "\(items.count) positions\(hideWeight ? "" : " · \(String(format: "%g", (Self.sum(processed, k.key, "weightGm") * 10000).rounded() / 10000))g")", value: inr(Self.sum(processed, k.key, "currentValue")))
                 }.buttonStyle(.plain)
             }
-            Text("Tap a metal for its items and photos. Bills and edits are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+            Text("Tap a metal for its items and photos; add, change or delete items there. Bills and new photos are added on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle("Precious Metals")
         .navigationBarTitleDisplayMode(.large)

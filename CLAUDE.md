@@ -1142,6 +1142,12 @@ Deleting re-reads the record for its version and sends `DELETE /<collection>/<id
 `FinanceStore.deletable` can be deleted from the phone; accounts, loans, people and cards link to other records and stay Mac-only.
 Verified on an isolated copy: fresh version saves/deletes, stale version is refused, other `appData` keys and the live database are untouched.
 
+**Precious metals** (`MetalEditing`, `MetalItemSheet`, `ManualRatesSheet`, `FinanceStore.saveMetal`): the gold, silver, coin and currency pages
+add, change and delete items (tap, long-press, +), and gold/silver set the manual per-gram rate. The form follows the Mac's `MetalModal` (a
+currency's value is foreign amount × rate; photos and the Mac's own valuation survive an edit). Online-only: the category's list is read with
+the collection's `X-DB-Version`, the one item is changed in that copy, and `PATCH /metals { <category>: [...] }` is sent under that version, so
+a stale phone is refused (409) and other categories are untouched. Photos, bills and lockers stay on the Mac.
+
 **New records** (`RecordEditing.template`, `NewRecordSheet`, `FinanceStore.createRecord`): a + on Goals, Watchlist, IPO applications,
 Taxes, Cards and Loans & Lents (one for a loan, one for a person) adds a whole record. The form is built from the newest existing
 record of that kind — the same keys the Mac's form writes, text emptied, numbers zeroed, lists empty, dates today, enum-like fields

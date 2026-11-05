@@ -122,6 +122,32 @@ final class FinanceStore: ObservableObject {
 
     struct FundNavFailure: Error { let message: String }
 
+    /// Adds, changes or deletes one item of one metals category. Needs the Mac: the category's list is loaded fresh with its
+    /// version, the one item is changed in that copy, and the list is saved under that version — so a phone cannot overwrite
+    /// metals changed on the Mac since. Nil when saved, otherwise why not.
+    func saveMetal(category: String, item: [String: Any]? = nil, deleting id: JSONValue? = nil) async -> String? {
+        guard MetalEditing.categories.contains(category) else { return "That is not a metals category." }
+        if mirror?.offline == true { return "Changing metals needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.metalsWithVersion()
+            let next = MetalEditing.apply(items: current.value[category].array, item: item, deleting: id)
+            if let failure = await api.patchMetals(category: category, items: next, version: current.version) { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
+    /// Sets the manual gold and silver rates per gram (0 clears one, so the live feed is used again). Needs the Mac.
+    func saveManualRates(gold: Double, silver: Double) async -> String? {
+        if mirror?.offline == true { return "Changing rates needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.appDataWithVersion()
+            if let failure = await api.patchAppData(fields: ["manualMetalRates": ["gold": gold, "silver": silver]], version: current.version) { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
     /// The stock-market account that holds a holding, so its transactions can be changed.
     func stockAccountId(holding id: String) -> String? {
         data.savingsRaw.array.first { $0["type"].text == "stock_market" && $0["stocks"].array.contains { $0["id"].text == id } }?["id"].text

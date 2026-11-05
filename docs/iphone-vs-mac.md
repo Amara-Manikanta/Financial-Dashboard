@@ -70,8 +70,8 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 
 | Mac page | View | Add | Edit | Delete | Missing |
 | --- | --- | --- | --- | --- | --- |
-| Metals / metal list | ✅ | ❌ | ❌ | ❌ | Add / edit / delete items, manual rates, lockers |
-| Metal item | 🟡 photo | ❌ | ❌ | ❌ | Photo gallery and bills (upload / delete) |
+| Metals / metal list | ✅ | ✅ | ✅ | ✅ | Lockers |
+| Metal item | 🟡 photo | — | — | — | Photo gallery and bills (upload / delete) |
 | Ornament gallery | ✅ | — | — | — | — |
 | Assets, items, warranties | ✅ | ✅ | ✅ | ✅ | Item photo |
 | DocuSetu | web page | | | | Native screen |
@@ -81,7 +81,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 1. Done in this pass: **add** a goal, loan, person, watchlist entry, IPO application, tax year and card (one record, through the
    Mac's write guard; needs the Mac).
 2. ~~Month page extras~~ — done.
-3. Precious metals editing (items, manual rates, photos, bills).
+3. Precious metals: items and manual rates done; photos and bills remain.
 4. Single card: expense rows and carry-forward baseline.
 5. Stocks list: add / archive / delete a holding; savings & investment accounts: archive / delete.
 6. Budget categories and Grocery builder editing.

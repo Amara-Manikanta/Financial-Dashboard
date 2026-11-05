@@ -4,7 +4,7 @@ struct LentRoute: Hashable { let id: String }
 struct AssetCategoryRoute: Hashable { let id: String }
 struct MetalRoute: Hashable { let key: String }
 
-private struct Line: Identifiable { let id: Int; let title: String; let subtitle: String; let value: String; let tone: Tone; var photo: String? = nil }
+private struct Line: Identifiable { let id: Int; var raw: JSONValue = .null; let title: String; let subtitle: String; let value: String; let tone: Tone; var photo: String? = nil }
 private func assetValue(_ i: JSONValue) -> Double { [i["currentValue"], i["purchasePrice"], i["purchasedValue"]].map(\.double).first { $0 != 0 } ?? 0 }
 private func inr(_ v: Double) -> String { Money.rupees(v) }
 
@@ -73,6 +73,11 @@ struct LentDetailView: View {
 struct MetalDetailView: View {
     @ObservedObject var store: FinanceStore
     let route: MetalRoute
+    private struct Sheet: Identifiable { let id = UUID(); let item: JSONValue? }
+    @State private var sheet: Sheet?
+    @State private var showRates = false
+    @State private var deleting: JSONValue?
+    @State private var message: String?
 
     var body: some View {
         let d = store.data
@@ -86,9 +91,10 @@ struct MetalDetailView: View {
             if it["purity"].truthy { bits.append("\(it["purity"].text)K") }
             if it["location"].truthy { bits.append(it["location"].text) }
             if it["purchaseDate"].truthy { bits.append("bought \(it["purchaseDate"].text)") }
-            return Line(id: i, title: it["name"].text, subtitle: bits.joined(separator: " · "), value: inr(it["currentValue"].double), tone: .neutral, photo: Gallery.photos(of: it).first { !$0.isEmpty })
+            return Line(id: i, raw: it, title: it["name"].text, subtitle: bits.joined(separator: " · "), value: inr(it["currentValue"].double), tone: .neutral, photo: Gallery.photos(of: it).first { !$0.isEmpty })
         }
         KScreen(refresh: { await store.load() }) {
+            if let message { KNotice(message: message) { self.message = nil } }
             KCard(tint: Theme.warning) {
                 KStat(label: "Current valuation", value: inr(total), size: .hero)
                 Text("\(items.count) positions\(weight > 0 ? " · \(String(format: "%g", (weight * 1000).rounded() / 1000)) g" : "")\(cost > 0 ? " · cost \(inr(cost))" : "")").font(Theme.footnote).foregroundStyle(Theme.muted)
@@ -104,11 +110,33 @@ struct MetalDetailView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                     KRow(title: l.title, subtitle: l.subtitle, value: l.value)
                 }
+                .contentShape(Rectangle())
+                .onTapGesture { sheet = Sheet(item: store.data.metalsRaw[route.key].array.first { $0["id"].text == l.raw["id"].text }) }
+                .contextMenu {
+                    Button { sheet = Sheet(item: store.data.metalsRaw[route.key].array.first { $0["id"].text == l.raw["id"].text }) } label: { Label("Edit", systemImage: "pencil") }
+                    Button(role: .destructive) { deleting = l.raw } label: { Label("Delete", systemImage: "trash") }
+                }
             }
-            Text("Bills and edits are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+            Text("Tap an item to change it; long-press to delete. Photos and bills are added on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle(route.key.replacingOccurrences(of: "_", with: " ").capitalized)
         .navigationBarTitleDisplayMode(.large)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { Button { sheet = Sheet(item: nil) } label: { Image(systemName: "plus") } }
+            if route.key == "gold" || route.key == "silver" {
+                ToolbarItem(placement: .secondaryAction) { Button { showRates = true } label: { Label("Manual rates", systemImage: "indianrupeesign.circle") } }
+            }
+        }
+        .sheet(item: $sheet) { MetalItemSheet(store: store, category: route.key, editing: $0.item) }
+        .sheet(isPresented: $showRates) { ManualRatesSheet(store: store) }
+        .confirmationDialog("Delete this item?", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let d = deleting {
+                    let id = store.data.metalsRaw[route.key].array.first { $0["id"].text == d["id"].text }?["id"] ?? d["id"]
+                    Task { message = await store.saveMetal(category: route.key, deleting: id) }
+                }
+            }
+        } message: { Text(deleting?["name"].text ?? "") }
     }
 }
 

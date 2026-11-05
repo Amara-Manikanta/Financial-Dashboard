@@ -1108,4 +1108,29 @@ final class AssetEditingTests: XCTestCase {
         let w = RecordEditing.template(collection: "watchlist", records: [json("{\"id\":\"w_1\",\"name\":\"X\",\"currentPrice\":5,\"quote\":{\"a\":1}}")], now: now)
         XCTAssertTrue(w["currentPrice"].isNull && w["quote"].isNull)
     }
+
+    func testMetalItemRulesFollowTheMacsForm() {
+        let g = json("{\"id\":\"g1\",\"name\":\"Chain\",\"weightGm\":10,\"purity\":22,\"purchasePrice\":50000,\"images\":[\"/a.jpg\"],\"imageUrl\":\"/a.jpg\",\"currentValue\":70000}")
+        var f = MetalEditing.form(for: g, category: "gold", today: "2026-11-05")
+        XCTAssertEqual(f.purity, "22"); XCTAssertEqual(f.weight, "10")
+        f.weight = "12.5"; f.name = "  Chain 2 "
+        let o = MetalEditing.item(f, category: "gold", base: g)
+        XCTAssertEqual((o["weightGm"] as? NSNumber)?.doubleValue, 12.5); XCTAssertEqual(o["name"] as? String, "Chain 2")
+        XCTAssertEqual(o["purity"] as? Int, 22)
+        XCTAssertEqual(o["imageUrl"] as? String, "/a.jpg")        // photos survive an edit
+        XCTAssertEqual(o["currentValue"] as? Double, 70000)         // valuation is the Mac's, not the form's
+        // A currency's value is its foreign amount times the rate, and it has no weight.
+        var c = MetalEditing.form(for: nil, category: "currencies", today: "2026-11-05")
+        c.name = "SGD"; c.foreign = "12.8"; c.rate = "74.52"; c.weight = "99"
+        let co = MetalEditing.item(c, category: "currencies", base: nil)
+        XCTAssertEqual(co["currentValue"] as? Double ?? 0, 953.856, accuracy: 0.0001)
+        XCTAssertEqual((co["weightGm"] as? NSNumber)?.doubleValue, 0)
+        XCTAssertNotNil(co["id"])
+        XCTAssertFalse(MetalEditing.problems(MetalEditing.form(for: nil, category: "gold", today: "2026-11-05"), category: "gold").isEmpty)  // no name
+        // Applying a change replaces by id, appends a new one, and deletes by id.
+        let list = [g, json("{\"id\":\"g2\",\"name\":\"Ring\"}")]
+        XCTAssertEqual(MetalEditing.apply(items: list, item: o, deleting: nil).count, 2)
+        XCTAssertEqual(MetalEditing.apply(items: list, item: co, deleting: nil).count, 3)
+        XCTAssertEqual(MetalEditing.apply(items: list, item: nil, deleting: json("\"g1\"")).count, 1)
+    }
 }
