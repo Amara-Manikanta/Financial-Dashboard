@@ -1344,3 +1344,29 @@ final class NPSParityTests: XCTestCase {
         }
     }
 }
+
+
+/// The gold-bond page's holdings, gains and totals against `utils/sgb.js` and the page's own sums.
+final class SGBParityTests: XCTestCase {
+    func testSGBPageMatchesTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["sgb"].array
+        XCTAssertFalse(web.isEmpty, "the golden has no gold-bond account")
+        for expected in web {
+            let account = db["savings"].array.first { $0["id"].text == expected["id"].text } ?? .null
+            let page = SGBPage.page(account)
+            XCTAssertEqual(page.units, expected["units"].double, accuracy: 0.0001)
+            XCTAssertEqual(page.invested, expected["invested"].double, accuracy: 0.001)
+            XCTAssertEqual(page.current, expected["current"].double, accuracy: 0.001)
+            XCTAssertEqual(page.interestReceived, expected["interest"].double, accuracy: 0.001)
+            XCTAssertEqual(page.holdings.count, expected["holdings"].array.count)
+            for (mine, web) in zip(page.holdings, expected["holdings"].array) {
+                XCTAssertEqual(mine.series, web["series"].text); XCTAssertEqual(mine.date, web["date"].text); XCTAssertEqual(mine.maturity, web["maturityDate"].text)
+                XCTAssertEqual(mine.issuePrice, web["issuePrice"].double, accuracy: 0.001); XCTAssertEqual(mine.currentPrice, web["currentPrice"].double, accuracy: 0.001)
+                XCTAssertEqual(mine.gain, web["gain"].double, accuracy: 0.001); XCTAssertEqual(mine.value, web["value"].double, accuracy: 0.001)
+            }
+        }
+    }
+}

@@ -1204,6 +1204,11 @@ donut, a card per scheme (share, NAV, units, invested, current) and the statemen
 statements use the same version-checked, offline-capable ledger writes as other accounts (`Add Statement` first asks which scheme). `NPSPage` is
 parity-tested against the page's own `getSchemeCalculations` / `processAndSyncHoldings` and FinanceContext's NPS value and invested cases (`NPSParityTests`).
 
+**Gold bonds** (`SGBPage`, `SGBView`): laid out as the Mac's `GoldBondDetails.jsx` — units, invested, current value, gain with percentage,
+interest received, a card per holding (issue price, current price, value, gain, maturity) and the interest history. Holdings read through the
+same stored-name fallbacks as `utils/sgb.js`; rows are added, changed and deleted through the ledger writes (`SGBParityTests` checks every
+holding's figures and the totals against `utils/sgb.js`).
+
 **Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
 monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
 percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or

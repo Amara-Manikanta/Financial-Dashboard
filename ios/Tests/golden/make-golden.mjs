@@ -12,6 +12,7 @@ import fs from 'fs';
 import { isDebit, kindFor, expenseBuckets, defaultKindForCategory } from '../../../src/utils/transactionKind.js';
 import { effectiveStockPosition } from '../../../src/utils/investmentSync.js';
 import { ownHoldings } from '../../../src/utils/holdingOwner.js';
+import * as sgbJs from '../../../src/utils/sgb.js';
 import * as rentalJs from '../../../src/utils/rental.js';
 import * as unitsJs from '../../../src/utils/propertyUnits.js';
 import { monthIncome, isIncomeTx } from '../../../src/utils/monthIncome.js';
@@ -616,6 +617,18 @@ const npsGolden = db.savings.filter((a) => a.type === 'nps').map((nps) => {
         current: npsCurrentFn(nps), invested: npsInvestedFn(nps),
     };
 });
+
+// Gold bond page: the stored-name fallbacks and totals, from utils/sgb.js and the page's own sums.
+const sgbGolden = db.savings.filter((a) => a.type === 'sgb').map((sgb) => {
+    const norm = (sgb.holdings || []).map(sgbJs.readHolding);
+    return {
+        id: sgb.id,
+        holdings: (sgb.holdings || []).map((h, i) => ({ ...norm[i], gain: sgbJs.holdingGain(h), value: sgbJs.holdingValue(h) })),
+        units: norm.reduce((s, h) => s + h.units, 0), invested: norm.reduce((s, h) => s + h.units * h.issuePrice, 0),
+        current: sgbJs.totalValue(sgb.holdings || []),
+        interest: (sgb.interestTransactions || []).reduce((s, i) => s + (Number(i.amount) || 0), 0),
+    };
+});
 const pfGolden = db.savings.filter((a) => a.type === 'pf').map((pf) => {
     const details = pf.details || [];
     const fns = new Function('pf', `const getFinancialYear = (dateStr) => {${pfFns}\nreturn { getFinancialYear, recalculateBalances };`)(pf);
@@ -719,7 +732,7 @@ for (const year of Object.keys(db.expenses || {})) {
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, nps: npsGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, nps: npsGolden, sgb: sgbGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
     months,
     stocks: {
         count: holdings.length,
