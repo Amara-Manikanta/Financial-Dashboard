@@ -39,7 +39,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Mac page | View | Add | Edit | Delete | Missing |
 | --- | --- | --- | --- | --- | --- |
 | Expenses (years) | ✅ | ❌ | — | — | Initialize a new year; import a bank statement |
-| Month page | 🟡 categories + income | ✅ tx | ✅ tx | ✅ tx | Credit-card summary, wallets summary, spending velocity, statement info, financial tasks |
+| Month page | ✅ (velocity, card & wallet summaries added; parity-tested all 120 months) | ✅ tx | ✅ tx | ✅ tx | Financial tasks (fixed placeholder list on the Mac) |
 | All transactions | ✅ | ✅ | ✅ | ✅ | Export |
 | Spending analysis | ✅ | — | — | — | — |
 | Money flow | ✅ | — | 🟡 | — | Classifying categories |
@@ -80,7 +80,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 
 1. Done in this pass: **add** a goal, loan, person, watchlist entry, IPO application, tax year and card (one record, through the
    Mac's write guard; needs the Mac).
-2. Month page extras (card and wallet summaries, spending velocity, statement info).
+2. ~~Month page extras~~ — done.
 3. Precious metals editing (items, manual rates, photos, bills).
 4. Single card: expense rows and carry-forward baseline.
 5. Stocks list: add / archive / delete a holding; savings & investment accounts: archive / delete.

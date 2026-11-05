@@ -1288,3 +1288,32 @@ final class RDPageParityTests: XCTestCase {
         }
     }
 }
+
+
+/// The month page's spending velocity, credit card summary and wallets summary, for every month, against the Mac page's own memo.
+final class MonthExtrasParityTests: XCTestCase {
+    func testMonthExtrasMatchTheWebApp() throws {
+        let env = ProcessInfo.processInfo.environment
+        guard let dbPath = env["KUBERA_DB"], let goldenPath = env["KUBERA_GOLDEN"] else { throw XCTSkip("run ios/Tests/run-parity.sh") }
+        let db = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: dbPath)))
+        let web = try JSONValue.parse(Data(contentsOf: URL(fileURLWithPath: goldenPath)))["monthExtras"].array
+        XCTAssertGreaterThan(web.count, 100)
+        for m in web {
+            let tag = "\(m["month"].text) \(m["year"].text)"
+            let r = MonthExtras.compute(expenses: db["expenses"], creditCards: db["creditCards"], year: m["year"].text, month: m["month"].text, grossSpent: m["gross"].double)
+            XCTAssertEqual(r.days.map(\.amount), m["trend"].array.map { $0["amount"].double }, "\(tag) daily")
+            XCTAssertEqual(r.days.map(\.cumulative), m["trend"].array.map { $0["cumulative"].double }, "\(tag) cumulative")
+            XCTAssertEqual(r.totalCardSpend, m["totalCreditCardSpend"].double, accuracy: 0.01, "\(tag) card spend")
+            let stats = m["creditCardStats"].object, pays = m["creditCardPayments"].object, carry = m["carryForwardCCStats"].object
+            XCTAssertEqual(Set(r.cards.map(\.name)), Set(stats.keys).union(carry.keys), "\(tag) cards")
+            for c in r.cards {
+                XCTAssertEqual(c.spend, stats[c.name]?.double ?? 0, accuracy: 0.01, "\(tag) \(c.name) spend")
+                XCTAssertEqual(c.payments, pays[c.name]?.double ?? 0, accuracy: 0.01, "\(tag) \(c.name) payments")
+                XCTAssertEqual(c.carryForward, carry[c.name]?.double ?? 0, accuracy: 0.01, "\(tag) \(c.name) carry")
+            }
+            let wallets = m["walletStats"].object
+            XCTAssertEqual(Set(r.wallets.map(\.name)), Set(wallets.keys), "\(tag) wallets")
+            for w in r.wallets { XCTAssertEqual(w.balance, wallets[w.name]?.double ?? 0, accuracy: 0.01, "\(tag) \(w.name)") }
+        }
+    }
+}

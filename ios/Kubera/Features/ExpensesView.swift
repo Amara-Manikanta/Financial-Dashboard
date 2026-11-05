@@ -1,4 +1,5 @@
 import SwiftUI
+import Charts
 
 struct ExpensesView: View {
     @ObservedObject var store: FinanceStore
@@ -78,6 +79,7 @@ private struct MonthView: View {
     let month: MonthSummary
     @State private var query = ""
     @State private var tab = Tab.transactions
+    @State private var velocityLine = false
     @State private var adding = ProcessInfo.processInfo.arguments.contains("-addTransaction")
 
     /// Today if this is the current month, otherwise the 1st of it — where the Mac's month page opens its form.
@@ -87,7 +89,7 @@ private struct MonthView: View {
         return c.date(from: DateComponents(year: month.year, month: month.index + 1, day: 1)) ?? now
     }
 
-    private enum Tab: String, CaseIterable { case transactions = "Transactions", categories = "Categories", income = "Income" }
+    private enum Tab: String, CaseIterable { case transactions = "Transactions", categories = "Categories", income = "Income", cards = "Cards" }
 
     /// The month page's category breakdown, worked out exactly as the Mac's month page does.
     private var detail: MonthCategories.Detail {
@@ -97,6 +99,13 @@ private struct MonthView: View {
         let node = yearNode[key]
         let salary = ExpenseLedger.configuredSalary(year: yearKey, month: key, node: node, slips: ExpenseLedger.payslips(d.salaryRaw))
         return MonthCategories.detail(node: node, salary: salary, map: Budgets.categoryMap(appData: d.appDataRaw))
+    }
+
+    /// Spending velocity, credit card summary and wallets — the rest of the Mac's month page (`MonthExtras`).
+    private var extras: MonthExtras.Result {
+        let d = store.data, yearKey = String(month.year)
+        guard let key = d.expensesRaw[yearKey].object.keys.first(where: { ExpenseLedger.monthIndex($0) == month.index }) else { return .init() }
+        return MonthExtras.compute(expenses: d.expensesRaw, creditCards: d.creditCardsRaw, year: yearKey, month: key, grossSpent: month.spent)
     }
 
     private struct Row: Identifiable { let id: String; let tx: JSONValue }
@@ -137,6 +146,8 @@ private struct MonthView: View {
                 .padding(.top, 10)
             }
 
+            velocity(extras)
+
             Picker("View", selection: $tab) {
                 ForEach(Tab.allCases, id: \.self) { Text($0.rawValue).tag($0) }
             }
@@ -155,6 +166,8 @@ private struct MonthView: View {
                 categories(detail)
             case .income:
                 income(detail)
+            case .cards:
+                cards(extras)
             }
         }
         .searchable(text: $query, prompt: "Search title or category")
@@ -224,5 +237,59 @@ private struct MonthView: View {
             valueTone: credit ? .positive : (kind == .spend ? .neutral : .accent),
             valueCaption: credit || kind == .spend ? nil : kind.rawValue
         )
+    }
+
+    // MARK: Spending velocity, cards and wallets
+
+    @ViewBuilder private func velocity(_ x: MonthExtras.Result) -> some View {
+        if x.days.contains(where: { $0.amount != 0 }) {
+            KSectionHeader(title: "Spending velocity", detail: "day by day")
+            KCard {
+                Picker("Chart", selection: $velocityLine) { Text("Bar").tag(false); Text("Line").tag(true) }.pickerStyle(.segmented)
+                Chart(x.days) { d in
+                    if velocityLine {
+                        LineMark(x: .value("Day", d.day), y: .value("So far", d.cumulative)).foregroundStyle(Theme.negative).interpolationMethod(.monotone)
+                    } else {
+                        BarMark(x: .value("Day", d.day), y: .value("Spent", d.amount)).foregroundStyle(Theme.negative.opacity(0.85))
+                    }
+                }
+                .chartYAxis { AxisMarks(position: .leading) { AxisGridLine().foregroundStyle(Theme.muted.opacity(0.15)); AxisValueLabel().foregroundStyle(Theme.muted) } }
+                .chartXAxis { AxisMarks(values: [1, 5, 10, 15, 20, 25, x.days.count]) { AxisValueLabel().foregroundStyle(Theme.muted) } }
+                .frame(height: 180).padding(.top, 8)
+                Text(velocityLine ? "Running total through the month." : "Spent each day; category totals with no date count on the 1st.")
+                    .font(Theme.footnote).foregroundStyle(Theme.muted)
+            }
+        }
+    }
+
+    @ViewBuilder private func cards(_ x: MonthExtras.Result) -> some View {
+        if x.cards.isEmpty && x.wallets.isEmpty {
+            KCard { Text("No card or wallet activity this month.").font(Theme.footnote).foregroundStyle(Theme.muted) }
+        }
+        if !x.cards.isEmpty {
+            KSectionHeader(title: "Credit card summary", detail: "due this month")
+            KList(items: x.cards) { c in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack { Text(c.name).font(Theme.body).foregroundStyle(.white); Spacer(); Text(Money.rupees(c.due)).font(Theme.figure).foregroundStyle(.white) }
+                    HStack(alignment: .top) {
+                        KStat(label: "Current spends", value: Money.rupees(c.spend))
+                        Spacer()
+                        if c.carryForward != 0 { KStat(label: c.carryForward > 0 ? "Carry forward due" : "Overpaid", value: Money.rupees(c.carryForward), tone: c.carryForward > 0 ? .warning : .positive) }
+                        if c.payments > 0 { Spacer(); KStat(label: "Payments made", value: "−" + Money.rupees(c.payments), tone: .accent) }
+                    }
+                }
+            }
+            KCard { HStack { Text("Total current spends").font(Theme.footnote.weight(.bold)).foregroundStyle(Theme.muted); Spacer(); Text(Money.rupees(x.totalCardSpend)).font(Theme.figure).foregroundStyle(.white) } }
+        }
+        if !x.wallets.isEmpty {
+            KSectionHeader(title: "Wallets summary", detail: "balance to the end of this month")
+            KCard {
+                ForEach(x.wallets, id: \.name) { w in
+                    HStack { Text(w.name).font(Theme.footnote.weight(.bold)).foregroundStyle(Theme.muted); Spacer(); Text(Money.rupees(w.balance)).font(Theme.figure).foregroundStyle(Theme.positive) }.padding(.vertical, 3)
+                }
+                HStack { Text("Total wallet value").font(Theme.footnote.weight(.bold)).foregroundStyle(Theme.positive); Spacer()
+                    Text(Money.rupees(x.wallets.reduce(0) { $0 + $1.balance })).font(Theme.figure).foregroundStyle(.white) }.padding(.top, 6)
+            }
+        }
     }
 }

@@ -682,10 +682,26 @@ const rdGolden = db.savings.filter((a) => a.type === 'recurring_deposit').map((a
     };
 });
 
+
+// Month page, the rest of monthDetails: the whole memo cut from the source and run for every month, for the spending velocity,
+// the credit card summary (spend, payments, carry-forward) and the wallets summary.
+const monthFullSrc = slice('src/pages/ExpenseDetails.jsx', 'const monthData = expenses[year]?.[month] || {};', '\n    }, [expenses, creditCards, year, month');
+const monthFullFn = new Function('expenses', 'creditCards', 'year', 'month', 'salaryStats', 'mergedCategoryMap', 'lents', 'categoryKinds',
+    'countsAsSpending', 'expenseBuckets', 'monthIncome', 'isIncomeTx', 'const monthData = expenses[year]?.[month] || {};' + monthFullSrc);
+const monthExtrasGolden = [];
+for (const year of Object.keys(db.expenses || {})) {
+    for (const month of Object.keys(db.expenses[year] || {})) {
+        const r = monthFullFn(db.expenses, db.creditCards || [], year, month, salaryStats, budgetMap, db.lents || [], categoryKinds,
+            countsAsSpendingFn, expenseBuckets, monthIncome, isIncomeTx);
+        monthExtrasGolden.push({ year, month, gross: r.totalGrossExpenses, trend: r.trendData, totalCreditCardSpend: r.totalCreditCardSpend,
+            creditCardStats: r.creditCardStats, creditCardPayments: r.creditCardPayments, carryForwardCCStats: r.carryForwardCCStats, walletStats: r.walletStats });
+    }
+}
+
 fs.writeFileSync(outPath, JSON.stringify({
     asOf: new RealDate(frozenMs).toISOString(),
     dashboard, items, savings: savingsGolden, investments: investmentsGolden, loans: loansGolden, capitalGains: capitalGainsGolden,
-    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden,
+    watchlist: watchlistGolden, sectors: sectorsGolden, caps: capsGolden, benchmark: benchmarkGolden, ipos: ipoGolden, returns: returnsGolden, dividends: dividendsGolden, freeHoldings: freeGolden, overlap: overlapGolden, analyst: analystGolden, salary: salaryGolden, taxes: taxGolden, goals: goalsGolden, insurance: insuranceGolden, recurring: recurringGolden, spending: spendingGolden, moneyFlow: moneyFlowGolden, cards: cardsGolden, warranty: warrantyGolden, health: healthGolden, budgets: budgetsGolden, fuel: fuelGolden, grocery: groceryGolden, groceryMaster: groceryMasterGolden, allTx: allTxGolden, cardList: cardListGolden, netWorthHistory: netWorthGolden, cashflow: cashflowGolden, overlapFilters, monthCategories: monthCategoriesGolden, deposits: depositsGolden, assets: assetsGolden, ppf: ppfGolden, pf: pfGolden, mutualFunds: mfGolden, recurringDeposits: rdGolden, monthExtras: monthExtrasGolden,
     months,
     stocks: {
         count: holdings.length,
