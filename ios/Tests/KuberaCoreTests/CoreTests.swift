@@ -1133,4 +1133,22 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertEqual(MetalEditing.apply(items: list, item: co, deleting: nil).count, 3)
         XCTAssertEqual(MetalEditing.apply(items: list, item: nil, deleting: json("\"g1\"")).count, 1)
     }
+
+    func testCardBaselineFollowsTheMacsRules() {
+        let card = json("{\"id\":\"c\",\"carryForwardBaseline\":\"August/2026\",\"baselineOpeningBalance\":54094.65}")
+        var d = CardBaseline.draft(from: card)
+        XCTAssertTrue(d.enabled); XCTAssertEqual(d.month, "August"); XCTAssertEqual(d.year, "2026"); XCTAssertEqual(d.opening, "54094.65")
+        // A blank opening balance keeps the stored one instead of wiping it.
+        d.opening = ""
+        XCTAssertEqual(CardBaseline.fields(d, card: card)["baselineOpeningBalance"] as? Double, 54094.65)
+        d.opening = "1,200"; d.month = "March"; d.year = " 2025 "
+        let f = CardBaseline.fields(d, card: card)
+        XCTAssertEqual(f["carryForwardBaseline"] as? String, "March/2025"); XCTAssertEqual(f["baselineOpeningBalance"] as? Double, 1200)
+        d.opening = "abc"; XCTAssertFalse(CardBaseline.problems(d).isEmpty)
+        d.opening = "5"; d.year = "x"; XCTAssertFalse(CardBaseline.problems(d).isEmpty)
+        // Switching it off clears both fields.
+        d.enabled = false
+        XCTAssertTrue(CardBaseline.fields(d, card: card)["carryForwardBaseline"] is NSNull)
+        XCTAssertFalse(CardBaseline.draft(from: json("{\"id\":\"x\"}")).enabled)
+    }
 }

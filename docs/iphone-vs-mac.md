@@ -44,7 +44,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Spending analysis | ✅ | — | — | — | — |
 | Money flow | ✅ | — | 🟡 | — | Classifying categories |
 | Cards list | ✅ | ✅ card (new) | ✅ | ❌ | Delete a card |
-| Single card | 🟡 history | ❌ | ❌ | ❌ | Card expense rows add/edit/delete, carry-forward baseline, statement import |
+| Single card | ✅ history, own transactions | ✅ tx | ✅ tx, baseline | ✅ tx | Statement import; monthly-history records (none exist in your data) |
 | Card intelligence | ✅ | — | — | — | — |
 | Budget limits | ✅ | ❌ categories | ✅ limits | ❌ | Add / rename / delete main and sub categories |
 | Recurring | ✅ | — | 🟡 | — | Overrides (cancel / ignore / watch) |
@@ -82,7 +82,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
    Mac's write guard; needs the Mac).
 2. ~~Month page extras~~ — done.
 3. Precious metals: items and manual rates done; photos and bills remain.
-4. Single card: expense rows and carry-forward baseline.
+4. ~~Single card~~ — done (statement import stays on the Mac).
 5. Stocks list: add / archive / delete a holding; savings & investment accounts: archive / delete.
 6. Budget categories and Grocery builder editing.
 7. Account pages still on the generic layout: NPS, SGB, savings account, emergency fund, policy (with documents).

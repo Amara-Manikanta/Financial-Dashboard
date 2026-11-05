@@ -147,6 +147,10 @@ struct CardDetailView: View {
     @ObservedObject var store: FinanceStore
     let route: CardRoute
     @State private var limit = 12
+    @State private var txLimit = 15
+    @State private var adding = false
+    @State private var editing: AllTransactions.Row?
+    @State private var showBaseline = false
 
     var body: some View {
         let d = store.data
@@ -171,13 +175,77 @@ struct CardDetailView: View {
                 KSectionHeader(title: "Used for")
                 KList(items: p.topCategories.enumerated().map { Line(id: $0.offset, title: $0.element.category.capitalized, subtitle: "", value: inr($0.element.amount), tone: .neutral) }) { l in KRow(title: l.title, value: l.value) }
             }
+            if !card["type"].text.isEmpty && card["type"].text == "wallet" {
+                // A wallet has no statement baseline.
+            } else {
+                KSectionHeader(title: "Carry-forward baseline")
+                Button { showBaseline = true } label: {
+                    KCard { KRow(title: card["carryForwardBaseline"].truthy ? card["carryForwardBaseline"].text.replacingOccurrences(of: "/", with: " ") : "Not set",
+                                 subtitle: card["carryForwardBaseline"].truthy ? "opening balance \(inr(card["baselineOpeningBalance"].double))" : "What was owed before this month is not counted",
+                                 systemImage: "calendar.badge.clock", chevron: true) }
+                }.buttonStyle(.plain)
+            }
+            cardTransactions(card, expenses: d.expensesRaw)
             KSectionHeader(title: "Month by month", detail: "balance at month end")
             KList(items: Array(lines.prefix(limit))) { l in KRow(title: l.title, subtitle: l.subtitle, value: l.value, valueTone: l.tone) }
             if lines.count > limit { Button("Show 12 more") { limit += 12 }.font(Theme.footnote.weight(.bold)) }
-            Text("Statements, edits and payments are on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+            Text("Statement imports are done on the Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
         }
         .navigationTitle(card["name"].text)
-        .toolbar { EditRecordButton(store: store, collection: "creditCards", id: route.id, title: card["name"].text) }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { Button { adding = true } label: { Image(systemName: "plus") } }
+            ToolbarItem(placement: .secondaryAction) { EditRecordButton(store: store, collection: "creditCards", id: route.id, title: card["name"].text) }
+        }
         .navigationBarTitleDisplayMode(.large)
+        .sheet(isPresented: $adding) { AddTransactionView(store: store, presetCard: card["name"].text) }
+        .sheet(item: $editing) { r in
+            EditTransactionView(store: store, row: r, lock: EditTransaction.lockReason(r.raw, idCount: AllTransactions.list(store.data.expensesRaw).filter { $0.raw["id"].text == r.raw["id"].text }.count))
+        }
+        .sheet(isPresented: $showBaseline) { CardBaselineSheet(store: store, card: card) }
+    }
+
+    /// This card's own transactions, newest first — the Mac's "Recent Transactions (Expenses)". Tap to change or remove one.
+    @ViewBuilder private func cardTransactions(_ card: JSONValue, expenses: JSONValue) -> some View {
+        let name = card["name"].text.trimmingCharacters(in: .whitespaces)
+        let rows = AllTransactions.list(expenses).filter { $0.raw["paymentMode"].text == "credit_card" && $0.raw["creditCardName"].text.trimmingCharacters(in: .whitespaces) == name }
+            .sorted { $0.time != $1.time ? $0.time > $1.time : $0.offset < $1.offset }
+        KSectionHeader(title: "Recent transactions", detail: rows.isEmpty ? nil : "\(rows.count)")
+        if rows.isEmpty {
+            KCard { Text("No transactions on this card yet. Tap + to add one.").font(Theme.footnote).foregroundStyle(Theme.muted) }
+        } else {
+            KList(items: Array(rows.prefix(txLimit))) { r in
+                Button { editing = r } label: {
+                    KRow(title: r.title.isEmpty ? r.category.capitalized : r.title, subtitle: "\(Fmt.date(r.date)) · \(r.category)",
+                         value: (r.isCredited ? "+" : "") + inr(r.amount), valueTone: r.isCredited ? .positive : .neutral)
+                }.buttonStyle(.plain)
+            }
+            if rows.count > txLimit { Button("Show 15 more") { txLimit += 15 }.font(Theme.footnote.weight(.bold)) }
+            Text("Tap a transaction to change or delete it.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
+        }
+    }
+}
+
+
+/// The card's carry-forward baseline, as the Mac's "Set Carry Forward Baseline" form. Saved to the card record under its version.
+struct CardBaselineSheet: View {
+    @ObservedObject var store: FinanceStore
+    let card: JSONValue
+    @State private var d = CardBaseline.Draft()
+    @State private var loaded = false
+
+    var body: some View {
+        FormSheet(title: "Carry-forward baseline", problems: CardBaseline.problems(d), touched: true, save: {
+            await store.saveRecord("creditCards", id: card["id"].text, fields: CardBaseline.fields(d, card: card), original: card, stampUpdated: !card["updatedAt"].isNull, label: "Baseline · \(card["name"].text)")
+        }) {
+            Section {
+                Toggle("Count only from a chosen month", isOn: $d.enabled)
+                if d.enabled {
+                    Picker("Month", selection: $d.month) { ForEach(MonthExtras.months, id: \.self) { Text($0).tag($0) } }
+                    TextRow(label: "Year", text: $d.year)
+                    NumberRow(label: "Owed at that point ₹", text: $d.opening)
+                }
+            } footer: { Text("Spending and payments before the baseline month are left out of what carries forward; the balance owed then is the opening balance. Leave the balance blank to keep the one already saved.") }
+        }
+        .onAppear { guard !loaded else { return }; loaded = true; d = CardBaseline.draft(from: card) }
     }
 }

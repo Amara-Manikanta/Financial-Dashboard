@@ -6,6 +6,8 @@ struct AddTransactionView: View {
     @ObservedObject var store: FinanceStore
     /// The date the form opens on: today when the month being viewed is this month, otherwise the 1st of it (as the Mac's month page does).
     var defaultDate = Date()
+    /// Opens with this credit card already chosen (from a card's own page).
+    var presetCard: String? = nil
     @Environment(\.dismiss) private var dismiss
     @State private var draft = NewTransaction.Draft()
     @State private var started = false
@@ -46,7 +48,7 @@ struct AddTransactionView: View {
                 if let failure { Section { Label(failure, systemImage: "exclamationmark.triangle.fill").foregroundStyle(Theme.negative).font(.footnote) } header: { Text("Not saved") } }
                 Section { Text("This adds one row. Away from your Mac it is kept on this phone and sent when the Mac is back.").font(.footnote).foregroundStyle(.secondary) }
             }
-            .onAppear { if !started { started = true; draft.date = defaultDate } }
+            .onAppear { if !started { started = true; draft.date = defaultDate; if let c = presetCard { draft.onCard = true; draft.card = c } } }
             .navigationTitle("Add transaction")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
