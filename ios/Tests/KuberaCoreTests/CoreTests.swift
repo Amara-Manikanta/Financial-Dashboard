@@ -1075,4 +1075,11 @@ final class AssetEditingTests: XCTestCase {
             XCTAssertEqual(row["date"].text, "2026-03-31"); XCTAssertEqual(row["type"].text, "interest"); XCTAssertEqual(row["amount"].double, 0)
         } else { XCTFail("expected a new interest row") }
     }
+
+    func testDividendNotificationsOpenTheDividendsPage() {
+        // A reminder carries its screen, and one scheduled before it did is still recognised by its id.
+        XCTAssertTrue(DividendReminders.opensDividends(identifier: "x", userInfo: ["screen": "dividends"]))
+        XCTAssertTrue(DividendReminders.opensDividends(identifier: DividendReminders.Reminder(year: 2026, month: 11, title: "", body: "").id, userInfo: [:]))
+        XCTAssertFalse(DividendReminders.opensDividends(identifier: "something.else", userInfo: [:]))
+    }
 }

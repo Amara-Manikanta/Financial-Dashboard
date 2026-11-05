@@ -13,6 +13,12 @@ enum DividendReminders {
 
     static let idPrefix = "kubera.dividends."
 
+    /// Whether a notification is a dividend reminder, and so should open the Dividend Income page when tapped. Matched on the id
+    /// as well as the payload, so a reminder scheduled by an earlier version of the app (which carried no payload) still does.
+    static func opensDividends(identifier: String, userInfo: [AnyHashable: Any]) -> Bool {
+        (userInfo["screen"] as? String) == "dividends" || identifier.hasPrefix(idPrefix)
+    }
+
     /// One reminder for each of the next `months` months (this one included), for months where
     /// held stocks have historically paid. In the current month, stocks that already have a
     /// dividend recorded this month are left out, and a month with none left gets no reminder.

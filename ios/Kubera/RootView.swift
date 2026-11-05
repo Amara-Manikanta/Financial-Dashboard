@@ -28,6 +28,7 @@ private struct PairedRoot: View {
     @StateObject private var store: FinanceStore
     @State private var tab: AppTab = ProcessInfo.processInfo.arguments.contains("-screen") ? .more : ProcessInfo.processInfo.arguments.contains("-addTransaction") ? .expenses : .home
     @State private var webPage: AppPage?
+    @ObservedObject private var link = DeepLink.shared
 
     init(mac: MacEndpoint, token: String, forget: @escaping () -> Void) {
         self.mac = mac
@@ -71,6 +72,9 @@ private struct PairedRoot: View {
             WebPageView(mac: mac, token: token, page: page, onUnauthorized: forget)
         }
         .task { await store.load() }
+        // A tapped notification asks for a screen; every screen opens from the More tab's stack.
+        .onChange(of: link.screen) { _, s in if s != nil { tab = .more } }
+        .onAppear { if link.screen != nil { tab = .more } }
         .onChange(of: store.loadedAt) { _, _ in Task { await DividendNotifier.shared.refresh(store: store) } }
     }
 }

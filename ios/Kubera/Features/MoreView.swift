@@ -8,6 +8,7 @@ struct MoreView: View {
 
     @Environment(\.openWebPage) private var openWebPage
     @State private var path = NavigationPath()
+    @ObservedObject private var link = DeepLink.shared
     @State private var confirmDisconnect = false
     /// `-screen <name>` on the command line opens that screen straight away, for checking one without tapping to it.
     private static let launchScreen: NativeScreen? = {
@@ -44,12 +45,23 @@ struct MoreView: View {
                     .font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
             }
             .navigationTitle("More")
-            .onAppear { if let s = Self.launchScreen, path.isEmpty { path.append(s) } }
+            .onAppear {
+                if let s = Self.launchScreen, path.isEmpty { path.append(s) }
+                openRequested()
+            }
+            .onChange(of: link.screen) { _, _ in openRequested() }
             .navigationDestination(for: NativeScreen.self) { NativeDestination(screen: $0, store: store) }
             .confirmationDialog("Disconnect this iPhone from \(mac.name)?", isPresented: $confirmDisconnect, titleVisibility: .visible) {
                 Button("Disconnect", role: .destructive, action: disconnect)
             } message: { Text("You'll need a new pairing code from the Mac to connect again.") }
         }
+    }
+
+    /// A screen asked for from outside the app (a tapped notification) opens on top of More, replacing whatever was open there.
+    private func openRequested() {
+        guard let screen = link.consume() else { return }
+        path = NavigationPath()
+        path.append(screen)
     }
 
     private func open(_ page: AppPage) {

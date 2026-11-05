@@ -1174,6 +1174,13 @@ for every fund (archived too) against them, including the calculators across sev
 value like any record change — so with the Mac out of reach it is kept on the phone and sent when it is back. Not on the phone: the
 fund composition panels (entered on the Mac; no fund has any yet).
 
+**Dividend reminders** (`DividendReminders`, `DividendNotifier`, `NotificationRouter`, `DeepLink`): opt-in in Profile → Reminders;
+a local notification on the 1st of each month listing the held stocks that have paid in that month before. **Tapping it opens the
+Dividend Income page**: the notification carries `screen: dividends` (and is also recognised by its `kubera.dividends.` id, so ones
+scheduled by an earlier build work), `NotificationRouter` — installed before launch finishes, so a tap that starts the app is not lost —
+hands it to `DeepLink`, and the root view switches to More, which pushes the screen. `-openLink dividends` on the launch line does the same
+for checking the route without waiting for a notification.
+
 **Research calls** (`ResearchCall`, `ResearchView`): each holding's latest outside-research call from the Mac's Research tab
 (`GET /api/analyst/strategy`), shown as a badge on the Stocks list, a card on the stock page and a Research screen (More → Investing)
 with filters by call. Read-only: tables are pasted or imported on the Mac. A holding left out of a later day keeps its call, aged.

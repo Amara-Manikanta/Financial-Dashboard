@@ -46,6 +46,7 @@ final class DividendNotifier: ObservableObject {
             }
             let content = UNMutableNotificationContent()
             content.title = r.title; content.body = r.body; content.sound = .default
+            content.userInfo = ["screen": "dividends"]
             try? await center.add(UNNotificationRequest(identifier: r.id, content: content, trigger: trigger))
         }
     }
