@@ -82,6 +82,21 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Adds, changes or deletes one employment tenure. Needs the Mac: the change is applied to the list as it is there now and
+    /// sent under `appData`'s version, so a tenure added on the Mac meanwhile is kept and a stale phone is refused.
+    func saveEmployment(_ change: EmploymentEditing.Change) async -> String? {
+        if mirror?.offline == true { return "Changing employments needs your Mac. Connect to it and try again." }
+        do {
+            let current = try await api.appDataWithVersion()
+            guard let next = EmploymentEditing.apply(change, to: current.value["employments"].array, newId: "emp_\(Int(Date().timeIntervalSince1970 * 1000))") else {
+                await load(); return "That employment is no longer on your Mac. Nothing was changed."
+            }
+            if let failure = await api.patchAppData(fields: ["employments": next], version: current.version) { return failure }
+            await load()
+            return nil
+        } catch { return error.localizedDescription }
+    }
+
     /// Saves the insurance profile (age, dependents, income, liabilities). Needs the Mac: it is a settings change, loaded fresh and sent
     /// under its version, and only the `insuranceProfile` key is written so other settings are untouched.
     func saveInsuranceProfile(_ fields: [String: Any]) async -> String? {

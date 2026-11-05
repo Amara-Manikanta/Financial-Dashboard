@@ -1291,3 +1291,43 @@ final class InsuranceEditingTests: XCTestCase {
         XCTAssertFalse(InsuranceEditing.problems(InsuranceEditing.Form()).isEmpty)
     }
 }
+
+final class EmploymentEditingTests: XCTestCase {
+    private func json(_ s: String) -> JSONValue { try! JSONValue.parse(Data(s.utf8)) }
+
+    func testAddReplaceDeleteWorkOnTheFreshList() throws {
+        let list = json(#"[{"id":"emp_1","companyName":"A","isCurrent":false,"endDate":"2020-01-01"},{"id":"emp_2","companyName":"B"}]"#).array
+        var f = EmploymentEditing.Form(); f.companyName = "C"; f.lastDrawnBasic = "50,000"
+        let added = EmploymentEditing.apply(.add(f), to: list, newId: "emp_9")!
+        XCTAssertEqual(added.count, 3); XCTAssertEqual((added[2] as! [String: Any])["id"] as? String, "emp_9"); XCTAssertEqual((added[2] as! [String: Any])["lastDrawnBasic"] as? Double, 50000)
+        var g = EmploymentEditing.form(from: list[0]); XCTAssertFalse(g.isCurrent); g.isCurrent = true
+        let replaced = EmploymentEditing.apply(.replace(id: "emp_1", g), to: list, newId: "x")!
+        XCTAssertEqual((replaced[0] as! [String: Any])["endDate"] as? String, "", "a current job has no end date")
+        XCTAssertEqual((replaced[1] as! [String: Any])["id"] as? String, "emp_2")
+        XCTAssertEqual(EmploymentEditing.apply(.delete(id: "emp_2"), to: list, newId: "x")!.count, 1)
+        XCTAssertNil(EmploymentEditing.apply(.delete(id: "gone"), to: list, newId: "x"), "a tenure deleted on the Mac meanwhile is reported, not guessed")
+    }
+
+    func testValidation() {
+        var f = EmploymentEditing.Form(); XCTAssertFalse(EmploymentEditing.problems(f).isEmpty)
+        f.companyName = "A"; f.isCurrent = false; f.startDate = "2020-01-01"; f.endDate = "2019-01-01"
+        XCTAssertEqual(EmploymentEditing.problems(f).count, 1)
+    }
+}
+
+final class PayslipEditingTests: XCTestCase {
+    func testRecordHasTheMacsShapeAndNumbers() {
+        let r = PayslipEditing.record(year: "2026", month: "November", fieldKeys: ["basicSalary", "hra", "epf"], values: ["basicSalary": "36,783", "hra": "abc"], id: "9")
+        XCTAssertEqual(r["type"] as? String, "monthly"); XCTAssertEqual(r["month"] as? String, "November"); XCTAssertEqual(r["year"] as? String, "2026")
+        XCTAssertEqual(r["basicSalary"] as? Double, 36783); XCTAssertEqual(r["hra"] as? Double, 0); XCTAssertEqual(r["epf"] as? Double, 0)
+    }
+
+    func testCopyPreviousMonthNeedsThePreviousMonthRecorded() {
+        var jan = SalaryPage.Month(name: "January"); jan.recorded = true; jan.values = ["basicSalary": 10]
+        let feb = SalaryPage.Month(name: "February"), mar = SalaryPage.Month(name: "March")
+        XCTAssertEqual(PayslipEditing.previousMonthValues(of: "February", in: [jan, feb, mar]), ["basicSalary": 10])
+        XCTAssertNil(PayslipEditing.previousMonthValues(of: "March", in: [jan, feb, mar]))
+        XCTAssertNil(PayslipEditing.previousMonthValues(of: "January", in: [jan, feb, mar]))
+        XCTAssertEqual(PayslipEditing.unrecorded([jan, feb, mar]), ["February", "March"])
+    }
+}

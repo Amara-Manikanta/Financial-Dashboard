@@ -6,6 +6,13 @@ struct SalaryView: View {
     @ObservedObject var store: FinanceStore
     @State private var year = String(Calendar.current.component(.year, from: Date()))
     @State private var open: Set<String> = []
+    @State private var empSheet: EmploymentRoute?
+    @State private var deletingEmp: JSONValue?
+    @State private var empMessage: String?
+    @State private var addingPayslip = false
+
+    private struct EmploymentRoute: Identifiable { let id = UUID(); let emp: JSONValue? }
+    private struct IndexedTenure: Identifiable { let index: Int; let tenure: SalaryPage.Tenure; var id: Int { index } }
 
     private func inr(_ v: Double) -> String { Money.rupees(v) }
 
@@ -25,7 +32,7 @@ struct SalaryView: View {
                         KStat(label: "EPF", value: inr(p.totalEpf))
                     }.padding(.top, 10)
                 }
-                KSectionHeader(title: "Month by month")
+                HStack { KSectionHeader(title: "Month by month"); Button { addingPayslip = true } label: { Image(systemName: "plus.circle.fill").font(.system(size: 20)) } }
                 KList(items: p.months.filter(\.recorded)) { m in
                     VStack(alignment: .leading, spacing: 6) {
                         Button { toggle(m.id) } label: {
@@ -39,6 +46,7 @@ struct SalaryView: View {
                     .editable(store, "salaryDetails", id: salaryId(m.name), title: "\(m.name) \(year)")
                 }
             } else {
+                HStack { KSectionHeader(title: "Month by month"); Button { addingPayslip = true } label: { Image(systemName: "plus.circle.fill").font(.system(size: 20)) } }
                 KCard { Text("No monthly payslips recorded for \(year).").font(Theme.body).foregroundStyle(Theme.muted) }
             }
 
@@ -60,17 +68,25 @@ struct SalaryView: View {
                 }
             }
 
+            let employments = store.data.appDataRaw["employments"].array
+            HStack { KSectionHeader(title: "Gratuity"); Button { empSheet = EmploymentRoute(emp: nil) } label: { Image(systemName: "plus.circle.fill").font(.system(size: 20)) } }
             if !p.gratuity.tenures.isEmpty || p.gratuity.total != 0 {
-                KSectionHeader(title: "Gratuity")
                 KCard {
                     KStat(label: "Accrued so far", value: inr(p.gratuity.total))
                     if p.gratuity.thisYear != 0 { line("Recorded in \(year)'s package", p.gratuity.thisYear) }
                 }
-                if !p.gratuity.tenures.isEmpty {
-                    KList(items: p.gratuity.tenures) { t in
+            }
+            if p.gratuity.tenures.isEmpty {
+                KCard { Text("No employment recorded. Tap + to add a tenure; gratuity is worked out from its dates and last drawn basic.").font(Theme.footnote).foregroundStyle(Theme.muted) }
+            } else {
+                KList(items: Array(p.gratuity.tenures.enumerated()).map { IndexedTenure(index: $0.offset, tenure: $0.element) }) { it in
+                    let t = it.tenure
+                    Button { if employments.indices.contains(it.index) { empSheet = EmploymentRoute(emp: employments[it.index]) } } label: {
                         KRow(title: t.company.isEmpty ? "Employer" : t.company, subtitle: "\(t.duration) · \(t.status)\(t.eligible ? "" : " · under 5 years")", value: inr(t.amount))
-                    }
+                    }.buttonStyle(.plain)
+                    .contextMenu { if employments.indices.contains(it.index) { Button(role: .destructive) { deletingEmp = employments[it.index] } label: { Label("Delete", systemImage: "trash") } } }
                 }
+                Text("Tap a tenure to change it; long-press to delete. Needs your Mac.").font(Theme.footnote).foregroundStyle(Theme.muted).padding(.horizontal, 4)
             }
 
             if !p.annual.isEmpty {
@@ -81,6 +97,12 @@ struct SalaryView: View {
                 }
             }
         }
+        .sheet(isPresented: $addingPayslip) { PayslipSheet(store: store, year: year, page: SalaryPage.page(salaryDetails: store.data.salaryRaw, appData: store.data.appDataRaw, year: year)) }
+        .sheet(item: $empSheet) { EmploymentSheet(store: store, editing: $0.emp) }
+        .confirmationDialog("Delete this employment tenure?", isPresented: Binding(get: { deletingEmp != nil }, set: { if !$0 { deletingEmp = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { if let e = deletingEmp { Task { empMessage = await store.saveEmployment(.delete(id: e["id"].text)) } } }
+        }
+        .alert("Not saved", isPresented: Binding(get: { empMessage != nil }, set: { if !$0 { empMessage = nil } })) { Button("OK") { empMessage = nil } } message: { Text(empMessage ?? "") }
         .navigationTitle("Salary")
         .navigationBarTitleDisplayMode(.large)
     }

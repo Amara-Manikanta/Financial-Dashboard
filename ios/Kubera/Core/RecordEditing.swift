@@ -183,7 +183,7 @@ enum RecordEditing {
 
     /// Collections a phone may add a whole record to, with the word the screen uses for one.
     static let creatable: [String: String] = ["goals": "goal", "loans": "loan", "lents": "person", "watchlist": "watchlist entry",
-                                              "ipoApplications": "IPO application", "taxes": "tax year", "creditCards": "card"]
+                                              "ipoApplications": "IPO application", "taxes": "tax year", "creditCards": "card", "salaryDetails": "payslip"]
 
     /// A blank record shaped like the newest one already in the collection — the same keys the Mac's own form writes —
     /// with text emptied, numbers zeroed, switches off and lists empty. Fields a page works out (prices, quotes, keys) are left

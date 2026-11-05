@@ -1231,6 +1231,14 @@ open the policy page, and long-press archives or deletes through the same checks
 `policyDetails` — merged over the existing details, as the Mac's `PolicyScannerModal` spreads the old record first — so premiums, benefits, claims
 and documents are never in the patch. Not on the phone: scanning a policy PDF into the form.
 
+**Salary: employments and new payslips** (`EmploymentEditing`, `EmploymentSheet`, `PayslipEditing`, `PayslipSheet`): the Gratuity section's **+** adds an
+employment tenure, tapping one changes it and long-press deletes it. Tenures live in `appData.employments`, so each change is **online-only**:
+the list is read fresh with `appData`'s version, the one tenure is changed in that copy and only `employments` is PATCHed (fresh version saves,
+stale is refused with 409, other settings untouched — checked on the sandbox). A tenure deleted on the Mac meanwhile is reported, not guessed.
+**Month by month → +** adds a `monthly` payslip for a month of the chosen year that has none (`POST /salaryDetails`, every field a number as the
+Mac's `handleSave` stores it), with **Copy the previous month** as the Mac's button does (only when the previous month is recorded). Custom
+salary fields and deleting a payslip stay on the Mac.
+
 **Recurring deposits** (`RDPage`, `RecurringDepositsView`): the account page is laid out as the Mac's `RecurringDepositDetails.jsx` —
 monthly instalments summed over **all** the deposits (not only active ones), total paid against the maturity target with its
 percentage, a paid-vs-target chart, and a card per deposit, soonest to mature first: instalment, paid, matures-to, days left (or
