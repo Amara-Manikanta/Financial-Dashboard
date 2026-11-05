@@ -1151,4 +1151,25 @@ final class AssetEditingTests: XCTestCase {
         XCTAssertTrue(CardBaseline.fields(d, card: card)["carryForwardBaseline"] is NSNull)
         XCTAssertFalse(CardBaseline.draft(from: json("{\"id\":\"x\"}")).enabled)
     }
+
+    func testHoldingAddArchiveDelete() {
+        var f = HoldingEditing.Form(); f.name = " Acme Ltd "; f.ticker = "acme"; f.shares = "10"; f.avgCost = ""
+        XCTAssertFalse(HoldingEditing.problems(f).isEmpty)                 // shares need a price
+        f.avgCost = "120.5"; XCTAssertTrue(HoldingEditing.problems(f).isEmpty)
+        let now = ISO8601DateFormatter().date(from: "2026-11-05T06:00:00Z")!
+        let h = HoldingEditing.newHolding(f, today: "2026-11-05", now: now)
+        XCTAssertEqual(h["id"] as? String, "s1793858400000"); XCTAssertEqual(h["ticker"] as? String, "ACME"); XCTAssertEqual(h["name"] as? String, "Acme Ltd")
+        let tx = (h["transactions"] as? [[String: Any]]) ?? []
+        XCTAssertEqual(tx.count, 1); XCTAssertEqual(tx[0]["type"] as? String, "buy"); XCTAssertEqual(tx[0]["remarks"] as? String, "Initial Balance")
+        f.shares = ""; f.avgCost = ""
+        XCTAssertEqual(((HoldingEditing.newHolding(f, today: "2026-11-05", now: now)["transactions"] as? [Any]) ?? [1]).count, 0)   // no shares, no opening buy
+        let stocks = [json("{\"id\":\"s1\",\"name\":\"A\"}"), json("{\"id\":\"s2\",\"name\":\"B\"}")]
+        XCTAssertEqual(HoldingEditing.apply(.add(h), to: stocks).count, 3)
+        let arch = HoldingEditing.apply(.setArchived(id: "s2", true), to: stocks).compactMap { $0 as? [String: Any] }
+        XCTAssertEqual(arch.first { ($0["id"] as? String) == "s2" }?["isArchived"] as? Bool, true)
+        XCTAssertNil(arch.first { ($0["id"] as? String) == "s1" }?["isArchived"])
+        XCTAssertEqual(HoldingEditing.apply(.delete(id: "s1"), to: stocks).count, 1)
+        XCTAssertNotNil(HoldingEditing.deleteBlock(json("{\"transactions\":[{\"expenseId\":\"e1\"}]}")))
+        XCTAssertNil(HoldingEditing.deleteBlock(json("{\"transactions\":[{\"id\":\"t\"}]}")))
+    }
 }

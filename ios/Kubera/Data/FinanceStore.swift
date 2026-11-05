@@ -148,6 +148,14 @@ final class FinanceStore: ObservableObject {
         } catch { return error.localizedDescription }
     }
 
+    /// Adds, archives/restores or deletes a stock holding by changing the stock-market account's `stocks` list. Online or not, it
+    /// goes through the same version-checked record save: the list is sent only if the Mac still holds exactly the list the phone read.
+    func saveHoldings(_ change: HoldingEditing.Change, label: String) async -> String? {
+        guard let account = data.savingsRaw.array.first(where: { $0["type"].text == "stock_market" && !$0["isArchived"].truthy }) else { return "The stock account was not found." }
+        let next = HoldingEditing.apply(change, to: account["stocks"].array)
+        return await saveRecord("savings", id: account["id"].text, fields: ["stocks": next], original: account, stampUpdated: !account["updatedAt"].isNull, label: label)
+    }
+
     /// The stock-market account that holds a holding, so its transactions can be changed.
     func stockAccountId(holding id: String) -> String? {
         data.savingsRaw.array.first { $0["type"].text == "stock_market" && $0["stocks"].array.contains { $0["id"].text == id } }?["id"].text

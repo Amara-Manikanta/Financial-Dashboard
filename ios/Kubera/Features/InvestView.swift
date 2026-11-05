@@ -42,7 +42,7 @@ struct InvestView: View {
             .navigationTitle("Investments")
             .navigationDestination(for: NativeScreen.self) { NativeDestination(screen: $0, store: store) }
             // Funds, deposits, policies… open here; the link existed but nothing answered it.
-            .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
+        .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
         }
     }
 
@@ -69,6 +69,10 @@ struct StocksView: View {
     @State private var sectorFilter = "all"
     @State private var resultFilter = "all"
     @State private var sort = "value"
+    @State private var addingHolding = false
+    @State private var deletingHolding: Stocks.Holding?
+    @State private var message: String?
+    @State private var showArchived = false
 
     private var filtersActive: Bool { callFilter != "all" || sectorFilter != "all" || resultFilter != "all" || sort != "value" }
 
@@ -97,6 +101,34 @@ struct StocksView: View {
     }
 
     private var allHoldings: [Stocks.Holding] { store.portfolio.holdings }
+
+    /// Holdings you archived (or that have no shares left): kept with their history, restorable.
+    private var archived: [JSONValue] {
+        (store.data.savingsRaw.array.first { $0["type"].text == "stock_market" && !$0["isArchived"].truthy }?["stocks"].array ?? [])
+            .filter { $0["isArchived"].truthy && Stocks.isOwn($0) }
+    }
+
+    @ViewBuilder private var archivedSection: some View {
+        if !archived.isEmpty {
+            Button { withAnimation { showArchived.toggle() } } label: {
+                HStack { Text("Archived").font(Theme.caption).tracking(1.0).foregroundStyle(Theme.muted); Text("\(archived.count)").font(Theme.caption).foregroundStyle(Theme.muted)
+                    Spacer(); Image(systemName: "chevron.down").font(.system(size: 11, weight: .bold)).foregroundStyle(Theme.muted).rotationEffect(.degrees(showArchived ? 180 : 0)) }
+                    .padding(.horizontal, 4).padding(.top, 8)
+            }.buttonStyle(.plain)
+            if showArchived {
+                KList(items: archived.map { ArchivedRow(raw: $0) }) { a in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) { Text(a.raw["name"].text).font(Theme.body).foregroundStyle(.white); Text(a.raw["ticker"].text).font(Theme.footnote).foregroundStyle(Theme.muted) }
+                        Spacer()
+                        Button("Restore") { Task { message = await store.saveHoldings(.setArchived(id: a.raw["id"].text, false), label: "Restore \(a.raw["name"].text)") } }
+                            .font(Theme.footnote.weight(.bold))
+                    }
+                }
+            }
+        }
+    }
+
+    private struct ArchivedRow: Identifiable { let raw: JSONValue; var id: String { raw["id"].text } }
     private var sectors: [String] { Array(Set(allHoldings.map(\.sector).filter { !$0.isEmpty })).sorted() }
 
     private var holdings: [Stocks.Holding] {
@@ -128,6 +160,7 @@ struct StocksView: View {
                 }
                 .padding(.top, 10)
             }
+            if let message { KNotice(message: message) { self.message = nil } }
             KSectionHeader(title: "Stocks", detail: holdings.count == allHoldings.count ? "\(holdings.count) holdings" : "\(holdings.count) of \(allHoldings.count)")
             KList(items: holdings) { holding in
                 VStack(spacing: 0) {
@@ -160,7 +193,12 @@ struct StocksView: View {
                     }
                     if expanded.contains(holding.id) { details(holding).padding(.top, 8) }
                 }
+                .contextMenu {
+                    Button { Task { message = await store.saveHoldings(.setArchived(id: holding.id, true), label: "Archive \(holding.name)") } } label: { Label("Archive", systemImage: "archivebox") }
+                    Button(role: .destructive) { deletingHolding = holding } label: { Label("Delete", systemImage: "trash") }
+                }
             }
+            archivedSection
             if holdings.isEmpty && store.loadedAt != nil && !allHoldings.isEmpty {
                 KCard { Text("No stock matches this search and filter.").font(Theme.footnote).foregroundStyle(Theme.muted) }
             }
@@ -172,7 +210,8 @@ struct StocksView: View {
         .navigationBarTitleDisplayMode(.large)
         .searchable(text: $query, prompt: "Search name, ticker or sector")
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
+            ToolbarItem(placement: .primaryAction) { Button { addingHolding = true } label: { Image(systemName: "plus") } }
+            ToolbarItem(placement: .secondaryAction) {
                 Menu {
                     Picker("Research call", selection: $callFilter) {
                         Text("Any call").tag("all")
@@ -197,9 +236,45 @@ struct StocksView: View {
                 }
             }
         }
+        .sheet(isPresented: $addingHolding) { NewHoldingSheet(store: store) }
+        .confirmationDialog("Delete this holding?", isPresented: Binding(get: { deletingHolding != nil }, set: { if !$0 { deletingHolding = nil } }), titleVisibility: .visible) {
+            Button("Delete", role: .destructive) {
+                if let h = deletingHolding {
+                    if let block = HoldingEditing.deleteBlock(h.raw) { message = block }
+                    else { Task { message = await store.saveHoldings(.delete(id: h.id), label: "Delete \(h.name)") } }
+                }
+            }
+        } message: { Text("\(deletingHolding?.name ?? "") and all its transactions are removed from your Mac. Archive it instead to keep the history.") }
         .navigationDestination(for: AccountRoute.self) { AccountDetailView(store: store, route: $0) }
         .navigationDestination(for: String.self) { id in
             if let holding = store.portfolio.holdings.first(where: { $0.id == id }) { HoldingView(store: store, holdingId: holding.id) }
+        }
+    }
+}
+
+
+/// A new stock holding, as the Mac's Add Stock form: name, ticker, shares and the average price paid (which becomes its opening buy),
+/// sector, market cap and whether it pays dividends. Saved as the stock account's list, under its version.
+struct NewHoldingSheet: View {
+    @ObservedObject var store: FinanceStore
+    @State private var f = HoldingEditing.Form()
+
+    var body: some View {
+        FormSheet(title: "Add stock", problems: HoldingEditing.problems(f), touched: !f.name.isEmpty, save: {
+            await store.saveHoldings(.add(HoldingEditing.newHolding(f, today: NewTransaction.isoDay(Date()))), label: "Add \(f.name)")
+        }) {
+            Section {
+                TextRow(label: "Company", text: $f.name)
+                TextRow(label: "Ticker", text: $f.ticker)
+                NumberRow(label: "Shares held", text: $f.shares)
+                NumberRow(label: "Average price ₹", text: $f.avgCost)
+            } footer: { Text("With shares, an opening buy dated today is recorded, so the holding's history starts from what you entered.") }
+            Section {
+                Picker("Sector", selection: $f.sector) { Text("—").tag(""); ForEach(HoldingEditing.sectors, id: \.self) { Text($0).tag($0) } }
+                Picker("Market cap", selection: $f.marketCap) { ForEach(HoldingEditing.marketCaps, id: \.self) { Text($0).tag($0) } }
+                Toggle("Pays dividends", isOn: $f.expectsDividends)
+                TextRow(label: "Remarks", text: $f.remarks)
+            }
         }
     }
 }

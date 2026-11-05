@@ -1142,6 +1142,13 @@ Deleting re-reads the record for its version and sends `DELETE /<collection>/<id
 `FinanceStore.deletable` can be deleted from the phone; accounts, loans, people and cards link to other records and stay Mac-only.
 Verified on an isolated copy: fresh version saves/deletes, stale version is refused, other `appData` keys and the live database are untouched.
 
+**Holdings** (`HoldingEditing`, `NewHoldingSheet`, `FinanceStore.saveHoldings`): the Stocks screen's + adds a holding (company, ticker, shares, average price,
+sector, market cap, dividends; with shares an opening buy dated today is recorded, as on the Mac), long-press a row to **Archive** or **Delete**, and
+an **Archived** section lists archived holdings with **Restore**. Each is a change to the stock account's `stocks` list sent through the
+version-checked record save (the list goes only if the Mac still holds exactly the list the phone read). **Delete refuses a holding with a
+purchase logged from the Expenses page** (`expenseId` / `adoptedByExpense` / `investmentData`) and points to the Mac, so no expense is left pointing at nothing.
+Verified on an isolated copy: add / archive / delete succeed, a stale version is refused, the live account is untouched.
+
 **Single card** (`CardDetailView`, `CardBaseline`, `CardBaselineSheet`): a card's page lists its own transactions (newest first; tap to change or
 delete through the same sheets as All Transactions, locks included), + adds one with the card already chosen, and the **Carry-forward baseline**
 row sets the month and opening balance the Mac counts from (a blank opening balance keeps the saved one; turning it off clears both). The

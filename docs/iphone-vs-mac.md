@@ -14,7 +14,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 | Dashboard | ✅ | — | — | — | Investment ledger quick-add (Mac `handleSaveTransaction`) |
 | Savings | ✅ | ✅ account | 🟡 pencil | ❌ | Archive / unarchive / delete an account; archived list |
 | Investments | ✅ | 🟡 | 🟡 | ❌ | Archive / delete an account, archived list; mutual-fund creation |
-| Stocks (StockMarketDetails) | ✅ + search/filter | ❌ | 🟡 | ❌ | Add / delete a holding, archive toggle, custom columns, "Refresh all prices & news" |
+| Stocks (StockMarketDetails) | ✅ + search/filter, archived list | ✅ | ✅ archive/restore | ✅ | Custom columns, "Refresh all prices & news" |
 | Stock page | ✅ | ✅ tx | ✅ tx | ✅ tx | — |
 | Loans & Lents | ✅ | ✅ loan, person (new) | ✅ | ❌ | Delete a loan or a person |
 | Person page | ✅ | ✅ tx | ✅ tx | ✅ tx | Delete the person |
@@ -83,7 +83,7 @@ Legend: ✅ matches · 🟡 shown but something is missing · ❌ not on the iPh
 2. ~~Month page extras~~ — done.
 3. Precious metals: items and manual rates done; photos and bills remain.
 4. ~~Single card~~ — done (statement import stays on the Mac).
-5. Stocks list: add / archive / delete a holding; savings & investment accounts: archive / delete.
+5. ~~Stocks list: add / archive / delete a holding~~ — done; savings & investment accounts: archive / delete remain.
 6. Budget categories and Grocery builder editing.
 7. Account pages still on the generic layout: NPS, SGB, savings account, emergency fund, policy (with documents).
 8. Insurance profile and policies; salary employments; new expense year; statement import.
