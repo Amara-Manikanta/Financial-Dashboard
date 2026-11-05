@@ -1091,4 +1091,21 @@ final class AssetEditingTests: XCTestCase {
         // Off: everything of ours goes, late included.
         XCTAssertEqual(Set(DividendReminders.idsToRemove(pending: pending, enabled: false)), Set([id, id + DividendReminders.lateSuffix]))
     }
+
+    func testNewRecordTemplateFollowsTheNewestRecord() {
+        let loans = [json("{\"id\":\"loan_1\",\"name\":\"Car\",\"type\":\"vehicle\",\"principalAmount\":500000,\"startDate\":\"2024-01-05\",\"payments\":[{\"id\":\"p\"}],\"updatedAt\":\"2024-01-05T00:00:00.000Z\"}")]
+        let now = ISO8601DateFormatter().date(from: "2026-11-05T06:00:00Z")!
+        let t = RecordEditing.template(collection: "loans", records: loans, now: now)
+        XCTAssertEqual(t["id"].text, "loan_1793858400000")             // same id style
+        XCTAssertEqual(t["name"].text, "")                             // text emptied
+        XCTAssertEqual(t["type"].text, "vehicle")                       // enum-like default kept
+        XCTAssertEqual(t["principalAmount"].double, 0)
+        XCTAssertEqual(t["startDate"].text, "2026-11-05")               // a date field starts today
+        XCTAssertEqual(t["payments"].array.count, 0)                    // lists start empty
+        XCTAssertTrue(t["updatedAt"].text.hasPrefix("2026-11-05"))
+        XCTAssertEqual(RecordEditing.newId(like: "1770553001841", now: now), "1793858400000")
+        // A watchlist entry leaves out what the Mac fetches.
+        let w = RecordEditing.template(collection: "watchlist", records: [json("{\"id\":\"w_1\",\"name\":\"X\",\"currentPrice\":5,\"quote\":{\"a\":1}}")], now: now)
+        XCTAssertTrue(w["currentPrice"].isNull && w["quote"].isNull)
+    }
 }

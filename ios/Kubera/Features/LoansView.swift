@@ -42,6 +42,10 @@ struct LoansView: View {
             }
         }
         .navigationTitle("Loans & Lents")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { NewRecordButton(store: store, collection: "lents", records: store.data.lentsRaw.array, icon: "person.badge.plus") }
+            ToolbarItem(placement: .primaryAction) { NewRecordButton(store: store, collection: "loans", records: store.data.loansRaw.array) }
+        }
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: LentRoute.self) { LentDetailView(store: store, route: $0) }
         .sheet(item: $paymentSheet) { p in

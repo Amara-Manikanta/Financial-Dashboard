@@ -20,6 +20,9 @@ struct TaxesView: View {
             if tab == .planning { planning(rows, d) } else { records(rows) }
         }
         .navigationTitle("Taxes")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { NewRecordButton(store: store, collection: "taxes", records: store.data.taxesRaw.array) }
+        }
         .navigationBarTitleDisplayMode(.large)
     }
 

@@ -45,6 +45,9 @@ struct GoalsView: View {
             }
         }
         .navigationTitle("Financial Goals")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { NewRecordButton(store: store, collection: "goals", records: store.data.goalsRaw.array) }
+        }
         .navigationBarTitleDisplayMode(.large)
     }
 

@@ -59,6 +59,7 @@ struct Derived {
     var loansRaw = JSONValue.null
     var creditCardsRaw = JSONValue.null
     var lentsRaw = JSONValue.null
+    var ipoRaw = JSONValue.null
     var appDataRaw = JSONValue.null
 
     static func compute(_ raw: RawData, asOf: Date = Date()) -> Derived {
@@ -91,6 +92,7 @@ struct Derived {
         d.metalsRaw = raw.metals
         d.assetsRaw = raw.assets
         d.expensesRaw = raw.expenses
+        d.ipoRaw = raw.ipoApplications
         d.loansRaw = raw.loans
         d.creditCardsRaw = raw.creditCards
         d.lentsRaw = raw.lents

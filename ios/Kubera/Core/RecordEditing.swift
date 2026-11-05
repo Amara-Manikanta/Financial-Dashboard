@@ -178,4 +178,44 @@ enum RecordEditing {
         }
         return out
     }
+
+    // MARK: New records
+
+    /// Collections a phone may add a whole record to, with the word the screen uses for one.
+    static let creatable: [String: String] = ["goals": "goal", "loans": "loan", "lents": "person", "watchlist": "watchlist entry",
+                                              "ipoApplications": "IPO application", "taxes": "tax year", "creditCards": "card"]
+
+    /// A blank record shaped like the newest one already in the collection — the same keys the Mac's own form writes —
+    /// with text emptied, numbers zeroed, switches off and lists empty. Fields a page works out (prices, quotes, keys) are left
+    /// out for the Mac to fill. Enum-like text the form cannot invent (a loan's or card's `type`, a status) keeps its value as a default.
+    static func template(collection: String, records: [JSONValue], now: Date = Date()) -> JSONValue {
+        guard let last = records.last(where: { !$0.object.isEmpty }) else { return .object([:]) }
+        let keep: Set<String> = ["type", "status", "itrStatus", "form16Status", "priority", "risk", "category", "icon", "fundingSource"]
+        let stamps: Set<String> = ["created", "createdAt", "updatedAt", "addedAt"]
+        let f = ISO8601DateFormatter(); f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        let iso = f.string(from: now)
+        var out: [String: JSONValue] = [:]
+        for (key, value) in last.object {
+            if key == "id" { continue }
+            if stamps.contains(key) { out[key] = .string(iso); continue }
+            if derived[collection]?.contains(key) == true || ["images", "imageUrl", "image", "photo", "receipts", "documents", "quote"].contains(key) { continue }
+            switch value {
+            case .string(let s): out[key] = .string(keep.contains(key) ? s : (isDate(String(s.prefix(10))) ? String(iso.prefix(10)) : ""))
+            case .number: out[key] = .number(0)
+            case .bool: out[key] = .bool(false)
+            case .array: out[key] = .array([])
+            case .null: out[key] = .null
+            case .object: continue
+            }
+        }
+        out["id"] = .string(newId(like: last["id"].text, now: now))
+        return .object(out)
+    }
+
+    /// An id in the collection's own style: `goal_1786…` stays `goal_<ms>`, a bare number stays a bare number.
+    static func newId(like existing: String, now: Date = Date()) -> String {
+        let ms = String(Int64(now.timeIntervalSince1970 * 1000))
+        if let r = existing.range(of: #"^[A-Za-z]+_"#, options: .regularExpression) { return String(existing[r]) + ms }
+        return ms
+    }
 }

@@ -1142,6 +1142,13 @@ Deleting re-reads the record for its version and sends `DELETE /<collection>/<id
 `FinanceStore.deletable` can be deleted from the phone; accounts, loans, people and cards link to other records and stay Mac-only.
 Verified on an isolated copy: fresh version saves/deletes, stale version is refused, other `appData` keys and the live database are untouched.
 
+**New records** (`RecordEditing.template`, `NewRecordSheet`, `FinanceStore.createRecord`): a + on Goals, Watchlist, IPO applications,
+Taxes, Cards and Loans & Lents (one for a loan, one for a person) adds a whole record. The form is built from the newest existing
+record of that kind — the same keys the Mac's form writes, text emptied, numbers zeroed, lists empty, dates today, enum-like fields
+(`type`, `status`, `priority`…) defaulted — with an id in the collection's own style. Fields a page works out (watchlist price and
+quote) are left for the Mac. Online-only: `POST /<collection>` with one record, through the write guard and backups. The full
+page-by-page list of what still differs from the Mac is `docs/iphone-vs-mac.md`.
+
 **PPF** (`PPF`, `PPFView`): the account page matches the Mac's `PPFDetails.jsx` — portfolio balance and accumulated interest, the
 yearly-interest chart, **Add interest** (a financial year's interest at 7.1% on the balance on the 5th of each month, rounded down per
 month, filed on 31 March and updating that year's interest entry if there is one), financial-year tabs, and entries with contribution,

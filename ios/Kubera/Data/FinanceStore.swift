@@ -213,6 +213,19 @@ final class FinanceStore: ObservableObject {
     }
 
     /// Creates one new savings account (a single-record POST, never a whole-collection write). Nil when saved.
+    /// Adds one whole record (a goal, loan, person, watchlist entry, IPO, tax year or card). Needs the Mac: it is POSTed as one
+    /// record, never a whole collection, and goes through the Mac's write guard and backups like every other write.
+    func createRecord(_ collection: String, _ record: [String: Any], label: String) async -> String? {
+        guard RecordEditing.creatable[collection] != nil else { return "That kind of record is added on the Mac." }
+        if mirror?.offline == true { return "Adding needs your Mac. Connect to it and try again." }
+        do {
+            let r = try await api.send("POST", path: collection, body: record)
+            if (200...299).contains(r.status) { await load(); return nil }
+            return r.body["reason"].truthy ? r.body["reason"].text : r.body["error"].truthy ? r.body["error"].text : "Your Mac refused the new \(label) (\(r.status)); nothing was added."
+        } catch APIError.unauthorized { onUnauthorized(); return APIError.unauthorized.errorDescription
+        } catch { return error.localizedDescription }
+    }
+
     func createAccount(_ account: [String: Any]) async -> String? {
         if mirror?.offline != true {
             do {

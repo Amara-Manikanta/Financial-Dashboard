@@ -72,6 +72,9 @@ struct IpoView: View {
             }
         }
         .navigationTitle("IPO Applications")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { NewRecordButton(store: store, collection: "ipoApplications", records: store.data.ipoRaw.array) }
+        }
         .navigationBarTitleDisplayMode(.large)
     }
 }

@@ -42,6 +42,9 @@ struct CardsView: View {
             }
         }
         .navigationTitle("Cards")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { NewRecordButton(store: store, collection: "creditCards", records: store.data.creditCardsRaw.array) }
+        }
         .navigationBarTitleDisplayMode(.large)
         .navigationDestination(for: CardRoute.self) { CardDetailView(store: store, route: $0) }
     }

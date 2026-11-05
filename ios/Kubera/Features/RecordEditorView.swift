@@ -109,7 +109,7 @@ struct RecordEditorView: View {
 }
 
 /// A form row per field: text, number, switch or date.
-private struct FieldRows: View {
+struct FieldRows: View {
     let fields: [RecordEditing.Field]
     @Binding var edits: [String: RecordEditing.Edit]
     let problems: [String: String]
@@ -313,5 +313,67 @@ struct EditRecordButton: View {
         Button { open = true } label: { Image(systemName: "pencil") }
             .disabled(id.isEmpty)
             .sheet(isPresented: $open) { RecordEditorView(store: store, collection: collection, id: id, title: title) }
+    }
+}
+
+
+/// A new record of a collection, as a form of the same plain fields an existing one has. Saved to the Mac as one record.
+struct NewRecordSheet: View {
+    @ObservedObject var store: FinanceStore
+    let collection: String
+    let records: [JSONValue]
+    @Environment(\.dismiss) private var dismiss
+    @State private var base: JSONValue = .null
+    @State private var edits: [String: RecordEditing.Edit] = [:]
+    @State private var saving = false
+    @State private var message: String?
+
+    private var noun: String { RecordEditing.creatable[collection] ?? "record" }
+    // Nested: a new record's `type` is chosen here, unlike an existing record's.
+    private var fields: [RecordEditing.Field] { RecordEditing.fields(of: base, collection: collection, parent: base) }
+    private var problems: [String: String] { RecordEditing.problems(fields: fields, edits: edits) }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                if let message { Section { Text(message).foregroundStyle(Tone.negative.color) } }
+                Section { FieldRows(fields: fields, edits: $edits, problems: problems) } footer: {
+                    Text("The same fields as your other \(noun)s. Anything the Mac works out (prices, totals, links) is filled in there.")
+                }
+            }
+            .navigationTitle("New \(noun)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    if saving { ProgressView() } else {
+                        Button("Add") { Task { await save() } }.disabled(edits.isEmpty || !problems.isEmpty)
+                    }
+                }
+            }
+            .onAppear { if base.isNull { base = RecordEditing.template(collection: collection, records: records) } }
+        }
+    }
+
+    private func save() async {
+        saving = true; message = nil
+        var record = (RecordEditing.foundation(base) as? [String: Any]) ?? [:]
+        for (k, v) in RecordEditing.patch(fields: fields, edits: edits, record: base) { record[k] = v }
+        let failure = await store.createRecord(collection, record, label: noun)
+        saving = false
+        if let failure { message = failure } else { dismiss() }
+    }
+}
+
+/// A + that opens `NewRecordSheet` for a collection.
+struct NewRecordButton: View {
+    @ObservedObject var store: FinanceStore
+    let collection: String
+    let records: [JSONValue]
+    var icon = "plus"
+    @State private var open = false
+    var body: some View {
+        Button { open = true } label: { Image(systemName: icon) }
+            .sheet(isPresented: $open) { NewRecordSheet(store: store, collection: collection, records: records) }
     }
 }

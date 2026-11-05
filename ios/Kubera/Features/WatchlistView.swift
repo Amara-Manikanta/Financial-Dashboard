@@ -55,6 +55,9 @@ struct WatchlistView: View {
             if rows.isEmpty { KCard { Text(page.rows.isEmpty ? "Nothing on the watchlist yet." : "No entry matches these filters.").font(Theme.footnote).foregroundStyle(Theme.muted) } }
         }
         .navigationTitle("Watchlist")
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) { NewRecordButton(store: store, collection: "watchlist", records: store.data.watchlistRaw.array) }
+        }
         .navigationBarTitleDisplayMode(.large)
     }
 
